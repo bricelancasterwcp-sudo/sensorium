@@ -104,8 +104,8 @@ newest sections, and the next slice's section is appended here.
 
 **The S5 rung-4 section moved 2026-09-12** — the focus tier for TypeScript is
 [`docs/CARRIED-DEBT-ARCHIVE-10.md`](CARRIED-DEBT-ARCHIVE-10.md), wording,
-order and strikes unchanged, so a deferred item there is still open unless it
-is struck. **The debts section below strikes three of its items and points
+order and strikes unchanged (the two clause annotations this slice made inside
+it included), so a deferred item there is still open unless it is struck. **The debts section below strikes three of its items and points
 there**, and restates in full what it closed. Measured before it was made: the
 debts task's review round added five missing ledger minors and one corrected
 count, which would have taken the live file to **804**, four over the ceiling,
@@ -397,7 +397,7 @@ calls `statSync` unguarded on a mistyped root, so an ENOENT escapes instead of
 the script's exit-2 path; `transform.mjs:336-343`'s `isFocusedFrame` is a third
 copy of the parent walk `enclosingFunction` now factors. **In Rust:**
 `unbound_of`'s `_ => {}` and `is_block_like` are two lists kept in step by a
-comment, so a twelfth statement variant would silently unbind nothing;
+comment, so an eleventh statement variant would silently unbind nothing;
 `line_unbinding_fragment` renders its list with a manual loop where
 `common/mod.rs` uses map/join; `LinePayload`'s own doc (`line.rs:74-79`) never
 names the second list; the tag-0 and unknown-tag refusals still say `delta`
@@ -415,8 +415,10 @@ rule from a bare `INSPECT_MORE.search` (the guarantee is source-level — no `re
 in `build.py`) and `_base_truncated` assumes the replaced capture contributed 0,
 unasserted; `v40:313`'s `expect_absent` duplicates `expect_count` and pins a
 double space; `"/finally_return"` is the corpus's first leading-slash filter and
-must **not** be normalised back. **In the prose:** `typescript/README.md:34`
-lists three `escape.mjs` exports where there are now four;
+must **not** be normalised back. **In the prose:** ~~`typescript/README.md:34`
+lists three `escape.mjs` exports where there are now four~~ — **closed at this
+task's own fix round, commit `48e3cb7`**, which added `deferredExit(ts, fn)` to
+that row, so the ledger carried it OPEN after it was shut;
 `docs/query.md:291-292` has a subject-verb slip left by the *0.3.0 and later*
 rewording; `rt.seal.test.mjs:226-250`'s fallthrough test body is hand-written,
 so the file header's *every body generated from the real transform* is slightly
@@ -426,15 +428,18 @@ vacuous at the call tier; the two CHANGELOG pointer notes are paragraphs rather
 than the *one sentence* their brief asked for; rung 4's *Deferred minors*
 paragraph was closed by one appended sentence rather than per-clause strikes,
 which is readable and complete but not the file's usual form. **Five more from
-the E6-TS procedure task:** `docs/corpus.md:169` still leads
+the E6-TS procedure task:** ~~`docs/corpus.md:169` still leads
 `focus_catch_binding`'s entry with *(HANDLED, …)*, the very vocabulary A13
-corrects; `e6ts.py`'s written procedure runs to four sentences where its brief
+corrects~~ — **closed 2026-09-12** in this slice's final fix round, where the
+entry was made to read *(SWALLOWED, …)*; `e6ts.py`'s written procedure runs to
+four sentences where its brief
 asked three; and `typescript/HONESTY-BLIND-SPOTS.md` carries a 98-character line
 at `:43`, a `--` at `:444` where the file uses an em dash, and a line break
-inside inline code at `:454`. **In the record:** §3.6 says *all nine steps
-exited 0* against seven recorded statuses and two output files; §3's *seven
-gated … six PASS* arithmetic wants the sentence that E6-TS″ is the amendment's
-extra cell; the instrument-fix commit also touched `e12p_h8.py`, named in §2.3
+inside inline code at `:454`. **In the record:** ~~§3.6 says *all nine steps
+exited 0* against seven recorded statuses and two output files~~ and ~~§3's
+*seven gated … six PASS* arithmetic wants the sentence that E6-TS″ is the
+amendment's extra cell~~ — **both closed 2026-09-12** in this slice's final fix
+round; the instrument-fix commit also touched `e12p_h8.py`, named in §2.3
 and not in the dispatch wording; and two preflight readings of the same disk say
 78 and 79 GB, taken in different minutes. **And four about task REPORTS rather
 than about the tree**, kept so the roll-up is complete: a report called

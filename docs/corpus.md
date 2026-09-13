@@ -166,7 +166,7 @@ focused CALL printing a destructured, defaulted parameter as what BOUND,
 beside an unfocused `helper() <unread: locals>` in the same tree),
 `focus_async` (rows on both sides of an `await` with `~ YIELD` and
 `~ RESUME` between them, and the reader that took the placeholder sitting in
-the gap), `focus_catch_binding` (HANDLED, the clause's entry row carrying
+the gap), `focus_catch_binding` (SWALLOWED, the clause's entry row carrying
 `e`, then the `try`'s own row with `unbound:e`), `focus_place_write`
 (`state.x = 5` as a present row with an absent delta, and the 5 followable
 nowhere), `focus_container` (two spellings of one class name selecting the
@@ -178,10 +178,11 @@ values rather than about absent names).
 
 This debts slice (2026-09-12) added two more under the same flag:
 `focus_finally_return` (a `try` whose `finally` defers BOTH returns inside
-its `tryBlock`, so `settle`'s trace carries only the three LINE rows that
-run before either return, and `watch --expr cleanup == 1` reads SATISFIED
-at 2 of the 3 evaluable sites) and `focus_long_string` (the inspect
-dialect's own length cap: a 100-character string renders whole, a
+its `tryBlock`, so two of `settle`'s three LINE rows — `cleanup = 1;` at L13
+and `note(cleanup);` at L14 — run AFTER the `return` chose its value, inside
+the `finally`, which is the case's point, and `watch --expr cleanup == 1`
+reads SATISFIED at 2 of the 3 evaluable sites) and `focus_long_string` (the
+inspect dialect's own length cap: a 100-character string renders whole, a
 101-character one truncates to `... 1 more character` with the tail as the
 only evidence a value was cut — blind spot 36 — and a `flow --value` of the
 truncated literal sights nothing at all, exiting 1). Neither asks an

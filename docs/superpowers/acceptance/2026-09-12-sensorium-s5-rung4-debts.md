@@ -591,10 +591,14 @@ transcripts, then E13, then E14, then E6-TS, then the fences and the suites,
 then H8′ last and alone on the lens. **Six of the seven gated endpoints
 PASS.** The seventh, **E6-TS′, STOPs** — and it STOPs against a clause §1.7's
 own second amendment said three days' work in advance would not hold, because
-the clause was pre-registered from the wrong command's vocabulary. So the word
-this slice ships is `DONE-WITH-STOP` and not `DONE`, and §4.4 says exactly
-what the reading showed and §5 says what the mistake was worth. Nothing was
-re-run, no threshold moved and no focus was narrowed after a number was read.
+the clause was pre-registered from the wrong command's vocabulary. The table
+below therefore carries **eight** rows against seven gated endpoints: **E6-TS″**
+is the amendment's (A13's) extra cell, pre-registered beside §1.7's original
+clause from the corrected rule and read once at 22 of 22, and it sits BESIDE
+the seventh rather than in its place. So the word this slice ships is
+`DONE-WITH-STOP` and not `DONE`, and §4.4 says exactly what the reading showed
+and §5 says what the mistake was worth. Nothing was re-run, no threshold moved
+and no focus was narrowed after a number was read.
 
 The numbers below are
 `docs/superpowers/acceptance/2026-09-12-sensorium-s5-rung4-debts.results.json`,
@@ -907,7 +911,12 @@ store of its own: `run 20260912-191050-0be0e9`, wall **2.4072 s**, taken at a
 family uses (under 4.0, up to 90 tries 20 s apart). `session.json` records
 `preregistered_subject: true` — the subject, the three specs, the diffed
 source and the framed function are §1.9's own words and no override was in
-play. All nine steps exited 0.
+play. Seven of the run's nine steps recorded an exit status, and all seven are
+**0** (`12-h8-statuses.txt`: manifest-before, run, resolve, info, frame,
+transform-diff, manifest-after). The other two — the marker grep and the
+wrapper listing — wrote their output files (`10-h8-markers.txt`,
+`11-h8-wrapper.txt`) without a status line, so what clauses 6 and 7 below read
+is those files' contents and not an exit code.
 
 | # | clause | reading |
 |---|---|---|
@@ -1244,10 +1253,11 @@ nothing was re-run.
 4. **An abandoned generator's exit is `unread`, not `undefined` (A12/P12).** A
    seal-deferred generator whose consumer walks away — `.return()`, a `break`
    out of `for…of` — never ran the body to a value, and reporting `RETURN
-   undefined` would have claimed the body produced one. The deferred generator
-   wrapper now passes a flag to `seal`, and "nothing was pended with the flag
-   set" is exactly the abandoned case, so it emits `RETURN {k: 'unread'}`. A
-   body that falls off its end still pends `undefined` explicitly.
+   undefined` would have claimed the body produced one. `seal` emits
+   `{k: 'unread'}` where nothing was pended (`f.pending ?? {k: 'unread'}`);
+   only an abandoned generator reaches `seal` that way, because every other
+   exit pends — a `return`, or the fallthrough close's `pend(__sf, undefined)`.
+   A body that falls off its end still pends `undefined` explicitly.
 5. **A block-like EXPRESSION takes no completion row, so a whole family of
    Rust shapes is still not unbound** (Rust blind spot 33, opened by this
    slice and carried). `let y = { … }`, a `match` arm body, `let y = if … `

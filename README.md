@@ -746,7 +746,7 @@ spelling is generated rather than argued — 41 measured rows in
 *Under a focus* is the reading. What the tier does **not** reach — place writes,
 `this`, a conditional assignment's write-or-not, a `switch` discriminant, a
 nested function no spec's prefix reached — is `typescript/HONESTY-BLIND-SPOTS.md`
-items 28–37, each a present row with a stated hole.
+items 28–35 and 39, each a present row with a stated hole.
 
 ### What four rungs measured
 

@@ -15,12 +15,14 @@ fixes as densely as they can honestly be written took the live file to
 **804** — four over the ceiling. Content was not trimmed to fit; the oldest
 section was cut, which is the rule.
 
-**The wording, the order and the strikes are unchanged**, with no exception:
-nothing below was edited in the move, a resolved item is struck through here
-exactly as it was in the live file, and nothing is deleted. **This slice's
-own strikes travel with the section** — the three E12′ strikes on rung 4's
-*gaps* 1, 2 and 3 (H2′/H4′/H5′, PASS ×3, made in commit `9e6da31`), and the
-eight strikes rung 4 itself made — so the debts section in
+**The wording, the order and the strikes are unchanged** — the edits this
+slice made inside the section included: nothing was edited BY the move, a
+resolved item is struck through here exactly as it was in the live file, and
+nothing is deleted. **This slice's own strikes and annotations travel with the
+section** — the three E12′ strikes on rung 4's *gaps* 1, 2 and 3 (H2′/H4′/H5′,
+PASS ×3, made in commit `9e6da31`), the eight strikes rung 4 itself made, and
+the two `driver_version` clauses annotated *closed at Task 12, A8* in commit
+`04fb9e7`, made here after the move — so the debts section in
 `docs/CARRIED-DEBT.md` points HERE for what it closed, and its *Settled*
 subsection restates every one of them in full for a reader who does not
 follow the pointer. The house rule stated in `docs/CARRIED-DEBT.md`'s header

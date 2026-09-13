@@ -643,10 +643,15 @@ falsified, this list is the index to it.
 - **A12 (2026-09-12, Task 3; ruling P12) — amends §4.4.** A seal-deferred
   **generator** whose consumer abandons it (`.return()`, a `break` out of
   `for…of`) reports `RETURN {k: 'unread'}`, not `RETURN undefined`: the value
-  belongs to the consumer and never reached the body. The deferred generator
-  wrapper calls `__srt.seal(__sf,1)`, and *nothing pended with the flag set* is
-  exactly the abandoned case; a body that falls off its end still pends
-  `undefined` explicitly.
+  belongs to the consumer and never reached the body. `seal` emits
+  `{k: 'unread'}` where nothing was pended (`f.pending ?? {k: 'unread'}`); only
+  an abandoned generator reaches `seal` that way, because every other exit
+  pends — a `return`, or the fallthrough close's `pend(__sf, undefined)` — and a
+  body that falls off its end still pends `undefined` explicitly. Ruling P12
+  proposed a second argument to `seal`; the implementation's **flag-free** form,
+  which needs no flag because the pend itself already carries the distinction,
+  was what Task 3 wrote and what was accepted there (2026-09-12), and `seal(f)`
+  ships with one parameter.
 - **A13 (2026-09-12, Tasks 8 and 11; ruling P16) — amends §6.2.** §6.2's hand
   read was **wrong**. `focus_catch_binding` is **1 SWALLOWED** by the
   `exceptions` reader's own documented disposition rule — an absorbing handler

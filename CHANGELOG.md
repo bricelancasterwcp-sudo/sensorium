@@ -36,11 +36,13 @@ describe.
   already recorded in full.
 - **An abandoned generator reads `unread`, not `undefined`.** A
   seal-deferred generator whose consumer walks away — `.return()`, a `break`
-  out of `for…of` — never ran its body to a value, so the deferred wrapper
-  passes a flag to `seal` and "nothing was pended with the flag set" emits
-  `RETURN {k: 'unread'}`. A body that falls off its end still pends
-  `undefined` explicitly, so the two cases are distinguishable in the record
-  rather than merged into one claim the program did not make.
+  out of `for…of` — never ran its body to a value, so `seal` emits
+  `{k: 'unread'}` where nothing was pended (`f.pending ?? {k: 'unread'}`);
+  only an abandoned generator reaches `seal` that way, because every other
+  exit pends — a `return`, or the fallthrough close's `pend(__sf, undefined)`.
+  A body that falls off its end still pends `undefined` explicitly, so the two
+  cases are distinguishable in the record rather than merged into one claim
+  the program did not make.
 - **A Rust block-like statement's row says what it unbound.** Python has
   emitted `unbound` for `del` and the end of an `except … as e` since rung 3
   and TypeScript on every block-like statement's row since rung 4; Rust
