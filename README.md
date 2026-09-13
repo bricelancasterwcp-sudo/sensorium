@@ -704,13 +704,13 @@ harness's own status. Tier `call` records calls and returns with a captured valu
 YIELD/RESUME at every `await`/`yield`, RAISE at every `throw`, HANDLED at every
 `catch`, and **tests as tasks** named as vitest names them, so `tree` groups by
 test and `diff` compares one test against itself. `exceptions` **answers** — the
-same five dispositions, computed from a `how` word the transform decides from each
-handler's own syntax, and merged across a whole invocation — while a trace an
-0.1.x runtime wrote refuses at exit 3 on `err_flow: false`. `flow --object`
-**answers on any recording from 0.3.0 on, focused or not, and answers exactly**:
-identity is a per-object serial minted once and never reused, so there is no gap
-analysis to run and the footer reads `continuity: exact (serial identity)`.
-`refocus` refuses at exit 2; package scripts, jest, a project with no `typescript`
+same five dispositions, from a `how` word the transform decides from each
+handler's own syntax, merged across a whole invocation — while a trace an 0.1.x
+runtime wrote refuses at exit 3 on `err_flow: false`. `flow --object` **answers on
+any recording from 0.3.0 on, focused or not, and answers exactly**: identity is a
+serial minted once and never reused, so the footer reads `continuity: exact
+(serial identity)`. `refocus` re-runs the whole recorded invocation and pairs by
+test file (`docs/query.md`); package scripts, jest, a project with no `typescript`
 of its own and a vitest `projects`/`workspace` config are refused by name.
 
 From `sensorium-ts 0.4.0`, a RETURN row follows the rows of any `finally` the

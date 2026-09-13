@@ -20,7 +20,10 @@ lifetime silently drops a row the transform did mint. **39** was added later
 that day by the slice that funded rung 4's debts, and is the one entry here
 whose twin is Rust's (`../rust/HONESTY-BLIND-SPOTS.md` item 32): both
 recorders unbind a NAME and not a scope, and this is where that costs a
-shadowed outer binding its answers.
+shadowed outer binding its answers. **40–43** are S5's refocus slice's, added
+2026-09-13, and all four bound the RE-RUN rather than the recording: what a
+re-run's siblings are not, which environment variables the licence exempts,
+which container cannot be paired at all, and what one question costs.
 
 **One item rung 4 planned is not here, because it closed before it could be
 numbered.** The design's §6.4 named seven items 28–34 and *a falsy `if`
@@ -506,3 +509,109 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     unbinds the same spelling. Closing it needs a fold over SCOPES rather than
     names, in every converter at once, and is
     [`../docs/CARRIED-DEBT.md`](../docs/CARRIED-DEBT.md).
+40. **A refocus re-runs every container of the invocation and compares
+    exactly one of them.** *Added 2026-09-13* (S5's refocus slice, rulings R1
+    and R4). A vitest invocation is a pool and no harness can be asked for one
+    container, so the whole recorded command re-runs: a suite of 372 test
+    files produces 372 linked traces, of which one is the pair. The other 371
+    really ran — their assertions, their fixtures, their writes and their own
+    failures — and **nothing compared any of them to anything**. A reader who
+    reads MATCH on the pair learns nothing about the suite around it, and in
+    particular nothing about a sibling that behaved differently this time.
+    Counting them as candidates instead would make "more than one" the answer
+    on every re-run of every suite with two files in it, so the split is what
+    makes a suite refocusable at all; what it costs is this entry. *Declared
+    by* the pair line, `siblings in the re-run: N (not compared; UNVERIFIED)`,
+    which `info` replays from the `refocus_siblings` stamp after the terminal
+    has scrolled, and by `runs` listing every sibling under the new
+    invocation as `verdict:UNVERIFIED`. *Falsified by*
+    `tests/test_refocus_typescript.py`
+    (`test_a_sibling_is_counted_on_the_pair_line_and_stamped_on_the_pair`,
+    `test_the_sibling_count_is_of_the_siblings_and_not_of_the_pair`,
+    `test_find_pair_puts_another_containers_test_file_among_the_siblings`) and
+    `corpus/typescript/refocus_match`, whose `siblings in the re-run: 0` is
+    the same claim at n = 1. Closing it is **refocus by invocation id** —
+    every pair compared and a roll-up verdict over them — which is a different
+    report shape with its own brainstorm, named as not-in-this-slice by
+    [`../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
+    §7.
+41. **Harness set 1 is exempted from the environment check, so a program that
+    read its own worker slot can still earn a licence.** *Added 2026-09-13*
+    (S5's refocus slice, design §3.3). vitest's pool mints `VITEST_POOL_ID`
+    and `VITEST_WORKER_ID` per worker process and a re-run takes whichever
+    slot is free, so those two differ on a pair that differs in nothing else.
+    They are counted and named and they **never withhold** — which is right
+    for the ordinary program that never reads them, and wrong for the one
+    that shards its fixtures by slot, seeds from it or writes a per-slot file:
+    that program got different input, and the licence would say the
+    environment was unchanged outside the set. The exemption is enumerated,
+    positive and exact rather than a `VITEST_` prefix, because a prefix would
+    exempt names nobody put on the list; the cost is that these two are
+    exempted whatever the program does with them. *Declared by* the env line,
+    which names the set with its version and then its members —
+    `unchanged outside harness set 1 (…; 2 harness variable(s) differ:
+    VITEST_POOL_ID, VITEST_WORKER_ID)` — and by the verdict's own blind-spot
+    line, `the harness's worker-slot variables (harness set 1) were not
+    compared`. *Falsified by* `tests/test_refocus_world_threads.py`
+    (`test_the_env_line_names_harness_set_1_and_counts_it`,
+    `test_harness_set_1_is_these_two_names_in_this_order`,
+    `test_a_harness_key_is_partitioned_out_of_the_changed_list`,
+    `test_a_pair_with_neither_set_reads_exactly_as_it_always_did`) and
+    `tests/test_refocus_typescript_licence.py`
+    (`test_a_name_that_merely_resembles_a_harness_member_still_withholds`).
+    Closing it is what the **version number** in the printed line is for: a
+    key found to bear on what a program computes leaves the set with a date,
+    and a reader can tell which list a given trace was judged against.
+42. **A container that ran two test files cannot be refocused — and a second
+    test file whose tests all root in a helper is not seen as a second file.**
+    *Added 2026-09-13* (S5's refocus slice, ruling P3 amending R4). A reused
+    worker has no pair: which container of a re-run would correspond to it is
+    the harness's scheduling, not a fact, so it is refused at exit 2 before
+    anything runs. The count is read twice and the larger decides — the
+    converter's `test_files` where it declared any, and always the trace's own
+    task ROOT frames, depth-0 frames whose call ran inside a task, counted by
+    the distinct code-object files whose basename carries `.test.` or
+    `.spec.`. **The bound is the second reading's**: a test file whose
+    callbacks all root in a shared helper contributes no root frame of its
+    own, so a container that really ran two files can look like a container
+    that ran one. It is then not refused: it pairs by its first file, and the
+    comparator reports DIVERGED at a named step or a MATCH of that
+    container's shape — never a guess, and never a verdict about the second
+    file. That direction was chosen deliberately: counting every distinct root
+    file instead would refuse every suite that keeps its assertions in a
+    helper, and a refusal on a single-file container is the worse error,
+    because the reader can do nothing about it. *Declared by* refusal 7's own
+    sentence, which states the count it refused on. *Falsified by*
+    `corpus/typescript/refocus_refused_reused_worker`, which drives the whole
+    refusal through the real harness under `--no-isolate --maxWorkers 1` and
+    then proves the store was left alone, and by
+    `tests/test_refocus_typescript.py`
+    (`test_a_second_task_rooted_in_a_helper_is_not_a_second_test_file`,
+    `test_a_reused_worker_is_refused_from_the_traces_own_root_frames`,
+    `test_the_count_is_the_larger_of_what_was_declared_and_what_ran`,
+    `test_a_reused_worker_is_never_the_pair_of_an_argv_keyed_original`).
+    Closing it needs the driver-written setup file to mark **every** file
+    start under a shared module cache, so the converter can write
+    `test_files` where vitest reuses a worker — a runtime change, not this
+    slice's (ruling R11).
+43. **The whole suite is the unit of cost: one question re-runs every
+    container of the invocation.** *Added 2026-09-13* (S5's refocus slice,
+    ruling R1). `refocus` announces the command it runs and that command is
+    the one that was typed, so asking about one container of a 372-file suite
+    spends the 372-file suite — its wall, its spool, its side effects — and
+    does it again for the next question. This is not a defect the tool hides
+    behind a default: a narrowing spelling was considered and rejected for
+    this slice, because a narrowed command is a command the reader never
+    typed and a re-run that quietly runs something else is not evidence about
+    the run in hand. The cost is therefore declared, reported and never
+    gated. *Declared by* the announced `cmd:` line, which spells the harness
+    command as it was recorded, and by the blind-spot line `the whole
+    recorded invocation was re-run; its other containers were not compared
+    and stay UNVERIFIED`. *Falsified by* `E15` `H9`, which reports per refocus
+    the wall from launch to verdict, the harness's own duration, the
+    conversion's wall and the spool and trace bytes the invocation added —
+    reported, gating nothing, and *measured at Task 8*. Closing it is the
+    narrowing spelling of
+    [`../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
+    §7, which must be announced as what the reader asked for if a later slice
+    wants it.

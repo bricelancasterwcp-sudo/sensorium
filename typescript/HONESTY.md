@@ -1,12 +1,11 @@
 # The TypeScript recorder's honesty ledger
 
-`sensorium-ts 0.4.0` — the call tier, and a per-statement tier under
-`--focus`, under vitest and `node --test`. Read by `sensorium` 0.9.0 and
-above, by **0.10.0** and above for the throw-flow verdicts of §4, and by
-**0.12.0** and above for the focus tier of §11; a trace names its own writer,
-because the runtime stamps the package's `VERSION` into every spool's BOOT
-record and the converter spends it on `recorder: "sensorium-ts 0.4.0"` in
-meta.
+`sensorium-ts 0.4.0` — the call tier, and a per-statement tier under `--focus`,
+under vitest and `node --test`. Read by `sensorium` 0.9.0 and above, by
+**0.10.0** and above for the throw-flow verdicts of §4, and by **0.12.0** and
+above for the focus tier of §11; a trace names its own writer, because the
+runtime stamps the package's `VERSION` into every spool's BOOT record and the
+converter spends it on `recorder: "sensorium-ts 0.4.0"` in meta.
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the
@@ -157,8 +156,8 @@ provider name that does not end with that literal is **not used**; the task
 falls back to the lexical `describe > title` and the disagreement is counted in
 `task_name_conflicts`. `task_name_basis` in meta says which rule named this
 trace's tasks; under `node --test`, where no provider runs, that basis is the
-lexical one. The k-th activation **in a container to produce a given NAME** —
-a `retry`, a `repeats` — is `<name>#k` for k ≥ 2; activations the harness has
+lexical one. The k-th activation **in a container to produce a given NAME** — a
+`retry`, a `repeats` — is `<name>#k` for k ≥ 2; activations the harness has
 already renamed for itself, as `.each` renames its rows, are distinct names and
 are not numbered on top of. *(Amended 2026-09-09, ruling R17: this sentence
 read "the k-th activation of one registration to produce a given NAME in a
@@ -169,14 +168,13 @@ what a reader of `#2` takes it to mean. The cost is stated where it lands: two
 different tests with one identical full name would share a `#k` sequence —
 unlikely under vitest's unique full names, and reachable when one worker runs
 several files (a `threads` pool): two files sharing a full title in one
-container yield `name` and `name#2`; possible for lexical names under
-`node --test`.)* *(Amended 2026-09-10, ruling R46: the clause above read
-"impossible under vitest's unique full names" — over-strong once `#k` counts
-per CONTAINER (ruling R39) rather than per process: `tests/test_ts_live.py`'s
-`test_files` case is exactly a `threads`-pool worker running several files in
-one container, where two of them sharing a full title still collide.)* A
-title expression that is not
-a string at runtime leaves the task unnamed, and the reader prints
+container yield `name` and `name#2`; possible for lexical names under `node
+--test`.)* *(Amended 2026-09-10, ruling R46: the clause above read "impossible
+under vitest's unique full names" — over-strong once `#k` counts per CONTAINER
+(ruling R39) rather than per process: `tests/test_ts_live.py`'s `test_files`
+case is exactly a `threads`-pool worker running several files in one container,
+where two of them sharing a full title still collide.)* A title expression that
+is not a string at runtime leaves the task unnamed, and the reader prints
 `(unnamed: title not a string)` for it — a label that says why, not a blank.
 
 **Tests the transform did not wrap are counted, not hidden.** The setup file
@@ -201,18 +199,17 @@ caught by the cross-check that catches every other kind (blind spot 5) — the
 count that would have caught it is `task_name_conflicts`, and this ledger says
 where it cannot reach.
 
-**The options-second form is wrapped, not refused** *(added 2026-09-09,
-ruling R8c)*. vitest's documented `test(name, options, fn)` and
-`describe(name, options, fn)` are spliced **positionally**, with the callback
-wrapped at its own argument position and the flags appended last — so an
-options object holding a function, a multi-line options object, an `await`ed or
-`yield`ed title expression, and an expression-bodied callback all come out
-CORRECT and all are tasks. An earlier rule relocated the callback chunk and
-refused those four shapes rather than move text it could not move safely;
-relocation carries a chunk's intro and outro text with it, so the relocation
-was withdrawn and **no shape of a test call is refused by the transform
-today**. What is still not covered is stated below as a blind spot, never as a
-refusal.
+**The options-second form is wrapped, not refused** *(added 2026-09-09, ruling
+R8c)*. vitest's documented `test(name, options, fn)` and `describe(name,
+options, fn)` are spliced **positionally**, with the callback wrapped at its
+own argument position and the flags appended last — so an options object
+holding a function, a multi-line options object, an `await`ed or `yield`ed
+title expression, and an expression-bodied callback all come out CORRECT and
+all are tasks. An earlier rule relocated the callback chunk and refused those
+four shapes rather than move text it could not move safely; relocation carries
+a chunk's intro and outro text with it, so the relocation was withdrawn and
+**no shape of a test call is refused by the transform today**. What is still
+not covered is stated below as a blind spot, never as a refusal.
 
 **Falsifiers.** `E9`, `typescript/probes/src/each.probe.test.ts`,
 `typescript/probes/src/concurrent.probe.test.ts`,
@@ -315,18 +312,17 @@ word comes from its own AST, at closure depth 0:
   `throw e` hop from SWALLOWED — record §2.3.)*
 
 **Rejection handlers get the same rule applied to their parameter.**
-`p.catch(<arg>)` and `p.then(<x>, <arg>)` are wrapped as
-`__srt.catchCb(__sf, <line>, <how>, (<arg>))`, which records HANDLED
-`{kind: "rejection"}` and then calls the original with the same `this` and the
-same argument and returns its result — a wrapper that must not change what the
-handler does. An inline arrow or `function` with an **empty** body is
-`sink_empty_catch_callback` (both spellings now, which is what closes blind
-spot 11); one with a parameter is `catch_callback` or
-`catch_callback_escaped` by the rule above, with the same bare-rethrow
-exclusion; anything else — an identifier, a member reference, a call returning
-a function — is **`catch_callback_opaque`**, because whether a handler defined
-elsewhere swallows is not this splice's to say. `p.catch()` with no argument,
-`.then(x)` with one, and `.finally(fn)` are not touched.
+`p.catch(<arg>)` and `p.then(<x>, <arg>)` are wrapped as `__srt.catchCb(__sf,
+<line>, <how>, (<arg>))`, which records HANDLED `{kind: "rejection"}` and then
+calls the original with the same `this` and the same argument and returns its
+result — a wrapper that must not change what the handler does. An inline arrow
+or `function` with an **empty** body is `sink_empty_catch_callback` (both
+spellings now, which is what closes blind spot 11); one with a parameter is
+`catch_callback` or `catch_callback_escaped` by the rule above, with the same
+bare-rethrow exclusion; anything else — an identifier, a member reference, a
+call returning a function — is **`catch_callback_opaque`**, because whether a
+handler defined elsewhere swallows is not this splice's to say. `p.catch()`
+with no argument, `.then(x)` with one, and `.finally(fn)` are not touched.
 
 **A `finally` that completes is a sink.** A `finally` block containing a
 `return`, `break` or `continue` at closure depth 0 discards an in-flight
@@ -454,15 +450,14 @@ absence of `test_file` is therefore a statement, not a gap.
 **The promise.** What is inside this recorder's scope is stated; what is
 outside it is counted or declared, and never silently absent.
 
-**Eligibility, and every exclusion by name.** Eligible files are `.ts`,
-`.mts`, `.tsx`, `.js`, `.jsx` and `.mjs` ES modules under the invocation's
-root. A CommonJS file — `.cjs`, `.cts`, or a `.js` that Node loads
-as CommonJS under `node --test` — is excluded and counted, because the
-runtime's header is an `import`. A file whose own TypeScript parse produces
-diagnostics is left **untouched** and counted as `parse-error` with its first
-three messages, rather than spliced blind against a best-effort AST; the
-consumer's own bundler then reports the consumer's own syntax error on the
-file as written.
+**Eligibility, and every exclusion by name.** Eligible files are `.ts`, `.mts`,
+`.tsx`, `.js`, `.jsx` and `.mjs` ES modules under the invocation's root. A
+CommonJS file — `.cjs`, `.cts`, or a `.js` that Node loads as CommonJS under
+`node --test` — is excluded and counted, because the runtime's header is an
+`import`. A file whose own TypeScript parse produces diagnostics is left
+**untouched** and counted as `parse-error` with its first three messages,
+rather than spliced blind against a best-effort AST; the consumer's own bundler
+then reports the consumer's own syntax error on the file as written.
 
 ***Out of scope is not the same as excluded, and only one of the two is
 counted*** *(amended 2026-09-09, ruling R7; this paragraph previously listed
@@ -556,8 +551,7 @@ this recorder PRODUCED for this recording, never about what the program did:
 absence of the record, reported as the recorder's own declaration.
 
 **`object_identity` is `true` on every recording from 0.3.0 on**, focused or
-not: an
-`oid` and a `type` ride on every object capture the recorder writes, so
+not: an `oid` and a `type` ride on every object capture the recorder writes, so
 `flow --object` is answered where it used to refuse (§11, and
 `corpus/typescript/object_identity`). A trace a 0.2.x runtime wrote still
 declares `false` and is still refused — what it lacks is the record.
@@ -567,10 +561,13 @@ capture, and this recorder does not claim the program's stdout — and `stdin:
 false` beside it, which is the same statement about the other end of the pipe
 *(added 2026-09-09: the list omitted it, which made the list look complete and
 was not false about any key)*. `threads: false` and `children: false` (blind
-spot 4). `refocus: false`, refused at exit 2. **`err_flow: true`** (§4)
-*(amended 2026-09-10, rung 2: it read `false` here, which was this list's one
-statement about a capability the runtime now has; a 0.1.x recording still
-declares `false` and is still refused, by the capability sentence)*.
+spot 4). **`err_flow: true`** (§4) *(amended 2026-09-10, rung 2: it read
+`false` here, which was this list's one statement about a capability the
+runtime now has; a 0.1.x recording still declares `false` and is still
+refused, by the capability sentence)*, and **`refocus: true`** (§12)
+*(amended 2026-09-13 on that precedent: it read `false`, refused at exit 2; a
+0.13.0-or-earlier conversion still declares `false` and still meets that
+refusal)*.
 
 **One config shape is refused by name.** A `test.projects` or
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
@@ -594,14 +591,13 @@ a write somewhere else in the source tree.
 
 **Falsifiers.** `E2′`, `E3-TS`, `E5′`, `E6′`, `E6″`, `E7′`, `H-probes`
 (`typescript/probes/nodetest/`, four extensions and two controls),
-`typescript/test/transform.test.mjs`, `typescript/test/hook.test.mjs`
-(`R37: a CommonJS file under the root is loaded as Node loads it, and
-counted`), `tests/test_ts_driver.py`, `tests/test_ts_ingest.py`,
-`tests/test_ts_ingest_refusals.py`,
-`corpus/typescript/nondeterministic`, `corpus/typescript/watch_refused`,
-`corpus/typescript/object_identity` — the case that was
-`object_refused` until 0.3.0 answered it (R13, R36): `flow --object
-loadSettings:return` now prints three sightings under one serial on an
+`typescript/test/transform.test.mjs`, `typescript/test/hook.test.mjs` (`R37: a
+CommonJS file under the root is loaded as Node loads it, and counted`),
+`tests/test_ts_driver.py`, `tests/test_ts_ingest.py`,
+`tests/test_ts_ingest_refusals.py`, `corpus/typescript/nondeterministic`,
+`corpus/typescript/watch_refused`, `corpus/typescript/object_identity` — the
+case that was `object_refused` until 0.3.0 answered it (R13, R36): `flow
+--object loadSettings:return` now prints three sightings under one serial on an
 UNFOCUSED recording, and the case's third question still refuses, through
 `line: false`, because `flow --value` reads per-line state this run does not
 hold — and the E5-TS split control of the acceptance record's §3.2.
@@ -672,16 +668,15 @@ the only one in this file whose promise is conditional on how the run was
 recorded, and saying which run is half of the promise.)*
 
 **The promise.** Under a `--focus`, the trace holds **one LINE row per
-completed statement** of a focused function: its `deltas` are the bindings
-that statement wrote and nothing else, a guarded body's head names arrive as
-a synthetic first row at each entry, the block-scoped names a block-like
+completed statement** of a focused function: its `deltas` are the bindings that
+statement wrote and nothing else, a guarded body's head names arrive as a
+synthetic first row at each entry, the block-scoped names a block-like
 statement declared are listed `unbound` on that statement's own row, and the
 CALL of a focused function carries its arguments. Without a focus none of it
 exists, the recorder declares that, and every command that would read it
-refuses instead of answering. A `return` that passes through a `finally`
-closes its frame AFTER the finally's rows, so the RETURN row follows them
-and a call the finally makes is the frame's child (0.4.0; blind spot 38
-closed).
+refuses instead of answering. A `return` that passes through a `finally` closes
+its frame AFTER the finally's rows, so the RETURN row follows them and a call
+the finally makes is the frame's child (0.4.0; blind spot 38 closed).
 
 **What in the trace says it.** `capabilities.line` and `capabilities.locals`,
 which a focused run declares `true` and an unfocused one `false` —
@@ -711,20 +706,19 @@ three typed specs resolved to **six** sites on the rung-4 lens, because a
 container selects what is nested in it, which is why `resolve.mjs` answers
 before the run and not after.
 
-**Identity, and what a serial buys.** `dbg()` mints `oid` — a `WeakMap`
-serial, once per object, never reused — and `type` on every object or
-function capture it writes: a RETURN value at the call tier, and under a
-focus the args and the deltas. So `capabilities.object_identity` is `true`
-**unconditionally** on a recording from 0.3.0 on, `flow --object` needs that
-capability and not `line`, and the answer is exact: no gap analysis, no
-address recycling to hedge against, `continuity: exact (serial identity)`.
-Measured: one array sighted at `diceQueue.ts:138` where it is created empty
-and at `diceQueue.ts:202` holding one die — two renderings, one serial, the
-same object. What it does not claim: **sightings are top-level captures
-only**, so an object appearing inside another's inspect text has no serial of
-its own (blind spot 32), and the wire key's NAME never reaches a printed
-line — the reader prints `object #64`, and `grep -rnw oid` over the rung's
-thirteen committed transcripts returns nothing.
+**Identity, and what a serial buys.** `dbg()` mints `oid` — a `WeakMap` serial,
+once per object, never reused — and `type` on every object or function capture
+it writes: a RETURN value at the call tier, and under a focus the args and the
+deltas. So `capabilities.object_identity` is `true` **unconditionally** on a
+recording from 0.3.0 on, `flow --object` needs that capability and not `line`,
+and the answer is exact: no gap analysis, no address recycling to hedge
+against, `continuity: exact (serial identity)`. Measured: one array sighted at
+`diceQueue.ts:138` where it is created empty and at `diceQueue.ts:202` holding
+one die — two renderings, one serial, the same object. What it does not claim:
+**sightings are top-level captures only**, so an object appearing inside
+another's inspect text has no serial of its own (blind spot 32), and the wire
+key's NAME never reaches a printed line — the reader prints `object #64`, and
+`grep -rnw oid` over the rung's thirteen committed transcripts returns nothing.
 
 **Falsifiers.** `E12` H3 **PASS** — nine LINE rows on the first
 `parseDiceGroups('1d20')` activation, their lines 69, 70, 71, 72, 73, 74, 76,
@@ -744,6 +738,11 @@ and §4.5 and neither re-measured. The ten focus corpus cases
 `typescript/test/golden/`, `typescript/test/{bindings,probe,focus,resolve}.test.mjs`,
 `tests/test_ts_ingest_meta.py`, `tests/test_watch_typescript.py`,
 `tests/test_js_inspect.py`; and vectors `v35`–`v39`.
+
+## 12. Refocus
+
+[`HONESTY-REFOCUS.md`](HONESTY-REFOCUS.md), because this file has to stay
+under 800 lines and §12 is what this slice adds — on §9's and §10's precedent.
 
 ## The index: promise → falsifier
 
@@ -778,7 +777,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 6 | `meta.invocation` groups the traces and `meta.test_file` names each; a container that ran none carries neither key and is listed by its argv | `docs/trace-format/vectors/v29-runs-file-header.json`, `E0′` |
 | 7 | Eligible files under the root are instrumented and every exclusion is named and counted in `transform_excluded`, with `files_transformed` beside it | `E2′`, `typescript/test/transform.test.mjs`, `tests/test_ts_ingest.py` |
 | 7 | Sites keep JavaScript's own spelling, `file` absolute and the fingerprint root-relative, so `diff` pairs across a file split and a re-record of one file never reads DIVERGED | `E3-TS`, the E5-TS split control (acceptance §3.2), `corpus/typescript/nondeterministic` |
-| 7 | What the recorder does not produce is declared, and every command refuses on the declaration instead of answering: `output`, `threads`, `children`, `refocus`, and `locals`/`line` on a run that named no `--focus` | `corpus/typescript/watch_refused`, `corpus/typescript/object_identity` (the refusal that became an answer), `E7′`, `E12` H1, `tests/test_ts_ingest.py` |
+| 7 | What the recorder does not produce is declared, and every command refuses on the declaration instead of answering: `output`, `threads`, `children`, and `locals`/`line` on a run that named no `--focus`. `refocus` left this list 2026-09-13 (§12): a trace a **0.13.0 or earlier** driver converted still refuses on the declaration, and what refuses on a trace this driver converts is the RUN, not the recorder | `corpus/typescript/watch_refused`, `corpus/typescript/object_identity` (the refusal that became an answer), `E7′`, `E12` H1, `tests/test_ts_ingest.py` |
 | 7 | The consumer's tree is touched at exactly one path, `<root>/node_modules/.sensorium/`, and only for the run's duration; `setupFiles` are appended, never replaced | `E6′`, `E5′` (the suite green under the driver is what a REPLACED `setupFiles` would break; E6′ alone cannot see it) |
 | 8 | No edit contains a newline, so every output line is the input's and 20 shapes land on 20 exact lines | `E4′`, `typescript/test/transform.test.mjs` |
 | 8 | The source map is `hires`, so a planted failing assertion's report is byte-identical instrumented against plain | `E4′`, `typescript/probes/src/sites.probe.test.ts` |
@@ -787,8 +786,10 @@ a corpus case, a vector or an acceptance endpoint.
 | 9 | Cost is reported with its `n` and lens and gates nothing; a bound crossed buys work, never a verdict | `E1′`, `E10` |
 | 9 | Cost is a STOP where a pre-registered clause did not hold: E6′'s plain-band clause, stated as a STOP and not re-rolled | `E6′`, the acceptance record §4 and §5 gaps 5–6 |
 | 9 | Cost is reported again at rung 2 with the throw flow spliced in: `off/plain` 1.0608, `call/plain` 1.1266, conversion 16.0715 s — and none of the three gates anything | `E1‴`, `E10″` |
-| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 38 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–38 added 2026-09-12, and 36, 37 and 38 struck the same day at S5 rung 4's debts)* |
+| 10 | The blind-spot list — now [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) — is the whole of what this recorder cannot see, each item carried by a meta key, an `info` line or a stated absence | each item's own falsifier, 1 through 43 *(10–17 added 2026-09-09; 18–27 added 2026-09-10, when 2/3/11 were struck and 13 narrowed; 28–38 added 2026-09-12, and 36, 37 and 38 struck at S5 rung 4's debts, which added 39; 40–43 added 2026-09-13)* |
 | 11 | Under a `--focus`, one LINE row per completed statement of a focused function, `deltas` the bindings it wrote, a guard's head names as the body's first row, `unbound` on a block-like statement's own row, and the focused CALL carrying its arguments | `E12` H3 (9 of 9 rows against a locked hand count, empty diff), `E12` H1, the ten `corpus/typescript/focus_*` cases, `typescript/probes/src/focus.probe.test.ts` + `probes/check.mjs`, `typescript/test/{bindings,probe,focus}.test.mjs`, `docs/trace-format/vectors/v36-typescript-line-and-args.json` |
 | 11 | Identity is a serial minted once and never reused, on every object capture focused or not, so `flow --object` is exact and says so — and sightings are top-level captures only | `E12` H6, `corpus/typescript/object_identity`, `docs/trace-format/vectors/v37-flow-object-serial.json`, `typescript/test/rt.focus.test.mjs` |
 | 11 | A `return` that passes through a `finally` closes its frame after the finally's rows: the RETURN follows them, and a call the finally makes is the frame's child rather than its sibling | `typescript/test/rt.seal.test.mjs` (design §4.3's table, one test per row), `typescript/test/rt.focus.test.mjs`, `corpus/typescript/focus_finally_return`, `typescript/test/golden/focus-finally-return.ts`, `typescript/acceptance/census_deferred.mjs` (which functions it reaches at all) |
 | 11 | A capture's text is node's own `util.inspect` dialect, read and written over one generated table, so `watch --expr` and `flow --value` cannot disagree about a spelling | `tests/test_js_inspect.py` against `typescript/test/fixtures/inspect-table.json` (41 measured rows), `corpus/typescript/flow_value_inspect`, `docs/trace-format/vectors/v38-inspect-dialect-agreement.json` |
+| 12 | A refocus re-runs the whole recorded invocation and answers about ONE pair, found by test file; the other containers are counted, re-executed and left UNVERIFIED | `E15` H3, `corpus/typescript/refocus_match`, `tests/test_refocus_typescript.py` |
+| 12 | Threads, output and children are UNVERIFIABLE on a TypeScript pair and never counted as verified; the recorder's own variables are named and harness set 1 counted | `E15` H5, `tests/test_refocus_world_threads.py`, `corpus/typescript/refocus_match` |

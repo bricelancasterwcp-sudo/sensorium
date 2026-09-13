@@ -75,24 +75,22 @@ exit 1, on the summary line and in `--json`, which is what CI's Rust corpus
 step passes: a green summary over cases nobody ran is the dishonesty this
 harness exists to refuse. `corpus/rust/README.md` is the case-by-case list.
 
-Forty-four more live under `corpus/typescript/`, recorded by the
-TypeScript recorder (forty-two through rung 4; this slice, S5 rung 4's
-debts, 2026-09-12, added the last two named below). Thirteen are rung 1's:
-six ports of the cases above, two whose pinned answer is a REFUSAL, four
-only this recorder has — `.each`
-naming, an unhandled rejection in `info`, a frame suspended at end of
-recording, and a timer callback with no traced caller — and
-`silent_swallow`, whose parse error was pinned as a REFUSAL until rung 2
-gave this recorder disposition rules and now pins the swallow it always was.
-One of the two refusals has since become an answer: `object_refused` is
-`object_identity` from S5 rung 4 on, because every trace from 0.3.0 on
-carries a per-object serial and the aliasing it plants is now decided — three
-sightings under one identity, `continuity: exact (serial identity)`, out of
-a recording that focused nothing. Its third question still pins a refusal,
-and `watch_refused` is still the whole of the other one.
-They share one vitest project and need a `node`; without one they are
-skipped BY NAME, and `--require-driver` turns such a skip into exit 1 there
-too.
+Forty-seven more live under `corpus/typescript/`, recorded by the TypeScript
+recorder (forty-two through rung 4; S5 rung 4's debts added two on 2026-09-12
+and the refocus slice three on 2026-09-13, all named below). Thirteen are rung
+1's: six ports of the cases above, two whose pinned answer is a REFUSAL, four
+only this recorder has — `.each` naming, an unhandled rejection in `info`, a
+frame suspended at end of recording, and a timer callback with no traced
+caller — and `silent_swallow`, whose parse error was pinned as a REFUSAL until
+rung 2 gave this recorder disposition rules and now pins the swallow it always
+was. One of the two refusals has since become an answer: `object_refused` is
+`object_identity` from S5 rung 4 on, because every trace from 0.3.0 on carries
+a per-object serial and the aliasing it plants is now decided — three
+sightings under one identity, `continuity: exact (serial identity)`, out of a
+recording that focused nothing. Its third question still pins a refusal, and
+`watch_refused` is still the whole of the other one. They share one vitest
+project and need a `node`; without one they are skipped BY NAME, and
+`--require-driver` turns such a skip into exit 1 there too.
 
 The other fifteen are rung 2's swallow corpus: one throw-flow shape each,
 each registering both its verdict line and its `dispositions:` tally before
@@ -145,8 +143,8 @@ raise, still one of the seven that refuse the swallow, is re-pinned the same
 way: its AMBIGUOUS block now reads `untraced catcher` by name instead of the
 catch-all rung 2 could only leave silent about.
 
-The last ten are rung 4's focus cases; two more from this debts slice join
-them below, for twelve of the forty-four recorded under `sensorium ts run
+The last ten are rung 4's focus cases; two more from the debts slice join
+them below, for twelve of the forty-seven recorded under `sensorium ts run
 --focus`. A vitest case declares that the
 way a Python case does — `record: {focus: [...]}`, one `--focus <spec>` per
 entry before the `--` — and `record` is the ONE key the two recorders share:
