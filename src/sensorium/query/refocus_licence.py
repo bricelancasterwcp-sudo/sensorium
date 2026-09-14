@@ -48,7 +48,7 @@ def relicense(a: dict, orig: Trace, new: Trace, world_verified) -> dict:
     told which checks did not run. But a caveat withholds the licence, and
     withholding it here would say the recorder's declared absence of output
     capture is a finding AGAINST this pair -- it is not a finding at all.
-    The markers are printed and stamped separately (`_print_unverifiable`,
+    The markers are printed and stamped separately (`print_unverifiable`,
     `UNVERIFIABLE_KEY`), so nothing is hidden by the removal; what is
     removed is only their vote.
 
@@ -103,7 +103,26 @@ def print_unverifiable(checks: list[str]) -> None:
 
     Silent on an empty list: the block announces checks, and a heading over
     nothing reads as a finding.
+
+    THE PREAMBLE IS EXACT FOR THREE OF THE FOUR MARKERS AND FALSE FOR THE
+    FOURTH. Output, children and threads are checks the recorder declares it
+    does not produce -- there is no record, and nothing a reader can do about
+    it. `UNVERIFIABLE_ENV` is the other shape: the recorder redacted the
+    variable exactly as asked, and what is missing is a KEY -- either none
+    took the digests (`unkeyed`, and they are null) or the one that took
+    them belongs to another store (`different keys`). Same word, opposite
+    repairs -- and the two reasons have different repairs from EACH OTHER,
+    which is why the line points at the env line (which carries the reason
+    word) rather than naming one. `redact.uncomparable` is where those two
+    words come from.
+
+    The preamble stays byte for byte what it was -- three acceptance readers
+    parse it, and every pair that carries no redaction marker still reads
+    exactly as it did -- and the one extra line goes UNDER the list, printed
+    only for the marker it is about.
     """
+    from sensorium.query.refocus_world import UNVERIFIABLE_ENV
+
     if not checks:
         return
     print("checks that could not run on this pair -- the recorder declares "
@@ -111,6 +130,12 @@ def print_unverifiable(checks: list[str]) -> None:
           "way:")
     for check in checks:
         print(f"  - {check}")
+    if UNVERIFIABLE_ENV in checks:
+        print("  the env one does not fit the heading above: those "
+              "variables WERE redacted, and what is missing is the key that "
+              "decides them -- the env line names them and says which repair "
+              "it is (`unkeyed`: record again under a key; `different keys`:"
+              " find the other store's redaction.key).")
 
 
 def env_of(meta: dict, new: Trace,

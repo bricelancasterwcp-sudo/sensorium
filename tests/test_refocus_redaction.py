@@ -35,9 +35,11 @@ import pytest
 
 from sensorium import paths, redact
 from sensorium.query.refocus_env import RedactionPair
-from sensorium.query.refocus_world import (UNVERIFIABLE_ENV, _env_diff,
-                                           _env_state, relicense,
-                                           unverifiable_checks)
+from sensorium.query.refocus_world import (UNVERIFIABLE_ENV,
+                                           UNVERIFIABLE_OUTPUT,
+                                           _UNCOMPARED_ENV, _env_diff,
+                                           _env_state, print_unverifiable,
+                                           relicense, unverifiable_checks)
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
 from tests.helpers import finalize_synthetic, record_script, run_cli
@@ -58,6 +60,19 @@ SESSION = "SSH_AUTH_SOCK"
 HARNESS = "VITEST_POOL_ID"
 SECRET = "s3cret"
 OTHER = "0" * 16
+#: The one line the unrun-checks block adds when the fourth marker is among
+#: the checks. The block's preamble is exact for the other three -- a
+#: capability the recorder declares it does not produce -- and false for this
+#: one, where the recorder redacted the variable as asked and the missing
+#: piece is a key. It does NOT name one repair: `redact.uncomparable` has two
+#: reason words and this pair's is `unkeyed`, whose digests are null, so a
+#: line promising "find the other store's key" would send this very reader
+#: after a file that does not exist. The env line carries the word.
+REDACTED_HINT = ("  the env one does not fit the heading above: those "
+                 "variables WERE redacted, and what is missing is the key "
+                 "that decides them -- the env line names them and says "
+                 "which repair it is (`unkeyed`: record again under a key; "
+                 "`different keys`: find the other store's redaction.key).")
 KEY_ID = "0a1b2c3d"
 
 
@@ -135,11 +150,12 @@ def test_two_sides_that_redacted_the_same_value_compare_equal(store):
 
 # -- case 2: two digests that differ ---------------------------------------
 def test_two_digests_that_differ_withhold_exactly_as_a_value_would(store):
-    """A secret that changed between the runs is a changed variable. It
-    reaches `changed` DIRECTLY -- the relocation, session and harness
-    partitions are never consulted, because a digest cannot be rerooted and
-    a name's membership of a set says nothing about a value nobody can
-    read."""
+    """A secret that changed between the runs is a changed variable. The
+    RELOCATION rule is the one step skipped -- a digest cannot be rerooted,
+    so there is no path to test -- and the difference then goes through
+    `_by_name` exactly as a plaintext one does (R21), which is what lands
+    this plain name in `changed` and a session or harness name in its own
+    list two tests below."""
     was, now = _meta({NAME: OTHER}), _meta({NAME: "f" * 16})
     changed, _rel, _str, _ses, _har, uncomparable = _diff(was, now["env"], now)
     assert changed == [NAME] and uncomparable == []
@@ -465,3 +481,37 @@ def test_the_python_branch_prints_the_checks_that_could_not_run(tmp_path):
     r, _meta, _sdir = _unkeyed_original(tmp_path)
     assert "checks that could not run on this pair" in r.stdout
     assert f"  - {UNVERIFIABLE_ENV}" in r.stdout
+    # ...and, under the list, what THIS marker means, which is not what the
+    # preamble above says: nothing was declared off, the variable WAS
+    # redacted, and the missing piece is a key. This pair's reason is
+    # `unkeyed` and the line must hold for that one too.
+    assert REDACTED_HINT in r.stdout
+
+
+def test_only_the_redacted_marker_earns_the_extra_line(capsys):
+    """The other side of the same rule. A pair whose only unrun check is a
+    capability the recorder declares off is described exactly by the
+    preamble, and telling that reader to go looking for another store's
+    `redaction.key` would send them after a file that was never the
+    problem."""
+    print_unverifiable([UNVERIFIABLE_OUTPUT])
+    out = capsys.readouterr().out
+    assert "checks that could not run on this pair" in out
+    assert f"  - {UNVERIFIABLE_OUTPUT}" in out
+    assert "the redacted line is different" not in out
+
+
+# -- Important 2: the marker's key set vs the env line's -------------------
+def test_no_uncompared_variable_can_ever_fire_rule_v1():
+    """The marker's key set and the env line's key set differ by exactly
+    `_UNCOMPARED_ENV`; a member that fired would stamp UNVERIFIABLE_ENV with
+    no name on the line for a reader to act on.
+
+    `unverifiable_checks` reads `redact.uncomparable`, which walks the whole
+    recorded redaction table, while `_env_diff` subtracts `_UNCOMPARED_ENV`
+    from the names it compares and prints. Today no member of that list
+    fires rule v1, so the two sets cannot disagree -- but that is a
+    coincidence of two word lists, and a name added to either one could end
+    it silently."""
+    plain = redact.Knobs(False, frozenset(), frozenset())
+    assert [n for n in _UNCOMPARED_ENV if redact.fires(n, plain)] == []

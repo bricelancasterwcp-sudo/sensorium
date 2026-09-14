@@ -135,6 +135,12 @@ def unverifiable_checks(orig: Trace, new: Trace) -> list[str]:
     # The fourth is keyed on the two METAS and not on a capability: what
     # makes this check impossible is a digest with no key to read it by,
     # which is a fact about the pair rather than about either recorder.
+    # INVARIANT: this reads the WHOLE recorded redaction table, while the
+    # names the env line prints are `_env_diff`'s keys MINUS
+    # `_UNCOMPARED_ENV` -- so a member of that list which fired rule v1
+    # would stamp this marker with no name anywhere for a reader to act on.
+    # None does, and `test_no_uncompared_variable_can_ever_fire_rule_v1`
+    # in `tests/test_refocus_redaction.py` is the guard that says so.
     if redact.uncomparable(orig.meta, new.meta,
                            redact.Key.load(paths.trace_root()))[0]:
         out.append(UNVERIFIABLE_ENV)
