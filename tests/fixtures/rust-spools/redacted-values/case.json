@@ -8,7 +8,9 @@
         "src/main.rs": [
           {"site": 0, "qualname": "demo::run", "kind": "fn", "firstlineno": 10, "ret": "unit"},
           {"site": 1, "qualname": "demo::get_token", "kind": "fn", "firstlineno": 4, "ret": "value"},
-          {"site": 2, "qualname": "demo::run", "kind": "line", "line": 12}
+          {"site": 2, "qualname": "demo::run", "kind": "line", "line": 12},
+          {"site": 3, "qualname": "demo::refresh_token", "kind": "fn", "firstlineno": 20,
+           "ret": "unit"}
         ]
       },
       "source_hashes": {"src/main.rs": "eeeeeeeeeeeeeeee"}
@@ -40,8 +42,10 @@
             {"name": "token", "redacted": "aabbccddeeff0011"},
             {"name": "cfg", "text": "Cfg { url: \"postgres://u:pw@h/db\" }"}
           ]},
-          {"op": "ret_none", "unit": 0, "site": 0, "seq": 4, "ts": 1400},
-          {"op": "thread_end", "seq": 5, "ts": 1500}
+          {"op": "call", "unit": 0, "site": 3, "seq": 4, "ts": 1400},
+          {"op": "ret_none", "unit": 0, "site": 3, "seq": 5, "ts": 1450},
+          {"op": "ret_none", "unit": 0, "site": 0, "seq": 6, "ts": 1500},
+          {"op": "thread_end", "seq": 7, "ts": 1600}
         ]}
       ]
     }

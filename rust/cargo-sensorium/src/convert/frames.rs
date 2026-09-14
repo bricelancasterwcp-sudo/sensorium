@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use sensorium_rt::redact::Key;
+use sensorium_rt::redact::{Key, REDACTED};
 use serde_json::{json, Map, Value};
 
 use crate::convert::errflow::{self, ErrFlowEvent, IndexInput};
@@ -39,13 +39,13 @@ struct OpenFrame {
 
 struct PendingPanic {
     msg: String,
-    /// Whether [`redaction::exc_msg`] changed `msg` when the PANIC record was
-    /// read. Carried rather than recomputed: the message is redacted ONCE, at
-    /// the record, and the unwind `exc` this becomes is the same message seen
-    /// a second time -- re-running the rule there would find a fixed point and
-    /// say `false`, and the `exc` object would lose the mark that says why its
-    /// text has a marker in it.
-    msg_redacted: bool,
+    /// The `redacted` object the PANIC record's `exc` carried, if any.
+    /// Carried rather than recomputed: the message is redacted ONCE, at the
+    /// record, and the unwind `exc` this becomes is the same message seen a
+    /// second time -- re-running the rule there would find a fixed point and
+    /// say "nothing changed", and the `exc` object would lose the mark that
+    /// says why its text has a marker in it.
+    msg_mark: Option<Value>,
     loc: String,
     serial: u64,
 }
@@ -250,8 +250,8 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                             // The SAME message the RAISE already carries, so
                             // the same mark -- and no second count, because it
                             // is one message withheld, seen twice.
-                            if p.msg_redacted {
-                                exc["redacted"] = content_mark();
+                            if let Some(mark) = &p.msg_mark {
+                                exc["redacted"] = mark.clone();
                             }
                             exc
                         }
@@ -319,9 +319,27 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 // chain has a record of its own to be reported at. `how: exit`
                 // is the converter's, and no runtime may write it.
                 if let Some(chain) = chains.at_exit(thread_id, r.seq) {
-                    let msg = (payload.tag == TAG_DEBUG)
+                    let text = (payload.tag == TAG_DEBUG)
                         .then(|| errflow::err_debug_text(&payload.text).to_owned());
-                    let (msg, msg_redacted) = redact_msg(value_rule, msg, &mut values_redacted);
+                    // R16. An `Err` return IS the return value in Rust, and
+                    // this synthesised origin RAISE repeats that value's own
+                    // text. So a value the NAME rule took whole is withheld on
+                    // BOTH rows, under ONE digest -- the RETURN's, read back
+                    // off the row just written rather than hashed a second
+                    // time from a different spelling of the same value -- and
+                    // counted ONCE, by the RETURN above. That is the panic
+                    // path's rule at the other site where one text is written
+                    // twice. Under a qualname that does not fire, the message
+                    // takes the content rule like any other, and counts.
+                    let taken_by_name = obj
+                        .get("value")
+                        .and_then(|v| v.get("redacted"))
+                        .filter(|r| r.get("by").and_then(Value::as_str) == Some("name"))
+                        .cloned();
+                    let (msg, msg_redacted) = match taken_by_name {
+                        Some(mark) => (text.map(|_| REDACTED.to_owned()), Some(mark)),
+                        None => redact_msg(value_rule, text, &mut values_redacted),
+                    };
                     let exc = errflow::payload(&ErrFlowEvent {
                         how: How::Exit,
                         type_name: payload.err_type.as_deref(),
@@ -441,8 +459,7 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 // Once, here: the RAISE below and the unwind `exc` the frame's
                 // close carries are the same message, and `PendingPanic` takes
                 // the redacted form so the second one is not a second count.
-                let (msg, msg_redacted) =
-                    redact_text(value_rule, payload.msg, &mut values_redacted);
+                let (msg, msg_mark) = redact_text(value_rule, payload.msg, &mut values_redacted);
                 let serial = panic_serial.entry(thread_id).or_insert(0);
                 *serial += 1;
                 let this_serial = *serial;
@@ -455,8 +472,8 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     let task_id = (thread_id != MAIN_SERIAL).then_some(thread_id);
                     let mut exc = json!({"kind": "panic", "type": "panic", "msg": msg,
                                          "serial": this_serial});
-                    if msg_redacted {
-                        exc["redacted"] = content_mark();
+                    if let Some(mark) = &msg_mark {
+                        exc["redacted"] = mark.clone();
                     }
                     let payload_value = json!({"exc": exc, "loc": payload.loc});
                     writer.insert_event(
@@ -477,7 +494,7 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                         thread_id,
                         PendingPanic {
                             msg,
-                            msg_redacted,
+                            msg_mark,
                             loc: payload.loc,
                             serial: this_serial,
                         },
@@ -585,16 +602,15 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
 // no rule at all), the rule, and `+1` on the walk's count when the rule says
 // this is a value the trace withholds. Counting HERE and not inside
 // `redaction` is what makes B3's rule one sentence -- `values` is the number
-// of captures and messages the WALK STORED with a `redacted` object on them,
-// so a value the rule ran over and left alone is not counted, a value the
-// RECORDER took (wire v4's tag 4) is, and a message written into two events is
-// counted once because it is redacted once.
-
-/// The `redacted` object a CONTENT hit leaves on an `exc`: the operation
-/// replaced a span, so there is no digest of a whole to record.
-fn content_mark() -> Value {
-    json!({"by": "content", "digest": null})
-}
+// of TEXTS this walk withheld, so a value the rule ran over and left alone is
+// not counted, a value the RECORDER took (wire v4's tag 4) is, and a text
+// written into two rows is counted ONCE because it is one withheld text seen
+// twice. There are exactly two such pairs, and each is settled at the site
+// that writes the SECOND row rather than by a rule here: a panic's message
+// (the PANIC RAISE and the frame's `unwind_exc`, through
+// `PendingPanic.msg_mark`) and, under R16, an `err` RETURN's value (the RETURN
+// and the origin RAISE synthesised in front of it, through the mark read back
+// off the RETURN row).
 
 /// One RETURN value, under the returning site's qualname.
 fn redact_return(rule: Option<&Key>, qualname: &str, value: Value, count: &mut usize) -> Value {
@@ -622,31 +638,33 @@ fn redact_delta(
     capture
 }
 
-/// One exception message that was READ. `None` is a message the probe could
-/// not read at all -- there is no text to run the rule over, and nothing to
-/// withhold.
+/// One exception message that was READ, under the CONTENT rule. `None` is a
+/// message the probe could not read at all -- there is no text to run the rule
+/// over, and nothing to withhold.
 fn redact_msg(
     rule: Option<&Key>,
     msg: Option<String>,
     count: &mut usize,
-) -> (Option<String>, bool) {
+) -> (Option<String>, Option<Value>) {
     match msg {
         Some(msg) => {
-            let (msg, hit) = redact_text(rule, msg, count);
-            (Some(msg), hit)
+            let (msg, mark) = redact_text(rule, msg, count);
+            (Some(msg), mark)
         }
-        None => (None, false),
+        None => (None, None),
     }
 }
 
-/// One exception message the recorder always writes (a panic's).
-fn redact_text(rule: Option<&Key>, msg: String, count: &mut usize) -> (String, bool) {
+/// One exception message the recorder always writes (a panic's), under the
+/// CONTENT rule -- and the `redacted` object its `exc` carries when the rule
+/// changed it.
+fn redact_text(rule: Option<&Key>, msg: String, count: &mut usize) -> (String, Option<Value>) {
     if rule.is_none() {
-        return (msg, false);
+        return (msg, None);
     }
     let (msg, hit) = redaction::exc_msg(msg);
     *count += usize::from(hit);
-    (msg, hit)
+    (msg, hit.then(redaction::content_mark))
 }
 
 /// The manifest row a record's site word names.

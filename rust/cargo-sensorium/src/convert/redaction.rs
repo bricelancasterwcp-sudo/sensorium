@@ -70,6 +70,12 @@ const VERSION_V4: u8 = 4;
 const BY_NAME: &str = "name";
 const BY_CONTENT: &str = "content";
 
+/// The whole of a Rust unit return, as `frames.rs` SYNTHESISES it off the
+/// manifest: the wire carries no value at all for a frame the manifest says
+/// returns `()`, and this text is the converter's own reading of that
+/// silence (R17).
+const UNIT: &str = "()";
+
 /// The knobs the converter judges a NAME under: none of them.
 ///
 /// `SENSORIUM_REDACT_NAMES` and `SENSORIUM_REDACT_ALLOW` are properties of the
@@ -251,13 +257,24 @@ pub fn line_delta(name: &str, value: Value, wire: u8, key: &Key) -> (Value, bool
 /// Runs on EVERY wire: the runtime's exit probe has no qualname to fire on,
 /// so this judgement has never been made before the value reaches here.
 ///
-/// Only a `dbg` capture is taken. The other shape a Rust RETURN carries is
-/// `{"k":"unread"}`, which withholds nothing already -- taking it would cost
-/// a reader the fact that the value could not be read and hide no secret.
+/// Only a `dbg` capture is taken, and two of those are carved out because
+/// they withhold nothing to begin with:
+///
+/// * `{"k":"unread"}` -- taking it would cost a reader the fact that the
+///   value could not be read and hide no secret.
+/// * The unit value (R17). `frames.rs` synthesises `()` off the MANIFEST for
+///   a frame whose signature returns nothing; the wire carries no value at
+///   all. Withholding it would put `<redacted>` where a reader can see there
+///   was nothing to take, add a `trunc: false` key that shape never carried,
+///   publish a digest of the constant `"()"` -- which positively identifies
+///   the "secret" it stands for -- and count a value nobody lost. Spelled
+///   over the TEXT rather than over the synthesis site, so a `-> ()` a future
+///   runtime ever does put on the wire takes the same carve-out.
 #[must_use]
 pub fn return_value(qualname: &str, value: Value, key: &Key) -> (Value, bool) {
     if value.get("redacted").is_none()
         && is_dbg(&value)
+        && !is_unit(&value)
         && redact::fires(last_segment(qualname), no_knobs())
     {
         return taken(value, key);
@@ -289,7 +306,7 @@ pub fn text_value(value: Value) -> (Value, bool) {
     out["v"] = json!(after);
     // `trunc` stays as it was: the text WAS clipped, and a span inside what
     // survived the clip was replaced.
-    out["redacted"] = json!({"by": BY_CONTENT, "digest": Value::Null});
+    out["redacted"] = content_mark();
     (out, true)
 }
 
@@ -328,8 +345,31 @@ fn taken(value: Value, key: &Key) -> (Value, bool) {
     let mut out = value;
     out["v"] = json!(REDACTED);
     out["trunc"] = json!(false);
-    out["redacted"] = json!({"by": BY_NAME, "digest": digest});
+    out["redacted"] = name_mark(&json!(digest));
     (out, true)
+}
+
+/// The `redacted` object a NAME hit leaves, under a digest ALREADY taken.
+///
+/// Public because R16 marks a second row with the first row's digest: the
+/// origin RAISE synthesised in front of an `err` RETURN repeats that RETURN's
+/// text, and the two must carry one digest, not two hashes of two different
+/// spellings of one value.
+#[must_use]
+pub fn name_mark(digest: &Value) -> Value {
+    json!({"by": BY_NAME, "digest": digest})
+}
+
+/// The `redacted` object a CONTENT hit leaves: the operation replaced a span,
+/// so there is no digest of a whole to record.
+#[must_use]
+pub fn content_mark() -> Value {
+    json!({"by": BY_CONTENT, "digest": Value::Null})
+}
+
+/// Whether this capture is the unit value the converter synthesises (R17).
+fn is_unit(value: &Value) -> bool {
+    value.get("v").and_then(Value::as_str) == Some(UNIT)
 }
 
 /// The name a returned value was asked for by (B7): `demo::get_token` ->
@@ -597,6 +637,23 @@ mod tests {
         let (out, hit) = return_value("get_token", dbg("s"), &Key::from_hex(None));
         assert!(hit);
         assert_eq!(out["redacted"], json!({"by": "name", "digest": null}));
+    }
+
+    /// R17. A unit-returning frame's `()` is the CONVERTER's own reading off
+    /// the manifest -- the wire carries no value for it at all -- and it
+    /// withholds nothing. Taking it would put `<redacted>` where a reader can
+    /// see there was nothing to take, publish a digest of the constant `"()"`
+    /// that positively identifies what it stands for, and count a value nobody
+    /// lost. `fn refresh_token(&mut self)` is the shape this is about.
+    #[test]
+    fn a_unit_return_under_a_firing_name_is_never_withheld() {
+        let (out, hit) = return_value("demo::refresh_token", dbg(UNIT), &key());
+        assert!(!hit, "a value that hides nothing is not one of `values`");
+        assert_eq!(out, dbg(UNIT), "no marker, no mark, no `trunc` that moved");
+        // The carve-out is over the TEXT, so a `()` that ever did come off the
+        // wire takes it too -- and it is a carve-out and not a hole: any other
+        // text under the same name is still taken.
+        assert!(return_value("demo::refresh_token", dbg("Session { id: 1 }"), &key()).1);
     }
 
     /// A value the probe could not read at all withholds nothing already, so

@@ -28,8 +28,16 @@
     "expect_absent": ["s3cr3t"]
   },
   {
+    "id": "a-unit-return-under-a-firing-name-is-not-withheld",
+    "ask": "`demo::refresh_token` returns nothing, and the `()` on its RETURN row is the converter's own reading off the manifest -- the wire carries no value for it. Does the name rule leave it alone, so a reader can still see there was nothing to take?",
+    "command": ["grep", "$RUN", "refresh_token", "--kind", "RETURN"],
+    "expect_exit": 0,
+    "expect_contains": ["refresh_token -> ()"],
+    "expect_absent": ["refresh_token -> <redacted"]
+  },
+  {
     "id": "info-counts-every-value-the-trace-withholds",
-    "ask": "Three values are missing from this trace for three different reasons -- one taken by the recorder, one by the converter's name rule, one by its content rule. Does `info` say how many, and say that the recorder was the last hand to apply the rule?",
+    "ask": "Three values are missing from this trace for three different reasons -- one taken by the recorder, one by the converter's name rule, one by its content rule -- and `demo::refresh_token`'s `()`, which fires the same name rule, is missing for none. Does `info` count the three and not the fourth, and say that the recorder was the last hand to apply the rule?",
     "command": ["info", "$RUN"],
     "expect_exit": 0,
     "expect_contains": [
