@@ -63,8 +63,9 @@ from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import print_incomplete, require
 from sensorium.query.expr import (CLIPPED, CONTAINER, NO_LENGTH, NO_VALUE,
-                                  NOT_CAPTURED, OUT_OF_SCOPE, TRUNCATED,
-                                  EvalError, ExprError, NotCaptured, _Sized,
+                                  NOT_CAPTURED, OUT_OF_SCOPE, REDACTED,
+                                  REDACTED_REASON, TRUNCATED, EvalError,
+                                  ExprError, NotCaptured, _Sized,
                                   compile_expr, resolve)
 from sensorium.query.dbg_dialects import for_trace
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
@@ -212,6 +213,12 @@ def _render(name: str, site: Site) -> str:
         return "<not in scope>"
     v = site.env[name]
     cap = site.caps.get(name) or {}
+    if v is REDACTED:
+        # NOT `fmt_value(cap)`, which is right for a listing and wrong
+        # here: `<redacted #01234567>` names WHICH value was taken, and
+        # what a predicate's state line has to say is that there was
+        # nothing to compare it with.
+        return "<redacted; no comparable value>"
     if v is NOT_CAPTURED:
         return f"<{cap.get('type', 'object')}; no comparable value>"
     if v is TRUNCATED:
@@ -291,6 +298,17 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
                 "a bool, or a rendering the recorder could only format -- "
                 "and none of those carries a recorded length; compare the "
                 "name itself instead"]
+    if reason == REDACTED_REASON:
+        # Ahead of the `ever` branch below, which would otherwise call this
+        # a scope fact and send a reader hunting a binding bug that is not
+        # there: the name IS captured at these sites, and the rule took
+        # what was in it.
+        return ["the redaction rule took it at the recorder, before "
+                "anything reached disk, so no re-reading of this trace "
+                "holds a value; a state line shows such a name as "
+                "<redacted; no comparable value>",
+                f"see the rule this run was recorded under with: sensorium "
+                f"info {shlex.quote(trace.path.stem)}"]
     if reason == CLIPPED:
         return ["the capture is a prefix cut at the string cap, so the value "
                 "itself was never recorded",

@@ -217,10 +217,17 @@ def redaction_line(meta: dict) -> str:
     The key MODE rides the keyed form when the store's key is loose AND is
     the key that took these digests: a world-readable key makes every
     digest in the store guessable, and a note about some other store's file
-    permissions would send a reader to the wrong file. `values redacted:`
-    is not printed -- rule v1 redacts the environment and nothing else yet,
-    so a count of captured values would be a measured zero of a rule that
-    has not shipped.
+    permissions would send a reader to the wrong file.
+
+    `values redacted:` rides BOTH forms the rule ran under, and only when
+    the recorder actually counted. It is a fact about the whole recording
+    -- captures, output chunks and exception messages -- not about the
+    environment, which is why it is here and not in the `env:` field. A
+    recording made before the count existed carries no `values` key, and a
+    zero invented for it would be a measurement nobody made; the two forms
+    the rule did NOT run under (`OFF`, `none`) say in words that nothing
+    was taken, and a count there would be a second, weaker way of saying
+    it.
     """
     redaction = meta.get("redaction")
     if not redaction:
@@ -230,16 +237,19 @@ def redaction_line(meta: dict) -> str:
         return ("redaction: OFF (SENSORIUM_NO_REDACT) -- the environment "
                 "and every captured value are stored in plaintext")
     rule, by = redaction.get("rule"), redaction.get("by")
+    took = (f"; values redacted: {redaction['values']}"
+            if "values" in redaction else "")
     if not redaction.get("keyed"):
         return (f"redaction: rule {rule}, UNKEYED (no redaction.key in the "
-                f"store); by {by}")
+                f"store); by {by}{took}")
     key_id = redaction.get("key_id")
     # One read of the store's key answers both halves -- whether the file
     # is loose, and whether it is the file that took these digests.
     key = redact.Key.load(paths.trace_root())
     note = key.mode_note()
     mode = f" ({note})" if note and key_id == key.key_id else ""
-    return f"redaction: rule {rule}, keyed (key {key_id}), by {by}{mode}"
+    return (f"redaction: rule {rule}, keyed (key {key_id}), by {by}{mode}"
+            f"{took}")
 
 
 def run(args) -> int:

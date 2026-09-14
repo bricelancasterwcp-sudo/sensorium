@@ -539,6 +539,14 @@ def resolve_object(trace, idx: Index, spec: str):
         return None, None, None, Unresolved(err, NEGATIVE)
     if at is not ev and note:
         note += f"; its return is captured at e{at.id}"
+    if (v.get("redacted") or {}).get("by") == "name":
+        # BEFORE the primitive check, which a taken container would pass:
+        # the rule keeps `oid` and `type` (an address is a fact about the
+        # program), so the resolver would mint a target and follow an
+        # address whose occupant nobody recorded.
+        return None, None, None, Unresolved(
+            f"{name!r} at e{at.id} is redacted (by name) and has no "
+            f"identity or value to follow", BAD_CALL)
     if v.get("k") not in CONTAINER_KINDS and "oid" not in v:
         # A rendered capture carries `oid`/`type` when the recorder minted
         # an identity for the value -- an object or a function, never a

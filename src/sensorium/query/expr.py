@@ -46,6 +46,11 @@ different fixes:
   * CLIPPED -- bound to a string longer than the capture cap, so what the
     trace holds is a PREFIX. Comparing a prefix, or taking its length, is a
     claim about characters that were never recorded.
+  * REDACTED_REASON -- the redaction rule took the value at the recorder,
+    before anything reached disk. Every taken capture holds the same marker
+    text, so comparing one would answer the same about two secrets that are
+    not equal to each other. Re-recording is what changes this, not asking
+    differently.
 
 Collapsing any of these into a silent False would let "I could not check"
 read as "the invariant held". That is the failure this whole module exists to
@@ -74,6 +79,12 @@ NO_LENGTH = "recorded as a value that has no length"
 SAMPLED = ("recorded as a container whose sample does not decide whether "
            "that value is in NAME (only a sample of its members was "
            "recorded); its length is exact, so len(NAME) still is")
+#: A value the redaction rule took at the RECORDER, before anything reached
+#: disk. Every taken capture of every kind holds the same marker text, so a
+#: predicate applied to one would compare `<redacted>` -- and would answer
+#: the same about two secrets that are not equal to each other. There is
+#: nothing here to compare, and saying so is the only honest answer.
+REDACTED_REASON = "redacted by rule v1; no comparable value"
 
 
 class ExprError(Exception):
@@ -119,6 +130,12 @@ class _Marker:
 
 NOT_CAPTURED = _Marker("<NOT_CAPTURED>")
 TRUNCATED = _Marker("<TRUNCATED>")
+#: A value the redaction rule took. Its own marker and not NOT_CAPTURED,
+#: because the two are different facts with different fixes: NOT_CAPTURED is
+#: a recorder that could not read a value, and this is a rule that read it
+#: and refused to store it. Equal only to itself, like every marker here --
+#: which is what stops `token == '<redacted>'` from ever answering yes.
+REDACTED = _Marker("<REDACTED>")
 #: JavaScript's second absence. A name bound to `undefined` IS bound, and a
 #: trace that recorded one holds a value -- so it may not read as `None`
 #: (which would make `x == null` answer yes about a site that recorded
@@ -205,6 +222,14 @@ def resolve(v: dict, dialect=None):
     what every caller got before a second dialect existed, and what no
     Python trace ever reaches, since Python's captures are typed (P10).
     """
+    # BEFORE the kind dispatch. A taken capture keeps its kind and holds
+    # the rule's marker text in the field the value was in, so `num` would
+    # hand back the STRING `<redacted>` as a number and `str` would hand it
+    # back as a string a predicate can match. A CONTENT hit is not this
+    # case and falls through on purpose: the rule replaced a span inside a
+    # text the recorder kept, and the text is what the trace holds.
+    if (v.get("redacted") or {}).get("by") == "name":
+        return REDACTED
     k = v.get("k")
     if k in ("num", "bool"):
         return v["v"]
@@ -506,6 +531,8 @@ def _bound(name: str, env: dict):
 
 def _name(name: str, env: dict):
     val = _bound(name, env)
+    if val is REDACTED:
+        raise NotCaptured(name, REDACTED_REASON)
     if val is NOT_CAPTURED:
         raise NotCaptured(name, NO_VALUE if name in env else OUT_OF_SCOPE)
     if val is TRUNCATED:
@@ -527,6 +554,8 @@ def _member(value, name: str, env: dict) -> bool:
     in the environment.
     """
     val = _bound(name, env)
+    if val is REDACTED:
+        raise NotCaptured(name, REDACTED_REASON)
     if val is NOT_CAPTURED:
         raise NotCaptured(name, NO_VALUE if name in env else OUT_OF_SCOPE)
     if val is TRUNCATED:
@@ -547,6 +576,12 @@ def _member(value, name: str, env: dict) -> bool:
 
 def _length(name: str, env: dict) -> int:
     val = _bound(name, env)
+    if val is REDACTED:
+        # A taken container's LENGTH is recorded and kept -- but it is kept
+        # on the capture, and what reached this environment is the marker.
+        # `len(token)` over a taken value is refused with every other path
+        # into it, so a reader is told one thing rather than three.
+        raise NotCaptured(name, REDACTED_REASON)
     if isinstance(val, _Sized):
         return val.n
     if isinstance(val, _DbgText):

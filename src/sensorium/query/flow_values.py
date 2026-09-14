@@ -84,6 +84,16 @@ def matches(cap: dict, target, write=debug_text) -> bool:
     written before a second dialect existed passes (plan P10) -- and what a
     Python trace, whose captures are typed, never consults.
     """
+    if (cap.get("redacted") or {}).get("by") == "name":
+        # FIRST, and ahead of every kind below. A taken capture keeps its
+        # kind, its address and the rule's marker text, so it would answer
+        # yes to `--value '<redacted>'` and to an identity search over the
+        # address it kept -- and every taken value in the run redacts to
+        # the same text, so one literal would report values that are not
+        # equal to each other as sightings of one. A sighting the screen
+        # cannot be told apart from a correct one is this command's worst
+        # failure; a taken capture is a sighting of nothing.
+        return False
     k = cap.get("k")
     if isinstance(target, ObjTarget):
         # A rendered capture carries an identity when the recorder minted

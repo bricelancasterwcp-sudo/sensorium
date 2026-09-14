@@ -1,6 +1,6 @@
 {
   "id": "v42-redaction-render",
-  "asserts": "A trace recorded under rule v1 says so in two fields, and neither of them carries what the rule took. The `env:` field counts the environment the trace HOLDS and names the variables that were redacted out of it (`(2 vars, 1 redacted: SECRET_TOKEN)`) -- names only, because a digest printed beside the name it belongs to is an offline guessing target for any short value, and the digest `0123456789abcdef` this trace carries must appear nowhere in the output. The `redaction:` line, directly under `caps:`, states the parameters of the recording: which rule, that the store could key it and which key, and whose hand last applied it. A reader who cannot see those two fields cannot tell a trace whose secrets were taken out from one whose secrets are still in it.",
+  "asserts": "A trace recorded under rule v1 says so in two fields, renders what the rule TOOK as a marker rather than as a value, and refuses to compare one. The `env:` field counts the environment the trace HOLDS and names the variables that were redacted out of it (`(2 vars, 1 redacted: SECRET_TOKEN)`); the `redaction:` line directly under `caps:` states the parameters of the recording -- which rule, that the store could key it and which key, whose hand last applied it -- and counts the captured values the rule took (`values redacted: 3`). The digest `0123456789abcdef` appears nowhere in any output, because a digest printed beside the name it belongs to is an offline guessing target for any short value. Every reader that PRINTS a value prints one marker: `frame` renders `token=<redacted #01234567>` and `n=<redacted #fedcba98>` -- the first EIGHT hex, enough to tell two takings apart and too few to guess from -- and renders a CONTENT hit as the text the recorder kept (`'postgres://u:<redacted>@h/db'`), because there the rule replaced a span and the rest is the program's. The readers that COMPARE values refuse instead of guessing: a taken value has no comparable value, so `watch` ends a predicate that meets only taken values at NOTHING WAS CHECKED and exit 3 rather than reporting a hit on the marker text; `flow --object` refuses a taken value's KEPT address at exit 2, since the address is real and its occupant was never recorded; and `flow --value '<redacted>'` sights nothing at all, because a literal that happens to be the marker would otherwise report every secret in the run as sightings of one value.",
   "meta": {
     "trace_format": 4,
     "run_id": "$RUN",
@@ -11,7 +11,7 @@
     "redaction": {"rule": "v1", "mode": "on", "keyed": true,
                   "key_id": "0a1b2c3d",
                   "env": {"SECRET_TOKEN": "0123456789abcdef"},
-                  "names": [], "allow": [], "by": "recorder"},
+                  "names": [], "allow": [], "by": "recorder", "values": 3},
     "start_ts": 0.0,
     "end_ts": 1.0,
     "exit_status": 0,
@@ -22,17 +22,28 @@
     "recorder": "vector 1.0",
     "lang": "python",
     "capabilities": {"line": true, "locals": true, "threads": false,
-                     "children": false, "stdin": false},
+                     "children": false, "stdin": false,
+                     "object_identity": true},
     "incomplete": false
   },
   "codes": [["/w/app.py", "main", 1]],
   "frames": [
-    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+    {"parent": null, "code": 1, "call": 1, "return": 3, "depth": 0,
      "thread": 1, "closed_by": "return", "kind": "function"}
   ],
   "events": [
     {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
-     "payload": {"args": {}}, "task": null},
+     "payload": {"args": {
+       "token": {"k": "str", "v": "<redacted>",
+                 "redacted": {"by": "name", "digest": "0123456789abcdef"}},
+       "url": {"k": "str", "v": "postgres://u:<redacted>@h/db",
+               "redacted": {"by": "content", "digest": null}}}},
+     "task": null},
+    {"ts": 1500, "thread": 1, "kind": "LINE", "frame": 1, "code": 1, "line": 2,
+     "payload": {"deltas": {
+       "n": {"k": "num", "v": "<redacted>",
+             "redacted": {"by": "name", "digest": "fedcba9876543210"}}}},
+     "task": null},
     {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
      "line": null, "payload": {"value": {"k": "none"}}, "task": null}
   ],
@@ -40,17 +51,57 @@
   "questions": [
     {
       "id": "info-names-what-was-redacted-and-under-which-rule",
-      "ask": "Which variables did the rule take out of this recording's environment, and what rule was the recording made under?",
+      "ask": "Which variables did the rule take out of this recording's environment, what rule was the recording made under, and how many captured values did it take?",
       "command": ["info", "$RUN"],
       "expect_exit": 0,
       "expect_contains": [
         "env:0000000000000000 (2 vars, 1 redacted: SECRET_TOKEN)",
-        "redaction: rule v1, keyed (key 0a1b2c3d), by recorder"],
+        "redaction: rule v1, keyed (key 0a1b2c3d), by recorder; values redacted: 3"],
       "expect_absent": [
         "0123456789abcdef",
         "hunter2",
-        "redaction: none",
-        "values redacted:"]
+        "redaction: none"]
+    },
+    {
+      "id": "frame-renders-the-marker-never-the-whole-digest",
+      "ask": "What does a reader print in place of a value the rule took whole, and in place of one it only took a span out of?",
+      "command": ["frame", "$RUN", "--fn", "main"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "token=<redacted #01234567>",
+        "url='postgres://u:<redacted>@h/db'",
+        "n=<redacted #fedcba98>"],
+      "expect_absent": [
+        "0123456789abcdef",
+        "fedcba9876543210",
+        "hunter2"]
+    },
+    {
+      "id": "watch-cannot-compare-a-value-the-rule-took",
+      "ask": "Does a predicate over a value the rule took come back as a hit on the marker text, or as a question that could not be checked at all?",
+      "command": ["watch", "$RUN", "--at", "main", "--expr", "token == 'x'"],
+      "expect_exit": 3,
+      "expect_contains": [
+        "NOTHING WAS CHECKED",
+        "<redacted; no comparable value>"],
+      "expect_absent": ["hunter2"]
+    },
+    {
+      "id": "flow-object-refuses-a-taken-values-kept-address",
+      "ask": "May a lineage be followed through a value whose address the rule kept but whose occupant it took?",
+      "command": ["flow", "$RUN", "--object", "e1:token"],
+      "expect_exit": 2,
+      "expect_contains": [
+        "is redacted (by name) and has no identity or value to follow"],
+      "expect_absent": ["hunter2"]
+    },
+    {
+      "id": "flow-value-never-sights-the-marker-itself",
+      "ask": "Does searching for the marker text find the values the rule took?",
+      "command": ["flow", "$RUN", "--value", "'<redacted>'"],
+      "expect_exit": 1,
+      "expect_contains": ["sightings: 0 event(s), 0 capture(s)"],
+      "expect_absent": ["hunter2"]
     }
   ]
 }

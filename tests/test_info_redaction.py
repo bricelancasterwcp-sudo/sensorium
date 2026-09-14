@@ -45,10 +45,20 @@ SECRET, PLAIN = "SECRET_TOKEN", "HOME"
 ENV = {SECRET: redact.REDACTED, PLAIN: "/h"}
 
 
-def _on(table, *, keyed=True, key_id="0a1b2c3d", by="recorder") -> dict:
-    """The `redaction` object a recorder writes with the rule ON."""
-    return {"rule": "v1", "mode": "on", "keyed": keyed, "key_id": key_id,
-            "env": table, "names": [], "allow": [], "by": by}
+def _on(table, *, keyed=True, key_id="0a1b2c3d", by="recorder",
+        values=None) -> dict:
+    """The `redaction` object a recorder writes with the rule ON.
+
+    `values` is omitted unless a test asks for it: a recorder that never
+    counted writes no such key at all, and the difference between "took
+    none" and "did not count" is one of the things the line must keep
+    saying.
+    """
+    out = {"rule": "v1", "mode": "on", "keyed": keyed, "key_id": key_id,
+           "env": table, "names": [], "allow": [], "by": by}
+    if values is not None:
+        out["values"] = values
+    return out
 
 
 def _info(tmp_path, env=None, redaction=None, *, store=None) -> str:
@@ -204,3 +214,58 @@ def test_a_loose_key_that_did_not_write_these_digests_is_not_named(tmp_path):
                                         key_id="ffffffff"), store=sdir)
     assert _line(out, "redaction:") == (
         "redaction: rule v1, keyed (key ffffffff), by recorder")
+
+
+# -- the count of captured values the rule took ----------------------------
+def test_the_keyed_line_counts_the_values_the_rule_took(tmp_path):
+    """`redaction.values` is written by the recorder at the WRITE, so it is
+    a count of what actually went to disk rather than of what the rule was
+    asked about. It rides the `redaction:` line and not the `env:` field
+    because it is a fact about the whole recording -- captures, output
+    chunks and exception messages -- not about the environment."""
+    out = _info(tmp_path, redaction=_on({SECRET: DIGEST}, values=12))
+    assert _line(out, "redaction:") == (
+        "redaction: rule v1, keyed (key 0a1b2c3d), by recorder; "
+        "values redacted: 12")
+
+
+def test_the_unkeyed_line_counts_them_too(tmp_path):
+    """Whether the store could key the digests says nothing about how many
+    values were taken. A clause that appeared on only one of the two forms
+    would make an unkeyed recording read as one the rule never fired in."""
+    out = _info(tmp_path, redaction=_on({SECRET: None}, keyed=False,
+                                        key_id=None, values=3))
+    assert _line(out, "redaction:") == (
+        "redaction: rule v1, UNKEYED (no redaction.key in the store); "
+        "by recorder; values redacted: 3")
+
+
+def test_a_measured_zero_is_printed_rather_than_left_out(tmp_path):
+    """The rule RAN and took nothing, which is a different fact from a
+    recorder that never counted -- and the two must not print the same, for
+    the reason the `env:` field's own measured zero exists."""
+    out = _info(tmp_path, redaction=_on({}, values=0))
+    assert _line(out, "redaction:").endswith("; values redacted: 0")
+
+
+def test_a_recorder_that_never_counted_says_nothing(tmp_path):
+    """The fence around every trace written before the count existed: with
+    no `values` key the line is byte-identical to what it was, and a `0`
+    invented here would be a measurement this recording never made."""
+    out = _info(tmp_path, redaction=_on({SECRET: DIGEST}))
+    assert _line(out, "redaction:") == (
+        "redaction: rule v1, keyed (key 0a1b2c3d), by recorder")
+    assert "values redacted:" not in out
+
+
+def test_the_clause_never_rides_a_rule_that_did_not_run(tmp_path):
+    """`OFF` and `none` state that nothing was taken in words. A count
+    beside either would be a second, weaker way of saying it -- and on the
+    `none` line it would be a claim about a recorder that had no rule."""
+    for i, redaction in enumerate(({"rule": "v1", "mode": "off",
+                                    "values": 4}, None)):
+        # A store apiece: both arms write the same run id, and one trace
+        # file cannot be built twice.
+        out = _info(tmp_path, redaction=redaction,
+                    store=Path(tmp_path) / f"sdir{i}")
+        assert "values redacted:" not in out
