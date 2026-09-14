@@ -8,27 +8,34 @@ therefore held whatever that shell was carrying — a live `GITHUB_TOKEN`, a
 **Rule v1** replaces a secret-*named* environment value with `<redacted>` at
 the WRITER, before anything reaches disk, and keeps an HMAC-SHA256 of the
 plaintext under a key that never leaves the store, so `refocus` can still say
-"this changed" without being told what it changed to.
+"this changed" without being told what it changed to. From this version it
+does the same to every value a recording CAPTURES — an argument, a local, a
+return, an exception message, a line of output — under the name that value
+was asked for by, and takes a secret-shaped SPAN out of any stored text
+whatever it was called.
 
 This page is what the rule does, what it does not do, and what every command
 prints about it. The contract is
-[`TRACE-FORMAT.md`](TRACE-FORMAT.md) §2 and §4; the rule's own cases are
+[`TRACE-FORMAT.md`](TRACE-FORMAT.md) §2, §4 and §5; the rule's own cases are
 [`trace-format/redaction-v1.json`](trace-format/redaction-v1.json), read by
 all three recorders' suites.
 
 ## Not a secret scanner
 
-The rule fires on a NAME. A secret in a variable called `x`, or in one this
-set has never heard of, is stored as typed. Nothing in this version reads a
-VALUE looking for something that looks like a token — the content rule is a
-later version's, and so is the redaction of captured argument, local, return
-and output values, which **this version still stores in plaintext**. The
-README's "What a trace file holds" says so in the bullet about captured
-values, and so does this version's CHANGELOG entry.
+Two halves, and neither is a scanner. The **name rule** fires on what a value
+was CALLED: a secret in a variable called `x`, or in one this set has never
+heard of, is stored as typed. The **content rule** fires on what a text LOOKS
+like, and its list is a floor of nineteen shapes — a secret matching none of
+them is stored as typed too. Between them they reach the environment (by name
+only), every captured value (by name) and every stored text (by content).
+What they do not reach is "The honest limits" below, and the README's "What a
+trace file holds" says the same in shorter words.
 
 Treat a trace the way you would treat a core dump. What the rule removes is
-one class of accident — the shell's exported credentials, which nobody chose
-to put in the recording — not the recording's plaintext nature.
+two classes of accident — the shell's exported credentials, which nobody
+chose to put in the recording, and a secret-named or secret-shaped value that
+happened to pass through a recorded frame — not the recording's plaintext
+nature.
 
 ## The name rule
 
@@ -60,7 +67,10 @@ which of them fire, name by name):
   cache key, a dict key, a lookup key on almost every function that iterates
   a mapping, so redacting it by default would blind `watch` on the commonest
   local in the language; every compound spelling (`api_key`, `apiKey`,
-  `secret_key`, `build_key`, `KEY_FILE`) still fires.
+  `secret_key`, `build_key`, `KEY_FILE`) still fires, and a codebase where a
+  bare `key` IS the secret restores it with `SENSORIUM_REDACT_NAMES=key`.
+  Amended into **rule v1** rather than minted as a v2, because when it was
+  made no trace under the earlier spelling existed outside this box and CI.
 - **`PGPASSWORD` fires by whole name.** Segment-exact matching cannot see
   inside a compound word — `PGPASSWORD` is one segment, which is neither `PG`
   nor `PASSWORD` — so libpq's standard password variable is in a short
@@ -70,6 +80,41 @@ which of them fire, name by name):
 The false positives that do fire are named rather than hidden: `SSH_AUTH_SOCK`
 is a socket path and `GPG_KEY_ID` is an id. Each costs one plaintext path in
 a trace, and the digest still makes the value comparable.
+
+## The content rule
+
+Nineteen patterns over a stored TEXT, whatever that text was called, each
+with a minimum length so a short benign string cannot fire: a URL's userinfo
+password, a PEM private-key body, an `Authorization: Bearer`/`Basic` value, a
+JWT, and the provider-prefixed shapes — `sk-ant-`, `sk-`, Stripe's
+`sk_live_`/`rk_test_`, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`, `github_pat_`,
+`glpat-`, `xox…-`, `AKIA`/`ASIA`, `AIza`, `hf_`, `npm_`, `pypi-`, `dop_v1_`,
+`shpat_` and `SG.…`. `src/sensorium/redact_content.py`'s table is the list;
+the Rust converter's `redact_content.rs` (the `regex` crate) and
+`typescript/src/redact.mjs` hold the same nineteen, and
+[`trace-format/redaction-v1.json`](trace-format/redaction-v1.json)'s
+`content` list is what proves the three agree, pattern by pattern, with a
+positive and a negative each.
+
+Three things about it are worth stating plainly:
+
+- **It replaces a SPAN and keeps the sentence around it.**
+  `postgres://u:<redacted>@h/db` is what a person debugging a connection
+  string needs, and it is why a content hit carries no digest — a partial
+  cannot honestly commit to the whole.
+- **A hit means the text CHANGED, never that a pattern matched.** The
+  userinfo pattern matches the marker it put there itself, and replacing
+  `<redacted>` with `<redacted>` is not a second hit. That is what makes the
+  rule idempotent across a re-conversion and the `values` count below honest.
+- **It runs where a text is STORED, and never over the environment.**
+  Environment values are judged by NAME in all three recorders: the Rust
+  runtime is dependency-free and has no regex engine, and one rule with two
+  spellings would be two rules.
+
+Before the table runs at all, one search for the alternation of every
+pattern's literal prefix decides whether any of the nineteen could match, so
+a string holding no secret-shaped prefix — which is nearly every string a
+recorder touches — costs one scan rather than nineteen.
 
 ## The three knobs
 
@@ -173,16 +218,17 @@ over a trace they were going to be told about anyway.
   ```json
   {"rule": "v1", "mode": "on", "keyed": true, "key_id": "0a1b2c3d",
    "env": {"GITHUB_TOKEN": "9f2c…"}, "names": [], "allow": [],
-   "by": "recorder"}
+   "by": "recorder", "values": 12}
   ```
 
   `env` maps each redacted NAME to its digest (`null` when unkeyed) and is
   **sorted**, so one environment gives one table byte for byte whichever
-  language wrote it. `by` is the LAST hand that applied the rule —
-  `"recorder"`, or `"converter"` where a spool from a runtime that predates
-  the rule was converted under it.
-  The object's key ORDER is **not** a wire promise: the Rust converter's map
-  is alphabetised on the way out, and every reader here goes by key.
+  language wrote it. `values` is the captured-value count of "What a captured
+  value becomes" below, and `by` is the LAST hand that applied the rule:
+  `"recorder"` only where the RUNTIME did both halves of it, `"converter"`
+  otherwise. The object's key ORDER is **not** a wire promise: the Rust
+  converter's map is alphabetised on the way out, and every reader here goes
+  by key.
 - **Mode off** writes exactly `{"rule": "v1", "mode": "off"}` and nothing
   more — a header naming a key or a knob list while claiming to have applied
   nothing would invite a reader to believe the plaintext beside it had been
@@ -195,6 +241,125 @@ over a trace they were going to be told about anyway.
   recompute it from the trace, and two runs of one unchanged shell hash alike
   whatever their secrets were
   (`tests/test_record_redaction.py::test_env_hash_is_over_the_stored_env`).
+
+## What a captured value becomes
+
+A capture is the tagged object [`TRACE-FORMAT.md`](TRACE-FORMAT.md) §5
+describes — `{"k": "str", "v": …}`, a `seq`/`map` with a sample, an `obj`
+with a `repr`, a `dbg` text. Rule v1 performs exactly ONE of two operations
+on it, and which one is decided by what fired:
+
+- **A name hit takes the WHOLE value** and leaves
+  `"redacted": {"by": "name", "digest": "<16 hex>"}` beside the tag — `null`
+  there where the store had no key. The tag itself is kept, so a reader that
+  has never heard of the key still prints a string where a string was.
+- **A content hit replaces the matched SPAN inside the text** and leaves
+  `"redacted": {"by": "content", "digest": null}`.
+
+The two never land on one capture: a value taken by name has no text left to
+scan, and the content rule refuses anything already carrying `redacted`
+(`tests/test_redact_values.py::test_the_content_rule_never_touches_a_name_redacted_capture`).
+
+### Which name the rule is asked about
+
+| Where | The name judged |
+|---|---|
+| a CALL argument, a LINE delta | the binding's own name |
+| a RETURN value | the LAST segment of the CALLEE's qualname, split on `.` (Python, TypeScript) or `::` (Rust): `Store.get_api_key` is asked for by `get_api_key`, so its answer is an API key whatever the caller stores it in |
+| a `map` sample's VALUE | the paired KEY's own text where that key is a `str` — a headers dict's `authorization` entry. **Python only**: the Rust and TypeScript recorders store a rendering rather than a decomposed map, and the content rule is their only reach into one |
+| an output chunk, an exception message | none — the content rule alone; a message is a sentence the program wrote, not a value with an identity, so a hit is marked on the `exc` object and carries no digest |
+
+`tests/test_redact_values.py::test_named_return_reads_the_last_segment` and
+`::test_a_map_value_under_a_firing_key_is_redacted_by_that_name`,
+`typescript/test/rt.redaction.test.mjs`,
+`rust/cargo-sensorium/tests/convert_redaction.rs`.
+
+### What a name hit leaves, kind by kind
+
+| `k` | After |
+|---|---|
+| `str` | `v` = `<redacted>`, `trunc` dropped; the digest is over the CLIPPED text, which is what the trace would otherwise have held |
+| `num` | `v` = `<redacted>`; the digest is over `repr(v)`, so `1234` and `"1234"` never share one |
+| `obj` | `repr` = `<redacted>`, `trunc` dropped; `type` and `oid` stay — an identity is not a value |
+| `dbg` | `v` = `<redacted>`, `trunc` written **false** rather than dropped, so a reader never has to guess whether the formatter was cut short; the digest is over the text |
+| `seq`, `map` | `sample`, `trunc` and `unread` dropped; `type`, `len` and `oid` stay, and `digest` is `null` — a container has no single text to hash |
+| `none`, `bool`, `unread` | untouched. They withhold nothing, so a marker would cost a reader a fact and hide no secret |
+| anything else | withheld WHOLE: `k` kept, every other key dropped, `digest` `null`. This control's failure direction has to be a lost fact, never a kept secret (`tests/test_redact_values.py::test_an_unknown_kind_is_withheld_whole_under_a_firing_name`) |
+
+Two texts are exempt even under a firing name, because they say the program
+produced no value at all: Rust's synthesised unit return `()` (ruling R17)
+and a `dbg` text that is exactly `undefined` or `null` (ruling R19). Neither
+is taken, marked or counted — whole texts and nothing near them, so a `NaN`
+or a text that merely contains one of these is taken like any other
+(`rust/cargo-sensorium/tests/convert_redaction.rs::a_unit_return_under_a_firing_name_keeps_its_value_and_is_not_counted`,
+`tests/test_redact_values.py::test_a_dbg_text_that_withholds_nothing_is_never_taken`,
+`::test_the_boundary_is_the_whole_text_and_nothing_near_it`).
+
+### What the readers print
+
+A taken value is never rendered as its marker TEXT, because every taken value
+in a run carries the same one. The digest is what tells two of them apart,
+and eight hex of it is what a screen shows
+(`tests/test_fmt_redaction.py`, vector
+[`v42-redaction-render`](trace-format/vectors/v42-redaction-render.json)):
+
+| Reader | A value taken by name | A content hit |
+|---|---|---|
+| `frame`, `tree`, `grep` | `token=<redacted #01234567>` for a `str`/`num`/`dbg` (or `<redacted>` unkeyed); `cfg=dict[3]=<redacted>` for a container, whose size is a fact about the program; `Cfg#7` for an `obj`, byte for byte what it printed before | as stored: `url='postgres://u:<redacted>@h/db'` |
+| `watch` | a state line reads `token=<redacted; no comparable value>`; a predicate that met only taken values ends `NOTHING WAS CHECKED` at exit 3, listed as `token: redacted by rule v1; no comparable value`, and the guidance names the remedy — `export SENSORIUM_REDACT_ALLOW=token && <the re-record command>` | compared as the text the trace holds |
+| `flow --object` | refuses at exit 2: `'token' at e1 is redacted (by name) and has no identity or value to follow` — the kept address is real and its occupant was never recorded | followed exactly as before |
+| `flow --value` | sights nothing, including `--value '<redacted>'`: a literal that happens to be the marker would report every secret in the run as sightings of one value | sighted by the text the trace holds |
+| `info` | `; values redacted: N` on the `redaction:` line, keyed and unkeyed alike | counted the same way |
+
+Whole digests are never printed — a digest beside the name it belongs to is
+an offline guessing target for any short value
+(`tests/test_fmt_redaction.py::test_the_whole_digest_is_never_printed`).
+
+### `values`, and whose hand took them
+
+`redaction.values` is the number of values the trace WITHHOLDS, counted by
+the trace's writer: the Python recorder at finalize over what it wrote, the
+Rust and TypeScript converters as they build. It is a pure function of the
+trace's contents, which is why a secret local re-captured at every line of a
+loop counts ONCE — only the deltas a row stores are counted — and why one
+text written into two rows (a panic's message; an `Err` return and the origin
+RAISE synthesised in front of it, ruling R16) counts once too. A `RAISE` and
+a `HANDLED` of one exception are two stored texts and count two. Absent
+entirely under `mode: off`, so a zero is always a measured zero
+(`tests/test_record_values_redaction.py::test_a_secret_local_in_a_loop_is_counted_once_not_once_per_line`,
+`tests/test_ts_ingest_redaction.py::test_values_counts_the_captures_and_not_the_records`,
+`rust/cargo-sensorium/tests/convert_redaction.rs::an_err_return_taken_by_name_is_withheld_on_its_origin_raise_under_one_digest`).
+
+`by` says which hand was LAST: `"recorder"` only where the runtime did the
+value half itself — the Rust wire at v4 or better with a `redaction` header
+whose mode is on, or `sensorium-ts` 0.6.0 or better. A Rust spool a 0.6.0
+runtime wrote and a 0.5.0 TypeScript spool have plaintext captures the
+converter judges, so those traces say `"converter"` even though the
+environment was the recorder's work. **A trace re-converted from such a spool
+therefore says `converter` where it used to say `recorder`** — a visible
+change to a published key, and the honest one: the digests on its captures
+are under the key the CONVERTER held.
+
+Converters re-apply the rule idempotently. The content rule runs on every
+path (a marker is a fixed point, and a capture already carrying `redacted` is
+skipped); the CALL/LINE name rule runs only for a runtime that did not do it
+(Rust wire below 4, `sensorium-ts` below 0.6.0); the RETURN name rule always
+runs in Rust, because no Rust runtime has a qualname at its exit probe, and
+in TypeScript only for a BOOT older than 0.6.0
+(`tests/test_ts_ingest_redaction.py::test_a_capture_the_recorder_already_took_is_carried_through`,
+`::test_a_capture_an_older_recorder_left_in_plaintext_is_taken_here`,
+`tests/fixtures/rust-spools/redacted-values`).
+
+### The Rust spool's plaintext window
+
+The Rust runtime applies the NAME rule to a LINE delta at its own writer —
+wire v4's tag 4 carries the digest where the text was — and nothing else. It
+has no regex engine, so between the runtime and the converter the spool under
+`<target>/sensorium/spool/` holds **content-plaintext**: a token inside a
+struct's `Debug` rendering, and `get_token()`'s return, which no runtime
+judges. Those files are `0600` and a `cargo clean` takes them, but the window
+is real and is named here rather than left to be discovered
+(`rust/README.md`, "Where traces go"; `rust/HONESTY.md` §14).
 
 ## What `info` prints
 
@@ -215,18 +380,26 @@ Directly under `caps:`, one line on every trace, in one of four forms —
 the keyed one carrying a note when the store's key is loose:
 
 ```
-redaction: rule v1, keyed (key 0a1b2c3d), by recorder
-redaction: rule v1, keyed (key 0a1b2c3d), by recorder (key mode 0644 -- expected 0600)
-redaction: rule v1, UNKEYED (no redaction.key in the store); by recorder
+redaction: rule v1, keyed (key 0a1b2c3d), by recorder; values redacted: 12
+redaction: rule v1, keyed (key 0a1b2c3d), by recorder (key mode 0644 -- expected 0600); values redacted: 12
+redaction: rule v1, UNKEYED (no redaction.key in the store); by recorder; values redacted: 12
 redaction: OFF (SENSORIUM_NO_REDACT) -- the environment and every captured value are stored in plaintext
 redaction: none -- recorded before redaction existed; plaintext throughout
 ```
 
 The mode note rides the keyed form only when the store's key is loose AND is
 the key that took THESE digests — a note about some other store's file
-permissions would send a reader to the wrong file. Vectors
+permissions would send a reader to the wrong file. The `values redacted:`
+clause rides the two forms the rule actually RAN under, and only where the
+writer counted: a recording made before the count existed carries no `values`
+key, and a zero invented for it would be a measurement nobody made. The two
+forms the rule did not run under say in words that nothing was taken. Vectors
 `v42-redaction-render` and `v42b-redaction-none` pin the lines in the format;
-`tests/test_info_redaction.py` pins each form and its placement.
+`tests/test_info_redaction.py` pins each form and its placement
+(`::test_the_keyed_line_counts_the_values_the_rule_took`,
+`::test_a_measured_zero_is_printed_rather_than_left_out`,
+`::test_a_recorder_that_never_counted_says_nothing`,
+`::test_the_clause_never_rides_a_rule_that_did_not_run`).
 
 ## What `refocus` compares
 
@@ -291,11 +464,27 @@ advisory there.
 
 ## The honest limits
 
-- **Captured values are still plaintext.** Arguments, locals, return values
-  and program output are stored as the caps clipped them. A later version
-  redacts them.
-- **A name this set has never heard of is stored as typed.**
-  `SENSORIUM_REDACT_NAMES` is the remedy, and it is recorded.
+- **A name this set has never heard of is stored as typed**, and so is a
+  secret in a variable called `x`. `SENSORIUM_REDACT_NAMES` is the remedy,
+  and it is recorded.
+- **A secret matching none of the nineteen content patterns is stored as
+  typed.** The list is a floor, not a scanner.
+- **An output chunk is scanned one `write()` at a time.** A token split
+  across two writes is not seen: the tee holds no state between writes, and
+  one that did would be a buffer of the program's output living inside the
+  instrument.
+- **`argv` is stored in plaintext.** A secret passed on the command line is
+  in the trace, in `meta.argv` and in the Rust proc header, and no part of
+  rule v1 reaches it.
+- **A `?`-hop RAISE's message in Rust is the probe's own read of the error**,
+  not the returned value, so it takes the content rule like any other message
+  and is never withheld whole by the qualname that took the RETURN.
+- **A spool converted against a store that did not record it** carries the
+  recorder's `key_id` in `redaction` while the CAPTURE digests the converter
+  took are under the ingesting store's key. On one box those are one key; a
+  spool carried elsewhere makes them two, and nothing in the trace says so.
+- **`exceptions` groups chains by the origin message it prints**, so two
+  messages differing only inside a redacted span read as one message.
 - **A digest is guessable for a low-entropy value** by anyone holding the key
   file. See "The key, and what a digest is" above.
 - **Digests compare within one language.** A non-UTF-8 environment value
@@ -310,10 +499,6 @@ advisory there.
 
 ## Coming in later versions
 
-- **Captured values**, by the same name rule and by a CONTENT rule that reads
-  a value for token-shaped text whatever its name is. The fixture already
-  carries an empty `content` list for those cases
-  (`tests/test_redact.py::test_the_fixtures_content_list_is_still_empty`),
-  and the Rust spool grows a content window with them.
 - **`sensorium redact`**, a retrofit that applies the rule to traces already
-  in the store and tightens their modes when asked.
+  in the store and tightens their modes when asked. Nothing in this version
+  rewrites a trace that is already on disk.

@@ -11,7 +11,7 @@ reading logs is reading a diary, and this is watching the execution.
 One private npm package, **`sensorium-ts 0.6.0`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
-Eighteen modules and a version:
+Nineteen modules and a version:
 
 | Module | What it is |
 |---|---|
