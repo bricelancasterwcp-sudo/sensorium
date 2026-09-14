@@ -41,4 +41,214 @@ the dry-run/real pair, the bench numbers and their lens.
 
 ## 2. Part A
 
-Not yet measured.
+### measured 2026-09-14
+
+Measured once, on this box, under `e16a.sh`. **Part A: DONE-WITH-STOP** — H1 PASS  H2 STOP  H3 STOP  H6 PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = b3d91fd1`, and the value H3 re-exported `5d755067`. Every recording and every refocus ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN` — no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. 1.9s wall clock.
+
+| cell | word | §9's rule | what was read |
+|---|---|---|---|
+| H1 (environment) | **PASS** | every count 0 where 0 is required | 842 file(s) examined, every count 0 |
+| H2 | **STOP** | any other mode | 10 path(s) carry another mode: 775 store-a/spool (want 700), 775 store-a/spool/20260914-001904-f6b424 (want 700), 775 store-a/spool/20260914-001904-f6b424/manifests (want 700), 664 store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__async_interleaved.test.ts.json (want 600), 664 store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__store.ts.json (want 600), 664 store-a/spool/20260914-001904-f6b424/manifests/_tally.json (want 600), 664 store-a/spool/20260914-001904-f6b424/harness.json (want 600), 664 store-a/spool/20260914-001904-f6b424/ingested.json (want 600), 664 store-a/spool/20260914-001904-f6b424/invocation.json (want 600), 664 rust-target/sensorium/spool/20260914-001904-424fc9/invocation.json (want 600) |
+| H3 | **STOP** | either the wrong way | 2 of 4 pair(s) read the other way: rust-unchanged: predicted a granted licence with SENSORIUM_E16_TOKEN among the compared; read licence granted, env unchanged, token named on the env line: True, token in the recorded environment: True; rust-changed: predicted WITHHELD with SENSORIUM_E16_TOKEN in the changed list; read licence granted, env unchanged, token in the changed list: False |
+| H6 (`redaction.env`) | **PASS** | exact | 3 trace(s), each redacting exactly SENSORIUM_E16_TOKEN |
+| H1-values | dropped | -- | part B |
+| H4 | dropped | -- | part C |
+| H5 | dropped | -- | part B |
+| H6-values | dropped | -- | part B |
+
+#### Pins
+
+| pin | path |
+|---|---|
+| work root | `E16_DIR=/mnt/extra/sensorium-rung2/e16` |
+| store | `$E16_DIR/store-a` |
+| transcripts | `$E16_DIR/a-transcripts/` |
+| Python case copy | `$E16_DIR/py-case/` |
+| crate copy | `$E16_DIR/rust-crate/` |
+| vitest project copy | `$E16_DIR/ts-project/` |
+| cargo target | `$E16_DIR/rust-target/` |
+| instrument output | `$E16_DIR/a-out/` |
+| driver (the committed transcripts' label) | `$DRIVER_DIR` — the release `cargo-sensorium`'s own directory, outside the work root |
+
+#### What the STOPs point at
+
+- **H2.** All ten paths are made by callers that do not go through the 0700/0600 helpers. `sensorium.ts.driver` creates `<trace root>/spool/<invocation>/` with a bare `mkdir(parents=True, exist_ok=True)` and writes `invocation.json`, `harness.json`, `ingested.json` and `manifests/*.json` with plain `write_text`; `cargo-sensorium`'s `invocation::write_invocation` writes its own `invocation.json` with `std::fs::write`. Each lands 0666/0777-under-the-umask — 0664/0775 on this box — instead of 0600/0700. What DOES hold: every file that carries a recorded environment is 0600 — the TypeScript `<pid>-<n>.jsonl`, the Rust `.spool`, `.proc.json` and `.runner.json` — and the store itself is 0600/0700 throughout, `redaction.key` included. §5.5's claim is categorical, so a file beside the spool that holds argv and config paths at 0664 is a STOP and not a footnote.
+- **H3.** Both failing readings are the Rust pair, and both have one cause: `refocus_rust._is_recorder_key` treats EVERY `SENSORIUM_`-prefixed name as the recorder's own bookkeeping and removes it before `refocus_licence.env_of` compares anything. The pre-registered variable is `SENSORIUM_E16_TOKEN`, which is inside that prefix, so on a Rust pair it is never compared: the unchanged pair grants the licence while naming the token on the not-compared list, and the changed pair grants it as well — a rotated secret the Rust licence cannot see. The Python pair read exactly as §1 predicted in both directions, so what failed is the Rust branch's exclusion rule and not rule v1's environment redaction. Two things to rule on, not one: (1) the prefix is wider than the six variables its docstring justifies and silently swallows any `SENSORIUM_`-named variable a user's program actually reads; (2) §1 chose a token name inside that prefix, and no part of the pre-registration noticed — this measurement is where it surfaced.
+
+#### Amendments, beside §1
+
+- **R27, the Rust focus.** §1's block names `--focus compute` "(the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name)". That crate has no `compute`; its seeded-bug function is `derive_sandbox`. Corrected clause: **`--focus derive_sandbox`**, in both arms — `corpus/aliasing/main.py` carries a `derive_sandbox` too, so §1's Python `--focus main` is amended the same way and the two arms focus the same function.
+- **R27, the TypeScript case.** Decision A10 names `corpus/typescript/aliasing`, which does not exist. Corrected clause: **`corpus/typescript/async_interleaved`**, recorded with `sensorium ts run -- npx vitest run async_interleaved`.
+- **The TypeScript spool's location.** The plan's instrument sketch puts it at `store-a/ts-spools`; `sensorium.ts.driver` writes it to `<trace root>/spool/<invocation>/`. The sweep is recursive over the whole work root, so the directory is covered wherever it is, and the tables name it as it actually is.
+- **"among the compared" (H3).** §1 predicts the env line "names the redacted variable among the compared". `refocus_world._env_state` never names a compared variable — it counts them and names only what was excluded. Reading applied, stated before the run: the variable is among the compared when the trace recorded it (H6) **and** the env line names it on no exclusion list. The prediction itself is unchanged.
+- **The grep sweep is wider than §1's.** §1 sweeps the store and the spool directories; this one sweeps everything under the work root except the token file, and for the refocus value as well as the recording one. Wider in the only direction that can find a leak; the gate is still §1's — the recording token, every count 0.
+
+#### Versions
+
+| version | read | §1 expected |
+|---|---|---|
+| `sensorium` (installed) | 0.15.0 | 0.15.0 |
+| `recorder:` on the python trace | sensorium 0.15.0 | sensorium 0.15.0 |
+| `recorder:` on the rust trace | sensorium-rt 0.6.0 | sensorium-rt 0.6.0 |
+| `recorder:` on the typescript trace | sensorium-ts 0.5.0 | sensorium-ts 0.5.0 |
+| `driver_version` on the python trace | (none recorded) | -- |
+| `driver_version` on the rust trace | cargo-sensorium 0.7.0 | -- |
+| `driver_version` on the typescript trace | 0.15.0 | -- |
+| `cargo` under the scrubbed environment | cargo 1.96.0 (30a34c682 2026-05-25) | -- |
+| `node` under the scrubbed environment | v24.16.0 | -- |
+| `vitest` under the scrubbed environment | vitest/4.1.9 linux-x64 node-v24.16.0 | -- |
+
+#### H1 (environment) — the token's bytes, per file
+
+| file (under `$E16_DIR`) | count, recording token | count, refocus token |
+|---|---|---|
+| `rust-target/sensorium/spool/20260914-001904-369969/1516676.1.spool` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001904-369969/1516676.proc.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001904-369969/1516676.runner.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001904-369969/invocation.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/1516468.1.spool` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/1516468.proc.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/1516468.runner.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/invocation.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001905-3a131b/1516719.1.spool` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001905-3a131b/1516719.proc.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001905-3a131b/1516719.runner.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-001905-3a131b/invocation.json` | 0 | 0 |
+| `store-a/invocations.jsonl` | 0 | 0 |
+| `store-a/redaction.key` | 0 | 0 |
+| `store-a/spool/20260914-001904-f6b424/1516515-0.jsonl` | 0 | 0 |
+| `store-a/spool/20260914-001904-f6b424/harness.json` | 0 | 0 |
+| `store-a/spool/20260914-001904-f6b424/ingested.json` | 0 | 0 |
+| `store-a/spool/20260914-001904-f6b424/invocation.json` | 0 | 0 |
+| `store-a/spool/20260914-001904-f6b424/manifests/_tally.json` | 0 | 0 |
+| `store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__async_interleaved.test.ts.json` | 0 | 0 |
+| `store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__store.ts.json` | 0 | 0 |
+| `store-a/traces/20260914-001903-871933.db` | 0 | 0 |
+| `store-a/traces/20260914-001903-871933.db-shm` | 0 | 0 |
+| `store-a/traces/20260914-001903-871933.db-wal` | 0 | 0 |
+| `store-a/traces/20260914-001904-03554b.db` | 0 | 0 |
+| `store-a/traces/20260914-001904-03554b.db-shm` | 0 | 0 |
+| `store-a/traces/20260914-001904-03554b.db-wal` | 0 | 0 |
+| `store-a/traces/20260914-001904-aa30cb.db` | 0 | 0 |
+| `store-a/traces/20260914-001904-aa30cb.db-shm` | 0 | 0 |
+| `store-a/traces/20260914-001904-aa30cb.db-wal` | 0 | 0 |
+| `store-a/traces/20260914-001904-f7adae.db` | 0 | 0 |
+| `store-a/traces/20260914-001905-04f53e.db` | 0 | 0 |
+| `store-a/traces/20260914-001905-28af2f.db` | 0 | 0 |
+| `store-a/traces/20260914-001905-bb6ecd.db` | 0 | 0 |
+| `a-transcripts/` — 10 further file(s) swept, summarised | max 0 | max 0 |
+| `py-case/` — 2 further file(s) swept, summarised | max 0 | max 0 |
+| `rust-crate/` — 4 further file(s) swept, summarised | max 0 | max 0 |
+| `rust-target/` — 118 further file(s) swept, summarised | max 0 | max 0 |
+| `tmp/` — 526 further file(s) swept, summarised | max 0 | max 0 |
+| `ts-project/` — 148 further file(s) swept, summarised | max 0 | max 0 |
+| `a-out/` — the instrument's own output, 1 file(s), swept but outside §1's scope | max 0 | -- |
+
+#### H2 — the modes
+
+| path (under `$E16_DIR`) | mode | wanted |
+|---|---|---|
+| `rust-target/sensorium/spool`/ | 700 | 700 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9`/ | 700 | 700 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/1516468.1.spool` | 600 | 600 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/1516468.proc.json` | 600 | 600 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/1516468.runner.json` | 600 | 600 |
+| `rust-target/sensorium/spool/20260914-001904-424fc9/invocation.json` | 664 | 600  ← **STOP** |
+| `store-a`/ | 700 | 700 |
+| `store-a/invocations.jsonl` | 600 | 600 |
+| `store-a/redaction.key` | 600 | 600 |
+| `store-a/spool`/ | 775 | 700  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424`/ | 775 | 700  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424/1516515-0.jsonl` | 600 | 600 |
+| `store-a/spool/20260914-001904-f6b424/harness.json` | 664 | 600  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424/ingested.json` | 664 | 600  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424/invocation.json` | 664 | 600  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424/manifests`/ | 775 | 700  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424/manifests/_tally.json` | 664 | 600  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__async_interleaved.test.ts.json` | 664 | 600  ← **STOP** |
+| `store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__store.ts.json` | 664 | 600  ← **STOP** |
+| `store-a/traces`/ | 700 | 700 |
+| `store-a/traces/20260914-001903-871933.db` | 600 | 600 |
+| `store-a/traces/20260914-001904-03554b.db` | 600 | 600 |
+| `store-a/traces/20260914-001904-aa30cb.db` | 600 | 600 |
+
+Swept and listed, outside this cell's scope — the instrument's own directories, and the driver's shared build-support trees under the cargo target directory (their top directories; §1's H2 is a claim about the store and the spools):
+
+| path (under `$E16_DIR`) | mode |
+|---|---|
+| `.` | 775 |
+| `a-out` | 775 |
+| `a-transcripts` | 775 |
+| `py-case` | 775 |
+| `rust-crate` | 775 |
+| `rust-target` | 775 |
+| `rust-target/sensorium` | 775 |
+| `rust-target/sensorium/cache` | 775 |
+| `rust-target/sensorium/manifests` | 775 |
+| `rust-target/sensorium/mirror` | 775 |
+| `rust-target/sensorium/rt` | 775 |
+| `rust-target/sensorium/shim` | 775 |
+| `ts-project` | 775 |
+
+#### H3 — the four refocus readings
+
+**python-unchanged** — predicted granted, as predicted. Exit 0, 0.108s.
+
+```
+env: unchanged (7 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence
+licence: verified against 20260914-001903-871933 on exactly these points, and no others:
+```
+
+**rust-unchanged** — predicted granted, **the other way**. Exit 0, 0.18s.
+
+```
+env: unchanged (32 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_E16_TOKEN, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence
+licence: verified against 20260914-001904-03554b on exactly these points, and no others:
+```
+
+> predicted a granted licence with SENSORIUM_E16_TOKEN among the compared; read licence granted, env unchanged, token named on the env line: True, token in the recorded environment: True
+
+**python-changed** — predicted WITHHELD, as predicted. Exit 0, 0.097s.
+
+```
+env: CHANGED since the original run -- 1 variable(s) differ: SENSORIUM_E16_TOKEN   (names only)
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence
+licence: WITHHELD -- this MATCH is about call shape, and these checks say it is not a statement about the run as a whole:
+```
+
+**rust-changed** — predicted WITHHELD, **the other way**. Exit 0, 0.111s.
+
+```
+env: unchanged (32 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_E16_TOKEN, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence
+licence: verified against 20260914-001904-03554b on exactly these points, and no others:
+```
+
+> predicted WITHHELD with SENSORIUM_E16_TOKEN in the changed list; read licence granted, env unchanged, token in the changed list: False
+
+
+#### H6 (`redaction.env`) — the names
+
+| trace | arm | vars stored | `redaction.env` names |
+|---|---|---|---|
+| `20260914-001903-871933` | python | 8 | `SENSORIUM_E16_TOKEN` |
+| `20260914-001904-03554b` | rust | 44 | `SENSORIUM_E16_TOKEN` |
+| `20260914-001904-aa30cb` | typescript | 50 | `SENSORIUM_E16_TOKEN` |
+
+#### Phases
+
+| phase | seconds |
+|---|---|
+| preflight | 0.218 |
+| mint | 0.0 |
+| copies | 0.004 |
+| record-python | 0.097 |
+| record-rust | 0.384 |
+| record-typescript | 0.507 |
+| modes | 0.015 |
+| info-pre | 0.141 |
+| refocus | 0.497 |
+| versions | 0.009 |
+| grep | 0.028 |

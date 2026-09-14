@@ -325,8 +325,13 @@ def test_the_rule_table_is_the_records_own_words():
     """Catches: §9's PASS/STOP column paraphrased into the instrument, where
     a softened endpoint would decide the measurement while §1 still read as
     the rule. Every cell's two clauses are checked as substrings of the
-    record's own row for that cell."""
-    text = DOC.read_text()
+    record's own row for that cell.
+
+    Read from §1 ALONE. §2's verdict table carries a row per cell too, and
+    it quotes the very clause under test -- so a scan of the whole document
+    would end up comparing the instrument's output against itself, which is
+    a check that passes because it stopped checking."""
+    text = DOC.read_text().split("## 2. Part A")[0]
     rows = {m.group(1): m.group(0)
             for m in re.finditer(r"^\| (H\d) \|.*$", text, re.M)}
     assert set(RULES) <= set(rows), (set(RULES) - set(rows))
@@ -360,3 +365,23 @@ def test_the_assembler_refuses_a_record_that_does_not_say_which_it_was():
     dry run gets published once the stamp is ever dropped."""
     with pytest.raises(assemble_e16a.Refused):
         assemble_e16a.refuse_dry_run({})
+
+
+def test_the_scrub_replaces_the_longest_root_first():
+    """Catches: a transcript committed with a box path in it, or -- worse --
+    half of one, when the work root sits under a root the scrub also
+    replaces and the shorter needle runs first. The labels are what §2's pin
+    table defines; a committed artifact says those and nothing else."""
+    lens = {"work_root": "/box/w/e16", "repo": "/box/w/repo"}
+    pairs = assemble_e16a.scrub_pairs(lens)
+    assert [n for n, _ in pairs] == sorted((n for n, _ in pairs),
+                                           key=lambda n: -len(n))
+    out = assemble_e16a.scrub("cwd: /box/w/e16/py-case and /box/w/repo/x",
+                              pairs)
+    assert out == "cwd: $E16_DIR/py-case and $REPO/x"
+
+
+def test_offenders_names_the_line_that_still_holds_a_box_path():
+    assert assemble_e16a.offenders("clean\n") == []
+    assert assemble_e16a.offenders("trace: /mnt/x/y\n") == ["trace: /mnt/x/y"]
+    assert assemble_e16a.offenders("| root | `E16_DIR=/mnt/x` |") == []

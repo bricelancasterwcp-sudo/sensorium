@@ -2,7 +2,8 @@
 """Render E16 part A's §2 from `results-a.json`.
 
     .venv/bin/python tests/acceptance_e16/assemble_e16a.py \\
-        <results-a.json> <record.md> [--write]
+        <results-a.json> <record.md> \\
+        [--write | --artifacts=<dir> [PATH=LABEL]...]
 
 Prints the section. With `--write` it replaces the record's single
 `Not yet measured.` line under `## 2. Part A` with it, which is the one edit
@@ -39,7 +40,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from e16a import DROPPED, EXPECTED, RULES, TOKEN_VAR    # noqa: E402,F401
+from e16a import (DROPPED, EXPECTED, PREDICTIONS,  # noqa: E402,F401
+                  RULES, TOKEN_VAR)
 
 
 class Refused(Exception):
@@ -55,6 +57,10 @@ PIN = "E16_DIR="
 #: order §9's table lists them.
 CELL_TITLES = {"H1": "H1 (environment)", "H2": "H2", "H3": "H3",
                "H6": "H6 (`redaction.env`)"}
+
+#: The pin table's last row: see `pin_table`.
+DRIVER_ROW = ("| driver (the committed transcripts' label) | `$DRIVER_DIR` "
+              "— the release `cargo-sensorium`'s own directory, outside the work root |")
 
 
 def refuse_dry_run(raw: dict) -> None:
@@ -94,8 +100,13 @@ def pin_table(lens: dict) -> list[str]:
             ("vitest project copy", f"`{_rel(lens, 'ts_project')}/`"),
             ("cargo target", f"`{_rel(lens, 'cargo_target')}/`"),
             ("instrument output", f"`{_rel(lens, 'out')}/`")]
+    # A label rather than a location: the release driver's directory is a
+    # build output outside the work root, and `refocus_rust` prints the argv
+    # it launched -- so the committed transcripts name it and this row says
+    # what the name means, without writing the path.
     return (["| pin | path |", "|---|---|"]
-            + [f"| {name} | {value} |" for name, value in rows])
+            + [f"| {name} | {value} |" for name, value in rows]
+            + [DRIVER_ROW])
 
 
 def verdict_table(raw: dict) -> list[str]:
@@ -259,6 +270,113 @@ def amendments(raw: dict) -> list[str]:
     ]
 
 
+#: What each STOP points at, rendered only when that cell STOPped. These
+#: are readings of the measurement, marked as readings: the numbers above
+#: are what was measured, and each note names the function whose behaviour
+#: produced them so the next person can check the reading rather than take
+#: it. Nothing here changes a verdict.
+STOP_NOTES = {
+    "H2": (
+        "All ten paths are made by callers that do not go through the "
+        "0700/0600 helpers. `sensorium.ts.driver` creates "
+        "`<trace root>/spool/<invocation>/` with a bare `mkdir(parents=True, "
+        "exist_ok=True)` and writes `invocation.json`, `harness.json`, "
+        "`ingested.json` and `manifests/*.json` with plain `write_text`; "
+        "`cargo-sensorium`'s `invocation::write_invocation` writes its own "
+        "`invocation.json` with `std::fs::write`. Each lands "
+        "0666/0777-under-the-umask — 0664/0775 on this box — instead of "
+        "0600/0700. What DOES hold: every file that carries a recorded "
+        "environment is 0600 — the TypeScript `<pid>-<n>.jsonl`, the Rust "
+        "`.spool`, `.proc.json` and `.runner.json` — and the store itself "
+        "is 0600/0700 throughout, `redaction.key` included. §5.5's claim is "
+        "categorical, so a file beside the spool that holds argv and config "
+        "paths at 0664 is a STOP and not a footnote."),
+    "H3": (
+        "Both failing readings are the Rust pair, and both have one cause: "
+        "`refocus_rust._is_recorder_key` treats EVERY `SENSORIUM_`-prefixed "
+        "name as the recorder's own bookkeeping and removes it before "
+        "`refocus_licence.env_of` compares anything. The pre-registered "
+        "variable is `SENSORIUM_E16_TOKEN`, which is inside that prefix, so "
+        "on a Rust pair it is never compared: the unchanged pair grants the "
+        "licence while naming the token on the not-compared list, and the "
+        "changed pair grants it as well — a rotated secret the Rust licence "
+        "cannot see. The Python pair read exactly as §1 predicted in both "
+        "directions, so what failed is the Rust branch's exclusion rule and "
+        "not rule v1's environment redaction. Two things to rule on, not "
+        "one: (1) the prefix is wider than the six variables its docstring "
+        "justifies and silently swallows any `SENSORIUM_`-named variable a "
+        "user's program actually reads; (2) §1 chose a token name inside "
+        "that prefix, and no part of the pre-registration noticed — this "
+        "measurement is where it surfaced."),
+}
+
+
+def stop_notes(raw: dict) -> list[str]:
+    stopped = [c for c, r in raw["cells"].items()
+               if r["word"] == "STOP" and c in STOP_NOTES]
+    if not stopped:
+        return []
+    out = ["", "#### What the STOPs point at", ""]
+    for cell in stopped:
+        out.append(f"- **{CELL_TITLES[cell]}.** {STOP_NOTES[cell]}")
+    return out
+
+
+# -- the evidence committed beside the record ------------------------------
+#: What a committed artifact may say instead of a box path. The record's §2
+#: pin table is where each label is defined, and it is the one sanctioned
+#: place a path on this box is written down.
+LABELS = ("$E16_DIR", "$REPO", "$HOME")
+
+
+def scrub_pairs(lens: dict, extra=()) -> list[tuple[str, str]]:
+    """(needle, label) longest first, so a path under another path is not
+    half-replaced by the shorter one.
+
+    `extra` is `assemble_e15.py`'s trailing `PATH=LABEL` idiom: a transcript
+    can name a directory the lens does not hold -- the release driver's, on
+    a Rust pair, because `refocus_rust` prints the argv it launched -- and
+    naming it on the command line is how one gets a label without the
+    instrument's own lens growing a field after the run it describes."""
+    pairs = [(lens["work_root"], "$E16_DIR"), (lens["repo"], "$REPO"),
+             (str(Path.home()), "$HOME"), *extra]
+    return sorted(pairs, key=lambda pair: -len(pair[0]))
+
+
+def scrub(text: str, pairs) -> str:
+    for needle, label in pairs:
+        text = text.replace(needle, label)
+    return text
+
+
+def artifacts(raw: dict, raw_path: Path, record: Path, dest: Path,
+              extra=()) -> list[Path]:
+    """`results-a.json` and the four refocus transcripts, scrubbed.
+
+    A transcript is EVIDENCE and is copied whole -- the `cwd:`, `trace:` and
+    `refocus-of:` lines are half of what makes it readable -- so the three
+    roots are replaced by the labels §2's pin table defines rather than the
+    lines being dropped. The token's own value was already replaced with
+    `<token>` when the transcript was written; `offenders` re-checks both
+    facts on the way out, because a committed file is the last place to
+    find out."""
+    pairs = scrub_pairs(raw["lens"], extra)
+    dest.mkdir(parents=True, exist_ok=True)
+    written = [record.with_suffix(".results-a.json")]
+    written[0].write_text(scrub(raw_path.read_text(), pairs))
+    src = Path(raw["lens"]["transcripts"])
+    for name, _predicted in PREDICTIONS:
+        one = src / f"refocus-{name}.txt"
+        out = dest / one.name
+        out.write_text(scrub(one.read_text(), pairs))
+        written.append(out)
+    bad = [f"{path}: {line}" for path in written
+           for line in offenders(path.read_text())]
+    if bad:
+        raise Refused("a box path survived the scrub: " + "; ".join(bad[:5]))
+    return written
+
+
 def render(raw: dict, date: str) -> str:
     refuse_dry_run(raw)
     if raw.get("status") != "complete":
@@ -286,7 +404,8 @@ def render(raw: dict, date: str) -> str:
         "| cell | word | §9's rule | what was read |".join([]),
     ]
     body = body[:-1] + verdict_table(raw) + ["", "#### Pins", ""]
-    body += pin_table(raw["lens"]) + ["", "#### Amendments, beside §1", ""]
+    body += pin_table(raw["lens"])
+    body += stop_notes(raw) + ["", "#### Amendments, beside §1", ""]
     body += amendments(raw) + ["", "#### Versions", ""]
     body += versions_table(raw)
     body += ["", "#### H1 (environment) — the token's bytes, per file", ""]
@@ -316,14 +435,25 @@ def write_into(record: Path, section: str) -> None:
 
 
 def main(argv: list[str]) -> int:
-    if not 2 <= len(argv) <= 3:
+    if len(argv) < 2:
         print(__doc__.splitlines()[2], file=sys.stderr)
         return 2
     raw = json.loads(Path(argv[0]).read_text())
     record = Path(argv[1])
     date = __import__("datetime").date.today().isoformat()
+    rest = argv[2:]
+    extra = tuple(tuple(a.split("=", 1)) for a in rest if "=" in a
+                  and not a.startswith("--"))
+    if any(a.startswith("--artifacts=") for a in rest):
+        refuse_dry_run(raw)
+        dest = Path(next(a for a in rest
+                         if a.startswith("--artifacts=")).split("=", 1)[1])
+        for path in artifacts(raw, Path(argv[0]), record, dest,
+                              extra):
+            print(f"wrote {path}")
+        return 0
     section = render(raw, date)
-    if len(argv) == 3 and argv[2] == "--write":
+    if "--write" in rest:
         write_into(record, section)
         print(f"written into {record}")
     else:
