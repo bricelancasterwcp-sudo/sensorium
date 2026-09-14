@@ -26,7 +26,7 @@ fn header_and_records_are_exactly_the_documented_bytes() {
         format!("{}.1.spool", run.pid),
         "spool files are named <pid>.<thread_serial>.spool"
     );
-    assert_eq!(s.version, 3, "wire version");
+    assert_eq!(s.version, 4, "wire version");
     assert_eq!(s.flags, 0, "flags are reserved and zero in v1");
     assert_eq!(s.serial, 1, "the main thread is serial 1");
     assert_eq!(s.name, "main", "the header carries the thread name");

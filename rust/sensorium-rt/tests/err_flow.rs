@@ -262,10 +262,13 @@ fn an_unread_err_value_still_names_its_type() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn the_spool_says_version_three_and_the_header_declares_err_flow() {
+fn the_spool_says_the_current_wire_version_and_the_header_declares_err_flow() {
     let dir = TempDir::reserved("errflow-header");
     let subject = Spec::new("try-err").spool(dir.path()).run();
-    assert_eq!(dir.spool(1).version, 3, "wire version");
+    // 4, not 3: wire v4 (task 5) redacts a firing LINE delta, which this
+    // scenario -- err-flow only, no LINE record -- never writes, so the only
+    // thing this assertion has left to notice is the header's own number.
+    assert_eq!(dir.spool(1).version, 4, "wire version");
     let h = dir.proc_header(subject.pid);
     assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.6.0");
     assert!(

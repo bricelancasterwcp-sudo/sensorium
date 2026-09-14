@@ -104,6 +104,8 @@ macro_rules! serr_unbound {
 // `tests/spawn.rs` pins that file name as the shape of a baked spawn site.
 #[path = "scenario/errflow.rs"]
 mod errflow;
+#[path = "scenario/line.rs"]
+mod line;
 #[path = "scenario/panics.rs"]
 mod panics;
 #[path = "scenario/ret.rs"]
@@ -123,6 +125,7 @@ use errflow::{
     arm_unbound, arm_value_debug, arm_value_nodebug, err_big, err_nodebug, errflow_lazy,
     let_underscore_err, sink_ok_err, sink_ok_ok, try_err, try_ok, try_option, typed_err_return,
 };
+use line::{line_redact, line_redact_long};
 use panics::{
     panic_caught_scenario, panic_long_scenario, panic_non_string_scenario, panic_uncaught_scenario,
 };
@@ -232,6 +235,9 @@ fn main() {
 
         "two-units" => two_units(),
         "unit-ceiling" => unit_ceiling(),
+
+        "line-redact" => line_redact(),
+        "line-redact-long" => line_redact_long(),
 
         other => {
             eprintln!("scenario: unknown scenario {other:?}");

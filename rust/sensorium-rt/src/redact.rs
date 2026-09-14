@@ -540,12 +540,18 @@ pub fn redaction_json(key: &Key, knobs: &Knobs) -> String {
 /// bloomery invocation -- and a rule that re-read its own knobs each time
 /// would let a program that edits its own environment mid-run produce a trace
 /// whose header contradicts the values already in it.
-fn knobs() -> &'static Knobs {
+///
+/// `pub(crate)`, not private, since wire v4 (task 5): `line.rs`'s LINE writer
+/// reads the same once-per-process knobs to decide whether a delta's NAME
+/// fires, the same way `redact_process_env` already did for the header.
+pub(crate) fn knobs() -> &'static Knobs {
     static KNOBS: OnceLock<Knobs> = OnceLock::new();
     KNOBS.get_or_init(Knobs::from_env)
 }
 
-fn key() -> &'static Key {
+/// `pub(crate)` for the same reason as [`knobs`]: `line.rs` takes the digest
+/// of a redacted LINE delta under this process's own key.
+pub(crate) fn key() -> &'static Key {
     static KEY: OnceLock<Key> = OnceLock::new();
     KEY.get_or_init(Key::from_env)
 }

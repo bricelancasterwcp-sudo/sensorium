@@ -1,13 +1,15 @@
 //! The on-disk wire format: one `MAP_SHARED` spool file per emitting thread,
 //! and the per-process JSON header beside them.
 //!
-//! Wire format v3 (verbatim from the plan; a converter is written against it,
-//! so nothing here may drift). v3 adds the two err-flow kinds and the error type
-//! on an `err` RETURN; every other payload is byte-identical to v2:
+//! Wire format v4 (verbatim from the plan; a converter is written against it,
+//! so nothing here may drift). v4 adds one tag to the LINE payload -- a delta
+//! whose NAME fires rule v1 is written REDACTED, digest and all
+//! (`src/line.rs`, task 5); every other payload, and the LINE payload's other
+//! tags, are byte-identical to v3:
 //!
 //! ```text
 //! spool file:   <SENSORIUM_SPOOL>/<pid>.<thread_serial>.spool   -- one per emitting thread, MAP_SHARED
-//! file header:  b"SNSR" u8 version=3 u8 flags=0 u16 name_len u32 thread_serial u64 records_dropped u64 truncated  name_bytes
+//! file header:  b"SNSR" u8 version=4 u8 flags=0 u16 name_len u32 thread_serial u64 records_dropped u64 truncated  name_bytes
 //!               (fixed 28 bytes, then name_bytes; records start at 28 + name_len; records_dropped and truncated are
 //!                rewritten IN PLACE through the mapping and are final only once THREAD_END is present)
 //! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len  [payload_len bytes]
@@ -24,12 +26,14 @@
 //! RAISE/HANDLED payload:  u8 flags (bit0 msg present, bit1 msg truncated, bit2 type truncated, bit3 type present)
 //!                  u16 type_len, type UTF-8, then the Err's UTF-8 message (rest)
 //! PANIC payload:   u16 loc_len, loc UTF-8 ("<file>:<line>:<col>" as the hook saw it), then the message UTF-8 (rest)
-//! LINE payload:    u8 flags (bit0 deltas dropped) u16 n, then n ×
-//!                  { u16 name_len, name UTF-8, u8 tag (0 no value, 1 debug text, 2 unread),
-//!                    u8 truncated, [u16 text_len, text UTF-8 -- present iff tag == 1] }
-//!                  The value block is the RETURN payload's, repeated, with the binding's name in
-//!                  front of it. Tag 0 never appears on a LINE: a delta is a binding a statement
-//!                  wrote, so it has a value or it is unread. `outcome_or_how` is 0.
+//! LINE payload: u8 flags (bit0 deltas dropped) u16 n, then n ×
+//!               { u16 name_len, name UTF-8,
+//!                 u8 tag (0 no value | 1 debug text | 2 unread | 3 unbound | 4 REDACTED BY NAME),
+//!                 u8 truncated (0 on tags 2, 3, 4),
+//!                 [u16 text_len, text UTF-8]   -- present iff tag == 1 or tag == 4;
+//!                                                 on tag 4 the text is the 16-hex HMAC digest of the CAPPED
+//!                                                 Debug text under SENSORIUM_REDACT_KEY, or empty when unkeyed }
+//! Tag 4 appears on LINE rows only. RETURN payloads are unchanged from v3.
 //! ```
 //!
 //! Everything is little-endian. `ts_ns` is `CLOCK_MONOTONIC` nanoseconds and
@@ -69,7 +73,7 @@ use crate::json::push_json_str;
 use crate::redact;
 
 pub(crate) const MAGIC: [u8; 4] = *b"SNSR";
-pub(crate) const VERSION: u8 = 3;
+pub(crate) const VERSION: u8 = 4;
 pub(crate) const FLAGS: u8 = 0;
 
 /// Fixed part of the file header, before the thread name.
