@@ -105,6 +105,36 @@ def test_a_firing_name_takes_a_dbg_text_and_says_it_is_not_clipped(installed):
     assert rv.count_capture(out) == 1
 
 
+@pytest.mark.parametrize("text", ["undefined", "null", "()"])
+def test_a_dbg_text_that_withholds_nothing_is_never_taken(installed, text):
+    """Ruling R19. A function that returned NOTHING withheld nothing, and a
+    name is not a reason to hide that it returned.
+
+    `undefined` and `null` are how node's inspector spells the two, `()` is
+    Rust's unit (ruling R17) -- this converter reads both dialects. It is
+    the same exemption `_WITHHOLDS_NOTHING` gives the Python `none` kind,
+    written over a TEXT because the `dbg` kind has no type of its own: the
+    marker would cost a reader a fact and hide no secret, and the digest
+    would be an HMAC of a constant.
+    """
+    cap = {"k": "dbg", "v": text, "trunc": False}
+    out = unchanged(lambda c: rv.named("token", c), cap)
+    assert out == cap
+    assert "redacted" not in out
+    assert rv.count_capture(out) == 0
+    assert rv.named_return("Cls.get_api_key", cap) == cap
+
+
+def test_the_boundary_is_the_whole_text_and_nothing_near_it(installed):
+    """R19 exempts two spellings, not a shape. `NaN` is a value the program
+    had, `undefined ` with a space is a text that merely starts like one,
+    and both are taken."""
+    for text in ("NaN", "undefined ", "[ null ]", "'undefined'"):
+        out = rv.named("token", {"k": "dbg", "v": text, "trunc": False})
+        assert out["v"] == redact.REDACTED, text
+        assert out["redacted"] == {"by": "name", "digest": KEY.digest(text)}
+
+
 @pytest.mark.parametrize("kind, sample", [
     ("seq", [{"k": "str", "v": SECRET}]),
     ("map", [[{"k": "str", "v": "a"}, {"k": "str", "v": SECRET}]]),

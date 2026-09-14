@@ -382,3 +382,61 @@ def test_values_counts_the_captures_and_not_the_records(tmp_path):
                                                                  "apiKey"]
     assert planted["rows"] == {"k": "dbg", "v": "[ 1, 2 ]", "trunc": False}
     assert meta["redaction"]["values"] == 2
+
+
+# -- a RETURN under a name that fires (B7, and R19's carve-out) --------------
+
+def _return_of_a_firing_name(recs: list[dict], capture: dict) -> None:
+    """Rename one CALL's site to a name the rule fires on, and plant
+    `capture` as the value that frame returns.
+
+    Built rather than recorded: no fixture holds a qualname this rule fires
+    on (`tests/fixtures/corpus-firing-names.txt` is the census that says
+    so). The site is one used exactly ONCE in the spool, so the planted
+    RETURN is the only one the rule can reach and a count of 1 means it.
+    """
+    used: dict = {}
+    for rec in recs:
+        if rec["e"] == "CALL":
+            used[(rec["file"], rec["c"])] = used.get((rec["file"], rec["c"]), 0) + 1
+    call = next(r for r in recs
+                if r["e"] == "CALL" and used[(r["file"], r["c"])] == 1)
+    header = next(r for r in recs
+                  if r["e"] == "FILE" and r["id"] == call["file"])
+    header["codes"][call["c"]][0] = "getToken"
+    ret = next(r for r in recs
+               if r["e"] == "RETURN" and r["f"] == call["f"])
+    ret["v"] = capture
+
+
+def _withheld_returns(trace: Trace) -> list[dict]:
+    return [e.payload["value"] for e in trace.events(kind="RETURN")
+            if "redacted" in (e.payload or {}).get("value", {})]
+
+
+def test_a_return_under_a_firing_qualname_is_taken_by_the_converter(tmp_path):
+    """The control for the case below: the rename reaches the rule, and a
+    value under it is withheld and counted."""
+    def edit(recs):
+        _recorded_by("0.5.0", ON)(recs)
+        _return_of_a_firing_name(recs, dict(TYPED))
+
+    meta, key, trace = _spool_ingest(tmp_path, edit)
+    assert _withheld_returns(trace) == [{
+        "k": "dbg", "v": redact.REDACTED, "trunc": False,
+        "redacted": {"by": "name", "digest": key.digest("'abc'")}}]
+    assert meta["redaction"]["values"] == 1
+
+
+def test_a_return_of_nothing_under_a_firing_qualname_is_left_alone(tmp_path):
+    """Ruling R19. `undefined` withholds nothing: a function that returned
+    NOTHING is a fact, and a name is not a reason to hide that it returned.
+    Not taken, not marked, not counted -- on this path as in the runtime."""
+    def edit(recs):
+        _recorded_by("0.5.0", ON)(recs)
+        _return_of_a_firing_name(recs,
+                                 {"k": "dbg", "v": "undefined", "trunc": False})
+
+    meta, _key, trace = _spool_ingest(tmp_path, edit)
+    assert _withheld_returns(trace) == []
+    assert meta["redaction"]["values"] == 0

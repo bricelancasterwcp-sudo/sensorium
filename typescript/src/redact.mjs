@@ -618,6 +618,18 @@ export function redactReturn(qualname, captured) {
 }
 
 /**
+ * The texts that withhold NOTHING, so the name rule leaves them alone (ruling
+ * R19). A function that returned nothing is a fact about the program, and a
+ * name is not a reason to hide that it returned: the marker would cost a
+ * reader that fact, hide no secret, and publish a digest of a constant. The
+ * same exemption Python gives its `none` kind and Rust its `()` (R17),
+ * written over the TEXT because `dbg` has no type of its own. Two spellings
+ * and nothing near them: `NaN` is a value the program had, and a text that
+ * merely contains one of these is taken like any other.
+ */
+const WITHHOLDS_NOTHING = new Set(['undefined', 'null']);
+
+/**
  * B4: the whole value, gone, and an HMAC of it in its place.
  *
  * `oid` and `type` STAY — the address and the constructor are facts about
@@ -626,16 +638,17 @@ export function redactReturn(qualname, captured) {
  * whole of it was taken, and a reader that met the key missing would have to
  * guess whether the formatter had been cut short.
  *
- * A capture that is not `dbg` is `unread`, and it is left exactly as it is:
- * taking it would cost a reader the fact that the value could not be read and
- * hide no secret, because there was never a text (the Rust converter's
- * carve-out, same reason).
+ * Two captures are left exactly as they are, for one reason: there is nothing
+ * to take. An `unread` never held a text, and a `dbg` whose text is one of
+ * {@link WITHHOLDS_NOTHING} holds one that says the program produced no value
+ * — and a reader told `<redacted>` there would have lost a fact and been
+ * shown no secret.
  * @param {Captured} captured
  * @param {Key} key
  * @returns {Captured}
  */
 function taken(captured, key) {
-  if (captured.k !== 'dbg') return captured;
+  if (captured.k !== 'dbg' || WITHHOLDS_NOTHING.has(captured.v)) return captured;
   return {
     ...captured,
     v: REDACTED,

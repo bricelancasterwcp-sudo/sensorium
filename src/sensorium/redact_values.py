@@ -78,6 +78,14 @@ _SCAN_FIELD = {"str": "v", "dbg": "v", "obj": "repr"}
 #: Redacting one would cost a reader a fact and hide no secret.
 _WITHHOLDS_NOTHING = frozenset({"none", "bool", "unread"})
 
+#: The same judgement over a TEXT, for the one kind that has no type of its
+#: own (ruling R19). `undefined` and `null` are how node's inspector spells a
+#: function that returned nothing; `()` is how Rust's `Debug` does (R17), and
+#: this module reads both dialects. Whole texts, never a shape: `NaN` is a
+#: value the program had, and a text that merely contains one of these is
+#: taken like any other.
+_DBG_WITHHOLDS_NOTHING = frozenset({"undefined", "null", "()"})
+
 #: What a redacted container keeps (B4). Its size and its address are facts
 #: about the program, not about the value; the sample is the value.
 _CONTAINER_KEEPS = frozenset({"k", "type", "len", "oid"})
@@ -188,6 +196,8 @@ def named(name: str, capture: dict) -> dict:
         return value(capture)
     kind = capture.get("k")
     if kind in _WITHHOLDS_NOTHING:
+        return capture
+    if kind == "dbg" and capture.get("v") in _DBG_WITHHOLDS_NOTHING:
         return capture
     return _taken(capture, kind)
 

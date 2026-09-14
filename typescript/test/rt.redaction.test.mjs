@@ -103,6 +103,20 @@ test('a return the seal defers is withheld under the same name rule', () => {
   assert.equal(out.text.includes('sk-test-'), false, 'the spool holds the secret');
 });
 
+test('a firing name that returned nothing says so (R19)', () => {
+  // Off the wire, where it matters: `getToken` fires, and its RETURN is the
+  // fact that it returned at all. Withholding `undefined` would take that
+  // fact and hide nothing -- there was never a value.
+  const out = child(`
+    const fid = __srt.file('t.ts', '/w/t.ts', [['getToken', 3, 'function']], 'sha');
+    const f = __srt.call(fid, 0);
+    __srt.ret(f, undefined);
+  `);
+  ok(out);
+  assert.deepEqual(one(out.recs, 'RETURN').v,
+    { k: 'dbg', v: 'undefined', trunc: false });
+});
+
 test('a thrown message is scanned, and a name the rule does not know is not', () => {
   // The content rule is the only one an exception message meets (§2.3): a
   // message is a sentence the program wrote, not a value with an identity,

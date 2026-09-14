@@ -493,6 +493,24 @@ test('a value that could not be read is left exactly as it is', () => {
   assert.equal(redactReturn('getToken', unread), unread);
 });
 
+test('a value that is undefined or null withholds nothing (R19)', () => {
+  // A function that returned NOTHING withheld nothing, and a name is not a
+  // reason to hide that it returned. The same exemption Python's `none` kind
+  // has and Rust's `()` (R17): the marker would cost a reader a fact and hide
+  // no secret, and the digest would be an HMAC of a constant.
+  const nothing = dbg(undefined);
+  assert.equal(redactReturn('secret', nothing), nothing);
+  const out = redactCaptures({ token: dbg(undefined), other: dbg(null) });
+  assert.deepEqual(out.token, { k: 'dbg', v: 'undefined', trunc: false });
+  assert.deepEqual(out.other, { k: 'dbg', v: 'null', trunc: false });
+  assert.equal('redacted' in out.token, false);
+  assert.equal('redacted' in out.other, false);
+  // The boundary is the WHOLE text and nothing near it: every other value a
+  // firing name holds is still taken, `NaN` included.
+  assert.equal(bag(redactCaptures({ token: dbg(NaN) }).token).v, REDACTED);
+  assert.equal(bag(redactReturn('getToken', dbg('undefined'))).v, REDACTED);
+});
+
 test('a taken capture says nothing was clipped', () => {
   // `trunc` is written FALSE rather than dropped: a reader that met it
   // missing would have to guess whether the formatter had been cut short.
