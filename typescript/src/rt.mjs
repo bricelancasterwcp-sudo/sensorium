@@ -12,13 +12,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isMainThread, threadId } from 'node:worker_threads';
 
+import { capabilities } from './capabilities.mjs';
 import { cap, dbg, exc } from './dbg.mjs';
 import { VERSION } from './index.mjs';
 import { nameFor, setProvider, titleOf } from './naming.mjs';
-import { bootEnv } from './redact.mjs';
+import { bootEnv, redactCaptures, redactReturn } from './redact.mjs';
 
 /** @typedef {{id: number, name: string, stack: Frame[]}} Task */
-/** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null, pending?: Captured}} Frame */
+/** @typedef {{id: number, task: Task|null, q: string, open: boolean, mark: Record<string, unknown>|null, pending?: Captured}} Frame */
 /** @typedef {Record<string, unknown>} Record_ */
 /** @typedef {import('./dbg.mjs').Captured} Captured */
 
@@ -39,34 +40,8 @@ const BUFFERED = 256;
 /** @type {NodeJS.Signals[]} */
 const SIGNALS = ['SIGTERM', 'SIGINT', 'SIGHUP'];
 
-/**
- * What this recorder DECLARES it produces, written into every BOOT record and
- * passed through by the converter (§2.4). A spool whose BOOT lacks a key reads
- * `false`, so a trace this recorder did not write is still refused — what it
- * lacks is a record, not a permission.
- *
- * `err_flow` says the throw-flow rows are complete enough to be judged: every
- * `throw` statement, every `catch` clause with the transform's verdict about
- * its binding, every rejection handler and every `finally` that discards a
- * throw in flight.
- *
- * `object_identity` says every captured object carries an `oid` that is the
- * same number wherever that object is seen again and is never given to a
- * second one. It does not depend on a focus: a RETURN's value is captured at
- * every tier this recorder records at, so the identity is there to follow
- * whether or not any statement was.
- *
- * `line` and `locals` say the LINE rows exist — one per completed statement of
- * a focused function, carrying the names it wrote and the names out of scope
- * at it. Both are declared exactly when `SENSORIUM_FOCUS` is non-empty: with
- * no focus nothing was instrumented for statements and there are no such rows,
- * and a reader told otherwise would report "no hits" for a search that never
- * had anything to search.
- * @type {Record<string, boolean>}
- */
-const CAPABILITIES = FOCUS === ''
-  ? { err_flow: true, object_identity: true }
-  : { err_flow: true, object_identity: true, line: true, locals: true };
+/** What a reader may ask of a trace this run writes (§2.4). */
+const CAPABILITIES = capabilities(FOCUS);
 
 /**
  * Recording at all. A tier that is not `call` records nothing, and neither does
@@ -80,6 +55,15 @@ const als = new AsyncLocalStorage();
 /** Frames running in no task — a hook, a module body — share the container's. */
 /** @type {Frame[]} */
 const rootStack = [];
+/**
+ * Each FILE record's `codes`, by the id its calls carry: the one thing a
+ * frame needs about its own site AFTER the CALL is written, which is the
+ * qualname rule v1 reads a RETURN's name off (B7). Grows with the files a
+ * container loads and is never cleared — a frame may return long after its
+ * module did.
+ * @type {Map<number, [string, number, string][]>}
+ */
+const fileCodes = new Map();
 /** The `describe` chain, per container, as it stands during collection. */
 /** @type {{title: string}[]} */
 const suiteStack = [];
@@ -244,6 +228,7 @@ function install() {
 export function file(rel, abs, codes, sha) {
   if (!on) return 0;
   const id = nextFile++;
+  fileCodes.set(id, codes);
   emit({ e: 'FILE', id, rel, abs, codes, sha });
   return id;
 }
@@ -427,7 +412,10 @@ function captures(pairs) {
   for (let i = 0; i + 1 < pairs.length; i += 2) {
     out[/** @type {string} */ (pairs[i])] = dbg(pairs[i + 1]);
   }
-  return out;
+  // Rule v1's NAME half, at the writer: a value whose name says it is a
+  // secret is taken here, before the record is built, so there is never a
+  // moment at which the plaintext could reach the disk (§5.1).
+  return redactCaptures(out);
 }
 
 /**
@@ -451,7 +439,16 @@ export function call(fileId, c, args) {
   const stack = t ? t.stack : rootStack;
   const parent = stack.length > 0 ? stack[stack.length - 1] : null;
   /** @type {Frame} */
-  const f = { id: nextFrame++, task: t, open: true, mark: null };
+  const f = {
+    id: nextFrame++,
+    task: t,
+    // The callee's own name, for the RETURN rule (B7). Empty for a site no
+    // FILE record declared, which fires on nothing — a name this runtime does
+    // not have is not one it guesses at.
+    q: fileCodes.get(fileId)?.[c]?.[0] ?? '',
+    open: true,
+    mark: null,
+  };
   stack.push(f);
   /** @type {Record_} */
   const rec = { e: 'CALL', f: f.id, p: parent ? parent.id : null, file: fileId, c, t: t ? t.id : null };
@@ -499,7 +496,7 @@ export function ret(f, v) {
   if (!on || !f || !f.open) return v;
   f.open = false;
   drop(f);
-  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: dbg(v) });
+  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: redactReturn(f.q, dbg(v)) });
   return v;
 }
 
@@ -518,7 +515,9 @@ export function ret(f, v) {
  */
 export function pend(f, v) {
   if (!on || !f || !f.open) return v;
-  f.pending = dbg(v);
+  // The rule runs HERE and not at the seal: the seal has no value of its own
+  // to judge, and the last `pend` is the one it writes.
+  f.pending = redactReturn(f.q, dbg(v));
   return v;
 }
 

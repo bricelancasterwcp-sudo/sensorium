@@ -53,7 +53,7 @@ the conversion counted.
 | `tests_seen` | How many tests the **harness** registered, counted by the setup file. `info`: `tests: 11 as tasks, 11 seen by the harness`, and names the shortfall when they differ — a test the transform did not wrap ran and was recorded by nothing, so a bare task count would read as the whole file. **Present only where the counter ran**: the spool carries a `SEEN` or a `FILE_START`, or the invocation was vitest, whose setup file always runs. `node --test` runs no setup file, so its traces carry no key and `info` prints `tests: N as tasks` alone — never a zero nobody measured. |
 | `task_name_basis` | Which rule named this trace's tasks: the provider's (`vitest`), the lexical `describe > title`, or `mixed`. Printed as `; task names: vitest`. |
 | `task_name_conflicts` | Provider names that did not end with the string literal the transform passed; the task fell back to its lexical title and the disagreement was **counted rather than resolved**. Printed beside the basis it qualifies — alone it would name no rule to doubt. |
-| `unhandled_rejections` | `[{type, msg, serial}]` from `process.on('unhandledRejection')` — a fact with no SITE, so it is here and never in `events` (§5). `info` prints the count, **including a zero on a complete trace**: the listener always ran, so that zero is measured. |
+| `unhandled_rejections` | `[{type, msg, serial}]` — plus `redacted` on an entry whose message held a secret-shaped span, as any other stored message may carry — from `process.on('unhandledRejection')` — a fact with no SITE, so it is here and never in `events` (§5). `info` prints the count, **including a zero on a complete trace**: the listener always ran, so that zero is measured. |
 | `throw_flow_outside_frames` | RAISE/HANDLED records that fired with no open frame — a throw at module scope, a default-parameter expression that threw before its frame opened. There is no frame to attach an event to, so none was written; the count is the only trace of them. Printed when non-zero. |
 
 ## Throw flow
@@ -273,6 +273,23 @@ itself under node v24.16.0, committed as
   compared as a value. `info`'s `truncated values:` count includes such a cut
   **from 0.13.0**, read off that same tail by `js_inspect`'s own rule rather
   than off the flag that is down (blind spot 36, struck).
+
+* A capture may carry **`redacted`** — `{by, digest}`, the one key rule v1
+  adds to this dialect (§4.2). `by: "name"` is a value taken WHOLE because the
+  name it was bound to fires (an argument's, a delta's, or, for a RETURN, the
+  last segment of the callee's qualname): the text reads `<redacted>`, `trunc`
+  is `false` because nothing was clipped, `oid` and `type` STAY — an address
+  and a constructor are facts about the program, not about the value — and
+  `digest` is the HMAC of the text the capture held, which is what lets two
+  sightings of one value still be compared. `by: "content"` is a secret-shaped
+  SPAN replaced inside a text the rule left otherwise whole
+  (`postgres://u:<redacted>@h/db`), and its `digest` is `null`: a partial
+  cannot honestly commit to the whole. A capture carries at most one of them.
+  From **`sensorium-ts` 0.6.0** the RUNTIME writes them, before anything
+  reaches the disk; an older spool is ruled by the converter at ingest, and
+  `meta.redaction.by` says which hand it was. Readers render a taken capture
+  as `<redacted #`+the digest's first 8 hex, and `watch`/`flow` refuse to
+  compare one. [`redaction.md`](../redaction.md) is the rule.
 
 ### Identity is a serial
 

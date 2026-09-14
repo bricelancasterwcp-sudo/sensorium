@@ -35,8 +35,12 @@
 // BOOT says `keyed: false` so nobody mistakes a missing digest for a value
 // that did not change.
 //
-// This module imports `node:crypto` and nothing else of ours: `rt.mjs` calls
-// `bootEnv` once and spreads what it returns.
+// This module imports `node:crypto` and nothing else of ours at RUNTIME:
+// `rt.mjs` calls `bootEnv` once at boot and `redactCaptures`/`redactReturn`
+// at every capture, and `dbg.mjs` calls `content` and `current` for the one
+// text that has no name — a thrown message. The `Captured` type is read back
+// from `dbg.mjs` through JSDoc, which is a type reference and not an import,
+// so the two modules do not form a cycle.
 import crypto from 'node:crypto';
 
 /**
@@ -478,7 +482,10 @@ function applyOne(text, { regex, group }) {
   let lastEnd = 0;
   let m = regex.exec(text);
   while (m !== null) {
-    const [groupStart, groupEnd] = m.indices[group];
+    // `d` (`hasIndices`) is on every pattern whose group is not 0, so the
+    // match HAS them; the cast is what says so to a checker that reads
+    // `indices` as optional on every `RegExp` match.
+    const [groupStart, groupEnd] = /** @type {[number, number]} */ (m.indices?.[group]);
     out += text.slice(lastEnd, groupStart) + REDACTED;
     lastEnd = groupEnd;
     // A pattern that could match empty would loop forever at the same
@@ -511,4 +518,152 @@ export function content(text) {
   let out = text;
   for (const pattern of PATTERNS) out = applyOne(out, pattern);
   return { text: out, hit: out !== text };
+}
+
+// ---------------------------------------------------------------------------
+// The value rules (§2.3, at the capture)
+// ---------------------------------------------------------------------------
+//
+// `redactEnv` applies the two halves above to the ENVIRONMENT, once, at boot.
+// These apply them to every value a recording captures, at the writer: a
+// CALL's arguments, a statement's deltas and a RETURN's value. From 0.6.0
+// this runtime does it ITSELF rather than leaving it to the converter, so a
+// secret is never on the disk to be retrofitted — which is the only place
+// the promise can actually be kept (§5.1).
+//
+// A capture meets ONE of the two halves, never both, and which one is the
+// name's to decide: a value the name rule takes has no text left to scan, and
+// one it leaves is offered to the content rule here. That ORDER is the whole
+// reason both live in this function rather than in `dbg.mjs` where the text
+// is made — a digest taken after a span had been replaced would be an HMAC of
+// the marker, which is a CONSTANT, and two different secrets would then carry
+// one identity and read as the same value. `redact_values.named` (Python) and
+// the Rust runtime's tag-4 delta take the same order for the same reason:
+// three implementations of one rule, digesting one text.
+
+/** @typedef {import('./dbg.mjs').Captured} Captured */
+
+/** @type {{key: Key, knobs: Knobs}|null} */
+let state = null;
+
+/**
+ * The key and the knobs this PROCESS records under, read once.
+ *
+ * Lazily, and never re-read (B22): a recording is made under one set of
+ * rules, and a program that edits `process.env` half way through its own test
+ * run must not be able to change what the rest of the recording was made
+ * under — or to turn the rule off after the first secret has been withheld.
+ * `bootEnv` above keeps its own reads: it is called once, at boot, before
+ * anything else, and its answer goes into the BOOT record for a reader.
+ * @returns {{key: Key, knobs: Knobs}}
+ */
+export function current() {
+  if (state === null) {
+    state = { key: Key.fromHex(process.env[KEY_VAR]), knobs: knobsFromEnv(process.env) };
+  }
+  return state;
+}
+
+/**
+ * The name a returned value was asked for by (B7): `Store.getApiKey` ->
+ * `getApiKey`, `fetch.<anonymous>` -> `<anonymous>`.
+ *
+ * `<anonymous>` and the other bracketed spellings come through unchanged and
+ * fire on nothing — their segments are words in no set — which is the
+ * answer, not a special case.
+ * @param {string} qualname
+ * @returns {string}
+ */
+export function lastSegment(qualname) {
+  const tail = qualname.slice(qualname.lastIndexOf('.') + 1);
+  return tail === '' ? qualname : tail;
+}
+
+/**
+ * `map` with every capture whose NAME fires taken whole.
+ *
+ * The arguments of a focused CALL and the deltas of a LINE, which are the two
+ * places this runtime holds a value under a name the program chose. A name
+ * that does not fire is left with the capture it arrived with — the same
+ * object, not a copy of it.
+ * @param {Record<string, Captured>} map
+ * @returns {Record<string, Captured>}
+ */
+export function redactCaptures(map) {
+  const { key, knobs } = current();
+  if (knobs.off) return map;
+  /** @type {Record<string, Captured>} */
+  const out = {};
+  for (const [name, captured] of Object.entries(map)) {
+    out[name] = fires(name, knobs) ? taken(captured, key) : scanned(captured);
+  }
+  return out;
+}
+
+/**
+ * A RETURN's capture, taken whole when the CALLEE's own name fires (B7).
+ *
+ * The value a function hands back has no name of its own, so the rule reads
+ * the one it was asked for by: `getApiKey()`'s answer is an API key whatever
+ * the caller stores it in.
+ * @param {string} qualname the callee's, as the FILE record declared it
+ * @param {Captured} captured
+ * @returns {Captured}
+ */
+export function redactReturn(qualname, captured) {
+  const { key, knobs } = current();
+  if (knobs.off) return captured;
+  return fires(lastSegment(qualname), knobs)
+    ? taken(captured, key) : scanned(captured);
+}
+
+/**
+ * B4: the whole value, gone, and an HMAC of it in its place.
+ *
+ * `oid` and `type` STAY — the address and the constructor are facts about
+ * the program, not about the value, and `flow --object` follows them. `trunc`
+ * is written FALSE rather than dropped: nothing was clipped, because the
+ * whole of it was taken, and a reader that met the key missing would have to
+ * guess whether the formatter had been cut short.
+ *
+ * A capture that is not `dbg` is `unread`, and it is left exactly as it is:
+ * taking it would cost a reader the fact that the value could not be read and
+ * hide no secret, because there was never a text (the Rust converter's
+ * carve-out, same reason).
+ * @param {Captured} captured
+ * @param {Key} key
+ * @returns {Captured}
+ */
+function taken(captured, key) {
+  if (captured.k !== 'dbg') return captured;
+  return {
+    ...captured,
+    v: REDACTED,
+    trunc: false,
+    redacted: { by: 'name', digest: key.digest(captured.v) },
+  };
+}
+
+/**
+ * The CONTENT half over one capture's own text: every matched span replaced,
+ * and a `redacted` object saying so — with no digest, because a partial
+ * cannot honestly commit to the whole.
+ *
+ * Over the CAPPED text, which is what the trace would otherwise have held: a
+ * secret the 200-byte cap already cut in half is not there to match, and a
+ * rule run over the whole rendering would mark a capture for a span the
+ * record does not carry. `trunc` STAYS: the text was clipped, and a span
+ * inside it was replaced.
+ *
+ * The mark is written on a CHANGE, never on a match — `<redacted>` inside a
+ * URL's userinfo matches the pattern that put it there, and replacing it with
+ * itself is not a hit. `content` above is where that distinction lives.
+ * @param {Captured} captured
+ * @returns {Captured}
+ */
+function scanned(captured) {
+  if (captured.k !== 'dbg') return captured;
+  const { text, hit } = content(captured.v);
+  if (!hit) return captured;
+  return { ...captured, v: text, redacted: { by: 'content', digest: null } };
 }

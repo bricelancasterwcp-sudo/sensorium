@@ -250,7 +250,7 @@ test('a statement in a finally after the return mints its row, and the RETURN fo
   assert.deepEqual(linesOf(threw).map((r) => [r.l, r.d.cleanup.v]), [[7, '2']]);
 });
 
-// --- what a 0.5.0 recorder declares -----------------------------------------
+// --- what a 0.6.0 recorder declares -----------------------------------------
 
 test('the declaration says object identity always and line only under a focus', () => {
   // The child's `SENSORIUM_FOCUS` is the helper's to decide, never the shell's:
@@ -287,8 +287,8 @@ test('an odd pairs list is a transform bug and throws rather than dropping a nam
   assert.match(out.res.stderr, /captures: an odd pairs list — 3 entries/);
 });
 
-test("the recorder's version is 0.5.0", () => {
+test("the recorder's version is 0.6.0", () => {
   // The number the focus tier ships under. `rt.test.mjs` holds the other two
   // ends of the chain: BOOT's `version`, and the package's own.
-  assert.equal(VERSION, '0.5.0');
+  assert.equal(VERSION, '0.6.0');
 });

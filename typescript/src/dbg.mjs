@@ -4,7 +4,16 @@
 // a recorder that dies on a hostile object has changed the program it was
 // supposed to observe. What cannot be read is SAID to be unread; nothing here
 // invents a value it did not obtain.
+//
+// Rule v1 (§2.3) reaches these texts from two directions. A capture `dbg`
+// makes is ruled by NAME where it has one — `redact.mjs`'s `redactCaptures`
+// and `redactReturn`, which `rt.mjs` puts between every capture here and the
+// wire — and by the content rule where the name fires on nothing. A thrown
+// MESSAGE has no name to be asked about, so `exc` applies the content rule
+// itself, here, before the text is written.
 import util from 'node:util';
+
+import { content, current } from './redact.mjs';
 
 /** The byte budget one captured value gets on the wire (design §4). */
 const CAP = 200;
@@ -19,13 +28,26 @@ const INSPECT = {
 };
 
 /**
- * What one captured value is on the wire. `oid` and `type` are on the capture
- * of an OBJECT or a function and on nothing else: a primitive has no identity
- * to carry and this recorder does not invent one for it, and a value it could
- * not read is `unread` whole — an oid there would say it knows WHICH object it
- * failed to read.
- * @typedef {{k: 'dbg', v: string, trunc: boolean, oid?: number, type?: string}
- *           |{k: 'unread'}} Captured
+ * What the rule withheld, on the capture it took it from (§4.2): `by` is
+ * `name` for a value taken whole and `content` for a span replaced inside
+ * one, and `digest` is the HMAC of what was taken — `null` for a span,
+ * because a partial cannot honestly commit to the whole.
+ * @typedef {{by: string, digest: string|null}} Redacted
+ */
+
+/**
+ * A value this recorder read, as the wire carries it. `oid` and `type` are on
+ * the capture of an OBJECT or a function and on nothing else: a primitive has
+ * no identity to carry and this recorder does not invent one for it.
+ * @typedef {{k: 'dbg', v: string, trunc: boolean, oid?: number, type?: string,
+ *            redacted?: Redacted}} Dbg
+ */
+
+/**
+ * What one captured value is on the wire. A value it could not read is
+ * `unread` whole — an oid there would say it knows WHICH object it failed to
+ * read.
+ * @typedef {Dbg|{k: 'unread'}} Captured
  */
 
 /** Serials are per value, not per record: a rethrown OBJECT keeps its own. */
@@ -77,7 +99,7 @@ export function dbg(v) {
     return { k: 'unread' };
   }
   const { v: text_, trunc } = cap(text);
-  /** @type {Captured} */
+  /** @type {Dbg} */
   const out = { k: 'dbg', v: text_, trunc };
   const t = typeof v;
   // `null` is `typeof "object"` and is a primitive all the same.
@@ -122,10 +144,16 @@ export function cap(text) {
 export function exc(e, kind) {
   const type = cap(typeOf(e));
   const msg = cap(msgOf(e));
+  // A message is a sentence the program wrote, not a value with an identity,
+  // so the CONTENT rule is the only one it meets (§2.3) — the span goes and
+  // the sentence around it stays. `trunc` is untouched by that: the text WAS
+  // clipped, and a span inside it was replaced.
+  const found = current().knobs.off ? { text: msg.v, hit: false } : content(msg.v);
   /** @type {Record<string, unknown>} */
-  const out = { kind, type: type.v, msg: msg.v, serial: serialOf(e) };
+  const out = { kind, type: type.v, msg: found.text, serial: serialOf(e) };
   if (msg.trunc) out.trunc = true;
   if (type.trunc) out.type_trunc = true;
+  if (found.hit) out.redacted = { by: 'content', digest: null };
   return out;
 }
 
