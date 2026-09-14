@@ -54,9 +54,13 @@ names in `tests/fixtures/benign-env-names.txt`
 (`tests/test_redact.py::test_census_fires_on_exactly_the_listed_subset` pins
 which of them fire, name by name):
 
-- **`PWD` fires only inside a longer name.** `MYSQL_PWD` and `DB_PWD` are
-  passwords; `PWD` and `OLDPWD` are the shell's working directory on every
-  machine that has ever run a shell.
+- **`PWD` and `KEY` fire only inside a longer name.** `MYSQL_PWD` and
+  `DB_PWD` are passwords; `PWD` and `OLDPWD` are the shell's working
+  directory on every machine that has ever run a shell. A bare `key` is a
+  cache key, a dict key, a lookup key on almost every function that iterates
+  a mapping, so redacting it by default would blind `watch` on the commonest
+  local in the language; every compound spelling (`api_key`, `apiKey`,
+  `secret_key`, `build_key`, `KEY_FILE`) still fires.
 - **`PGPASSWORD` fires by whole name.** Segment-exact matching cannot see
   inside a compound word — `PGPASSWORD` is one segment, which is neither `PG`
   nor `PASSWORD` — so libpq's standard password variable is in a short

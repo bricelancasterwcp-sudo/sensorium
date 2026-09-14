@@ -74,11 +74,17 @@ const SEGMENTS = [
 ];
 
 /**
- * `PWD` fires only as a segment of a LONGER name: `MYSQL_PWD` and `DB_PWD` are
- * passwords, and `PWD` and `OLDPWD` are the shell's working directory, on
- * every machine that has ever run a shell.
+ * The segments that fire only as part of a LONGER name (ruling B28, for
+ * `KEY`). `PWD`: `MYSQL_PWD` and `DB_PWD` are passwords, and `PWD` and
+ * `OLDPWD` are the shell's working directory, on every machine that has ever
+ * run a shell. `KEY`: a bare `key` is a cache key, a dict key, a lookup key
+ * on almost every function that iterates a mapping, and redacting it by
+ * default would blind `watch` on the commonest local in the language, while
+ * every compound spelling (`api_key`, `apiKey`, `secret_key`, `build_key`,
+ * `KEY_FILE`) still fires and `SENSORIUM_REDACT_NAMES=key` restores it per
+ * run.
  */
-const PWD = 'PWD';
+const SOLO_EXEMPT = ['PWD', 'KEY'];
 
 /**
  * Whole NORMALISED names that fire whatever their segments say. Segment-exact
@@ -186,7 +192,7 @@ export function fires(name, knobs) {
   if (knobs.names.includes(normalised)) return true;
   if (EXACT.includes(normalised)) return true;
   const multi = segments.length > 1;
-  return segments.some((s) => SEGMENTS.includes(s) && (multi || s !== PWD));
+  return segments.some((s) => SEGMENTS.includes(s) && (multi || !SOLO_EXEMPT.includes(s)));
 }
 
 /**

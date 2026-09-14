@@ -94,10 +94,16 @@ const SEGMENTS: [&str; 25] = [
     "PWD",
 ];
 
-/// `PWD` fires only as a segment of a LONGER name: `MYSQL_PWD` and `DB_PWD`
-/// are passwords, and `PWD` and `OLDPWD` are the shell's working directory, on
-/// every machine that has ever run a shell.
-const PWD: &str = "PWD";
+/// The segments that fire only as part of a LONGER name (ruling B28, for
+/// `KEY`). `PWD`: `MYSQL_PWD` and `DB_PWD` are passwords, and `PWD` and
+/// `OLDPWD` are the shell's working directory, on every machine that has ever
+/// run a shell. `KEY`: a bare `key` is a cache key, a dict key, a lookup key
+/// on almost every function that iterates a mapping, and redacting it by
+/// default would blind `watch` on the commonest local in the language, while
+/// every compound spelling (`api_key`, `apiKey`, `secret_key`, `build_key`,
+/// `KEY_FILE`) still fires and `SENSORIUM_REDACT_NAMES=key` restores it per
+/// run.
+const SOLO_EXEMPT: [&str; 2] = ["PWD", "KEY"];
 
 /// Whole NORMALISED names that fire whatever their segments say. Segment-exact
 /// matching cannot see inside a compound word: `PGPASSWORD` splits into the
@@ -263,7 +269,7 @@ pub fn fires(name: &str, knobs: &Knobs) -> bool {
     let multi = segments.len() > 1;
     segments
         .iter()
-        .any(|s| SEGMENTS.contains(&s.as_str()) && (multi || s.as_str() != PWD))
+        .any(|s| SEGMENTS.contains(&s.as_str()) && (multi || !SOLO_EXEMPT.contains(&s.as_str())))
 }
 
 // ---------------------------------------------------------------------------
