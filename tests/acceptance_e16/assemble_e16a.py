@@ -48,8 +48,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from e16a import (DROPPED, EXPECTED, PREDICTIONS,  # noqa: E402,F401
-                  RULES, TOKEN_VAR, read_driver_build)
+from e16a import (DROPPED, DRY_TIMERS, EXPECTED,  # noqa: E402,F401
+                  PREDICTIONS, RULES, TOKEN_VAR, read_driver_build)
 
 
 class Refused(Exception):
@@ -523,10 +523,29 @@ def dry_run_block(raw: dict) -> list[str]:
         return []
     return (["", "#### The dry run", "",
              "Before the measurement, with a `dry-` decoy that cannot match "
-             "the content rule and every timer at 60 s, into a work root of "
-             "its own that was deleted afterwards. What it found, and what "
-             "changed in the instrument between it and the run above:", ""]
+             f"the content rule and {dry_timer_phrase()}, into a work root "
+             "of its own that was deleted afterwards. What it found, and "
+             "what changed in the instrument between it and the run above:",
+             ""]
             + [f"- {line}" for line in findings])
+
+
+def dry_timer_phrase() -> str:
+    """The dry run's timers, as they actually are.
+
+    This sentence said "every timer at 60 s" while `DRY_TIMERS["build"]`
+    was 1800 -- deliberately, because a cold `cargo build --release` says
+    nothing about the instrument's plumbing and capping it would only ever
+    test the refusal. A record that rounds its own instrument's settings
+    into a tidier sentence is a record whose numbers a reader cannot use, so
+    the phrase is built from the table rather than typed beside it.
+    """
+    recording = sorted({v for k, v in DRY_TIMERS.items()
+                        if k not in ("build", "part")})
+    per_phase = " / ".join(f"{v} s" for v in recording)
+    return (f"the recording and refocus timers at {per_phase}, "
+            f"{DRY_TIMERS['build']} s for the driver build and "
+            f"{DRY_TIMERS['part']} s for the part")
 
 
 def render(raw: dict, date: str, suffix: str = "",

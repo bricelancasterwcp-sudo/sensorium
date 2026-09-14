@@ -615,3 +615,47 @@ def test_appending_the_same_section_twice_is_refused(tmp_path):
     assert body.index("### measured 2026-01-01") < body.index("run 2.")
     with pytest.raises(assemble_e16a.Refused):
         assemble_e16a.append_into(doc, section)
+
+
+# -- the run label, at the value a re-measurement actually used ------------
+def test_the_gated_roots_follow_the_run_label():
+    """Run 2 measured into `store-a2`, and a cell whose expected roots still
+    named `store-a` would have dropped H2 on a store that was swept. Pinned
+    at `a2` and not only at the default, because the default is the one
+    value that cannot catch a label that is ignored."""
+    assert gated_roots("a2") == ("store-a2", "rust-target/sensorium/spool")
+    assert gated_roots("a") == ("store-a", "rust-target/sensorium/spool")
+
+
+def test_one_runs_gated_roots_never_name_another_runs_store():
+    """The failure mode is silent in both directions: a first run gating on
+    a second run's store would drop, and a second run gating on the first's
+    would gate on files it did not make."""
+    assert "store-a2" not in gated_roots("a")
+    assert "store-a" not in gated_roots("a2")
+
+
+def test_the_named_file_prefixes_follow_the_run_label():
+    """H1's table lists the store's files one by one and summarises the
+    rest. Keyed on the first run's store name, a re-measurement's own
+    artifacts -- the rows §1 asks for BY NAME -- would have been counted
+    into a single summary line."""
+    assert assemble_e16a.named_prefixes({"label": "a2"}) == (
+        "store-a2/", "rust-target/sensorium/spool/")
+    assert assemble_e16a.named_prefixes({"label": "a"})[0] == "store-a/"
+    # A raw record written before the label existed is run 1's.
+    assert assemble_e16a.named_prefixes({})[0] == "store-a/"
+
+
+def test_the_dry_run_sentence_prints_the_timers_that_were_used():
+    """It said "every timer at 60 s" while the driver build's was 1800 --
+    deliberately, because a cold `cargo build --release` says nothing about
+    the instrument's plumbing. A record that rounds its own instrument's
+    settings into a tidier sentence is one whose numbers a reader cannot
+    use, so the phrase is built from the table."""
+    phrase = assemble_e16a.dry_timer_phrase()
+    assert "60 s" in phrase
+    assert f"{e16a.DRY_TIMERS['build']} s for the driver build" in phrase
+    assert "every timer at 60 s" not in phrase
+    block = assemble_e16a.dry_run_block({"dry_run_findings": ["a finding"]})
+    assert phrase in block[3]

@@ -114,6 +114,18 @@ def _run(argv, cwd, env, timeout, capture=True) -> dict:
 
 RUN_LINE = re.compile(r"^run: (\d{8}-\d{6}-[0-9a-f]{6})(?:$|  )", re.M)
 
+#: The phases that are PRECONDITIONS rather than measurements, and whose
+#: failure therefore ends the run instead of dropping one cell.
+#:
+#: A named tuple of strings rather than a comment, because the guard it
+#: describes is the one this instrument got wrong: R37's dry run watched
+#: `build-driver` raise, `phase()` swallow the exception into a note, and
+#: the run go on to record with the unrebuilt binary and report DONE.
+#: `tests/test_acceptance_e16_phase.py` holds this list against `main`'s
+#: own call sites, so dropping `critical=True` from either call reddens
+#: there rather than silently restoring the fail-open.
+CRITICAL_PHASES = ("build-driver", "preflight")
+
 
 class Part:
     """One part-A measurement: its locations, its token, its phases."""
