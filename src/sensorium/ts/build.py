@@ -28,9 +28,11 @@ what it was about to write, so the trace carries `incomplete: true` and no
 import time
 from dataclasses import dataclass
 
+from sensorium import paths, redact
 from sensorium.query.js_inspect import is_clipped
 from sensorium.record.fingerprint import Fingerprint
 from sensorium.store.writer import TraceWriter
+from sensorium.ts.invocation import env_hash
 from sensorium.ts.spool import Spool, SpoolError
 
 #: What this recorder produces, and what it does not (design section 5.2).
@@ -447,12 +449,14 @@ class Builder:
 
     def _meta(self) -> dict:
         boot = self.spool.boot
+        env, hashed, redaction = self._redaction()
         meta = {
             "run_id": self.run_id,
             "argv": boot["argv"],
             "cwd": boot["cwd"],
-            "env": boot["env"],
-            "env_hash": boot["envHash"],
+            "env": env,
+            "env_hash": hashed,
+            "redaction": redaction,
             "start_ts": boot["startTs"],
             "end_ts": self._end_ts(),
             "exit_status": None,
@@ -479,6 +483,51 @@ class Builder:
         meta.update(self._container_meta())
         meta.update(self._invocation_meta())
         return meta
+
+    def _redaction(self) -> tuple[dict, str, dict]:
+        """(the environment to store, its hash, the `redaction` object).
+
+        Two paths, and which one a spool takes is decided by whether the
+        RECORDER already ran rule v1.
+
+        A BOOT that carries `redaction` is `sensorium-ts` 0.5.0 or later and
+        its word is what the trace says, carried through with the two keys
+        only this converter can fill in -- `env`, the name -> digest table
+        the runtime wrote beside it, and `by`, the last hand that applied
+        the rule. The stored environment and its hash are the recorder's and
+        are NOT recomputed: the runtime hashed what it wrote, and a second
+        hash taken here could only differ by being wrong. `mode: "off"`
+        passes through exactly as written, two keys and no more, because an
+        `env` table on an object whose mode is off would be a table of
+        nothing at all -- and so does any mode this converter does not know.
+
+        A BOOT that carries none is 0.4.0 or earlier, and holds the whole
+        launching environment in plaintext; a converter that passed one
+        through would write today's trace with yesterday's secrets in it.
+        The rule runs HERE instead, under the STORE's key and `by:
+        "converter"`, and `env_hash` is recomputed because the environment
+        being hashed has changed.
+
+        NO KNOBS on that path. `SENSORIUM_REDACT_NAMES` and
+        `SENSORIUM_REDACT_ALLOW` are properties of a recording, and this
+        converter is a different process on a possibly different day --
+        reading its own environment for them would let a shell that happens
+        to carry one rewrite what an old recording is said to have been made
+        under. An old recording was made under none, and that is what the
+        object below records.
+        """
+        boot = self.spool.boot
+        recorded = boot.get("redaction")
+        if recorded:
+            if isinstance(recorded, dict) and recorded.get("mode") == "on":
+                recorded = {**recorded, "env": boot.get("envRedaction") or {},
+                            "by": "recorder"}
+            return boot["env"], boot["envHash"], recorded
+        key = redact.Key.load(paths.trace_root())
+        knobs = redact.Knobs(False, frozenset(), frozenset())
+        stored, table = redact.env(boot["env"], key, knobs)
+        return (stored, env_hash(stored),
+                redact.meta(key, knobs, table, by="converter"))
 
     def _container_meta(self) -> dict:
         boot = self.spool.boot

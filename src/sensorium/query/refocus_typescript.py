@@ -150,6 +150,13 @@ def is_recorder_key(name: str) -> bool:
     exempting them, and exempting the whole prefix is what keeps the rule
     one sentence long.
 
+    `SENSORIUM_REDACT_KEY` is under the prefix too, and the day the prefix
+    is narrowed to a list it has to stay: every recorder DELETES it from
+    what it records (`redact.env`), so a pair of current traces never holds
+    it -- but a trace converted before rule v1 existed does, and comparing
+    it against a re-run that does not would report the tool's own key as a
+    change the world made.
+
     A PREFIX, unlike the Rust predicate's third clause, because every
     variable this recorder sets is under one. The names are printed on the
     line beside the count rather than hidden behind it, which is the rule

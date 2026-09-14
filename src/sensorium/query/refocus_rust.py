@@ -351,6 +351,13 @@ def _is_recorder_key(name: str) -> bool:
     and `CARGO_TARGET_<TRIPLE>_RUNNER` values. Compared, those six fire on
     EVERY Rust refocus, and a check that always fires says nothing.
 
+    `SENSORIUM_REDACT_KEY` rides the same prefix and has to keep riding it
+    if the prefix is ever narrowed to a list: every recorder DELETES it from
+    what it records (`redact.env`), so a pair of current traces never holds
+    it -- but a trace converted before rule v1 existed does, and comparing
+    it against a re-run that does not would report the tool's own key as a
+    change the world made.
+
     Not applied to the Python branch, and not added to `_UNCOMPARED_ENV`:
     these are variables of a recorder Python's traces never carry. The
     names are printed beside the count rather than hidden behind it, which

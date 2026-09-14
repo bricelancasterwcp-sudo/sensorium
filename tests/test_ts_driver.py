@@ -523,20 +523,27 @@ def test_the_wrappers_own_refusal_is_what_the_driver_prints(
     assert "nothing was recorded" in capsys.readouterr().err
 
 
-def test_the_harness_is_told_the_seven_things_it_cannot_work_out(tmp_path):
+def test_the_harness_is_told_the_eight_things_it_cannot_work_out(
+        tmp_path, monkeypatch):
     """The runtime reads its spool directory, its tier and its invocation
     from the environment; the loader hook reads the root and the package;
-    the plugin reads the manifest directory; all three read the focus. None
-    of the seven can be guessed from inside the harness.
+    the plugin reads the manifest directory; all three read the focus; and
+    the runtime reads the store's redaction key, which it never creates.
+    None of the eight can be guessed from inside the harness.
 
     The focus is the one that is sometimes ABSENT, and both directions are
     asserted: the runtime declares `line` and `locals` from the variable's
     presence, so an unfocused run that set it empty would declare two
-    capabilities nothing was going to write.
+    capabilities nothing was going to write. What the KEY is and when it is
+    absent is `tests/test_ts_driver_redaction.py`.
     """
+    from sensorium import redact
     from sensorium.ts import driver, harness as harness_mod
     from sensorium.ts.focus import SEP
 
+    # The store is this test's, not the box's: `_env` mints the key file the
+    # eighth variable carries, and a home store is nobody's to write into.
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     plan = harness_mod.recognise(["vitest", "run"], tmp_path)
     env = driver._env(tmp_path / "spool", "INV", plan, tmp_path / "pkg",
                       "call", ["src/fog.ts:Fog.compute", "load"])
@@ -549,7 +556,8 @@ def test_the_harness_is_told_the_seven_things_it_cannot_work_out(tmp_path):
         "SENSORIUM_TS_PKG": str(tmp_path / "pkg"),
         "SENSORIUM_INVOCATION": "INV",
         "SENSORIUM_MANIFEST_DIR": str(tmp_path / "spool" / "manifests"),
-        "SENSORIUM_FOCUS": f"src/fog.ts:Fog.compute{SEP}load"}
+        "SENSORIUM_FOCUS": f"src/fog.ts:Fog.compute{SEP}load",
+        redact.KEY_VAR: redact.Key.load(tmp_path / "sdir").material.hex()}
     assert env["PATH"] == os.environ["PATH"]
 
     unfocused = driver._env(tmp_path / "spool", "INV", plan,

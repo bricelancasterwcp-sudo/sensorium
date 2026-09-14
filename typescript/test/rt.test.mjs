@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 
 import { VERSION } from '../src/index.mjs';
+import { Key, KEY_VAR, knobsFromEnv, redactEnv } from '../src/redact.mjs';
 import { transformSource } from '../src/transform.mjs';
 import { RT, of, ok, one, run } from './helpers/rt-child.mjs';
 
@@ -19,7 +20,8 @@ import { RT, of, ok, one, run } from './helpers/rt-child.mjs';
  */
 const KEYS = {
   BOOT: ['e', 'wire', 'pid', 'ppid', 'threadId', 'isMainThread', 'argv', 'cwd', 'env',
-    'envHash', 'node', 'version', 'tier', 'capabilities', 'invocation', 'startTs', 'ts'],
+    'envHash', 'envRedaction', 'redaction', 'node', 'version', 'tier', 'capabilities',
+    'invocation', 'startTs', 'ts'],
   FILE: ['e', 'id', 'rel', 'abs', 'codes', 'sha'],
   TASK: ['e', 'id', 'name', 'basis', 'conflict'],
   CALL: ['e', 'f', 'p', 'file', 'c', 't', 'ts'],
@@ -71,11 +73,15 @@ test('boot names the writer, the invocation and the environment', () => {
   assert.deepEqual(boot.capabilities, { err_flow: true, object_identity: true });
   assert.equal(boot.invocation, 'inv-1');
   assert.equal(boot.node, process.version);
-  assert.equal(boot.version, '0.4.0');
+  assert.equal(boot.version, '0.5.0');
   assert.equal(boot.isMainThread, true);
   assert.equal(boot.threadId, 0);
   assert.equal(boot.ppid, process.pid);
-  assert.deepEqual(boot.env, out.env);
+  // The child's environment, as rule v1 leaves it: every name the rule fires
+  // on holds the marker instead of its value, and the key variable is gone.
+  // What the rule DID is `redact.test.mjs`; what BOOT carries is here.
+  assert.deepEqual(boot.env, redactEnv(out.env, Key.fromHex(out.env[KEY_VAR]),
+    knobsFromEnv(out.env)).env);
   assert.ok(boot.startTs > 1_700_000_000 && boot.startTs < 4_000_000_000, 'startTs is epoch seconds');
   assert.ok(Number.isFinite(boot.ts) && boot.ts > 0, 'ts is monotonic nanoseconds');
   // The recipe, recomputed from the record's own env: sorted `k=v` lines,

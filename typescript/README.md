@@ -8,7 +8,7 @@ process — the same SQLite format 4 the Python and Rust recorders write, read b
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.4.0`** — ESM `.mjs` with JSDoc
+One private npm package, **`sensorium-ts 0.5.0`** — ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
 Seventeen modules and a version:
@@ -32,7 +32,7 @@ Seventeen modules and a version:
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
 | `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing — Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
 | `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`, `deferredExit(ts, fn)`. The first three decide which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and are what `sensorium exceptions` ends up reading; the fourth decides which functions get the deferred exit (§11's seal). |
-| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.4.0`. |
+| `src/index.mjs` | `VERSION` — stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.5.0`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: twelve probe files whose expected rows were pinned before this

@@ -17,7 +17,9 @@ in this module rather than in either one so that neither owns it: `ingest`
 imports `Invocation` to read, `run` imports it to write, and a field
 either adds is a field the other sees.
 """
+import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import MISSING, asdict, dataclass, field, fields
 from pathlib import Path
 
@@ -159,6 +161,32 @@ class HarnessExit:
         are the driver's business, not a fact about the recorded program."""
         return {"status": self.status, "signal": self.signal,
                 "basis": self.basis}
+
+
+def env_hash(env: Mapping[str, str]) -> str:
+    """The TypeScript recorder's recipe: sorted `k=v` lines, sha256, first 16
+    hex characters. `typescript/src/redact.mjs`'s `envHash` is the same
+    recipe, and this is its only Python spelling.
+
+    In THIS module because neither of its two callers owns it: the driver
+    hashes its own environment into `invocation.json` below, and the
+    converter re-hashes the environment it redacted when it applies rule v1
+    to a BOOT written before that rule existed (`ts/build.py`). A second
+    spelling is a store whose traces stop comparing.
+
+    **Deliberately not the Python recorder's formula.** `record/boot.py`
+    hashes `json.dumps(env, sort_keys=True)`; this hashes the `"{k}={v}"`
+    join. Ruled 2026-09-02: `env_hash` is a per-recorder identity, compared
+    only between traces from the same recorder, and no command compares one
+    across languages.
+
+    `surrogateescape`, because a value out of `os.environ` can hold an
+    undecodable byte as a lone surrogate and a bare `.encode()` would raise
+    on it -- the whole invocation would go down over one variable the shell
+    happened to carry.
+    """
+    body = "\n".join(f"{k}={v}" for k, v in sorted(env.items()))
+    return hashlib.sha256(body.encode("utf-8", "surrogateescape")).hexdigest()[:16]
 
 
 def _load(path: Path) -> dict:

@@ -14,6 +14,15 @@ the throw-flow records and 0.3.0 the first whose captures carry an identity,
 and every rule test here is about a trace that carries them. A test that
 wants the REFUSAL passes `recorder=` and `capabilities=` back down to a
 0.1.x shape.
+
+LEFT AT 0.4.0 FROM 0.5.0 ON (2026-09-13, secrets redaction PR A). The
+version here has moved with the package at every bump so far, and this is
+where that stops: a 0.5.0 recording carries a `redaction` meta key, and
+these traces do not. Naming one 0.5.0 would describe a trace this recorder
+cannot write. What the builders state is a RECORDED trace, not the current
+package, and the two refusal sentences that quote this string
+(`tests/test_flow_serial.py`, `tests/test_refocus_typescript.py`) quote it
+because it is the fixture's, not because it is the recorder's.
 """
 from tests.vectors import build
 from pathlib import Path

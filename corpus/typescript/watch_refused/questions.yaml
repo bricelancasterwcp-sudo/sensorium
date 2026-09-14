@@ -21,8 +21,12 @@ questions:
       read a local out of.
     command: ["watch", "$RUN", "--at", "refresh", "--expr", "fresh == 200"]
     expect_exit: 3
+    # Re-pinned 2026-09-13 (secrets redaction, PR A): 0.4.0 -> 0.5.0,
+    # because the runtime now redacts its own BOOT environment under rule v1
+    # and writes the two keys that say so. The rows this case asks about are
+    # untouched by that; only the recorder's name in the sentence moved.
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-ts 0.4.0
+      - "REFUSED: watch needs line, which recorder sensorium-ts 0.5.0
          declares it does not produce (capabilities.line: false); nothing
          was checked"
   - id: is-the-fault-reachable-another-way
