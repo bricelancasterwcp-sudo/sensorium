@@ -335,7 +335,7 @@ def test_every_case_pins_a_named_invariant_and_asserts_something():
     assert CASES, "no rust-spool fixtures found"
     for name in ("identical-pair", "panic-unwind", "live-thread",
                  "child-linked", "unwitnessed-exit", "unnamed-task",
-                 "spawn-sites", "errflow"):
+                 "spawn-sites", "errflow", "redacted-env"):
         assert name in CASES, f"missing fixture case {name!r}"
     for case_name in CASES:
         case, questions = _load_case(case_name)

@@ -504,6 +504,21 @@ pub struct ProcHeader {
     #[serde(default)]
     pub env: BTreeMap<String, String>,
     pub env_hash: String,
+    /// Rule v1's name -> digest table, as the RECORDER wrote it beside
+    /// `env_hash`: one entry per name the rule fired on, and `null` where an
+    /// unkeyed recording had no digest to put there. `#[serde(default)]`
+    /// because a header from `sensorium-rt 0.5.0` or earlier carries none --
+    /// the same header that carries no `redaction` below, and the pair is read
+    /// together by `convert::redaction`.
+    #[serde(default)]
+    pub env_redaction: BTreeMap<String, Option<String>>,
+    /// What the recorder says the rule DID, carried into the trace's meta
+    /// unread but for its `mode`: the converter reports the recording, and one
+    /// that recomputed this object would be answering a question about a
+    /// process it never saw. `None` is a header written before the rule
+    /// existed, and the one case the converter applies the rule itself.
+    #[serde(default)]
+    pub redaction: Option<serde_json::Value>,
     /// `"<unit_id>"` (decimal) -> metadata.
     pub units: BTreeMap<String, String>,
     pub refused: Option<RefusedAt>,

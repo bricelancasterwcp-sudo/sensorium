@@ -96,6 +96,14 @@ impl TraceWriter {
         }
         // A stale `.tmp` from a killed prior run must not resurrect old rows.
         let _ = std::fs::remove_file(tmp_path);
+        // The file is CREATED here, at 0600, and only then opened as a
+        // database: a trace holds the recorded process's whole environment
+        // and every value it captured, and SQLite would create it at 0644.
+        // `finish` renames this file into place and a rename carries the
+        // mode, so the number set here is the number the finished trace has
+        // -- with no window in which it is both readable and being filled.
+        crate::perms::create_new(tmp_path)
+            .map_err(|e| format!("cannot create trace {}: {e}", tmp_path.display()))?;
         let conn = Connection::open(tmp_path)
             .map_err(|e| format!("cannot create trace {}: {e}", tmp_path.display()))?;
         conn.pragma_update(None, "journal_mode", "WAL")

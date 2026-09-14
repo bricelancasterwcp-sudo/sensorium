@@ -106,7 +106,12 @@ const PWD: &str = "PWD";
 /// matters, never on imagination.
 const EXACT: [&str; 1] = ["PGPASSWORD"];
 
-const KEY_BYTES: usize = 32;
+/// How many bytes a key is. Public because the DRIVER mints the file this
+/// runtime only ever parses a hex form of (`cargo-sensorium/src/
+/// redaction_key.rs`), and one number decides both: a driver that wrote 24
+/// bytes would produce a store every recorder reads as unkeyed, with nothing
+/// on either side saying why.
+pub const KEY_BYTES: usize = 32;
 
 /// SHA-256's block, which is HMAC's block.
 const HMAC_BLOCK: usize = 64;
@@ -306,6 +311,39 @@ impl Key {
         Key(Some(material))
     }
 
+    /// The key as its raw bytes -- what a driver that MINTED one, or read one
+    /// out of `<store>/redaction.key`, is holding.
+    ///
+    /// Anything but exactly [`KEY_BYTES`] is unkeyed, for the reason
+    /// [`Key::from_hex`] treats a malformed hex string that way: a truncated
+    /// or padded key file is somebody else's file, and a recorder that
+    /// refused to record over it would cost the whole run.
+    #[must_use]
+    pub fn from_bytes(material: &[u8]) -> Key {
+        match <[u8; KEY_BYTES]>::try_from(material) {
+            Ok(bytes) => Key(Some(bytes)),
+            Err(_) => Key(None),
+        }
+    }
+
+    /// The 64-character form [`Key::from_hex`] reads, or `None` when there is
+    /// no key -- exactly what [`KEY_VAR`] carries between a driver and the
+    /// process it records.
+    ///
+    /// The inverse of `from_hex` and spelled beside it on purpose: the two are
+    /// the whole of the hop between two processes, and a driver that formatted
+    /// the hex itself would be the second spelling of a wire format.
+    #[must_use]
+    pub fn to_hex(&self) -> Option<String> {
+        let material = self.0.as_ref()?;
+        let mut out = String::with_capacity(2 * KEY_BYTES);
+        for byte in material {
+            out.push(HEX_DIGITS[(byte >> 4) as usize] as char);
+            out.push(HEX_DIGITS[(byte & 0xf) as usize] as char);
+        }
+        Some(out)
+    }
+
     #[must_use]
     pub fn keyed(&self) -> bool {
         self.0.is_some()
@@ -334,6 +372,10 @@ impl Key {
         Some(hex_prefix(&hmac_sha256(material, text.as_bytes()), 16))
     }
 }
+
+/// The digits [`Key::to_hex`] writes and [`nibble`] reads back. Lowercase,
+/// which is the only form this format writes hex in.
+const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
 
 fn nibble(c: u8) -> Option<u8> {
     match c {
@@ -419,6 +461,37 @@ pub fn redact_env(
         }
     }
     (stored, table)
+}
+
+/// `sha256` over `"\n".join(f"{k}={v}")` for the sorted environment, first 16
+/// hex characters.
+///
+/// **Deliberately not the Python recorder's formula.** `src/sensorium/record/
+/// boot.py` hashes `json.dumps(env, sort_keys=True)`; this hashes the plan's
+/// `"{k}={v}"` join. Ruled 2026-09-02: `env_hash` is a per-recorder identity,
+/// compared only between traces from the same recorder, and no command
+/// compares one across languages. Each is stable within its own language,
+/// which is the whole of what the key is for.
+///
+/// Here, beside [`redact_env`], because the hash is taken over what that
+/// function RETURNS -- the environment the trace will hold, not the one the
+/// process was started with. `spool::write_proc_header` takes it that way, and
+/// so does the converter when it applies the rule to a header written before
+/// the rule existed (`cargo-sensorium/src/convert/redaction.rs`): two callers,
+/// one formula, because a second spelling is a store whose traces stop
+/// comparing.
+#[must_use]
+pub fn env_hash(env: &[(String, String)]) -> String {
+    let mut h = Sha256::new();
+    for (i, (k, v)) in env.iter().enumerate() {
+        if i > 0 {
+            h.update(b"\n");
+        }
+        h.update(k.as_bytes());
+        h.update(b"=");
+        h.update(v.as_bytes());
+    }
+    hex_prefix(&h.finish(), 16)
 }
 
 /// The header's `redaction` object, in the format's key order.

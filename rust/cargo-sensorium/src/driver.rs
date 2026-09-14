@@ -10,12 +10,15 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use sensorium_rt::redact::Key;
 use sensorium_transform::Focus;
 
 use crate::invocation::{
     invocation_id, profile, toolchain_and_host, write_invocation, Invocation, DRIVER_VERSION,
 };
 use crate::launch;
+use crate::perms;
+use crate::redaction_key;
 use crate::refocus_of;
 use crate::resolve;
 use crate::rt_build::{self, Panic};
@@ -115,8 +118,29 @@ fn go(args: &[String]) -> Result<i32, String> {
 
     let invocation = invocation_id()?;
     let spool = target.join("sensorium").join("spool").join(&invocation);
-    std::fs::create_dir_all(&spool)
-        .map_err(|e| format!("cannot create {}: {e}", spool.display()))?;
+    // 0700: this directory is about to hold every recorded process's whole
+    // environment and every value it captured.
+    perms::dir_all(&spool).map_err(|e| format!("cannot create {}: {e}", spool.display()))?;
+
+    // BEFORE cargo, because the recorded processes are handed its hex and
+    // cannot mint their own (`launch::Ground::redaction_key`), and once for
+    // the whole invocation, so every trace of it is keyed alike. The store's
+    // key, not this build's: a digest is only useful compared against another
+    // trace's, and `refocus` compares two runs recorded days apart.
+    //
+    // Never fails and never refuses a build. A driver that could not create
+    // the file has already said so, on one line, and the recording that
+    // follows redacts the same names and records `keyed: false`. A store root
+    // that cannot be resolved at all is not raised HERE either: the converter
+    // resolves the same root after cargo has run and reports it by name
+    // (`runid::traces_dir`), and failing in front of the build would cost a
+    // person the test run they asked for over a trace they were going to be
+    // told about anyway.
+    let key = match crate::convert::store_root() {
+        Ok(root) => redaction_key::load_or_create(&root),
+        Err(_) => Key::from_hex(None),
+    };
+    let key_hex = redaction_key::to_hex(&key);
 
     let mut record = Invocation {
         invocation: invocation.clone(),
@@ -158,6 +182,7 @@ fn go(args: &[String]) -> Result<i32, String> {
         rt: &rt,
         tool_hash: &tool_hash,
         invocation: &invocation,
+        redaction_key: key_hex.as_deref(),
     })?;
 
     // `exec` would be cheaper, but then nothing could run after cargo: the
@@ -173,7 +198,7 @@ fn go(args: &[String]) -> Result<i32, String> {
     // a caller already understands, and this recorder does not get to make a
     // green build red because writing its trace failed.
     let mut exit_code = code;
-    if let Err(e) = crate::convert::convert_dir(&spool) {
+    if let Err(e) = crate::convert::convert_dir(&spool, &key) {
         eprintln!("cargo-sensorium: {e}");
         if code == 0 {
             exit_code = 2;

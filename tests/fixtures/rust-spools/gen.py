@@ -79,6 +79,14 @@ _PROC_DEFAULTS = {
     "start_realtime_ns": 1_700_000_000_000_000_000,
     "env": {},
     "env_hash": "0" * 16,
+    # Rule v1's two header siblings (`sensorium-rt 0.6.0` on): the name ->
+    # digest table and the object saying what the rule did. Absent by default,
+    # which is exactly what a header written before the rule existed looks
+    # like -- and the case where the converter applies the rule itself rather
+    # than carrying the recorder's word for it. `redacted-env` is the case
+    # that carries them.
+    "env_redaction": {},
+    "redaction": None,
     "units": {},
     "refused": None,
     "rt_version": "sensorium-rt 0.1.0",
@@ -317,6 +325,12 @@ def materialize(case: dict, root: Path) -> Path:
             "start_realtime_ns": merged_proc["start_realtime_ns"],
             "env": merged_proc["env"],
             "env_hash": merged_proc["env_hash"],
+            # Beside `env_hash`, where the runtime writes them. `redaction`
+            # is written as JSON `null` when a case declares none, which the
+            # converter reads as the absent key it is (`#[serde(default)]`
+            # over `Option<Value>`) -- a header from before the rule.
+            "env_redaction": merged_proc["env_redaction"],
+            "redaction": merged_proc["redaction"],
             "units": merged_proc["units"],
             "refused": merged_proc["refused"],
             "rt_version": merged_proc["rt_version"],

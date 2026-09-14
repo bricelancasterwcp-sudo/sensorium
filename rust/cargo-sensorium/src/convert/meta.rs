@@ -157,6 +157,13 @@ pub struct MetaInput<'a> {
     /// `{run_id, pid, exe}` for a same-invocation process whose `ppid` is
     /// this one.
     pub child_runs: &'a [Value],
+    /// What rule this recording's environment was stored under, built by
+    /// `convert::redaction` and written here VERBATIM. Never absent from a
+    /// trace this converter writes: `info` prints one line about redaction
+    /// for every trace it opens, and an absent key there means "recorded
+    /// before the rule existed; plaintext throughout" -- a sentence no trace
+    /// written today may make a reader believe.
+    pub redaction: Value,
 }
 
 /// In the order `db.REQUIRED_META` reports a missing key, then the witness
@@ -186,6 +193,10 @@ pub fn build(m: &MetaInput) -> Vec<(&'static str, Value)> {
         ("threads_started", json!(m.threads_started)),
         ("live_threads", json!(m.live_threads)),
         ("env", json!(m.env)),
+        // Directly after the environment it describes: the two are one fact,
+        // and a reader that has the stored values in hand needs the sentence
+        // saying which of them are `<redacted>` on purpose.
+        ("redaction", m.redaction.clone()),
         ("caps", json!({"repr": 200})),
         ("invocation", json!(m.invocation)),
         ("invocation_processes", json!(m.invocation_processes)),
@@ -342,6 +353,7 @@ mod tests {
             focus: None,
             line_sites: 0,
             child_runs: &[],
+            redaction: json!({"rule": "v1", "mode": "on", "by": "recorder"}),
         }
     }
 
@@ -377,6 +389,26 @@ mod tests {
         let out = as_map(&build(&minimal()));
         assert!(out.contains_key("threads_started"));
         assert!(out.contains_key("live_threads"));
+    }
+
+    /// Written on EVERY trace, and immediately after `env`, because it is the
+    /// sentence that says what that environment is: `info` prints
+    /// `redaction: ...` for every trace it opens, and an absent key there is
+    /// the reader's only signal that a recording predates the rule and holds
+    /// plaintext throughout. A converter that wrote the key only sometimes
+    /// would make "recorded before the rule" and "this converter forgot"
+    /// the same trace.
+    #[test]
+    fn the_redaction_object_is_written_directly_after_the_environment() {
+        let built = build(&minimal());
+        let keys: Vec<&str> = built.iter().map(|(k, _)| *k).collect();
+        let env = keys.iter().position(|k| *k == "env").expect("an env key");
+        assert_eq!(keys[env + 1], "redaction", "{keys:?}");
+        assert_eq!(
+            as_map(&built)["redaction"],
+            json!({"rule": "v1", "mode": "on", "by": "recorder"}),
+            "the object is carried through verbatim, not rebuilt here"
+        );
     }
 
     #[test]

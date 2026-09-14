@@ -15,7 +15,8 @@ use std::path::Path;
 
 use common::{Spec, TempDir};
 use sensorium_rt::redact::{
-    fires, hmac_sha256, redact_env, redaction_json, split, Key, Knobs, KEY_VAR, REDACTED, RULE,
+    env_hash, fires, hmac_sha256, redact_env, redaction_json, split, Key, Knobs, KEY_VAR, REDACTED,
+    RULE,
 };
 use sensorium_rt::sha256::to_hex;
 use serde_json::Value;
@@ -321,9 +322,56 @@ fn a_key_is_sixty_four_hex_characters_and_nothing_else() {
     );
 }
 
+/// The DRIVER's two doors into the same key: it mints 32 raw bytes (or reads
+/// them out of `<store>/redaction.key`) and hands them on as hex, and this
+/// runtime parses that hex back. Both halves have to name the same key or a
+/// store's digests stop comparing across the hop.
+#[test]
+fn a_key_from_raw_bytes_and_a_key_from_its_hex_are_the_same_key() {
+    let mut material = [0u8; 32];
+    for (i, byte) in material.iter_mut().enumerate() {
+        *byte = (i as u8).wrapping_mul(7);
+    }
+    let key = Key::from_bytes(&material);
+    assert!(key.keyed());
+    let hex = key.to_hex().expect("a keyed key has a hex form");
+    assert_eq!(hex.len(), 64);
+    assert_eq!(hex, to_hex(&material), "lowercase, byte for byte");
+    assert_eq!(Key::from_hex(Some(&hex)).key_id(), key.key_id());
+    assert_eq!(Key::from_hex(Some(&hex)).digest("abc"), key.digest("abc"));
+}
+
+/// A key file of the wrong size is unkeyed, exactly as a hex string of the
+/// wrong length is: a truncated or padded `redaction.key` is somebody else's
+/// file, and a recorder that refused to record over it would cost the run.
+#[test]
+fn raw_bytes_that_are_not_thirty_two_are_not_a_key() {
+    for len in [0usize, 1, 31, 33, 64] {
+        let key = Key::from_bytes(&vec![1u8; len]);
+        assert!(!key.keyed(), "{len} bytes is not a key");
+        assert_eq!(key.key_id(), None);
+        assert_eq!(key.to_hex(), None);
+    }
+    assert_eq!(Key::from_hex(None).to_hex(), None);
+}
+
 // ---------------------------------------------------------------------------
 // The environment
 // ---------------------------------------------------------------------------
+
+/// The formula, against hashes taken outside this crate. The runtime takes it
+/// over what it writes and the converter takes it again when it applies the
+/// rule to a header written before the rule existed
+/// (`cargo-sensorium/src/convert/redaction.rs`), so it is one number two
+/// programs have to agree on.
+#[test]
+fn env_hash_is_sha256_of_key_equals_value_newline_joined() {
+    // python: hashlib.sha256(b"A=1\nB=2").hexdigest()[:16]
+    let env = owned(&[("A", "1"), ("B", "2")]);
+    assert_eq!(env_hash(&env), "c1f0203c784f4397");
+    // The empty environment is the empty string's hash, not a special case.
+    assert_eq!(env_hash(&[]), "e3b0c44298fc1c14", "sha256(b\"\")");
+}
 
 #[test]
 fn redact_env_replaces_the_value_tables_the_digest_and_deletes_the_key() {

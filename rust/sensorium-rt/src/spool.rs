@@ -67,7 +67,6 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use crate::ffi;
 use crate::json::push_json_str;
 use crate::redact;
-use crate::sha256::{hex_prefix, Sha256};
 
 pub(crate) const MAGIC: [u8; 4] = *b"SNSR";
 pub(crate) const VERSION: u8 = 3;
@@ -471,7 +470,7 @@ pub(crate) fn write_proc_header(
     // Over the REDACTED environment: the hash is an identity for what this
     // trace HOLDS, and hashing the plaintext would make two traces of the same
     // program disagree for a reason neither of them records.
-    push_json_str(&mut json, &env_hash(&env));
+    push_json_str(&mut json, &redact::env_hash(&env));
     redact::push_header_siblings(&mut json, &redacted);
     json.push_str(",\"units\":{");
     for (id, metadata) in units.iter().enumerate() {
@@ -541,28 +540,6 @@ fn sorted_env() -> Vec<(String, String)> {
     env
 }
 
-/// `sha256` over `"\n".join(f"{k}={v}")` for the sorted environment, first 16
-/// hex characters.
-///
-/// **Deliberately not the Python recorder's formula.** `src/sensorium/record/boot.py`
-/// hashes `json.dumps(env, sort_keys=True)`; this hashes the plan's
-/// `"{k}={v}"` join. Ruled 2026-09-02: `env_hash` is a per-recorder identity,
-/// compared only between traces from the same recorder, and no command compares
-/// one across languages. Each is stable within its own language, which is the
-/// whole of what the key is for.
-fn env_hash(env: &[(String, String)]) -> String {
-    let mut h = Sha256::new();
-    for (i, (k, v)) in env.iter().enumerate() {
-        if i > 0 {
-            h.update(b"\n");
-        }
-        h.update(k.as_bytes());
-        h.update(b"=");
-        h.update(v.as_bytes());
-    }
-    hex_prefix(&h.finish(), 16)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -574,16 +551,6 @@ mod tests {
             format!("sensorium-rt {}", env!("CARGO_PKG_VERSION")),
             "the hard-coded version string drifted from Cargo.toml"
         );
-    }
-
-    #[test]
-    fn env_hash_is_sha256_of_key_equals_value_newline_joined() {
-        // sha256(b"A=1\nB=2").hexdigest()[:16]
-        let env = vec![
-            ("A".to_owned(), "1".to_owned()),
-            ("B".to_owned(), "2".to_owned()),
-        ];
-        assert_eq!(env_hash(&env), "c1f0203c784f4397");
     }
 
     #[test]

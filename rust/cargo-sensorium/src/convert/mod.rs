@@ -18,6 +18,7 @@ mod frames;
 mod manifest;
 mod merge;
 mod meta;
+mod redaction;
 mod runid;
 mod spool;
 mod sqlite;
@@ -25,8 +26,10 @@ mod sqlite;
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use sensorium_rt::redact::Key;
 use serde_json::{json, Value};
 
+use crate::redaction_key;
 use manifest::{Manifest, SiteKind};
 use spool::{InvocationRecord, ProcHeader, RunnerRecord};
 
@@ -58,12 +61,16 @@ pub struct Report {
 /// the standalone `convert` role produce identical output by calling this one
 /// function.
 ///
+/// `key` is the STORE's redaction key, passed in rather than resolved here:
+/// the driver minted it before cargo ran and handed that same one to every
+/// recorded process (`redaction_key`).
+///
 /// # Errors
 /// Any spool, header or manifest this converter cannot read honestly, named
 /// by file: a missing `invocation.json`, a missing manifests directory, an
 /// orphan spool, a manifest naming a `sensorium/mirror` path, a backwards or
 /// duplicate `seq`, a RETURN with no open frame, or a malformed record.
-pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
+pub fn convert_dir(spool_dir: &Path, key: &Key) -> Result<Report, String> {
     let invocation = InvocationRecord::read(&spool_dir.join("invocation.json"))
         .map_err(|e| format!("cannot read invocation.json: {e}"))?;
 
@@ -143,6 +150,7 @@ pub fn convert_dir(spool_dir: &Path) -> Result<Report, String> {
                 .map_or(&[][..], Vec::as_slice),
             traces_dir: &traces_dir,
             runner_processes,
+            key,
         })?;
         println!(
             "run: {}  pid: {}  exe: {}  events: {}  threads: {}  exit: {}",
@@ -187,7 +195,13 @@ pub fn run(args: &[String]) -> i32 {
         eprintln!("usage: cargo-sensorium convert <spool dir>");
         return 2;
     };
-    match convert_dir(Path::new(dir)) {
+    // `load`, never `load_or_create`: this role converts a spool somebody else
+    // recorded, and a key minted at conversion time would take digests nothing
+    // was ever recorded under. A store root that cannot be resolved at all is
+    // unkeyed here and named by `traces_dir` a moment later, which resolves
+    // the same root and reports the same failure by name.
+    let key = store_root().map_or_else(|_| Key::from_hex(None), |r| redaction_key::load(&r));
+    match convert_dir(Path::new(dir), &key) {
         Ok(_) => 0,
         Err(e) => {
             eprintln!("cargo-sensorium: {e}");
@@ -497,6 +511,8 @@ struct ConvertOne<'a> {
     /// Distinct pids the runner witnessed for this invocation -- the WARN's
     /// own count, and every trace's `invocation_processes`.
     runner_processes: usize,
+    /// The store's key, for a header too old to have applied the rule itself.
+    key: &'a Key,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -606,11 +622,12 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         c.all_manifests,
         &c.invocation.workspace_root,
     );
+    let redacted = redaction::apply(c.proc, c.key);
     let meta_input = meta::MetaInput {
         run_id: c.run_id,
         argv: &c.proc.argv,
         cwd: &c.proc.cwd,
-        env_hash: &c.proc.env_hash,
+        env_hash: &redacted.env_hash,
         start_ts,
         end_ts,
         exit_status,
@@ -619,7 +636,8 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         recorder: &c.proc.rt_version,
         threads_started,
         live_threads: &live_threads,
-        env: &c.proc.env,
+        env: &redacted.env,
+        redaction: redacted.redaction.clone(),
         invocation: &c.invocation.invocation,
         invocation_processes: c.runner_processes,
         refocus_of: c.invocation.refocus_of.as_deref(),
