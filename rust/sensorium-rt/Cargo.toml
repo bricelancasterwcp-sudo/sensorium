@@ -1,6 +1,6 @@
 [package]
 name = "sensorium-rt"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 publish = false
 description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values, err-flow and LINE records, the panic hook, and the repository's one sha256."
@@ -19,6 +19,14 @@ repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
 # Anything this crate needs from libc is declared here as `extern "C"` -- see
 # `src/ffi.rs`.
 [dependencies]
+
+# The integration suite reads `docs/trace-format/redaction-v1.json`, the
+# redaction fixture the Python and TypeScript recorders read too. A
+# DEV-dependency never reaches the rlib: the driver's bare `rustc` line
+# compiles `src/lib.rs` alone, so D1's zero-dependency promise above is about
+# `[dependencies]`, which stays empty, and is untouched by this.
+[dev-dependencies]
+serde_json = "1"
 
 [features]
 # Hooks that exist ONLY so a test can drive a path the outside world cannot

@@ -63,8 +63,10 @@ use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::OnceLock;
 
 use crate::ffi;
+use crate::redact;
 use crate::sha256::{hex_prefix, Sha256};
 
 pub(crate) const MAGIC: [u8; 4] = *b"SNSR";
@@ -121,7 +123,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.5.0";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.6.0";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK
@@ -155,12 +157,17 @@ impl Spool {
         let name = truncate_name(name);
         let header_len = HEADER_FIXED + name.len();
         let path = dir.join(format!("{pid}.{serial}.spool"));
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)?;
+        let mut opts = OpenOptions::new();
+        opts.read(true).write(true).create(true).truncate(true);
+        // 0600: a spool holds captured return values and err messages out of
+        // somebody's program. Set at CREATION rather than chmod-ed after, so
+        // there is no window in which the file exists and is world-readable.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let file = opts.open(path)?;
         let map_len = round_up_to_chunk(header_len + RECORD_FIXED);
         set_len(&file, map_len)?;
         let base = map(&file, map_len)?;
@@ -402,6 +409,22 @@ fn truncate_name(name: &str) -> &str {
 // The per-process header
 // ---------------------------------------------------------------------------
 
+/// The redaction knobs and the key, read ONCE per process.
+///
+/// The header is rewritten at every unit registration -- 77 times on a
+/// bloomery invocation -- and a rule that re-read its own knobs each time
+/// would let a program that edits its own environment mid-run produce a trace
+/// whose header contradicts the values already in it.
+fn knobs() -> &'static redact::Knobs {
+    static KNOBS: OnceLock<redact::Knobs> = OnceLock::new();
+    KNOBS.get_or_init(redact::Knobs::from_env)
+}
+
+fn key() -> &'static redact::Key {
+    static KEY: OnceLock<redact::Key> = OnceLock::new();
+    KEY.get_or_init(redact::Key::from_env)
+}
+
 /// Write `<dir>/<pid>.proc.json`. Called at the process's first event and again
 /// at every unit registration and at a refusal (the file is small; rewriting it
 /// keeps one source of truth and needs no incremental scheme).
@@ -413,7 +436,10 @@ pub(crate) fn write_proc_header(
     units: &[&'static str],
     refused: Option<&'static str>,
 ) -> io::Result<()> {
-    let env = sorted_env();
+    // Rule v1, applied HERE -- before the environment reaches a string, let
+    // alone the disk. `sorted_env` sorts, which is what makes the table below
+    // sorted (R13); `redact_env` keeps the order it is given.
+    let (env, redacted) = redact::redact_env(sorted_env(), key(), knobs());
     let mut json = String::with_capacity(4096);
     json.push_str("{\"pid\":");
     json.push_str(&pid.to_string());
@@ -454,7 +480,24 @@ pub(crate) fn write_proc_header(
         push_json_str(&mut json, v);
     }
     json.push_str("},\"env_hash\":");
+    // Over the REDACTED environment: the hash is an identity for what this
+    // trace HOLDS, and hashing the plaintext would make two traces of the same
+    // program disagree for a reason neither of them records.
     push_json_str(&mut json, &env_hash(&env));
+    json.push_str(",\"env_redaction\":{");
+    for (i, (name, digest)) in redacted.iter().enumerate() {
+        if i > 0 {
+            json.push(',');
+        }
+        push_json_str(&mut json, name);
+        json.push(':');
+        match digest {
+            Some(d) => push_json_str(&mut json, d),
+            None => json.push_str("null"),
+        }
+    }
+    json.push_str("},\"redaction\":");
+    json.push_str(&redact::redaction_json(key(), knobs()));
     json.push_str(",\"units\":{");
     for (id, metadata) in units.iter().enumerate() {
         if id > 0 {
@@ -494,7 +537,16 @@ pub(crate) fn write_proc_header(
     let tmp = dir.join(format!("{pid}.proc.json.tmp"));
     let path = dir.join(format!("{pid}.proc.json"));
     {
-        let mut f = File::create(&tmp)?;
+        let mut opts = OpenOptions::new();
+        opts.write(true).create(true).truncate(true);
+        // 0600, for the same reason and at the same moment as the spool's: the
+        // header carries the whole environment, redacted or not.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let mut f = opts.open(&tmp)?;
         f.write_all(json.as_bytes())?;
         f.flush()?;
     }
@@ -536,7 +588,7 @@ fn env_hash(env: &[(String, String)]) -> String {
     hex_prefix(&h.finish(), 16)
 }
 
-fn push_json_str(out: &mut String, s: &str) {
+pub(crate) fn push_json_str(out: &mut String, s: &str) {
     out.push('"');
     for c in s.chars() {
         match c {

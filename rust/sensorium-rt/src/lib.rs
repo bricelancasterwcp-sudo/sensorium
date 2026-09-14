@@ -80,6 +80,10 @@ mod ffi;
 mod line;
 mod panic;
 pub mod probe;
+// Public because `tests/redact.rs` drives the rule directly against
+// `docs/trace-format/redaction-v1.json`, the fixture the Python and TypeScript
+// recorders read too. Nothing outside this crate is expected to call it.
+pub mod redact;
 // Public because it is the repository's ONE sha256: `sensorium-transform`
 // (the focus hash) and `cargo-sensorium` (the tool hash, the mirror's cache
 // key, `source_hashes`) take it from here rather than keeping copies. This
@@ -229,7 +233,7 @@ pub(crate) fn fail_process(what: &str, e: &std::io::Error) {
 pub(crate) fn ensure_dir() -> Option<&'static Path> {
     let dir = SPOOL_DIR.get()?;
     DIR_READY.call_once(|| {
-        if let Err(e) = std::fs::create_dir_all(dir) {
+        if let Err(e) = create_spool_dir(dir) {
             fail_process("creating the spool directory", &e);
             return;
         }
@@ -242,6 +246,25 @@ pub(crate) fn ensure_dir() -> Option<&'static Path> {
         return None;
     }
     Some(dir.as_path())
+}
+
+/// `create_dir_all`, but 0700: the spool holds captured values and the whole
+/// environment, and a directory anyone can list is the first half of a leak.
+/// The mode applies to every directory this creates and to none that already
+/// exists -- a user who pointed `SENSORIUM_SPOOL` at a directory of their own
+/// keeps the permissions they chose.
+#[cfg(unix)]
+fn create_spool_dir(dir: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(dir)
+}
+
+#[cfg(not(unix))]
+fn create_spool_dir(dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)
 }
 
 fn write_proc_header(dir: &Path, registry: &Registry) {
