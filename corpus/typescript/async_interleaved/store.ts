@@ -7,9 +7,9 @@
 // every write: `update` is handed a number, never a name.
 const STORE: Record<string, number> = {};
 
-export function update(key: string, value: number): number {
-  STORE[key] = value;
-  return STORE[key];
+export function update(slot: string, value: number): number {
+  STORE[slot] = value;
+  return STORE[slot];
 }
 
 export function lastSeen(): number {

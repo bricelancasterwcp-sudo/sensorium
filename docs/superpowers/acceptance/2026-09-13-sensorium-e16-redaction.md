@@ -39,6 +39,18 @@ the dry-run/real pair, the bench numbers and their lens.
 - **H3's pair:** Python — `refocus <run> --focus main` on the aliasing recording; Rust — `refocus <run> --focus compute` (the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name). First with the token unchanged (predict: licence held, `SENSORIUM_E16_TOKEN` counted among compared), then re-exported to a fresh value (predict: WITHHELD, the name in the changed list). TypeScript's refocus is exercised by v43 and `tests/test_refocus_redaction.py`, not live, because the TS pair's env clause runs the same code path — stated as a reading, not a gate.
 - **Kill rules:** each recording 600 s, each refocus 900 s, the part 45 min; a kill is an infrastructure event, rerun from zero with a fresh token.
 
+### 2026-09-14 — Part B's pre-registration (amendment, beside the locked text above)
+
+- **Part B's cells** are H1 restricted to VALUES (the token planted as an argument, a local, a return value, a header-dict value and, in Python, a `print`, under `SENSORIUM_E16_TOKEN` as in part A), H5 in full, and H6 restricted to `redaction.values` and the census. H2, H3, H1-env and H6-env were part A's (measured, DONE at run 2); H4 is part C's. Both readings per §9's table stand.
+- **The token** is `sk-e16-` + 33 characters from `[A-Za-z0-9]`, minted by `e16b.sh` into `$E16_DIR/token` at 0600, exported as `SENSORIUM_E16_TOKEN`, never printed by the instrument and never committed; the record cites its sha256 prefix only. The dry run's decoy is `dry-` + 4 characters, which no content pattern matches, so a dry run exercises the plumbing and the NAME rows and never the content rule.
+- **The three probes** are `tests/acceptance_e16/probes/python/main.py` (`sensorium run --focus handle -- main.py`), `tests/acceptance_e16/probes/rust/` (`cargo sensorium run --focus handle`) and `tests/acceptance_e16/probes/typescript/secret.ts` + `secret.test.ts` copied into a copy of `corpus/typescript` (`sensorium ts run --focus handle -- npx vitest run secret`). Each reads the token from the environment in a function named `secret`, passes it to a focused function named `handle` that binds it to a local, puts it in a header dict under the key `authorization`, and (Python only) prints it alone as one `print` argument.
+- **H6-values' planted counts, per row.** Python **5**: `secret`'s RETURN by name (the qualname segment `SECRET`); the `token` LINE delta in `handle` by name; the `headers` delta's map value under the key `authorization` by name; the CALL argument `token` of `send(token)` by name; the `print` chunk holding the token alone, by content. TypeScript **4**: the CALL argument `token` of `handle(token)` by name; the `copy` delta by content; the `headers` delta by content (the inspect text holds the token); `secret`'s RETURN by name. Rust **4**: the parameters row's `token` delta of `handle` by name (tag 4); the `copy` delta by content (converter); the `headers` delta's `Debug` text by content (converter); `secret`'s RETURN by name (converter). `redaction.env` on every trace is exactly `{SENSORIUM_E16_TOKEN}`.
+- **H1-values' reading:** every file under the store 0 (`*.db`, `*.db-wal`, `*.db-shm`, `invocations.jsonl`, `redaction.key`, everything under `spool/`); every Rust `<pid>.proc.json` 0; the Rust `.spool` files together exactly **3** occurrences (B16); the TypeScript spool directory 0. Counted as occurrences with `grep -a -o -F "$TOKEN" | wc -l` per file. PASS iff all four hold.
+- **H5's reading:** `python -c "from corpus._bench import bench; bench.report(reps=5)"` run twice, in a worktree at `7dd25d2` under its own `.venv` and in this branch's worktree under its `.venv`, each against a scratch `SENSORIUM_DIR` under `$E16_DIR`, same box, back to back. Reported: both tables verbatim, and per workload row the `recorded/baseline` ratio at 7dd25d2, the same at HEAD, and HEAD's over 7dd25d2's. Never gated (§9). An outlier is a CARRIED-DEBT finding.
+- **Locations** are the record's §3 pin table only: `E16_DIR=/mnt/extra/sensorium-rung2/e16`, store `$E16_DIR/store-b`, spools under it, the baseline worktree `$E16_DIR/baseline-7dd25d2`, transcripts `$E16_DIR/b-transcripts/`. Part A's `store-a`/`store-a2` trees are not read.
+- **Versions expected:** `recorder` reads `sensorium 0.16.0`, `sensorium-rt 0.7.0`, `sensorium-ts 0.6.0`; `driver_version` `cargo-sensorium 0.8.0`; §3 records what they were.
+- **Kill rules:** the driver rebuild 1800 s, the baseline worktree build 600 s, each recording 600 s, each bench table 1200 s, the part 60 min; a kill is an infrastructure event, rerun from zero with a fresh token.
+
 ## 2. Part A
 
 ### measured 2026-09-14
@@ -526,3 +538,7 @@ licence: WITHHELD -- this MATCH is about call shape, and these checks say it is 
 | refocus | 0.488 |
 | versions | 0.009 |
 | grep | 0.033 |
+
+## 3. Part B
+
+Not yet measured.
