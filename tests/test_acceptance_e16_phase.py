@@ -47,7 +47,15 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "tests" / "acceptance_e16"))
 
 import e16a                                                       # noqa: E402
+import e16b                                                       # noqa: E402
 from e16a import CRITICAL_PHASES, Part, Refused                   # noqa: E402
+
+#: The two instruments this module holds, and the file each one's `main`
+#: lives in. Part B's runner SUBCLASSES part A's `Part`, so `phase()` itself
+#: is tested once (below); what has to be checked twice is the CALL SITES --
+#: `main` is written fresh in each file, and a `critical=True` dropped from
+#: either one restores the fail-open R37 was added to close.
+INSTRUMENTS = ((e16a, "e16a.py"), (e16b, "e16b.py"))
 
 
 @pytest.fixture
@@ -116,15 +124,15 @@ def test_a_refusal_from_inside_a_phase_is_never_swallowed(part):
 
 
 # -- exactly these phases are preconditions --------------------------------
-def _phase_calls() -> dict[str, bool]:
-    """Every `part.phase("<name>", ...)` in `main`, and whether it passes
-    `critical=True`.
+def _phase_calls(source: str = "e16a.py") -> dict[str, bool]:
+    """Every `part.phase("<name>", ...)` in one instrument's `main`, and
+    whether it passes `critical=True`.
 
     Read from the module's SYNTAX TREE, not from its text and not by running
     it: a regex over source cannot tell a call from a comment, and running
     `main` would need a box. The mutation this catches is one keyword
     deleted from one line."""
-    tree = ast.parse((REPO / "tests" / "acceptance_e16" / "e16a.py")
+    tree = ast.parse((REPO / "tests" / "acceptance_e16" / source)
                      .read_text())
     main = next(node for node in tree.body
                 if isinstance(node, ast.FunctionDef) and node.name == "main")
@@ -142,15 +150,19 @@ def _phase_calls() -> dict[str, bool]:
     return calls
 
 
-def test_main_marks_exactly_the_critical_phases_as_critical():
+@pytest.mark.parametrize("module,source", INSTRUMENTS)
+def test_main_marks_exactly_the_critical_phases_as_critical(module, source):
     """Catches the one-keyword mutation directly: drop `critical=True` from
     the `build-driver` call and this fails, which is what the R37 dry run
-    had to catch by running the whole instrument."""
-    calls = _phase_calls()
-    assert set(CRITICAL_PHASES) <= set(calls), (set(CRITICAL_PHASES)
-                                                - set(calls))
+    had to catch by running the whole instrument. Held over BOTH
+    instruments: part B's `main` is its own function, and its `baseline`
+    phase is a precondition for the same reason -- H5 against a tree that
+    half-built is not a smaller reading, it is a different claim."""
+    calls = _phase_calls(source)
+    assert set(module.CRITICAL_PHASES) <= set(calls), (
+        set(module.CRITICAL_PHASES) - set(calls))
     marked = {name for name, critical in calls.items() if critical}
-    assert marked == set(CRITICAL_PHASES), marked
+    assert marked == set(module.CRITICAL_PHASES), marked
 
 
 def test_every_phase_main_runs_is_accounted_for():
@@ -162,3 +174,29 @@ def test_every_phase_main_runs_is_accounted_for():
     assert len(calls) >= 11, sorted(calls)
     assert "build-driver" in calls and "grep" in calls
     assert e16a.CRITICAL_PHASES == ("build-driver", "preflight")
+
+
+def test_part_bs_phases_are_accounted_for_too():
+    """Part B's own list, and the phases §1's amendment gives it: three
+    recordings, the census, the sweep and one bench table per tree."""
+    calls = _phase_calls("e16b.py")
+    assert e16b.CRITICAL_PHASES == ("build-driver", "preflight", "baseline")
+    for name in ("build-driver", "preflight", "baseline", "mint", "copies",
+                 "record-python", "record-rust", "record-typescript",
+                 "info", "versions", "grep-values", "bench-baseline",
+                 "bench-head"):
+        assert name in calls, name
+
+
+def test_part_b_builds_its_two_h5_trees_without_touching_the_box(tmp_path):
+    """`PartB.__init__` derives paths and nothing else -- which is what lets
+    the cell tests and this module construct one -- and the two H5
+    locations are the ones §1's amendment pins by name."""
+    part = e16b.PartB(tmp_path / "work", tmp_path / "out",
+                      str(tmp_path / "node"), str(tmp_path / "release"),
+                      dry=True, label="b")
+    assert part.baseline.name == f"baseline-{e16b.BASELINE}"
+    assert part.bench_dir.name == "bench-b"
+    assert part.store.name == "store-b"
+    assert part.reps == e16b.DRY_BENCH_REPS
+    assert not (tmp_path / "work").exists()
