@@ -52,14 +52,20 @@ _ALPHABET = string.ascii_letters + string.digits
 ALLOWLIST = ("PATH", "HOME", "USER", "LANG", "TMPDIR", "CARGO_TARGET_DIR",
              "SENSORIUM_DIR", TOKEN_VAR)
 
-#: §9's PASS/STOP column, copied from the record's §1 table.
-#: `tests/test_acceptance_e16_cells.py::test_the_rule_table_is_the_records_
-#: own_words` checks every clause below against that table on disk, so a
-#: rule softened here reddens there rather than deciding the measurement.
+#: §9's PASS/STOP column, copied from the record's §1 table -- each clause
+#: WHOLE, and the test below checks it by EQUALITY against the row's own
+#: cell rather than by substring: a substring check cannot see a clause cut
+#: short, and H1's was, losing the sentence that says a fix is followed by a
+#: re-measurement from zero. `tests/test_acceptance_e16_cells.py::test_the_
+#: rule_table_is_the_records_own_words` is what holds this against the
+#: record on disk, so a rule softened here reddens there rather than
+#: deciding the measurement.
 RULES = {
     "H1": {"PASS": "every count 0 where 0 is required",
            "STOP": "any non-zero: a missed path. Named, fixed, and the "
-                   "whole of E16 re-measured from zero with a fresh token"},
+                   "whole of E16 re-measured from zero with a fresh token "
+                   "\u2014 an acceptance test of correctness is re-run after "
+                   "a fix, and the record says which run is the first PASS"},
     "H2": {"PASS": "all", "STOP": "any other mode"},
     "H3": {"PASS": "both", "STOP": "either the wrong way"},
     "H6": {"PASS": "exact",
@@ -76,6 +82,19 @@ DROPPED = (("H1-values", "part B"), ("H4", "part C"),
 #: the token unchanged, then both again after it is re-exported.
 PREDICTIONS = (("python-unchanged", "granted"), ("rust-unchanged", "granted"),
                ("python-changed", "WITHHELD"), ("rust-changed", "WITHHELD"))
+
+#: The three recorders part A records, and the arm names every phase keys
+#: by. H6 expects ONE reading per arm and drops when a reading is missing:
+#: "the traces I happened to read all passed" is not "the census matched on
+#: every trace", and a phase that lost one recorder would otherwise report
+#: the other two as the whole answer.
+ARMS = ("python", "rust", "typescript")
+
+#: The two trees H2 gates, named as `Part.modes` names them (relative to the
+#: work root). Both have to EXIST and be readable: `find` over a missing
+#: root prints nothing, and a cell handed nothing about the Rust spool would
+#: PASS on the store alone -- the same short-input hole H3 and H6 had.
+GATED_ROOTS = ("store-a", "rust-target/sensorium/spool")
 
 #: The focused function, in both arms. R27: §1 guessed `compute` for Rust
 #: and `main` for Python; `derive_sandbox` is the aliasing case's own
@@ -128,16 +147,32 @@ def cell_h1(files: list[dict] | None) -> dict:
     return out
 
 
-def cell_h2(entries: list[dict] | None) -> dict:
+def cell_h2(entries: list[dict] | None, roots: list[dict] | None) -> dict:
     """H2: 0600 on every file and 0700 on every directory a recorder made.
 
     A row's `scope` decides whether it is gated. `out` rows -- the
     instrument's own directories and cargo's build tree -- are carried so a
     reader can see they were looked at and are answered for by nobody here;
     gating them would make this cell a statement about `cargo build`.
+
+    `roots` is one status per tree in `GATED_ROOTS`, and it is a REQUIRED
+    argument rather than one with a default: `find` over a root that is not
+    there prints nothing and exits non-zero, so without it a run whose Rust
+    arm never recorded would sweep the store, find every mode right, and
+    PASS -- reporting a claim about two trees having looked at one. A
+    missing or failed root drops the cell and names the root.
     """
-    if entries is None:
+    if entries is None or roots is None:
         return _dropped("the mode sweep did not run")
+    missing = [r for r in GATED_ROOTS
+               if r not in {row["root"] for row in roots}]
+    if missing:
+        return _dropped("no sweep status for: " + ", ".join(missing))
+    failed = [row for row in roots if not row["ok"]]
+    if failed:
+        return _dropped("the sweep could not read: "
+                        + "; ".join(f"{row['root']} ({row['why']})"
+                                    for row in failed))
     if not entries:
         return _dropped("the mode sweep found no file at all")
     unread = [e["path"] for e in entries if e.get("mode") is None]
@@ -218,12 +253,20 @@ def read_pair(name: str, predicted: str, text: str,
 
 def cell_h3(pairs: list[dict] | None) -> dict:
     """H3: all four pairs as predicted, or the cell STOPs naming the ones
-    that were not. A pair whose transcript did not parse is a hole, and one
-    hole drops the cell -- three pairs out of four is not "both"."""
-    if pairs is None:
+    that were not.
+
+    Three pairs out of four is not "both", and this cell used to say so in
+    prose while passing on any non-empty list. Every name in `PREDICTIONS`
+    has to be present before a verdict is reached; a pair whose transcript
+    did not parse is a hole, and one hole drops the cell."""
+    if pairs is None or not pairs:
         return _dropped("no refocus pair ran")
-    if not pairs:
-        return _dropped("no refocus pair ran")
+    absent = [name for name, _predicted in PREDICTIONS
+              if name not in {p["name"] for p in pairs}]
+    if absent or len(pairs) != len(PREDICTIONS):
+        return _dropped(f"{len(pairs)} of {len(PREDICTIONS)} pre-registered "
+                        "pair(s) read"
+                        + (": missing " + ", ".join(absent) if absent else ""))
     unread = [p["name"] for p in pairs if p.get("ok") is None]
     if unread:
         return _dropped("unreadable transcript(s): " + ", ".join(unread))
@@ -241,9 +284,16 @@ def cell_h6(traces: list[dict] | None) -> dict:
     """H6-env: `redaction.env` holds exactly `{SENSORIUM_E16_TOKEN}` on every
     trace. Both directions are a STOP -- a second name is an over-firing
     rule and an empty table an under-firing one -- which is why the check is
-    set equality and not a lower bound."""
+    set equality and not a lower bound.
+
+    And on every ARM: the census is a claim about all three recorders, so a
+    reading missing for one of them drops the cell rather than letting the
+    other two answer for it."""
     if traces is None or not traces:
         return _dropped("no trace was read")
+    absent = [a for a in ARMS if a not in {t.get("arm") for t in traces}]
+    if absent:
+        return _dropped("no trace read for: " + ", ".join(absent))
     unread = [t["run"] for t in traces if t.get("names") is None]
     if unread:
         return _dropped("names unreadable for: " + ", ".join(sorted(unread)))

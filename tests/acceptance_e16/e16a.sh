@@ -10,12 +10,26 @@
 # in a session of its own, `nohup` detaches it from this terminal's HUP, and
 # everything it prints goes to `<out>/e16a.log`.
 #
+# BUILD THE DRIVER FIRST. The `cargo-sensorium` directory argument is a
+# BINARY, not a source tree, and this file cannot tell a current one from a
+# stale one. A dry run after E16 run 1 read an H2 STOP on the Rust
+# `invocation.json` for exactly that reason -- the fix was in the tree and
+# not in the binary -- and read PASS after
+# `cargo build --release -p cargo-sensorium`. Rebuild before every run.
+#
 # Nothing here is a location. All four are arguments, and the work root is
 # where every byte this measurement writes goes -- the store, the three
 # disposable copies, the cargo target directory, the transcripts and the
 # minted token. The two PATH arguments exist because a scrubbed environment
 # has to be given the node and driver directories rather than inherit them:
 # see `e16a.py`'s ALLOWLIST.
+#
+#   E16_DRY_FINDINGS
+#              What the dry run that preceded THIS measurement found, one
+#              finding per line, carried into the raw record so §2 can say
+#              it. §1's record has to show a dry-run reading; a field beats
+#              somebody remembering to type one. Empty is allowed and means
+#              the reading is written into §2 by hand.
 #
 #   E16_DRY=1  DRY RUNS ONLY -- plant a `dry-` decoy that cannot be the
 #              token, cap every timer at a minute, and stamp
@@ -68,6 +82,7 @@ DRIVER_DIR="$(cd "$DRIVER_DIR" && pwd)"
 export E16_WORK="$WORK" E16_OUT="$OUT"
 export E16_NODE_BIN="$NODE_BIN" E16_DRIVER_DIR="$DRIVER_DIR"
 export E16_DRY="${E16_DRY:-0}"
+export E16_DRY_FINDINGS="${E16_DRY_FINDINGS:-}"
 export PYTHONDONTWRITEBYTECODE=1
 
 setsid nohup "$REPO/.venv/bin/python" "$HERE/e16a.py" \
@@ -81,3 +96,5 @@ printf '  log:     %s/e16a.log\n' "$OUT"
 printf '  raw:     %s/results-a.json\n' "$OUT"
 printf '  markers: %s/e16a.DONE | %s/e16a.FAILED\n' "$OUT" "$OUT"
 printf '  dry run: %s\n' "$E16_DRY"
+printf '  dry findings carried: %s\n' \
+  "$(printf '%s' "$E16_DRY_FINDINGS" | grep -c . || true)"

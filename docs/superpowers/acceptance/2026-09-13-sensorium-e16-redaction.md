@@ -70,6 +70,45 @@ Measured once, on this box, under `e16a.sh`. **Part A: DONE-WITH-STOP** — H1 P
 | instrument output | `$E16_DIR/a-out/` |
 | driver (the committed transcripts' label) | `$DRIVER_DIR` — the release `cargo-sensorium`'s own directory, outside the work root |
 
+#### The dry run
+
+Written by hand. Run 1 was measured before the instrument carried a
+`dry_run_findings` field; that field is what renders this section for a later
+run, and this paragraph is what it would have said.
+
+Two dry runs preceded the measurement, into a work root of their own — its
+own store, cargo target directory and case copies, all deleted afterwards —
+with a `dry-` plus four decoy that cannot match the content rule part B will
+measure, and every timer at 60 s. What they found, and what changed in the
+instrument between them and the run above:
+
+- Reading `driver_version` out of each trace opens a read-only sqlite
+  connection, which cannot checkpoint a WAL and so leaves `.db-wal`/`.db-shm`
+  beside the trace — and it ran AFTER the grep sweep, so those six files were
+  never looked at. The `versions` phase moved ahead of `grep`, and the sweep
+  went from 836 files to 842.
+- Two rendered wordings were wrong about their own subject: H1's summary rows
+  said "no recorder's own" of trees that include the driver's, and H2's
+  out-of-scope caption did not say it lists top directories only. Both
+  corrected.
+- The assembler refused the dry raw record by name (`dry_run: true`), which
+  is the refusal the dry run exists to exercise; a copy with the flag flipped
+  rendered every section, so every artifact path the reader opens existed and
+  parsed.
+- The Rust arm is 0.38 s, not minutes: `cargo-sensorium` runs the target
+  under a shim rather than linking `sensorium-rt` into the crate, so there is
+  no cold build. R29's optional 1200 s Rust timer was not taken, and the dry
+  run's 60 s timers were not raised.
+
+**Both STOPs above were already visible in the dry run, and nothing was
+altered in response.** No prediction, no constant, no cell and no line of
+`sensorium` changed between seeing them and measuring: `PREDICTIONS`, `RULES`
+and the token's name went into the run exactly as §1 fixed them, and the two
+fixes to the tool were made after the measurement, in their own commits.
+Changing a prediction after seeing the answer is not an amendment. The dry
+runs' outputs were deleted before the measurement, and the launcher refuses a
+work root that already holds a `store-a`.
+
 #### What the STOPs point at
 
 - **H2.** All ten paths are made by callers that do not go through the 0700/0600 helpers. `sensorium.ts.driver` creates `<trace root>/spool/<invocation>/` with a bare `mkdir(parents=True, exist_ok=True)` and writes `invocation.json`, `harness.json`, `ingested.json` and `manifests/*.json` with plain `write_text`; `cargo-sensorium`'s `invocation::write_invocation` writes its own `invocation.json` with `std::fs::write`. Each lands 0666/0777-under-the-umask — 0664/0775 on this box — instead of 0600/0700. What DOES hold: every file that carries a recorded environment is 0600 — the TypeScript `<pid>-<n>.jsonl`, the Rust `.spool`, `.proc.json` and `.runner.json` — and the store itself is 0600/0700 throughout, `redaction.key` included. §5.5's claim is categorical, so a file beside the spool that holds argv and config paths at 0664 is a STOP and not a footnote.
@@ -81,6 +120,7 @@ Measured once, on this box, under `e16a.sh`. **Part A: DONE-WITH-STOP** — H1 P
 - **R27, the TypeScript case.** Decision A10 names `corpus/typescript/aliasing`, which does not exist. Corrected clause: **`corpus/typescript/async_interleaved`**, recorded with `sensorium ts run -- npx vitest run async_interleaved`.
 - **The TypeScript spool's location.** The plan's instrument sketch puts it at `store-a/ts-spools`; `sensorium.ts.driver` writes it to `<trace root>/spool/<invocation>/`. The sweep is recursive over the whole work root, so the directory is covered wherever it is, and the tables name it as it actually is.
 - **"among the compared" (H3).** §1 predicts the env line "names the redacted variable among the compared". `refocus_world._env_state` never names a compared variable — it counts them and names only what was excluded. Reading applied, stated before the run: the variable is among the compared when the trace recorded it (H6) **and** the env line names it on no exclusion list. The prediction itself is unchanged.
+- **The instrument's path.** §1's spec block names the instrument `tests/acceptance/e16.sh`. It is `tests/acceptance_e16/e16a.sh`, with `e16a.py`, `e16a_cells.py` and `assemble_e16a.py` beside it — which is what §1's own plan block already says, the two halves of §1 having been written at different times. Corrected clause: **`tests/acceptance_e16/e16a.sh`**.
 - **The grep sweep is wider than §1's.** §1 sweeps the store and the spool directories; this one sweeps everything under the work root except the token file, and for the refocus value as well as the recording one. Wider in the only direction that can find a leak; the gate is still §1's — the recording token, every count 0.
 
 #### Versions
@@ -171,6 +211,8 @@ Measured once, on this box, under `e16a.sh`. **Part A: DONE-WITH-STOP** — H1 P
 | `store-a/traces/20260914-001903-871933.db` | 600 | 600 |
 | `store-a/traces/20260914-001904-03554b.db` | 600 | 600 |
 | `store-a/traces/20260914-001904-aa30cb.db` | 600 | 600 |
+
+This table and H1's cover different sets, and deliberately: the mode sweep is taken straight after the three recordings and before any query, so it describes what the RECORDERS left — a reader that opens a WAL database creates `-shm`/`-wal` beside it, and those are files the runs did not make. H1's sweep runs last, over everything present at the end, so it also covers the four refocus re-runs' spools and traces, which is why it lists more paths than this.
 
 Swept and listed, outside this cell's scope — the instrument's own directories, and the driver's shared build-support trees under the cargo target directory (their top directories; §1's H2 is a claim about the store and the spools):
 

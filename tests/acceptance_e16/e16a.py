@@ -73,9 +73,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # re-exported whole: `e16a.cell_h1` and `assemble_e16a`'s imports mean
 # what they meant before the split, and one module still owns every
 # verdict word.
-from e16a_cells import (ALLOWLIST, DROPPED, DRY_BODY,  # noqa: E402,F401
-                        DRY_PREFIX, DRY_TIMERS, EXPECTED, FOCUS,
-                        PREDICTIONS, RULES, TIMERS, TOKEN_BODY,
+from e16a_cells import (ALLOWLIST, ARMS, DROPPED,  # noqa: E402,F401
+                        DRY_BODY, DRY_PREFIX, DRY_TIMERS, EXPECTED, FOCUS,
+                        GATED_ROOTS, PREDICTIONS, RULES, TIMERS, TOKEN_BODY,
                         TOKEN_PREFIX, TOKEN_VAR, _ALPHABET, Refused,
                         cell_h1, cell_h2, cell_h3, cell_h6, part_word,
                         read_pair)
@@ -278,11 +278,21 @@ class Part:
             self.ts_project, "record")
 
     # -- phase 6: the modes ------------------------------------------------
-    def modes(self) -> list[dict]:
-        rows = []
+    def modes(self) -> dict:
+        """The mode sweep: the rows, and one status per gated tree.
+
+        Taken straight after the three recordings and before any query, so
+        what it describes is what the RECORDERS left -- a reader that opens
+        a WAL database creates `-shm`/`-wal` beside it, and those are files
+        the runs did not make.
+        """
+        rows: list[dict] = []
+        roots: list[dict] = []
         for root, scope in ((self.store, "in"),
                             (self.target / "sensorium" / "spool", "in")):
-            rows += _stat_tree(root, scope, self.work)
+            found, status = _stat_tree(root, scope, self.work)
+            rows += found
+            roots.append(status)
         # Listed and not gated: the driver's shared build-support trees under
         # the cargo target directory, and the directories this instrument
         # made itself. A reader can see they were looked at; neither is what
@@ -296,7 +306,7 @@ class Part:
         for made in (self.work, self.target, self.py_case, self.rust_crate,
                      self.ts_project, self.transcripts, self.out):
             rows += _stat_one(made, "out", self.work)
-        return rows
+        return {"entries": rows, "roots": roots}
 
     # -- phase 7: the four refocus pairs -----------------------------------
     def refocus(self, in_recorded_env: dict) -> list[dict]:
@@ -391,10 +401,20 @@ def _stat_one(path: Path, scope: str, work: Path) -> list[dict]:
              "kind": "dir" if path.is_dir() else "file", "scope": scope}]
 
 
-def _stat_tree(root: Path, scope: str, work: Path) -> list[dict]:
-    """`find <root> -exec stat -c '%a %n' {} +`, read back into rows."""
+def _stat_tree(root: Path, scope: str,
+               work: Path) -> tuple[list[dict], dict]:
+    """`find <root> -exec stat -c '%a %n' {} +`, and whether it could run.
+
+    The status is the point. `find` over a root that is not there prints
+    nothing and exits non-zero, and this used to return `[]` for both that
+    and a tree it read: `cell_h2` was then handed a short list it could not
+    tell from a complete one, and a run whose Rust arm never recorded would
+    have passed on the store alone. Now the root's own reading travels with
+    the rows and the cell drops on it.
+    """
+    rel = _rel(root, work)
     if not root.exists():
-        return []
+        return [], {"root": rel, "ok": False, "why": "no such directory"}
     r = subprocess.run(["find", str(root), "-exec", "stat", "-c", "%a %n",
                         "{}", "+"], capture_output=True, text=True)
     rows = []
@@ -404,7 +424,11 @@ def _stat_tree(root: Path, scope: str, work: Path) -> list[dict]:
         rows.append({"path": _rel(path, work), "mode": mode or None,
                      "kind": "dir" if path.is_dir() else "file",
                      "scope": scope})
-    return rows
+    ok = r.returncode == 0 and bool(rows)
+    why = ("" if ok else
+           f"find exited {r.returncode}: {r.stderr.strip()[:120]}"
+           if r.returncode else "find listed nothing")
+    return rows, {"root": rel, "ok": ok, "why": why}
 
 
 def _rel(path: Path, work: Path) -> str:
@@ -496,7 +520,8 @@ def main() -> int:
     part = Part(work, out, os.environ["E16_NODE_BIN"],
                 os.environ["E16_DRIVER_DIR"],
                 dry=os.environ.get("E16_DRY") == "1")
-    result = {"dry_run": part.dry, "started": time.time()}
+    result = {"dry_run": part.dry, "started": time.time(),
+              "dry_run_findings": dry_run_findings()}
     try:
         result["preflight"] = part.phase("preflight", part.preflight)
         result["token"] = part.phase("mint", part.mint)
@@ -504,7 +529,7 @@ def main() -> int:
         part.phase("record-python", part.record_python)
         part.phase("record-rust", part.record_rust)
         part.phase("record-typescript", part.record_typescript)
-        modes = part.phase("modes", part.modes)
+        modes = part.phase("modes", part.modes) or {}
         info = part.phase("info-pre", part.info)
         held = {row["arm"]: TOKEN_VAR in (row["names"] or [])
                 for row in info}
@@ -524,12 +549,16 @@ def main() -> int:
         result["runs"] = part.runs
         result["cells"] = {
             "H1": cell_h1(sweep["files"] if sweep else None),
-            "H2": cell_h2(modes),
+            "H2": cell_h2(modes.get("entries"), modes.get("roots")),
             "H3": cell_h3(pairs),
-            "H6": cell_h6([{"run": r["run"], "names": r["names"],
-                            "vars": r["vars"]} for r in info])}
+            # `arm` travels with the row: H6 is a claim about all three
+            # recorders, and the cell has to be able to see one missing.
+            "H6": cell_h6([{"run": r["run"], "arm": r["arm"],
+                            "names": r["names"], "vars": r["vars"]}
+                           for r in (info or [])])}
         result["h1_sweep"] = sweep
-        result["h2_sweep"] = modes
+        result["h2_sweep"] = modes.get("entries")
+        result["h2_roots"] = modes.get("roots")
         result["h6_traces"] = info
         result["dropped"] = [{"cell": c, "reason": why, "word": "dropped"}
                              for c, why in DROPPED]
@@ -557,6 +586,22 @@ def main() -> int:
     print(("done: " + result["part"]) if ok
           else ("FAILED: " + result["refusal"]), flush=True)
     return 0 if ok else 1
+
+
+#: How the dry run that preceded a measurement reports itself into the raw
+#: record: one finding per line in `E16_DRY_FINDINGS`, passed through by
+#: `e16a.sh`. §2 has to carry a dry-run reading -- what the dry run found
+#: and what changed in the instrument between it and the measurement -- and
+#: a field the assembler can render is what keeps that from depending on
+#: somebody remembering to type it. Empty on a dry run itself, and empty on
+#: a measurement whose operator wrote the paragraph by hand (which is what
+#: run 1 did, and §2 says so).
+DRY_FINDINGS_VAR = "E16_DRY_FINDINGS"
+
+
+def dry_run_findings() -> list[str]:
+    return [line.strip() for line in
+            os.environ.get(DRY_FINDINGS_VAR, "").splitlines() if line.strip()]
 
 
 def _installed_version() -> str | None:

@@ -35,6 +35,7 @@ against the record on disk by the cell tests.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -52,6 +53,16 @@ class Refused(Exception):
 #: a line may name a box path only as the `E16_DIR=` pin.
 FORBIDDEN = ("/mnt/", "/home/")
 PIN = "E16_DIR="
+
+#: The token's SHAPE, so `offenders` can refuse a line carrying one without
+#: ever being handed the value. `sk-e16-` plus at least ten of the token's
+#: alphabet: the minted values are 33 characters long, and both of them --
+#: the recording token and the value H3 re-exported -- are the same shape,
+#: so one pattern covers the pair. It does NOT match the record's own
+#: prose: `` `sk-e16-` plus 33 characters `` has a backtick where a token
+#: has its body. This module's docstring claimed the check existed before
+#: the check did; it exists now.
+TOKEN_SHAPE = re.compile(r"sk-e16-[A-Za-z0-9]{10,}")
 
 #: The four cells part A measures, with the words §1 gives each one, in the
 #: order §9's table lists them.
@@ -78,8 +89,11 @@ def refuse_dry_run(raw: dict) -> None:
 
 
 def offenders(text: str) -> list[str]:
+    """Every line that may not be committed: a box path outside the
+    `E16_DIR=` pin, or anything shaped like the token itself."""
     return [ln for ln in text.splitlines()
-            if any(f in ln for f in FORBIDDEN) and PIN not in ln]
+            if (any(f in ln for f in FORBIDDEN) and PIN not in ln)
+            or TOKEN_SHAPE.search(ln)]
 
 
 def _rel(lens: dict, key: str) -> str:
@@ -188,6 +202,15 @@ def h2_table(raw: dict) -> list[str]:
         out.append(f"| `{r['path']}`{'/' if r['kind'] == 'dir' else ''} | "
                    f"{r['mode']} | {want}{mark} |")
     out.append("")
+    out.append("This table and H1's cover different sets, and deliberately: "
+               "the mode sweep is taken straight after the three recordings "
+               "and before any query, so it describes what the RECORDERS "
+               "left \u2014 a reader that opens a WAL database creates "
+               "`-shm`/`-wal` beside it, and those are files the runs did "
+               "not make. H1's sweep runs last, over everything present at "
+               "the end, so it also covers the four refocus re-runs' spools "
+               "and traces, which is why it lists more paths than this.")
+    out.append("")
     out.append("Swept and listed, outside this cell's scope — the "
                "instrument's own directories, and the driver's shared "
                "build-support trees under the cargo target directory "
@@ -262,6 +285,12 @@ def amendments(raw: dict) -> list[str]:
         "stated before the run: the variable is among the compared when the "
         "trace recorded it (H6) **and** the env line names it on no "
         "exclusion list. The prediction itself is unchanged.",
+        "- **The instrument's path.** §1's spec block names the instrument "
+        "`tests/acceptance/e16.sh`. It is `tests/acceptance_e16/e16a.sh`, "
+        "with `e16a.py`, `e16a_cells.py` and `assemble_e16a.py` beside it — "
+        "which is what §1's own plan block already says, the two halves of "
+        "§1 having been written at different times. Corrected clause: "
+        "**`tests/acceptance_e16/e16a.sh`**.",
         "- **The grep sweep is wider than §1's.** §1 sweeps the store and "
         "the spool directories; this one sweeps everything under the work "
         "root except the token file, and for the refocus value as well as "
@@ -377,6 +406,28 @@ def artifacts(raw: dict, raw_path: Path, record: Path, dest: Path,
     return written
 
 
+def dry_run_block(raw: dict) -> list[str]:
+    """The dry-run reading, from `dry_run_findings` in the raw record.
+
+    §1's own instrument sentence requires a dry run ("dry-run first on a
+    4-character decoy to check every artifact path it reads exists"), so §2
+    has to say what that dry run found and what changed between it and the
+    measurement. Rendered here when the instrument carried the findings;
+    empty when it did not, and then §2 carries a paragraph written by hand
+    that says so -- which is what run 1 did, the field having been added
+    after run 1 was measured.
+    """
+    findings = raw.get("dry_run_findings") or []
+    if not findings:
+        return []
+    return (["", "#### The dry run", "",
+             "Before the measurement, with a `dry-` decoy that cannot match "
+             "the content rule and every timer at 60 s, into a work root of "
+             "its own that was deleted afterwards. What it found, and what "
+             "changed in the instrument between it and the run above:", ""]
+            + [f"- {line}" for line in findings])
+
+
 def render(raw: dict, date: str) -> str:
     refuse_dry_run(raw)
     if raw.get("status") != "complete":
@@ -405,6 +456,7 @@ def render(raw: dict, date: str) -> str:
     ]
     body = body[:-1] + verdict_table(raw) + ["", "#### Pins", ""]
     body += pin_table(raw["lens"])
+    body += dry_run_block(raw)
     body += stop_notes(raw) + ["", "#### Amendments, beside §1", ""]
     body += amendments(raw) + ["", "#### Versions", ""]
     body += versions_table(raw)
