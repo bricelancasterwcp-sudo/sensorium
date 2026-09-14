@@ -279,8 +279,8 @@ From `sensorium-rt 0.7.0` / `cargo-sensorium 0.8.0` the rule reaches CAPTURED
 values too, and the two crates split the work — which is why the spool's wire
 moved to **v4**. The runtime applies the NAME rule to a LINE delta at its own
 writer and writes the result as a fourth delta tag; `src/spool.rs`'s module
-comment is the format's one home, and these are that block's two changed
-rows, verbatim (everything between them is v3's, byte for byte):
+comment is the format's one home, and these are its changed lines, verbatim
+(everything between them is v3's, byte for byte):
 
 ```text
 file header:  b"SNSR" u8 version=4 u8 flags=0 u16 name_len u32 thread_serial u64 records_dropped u64 truncated  name_bytes

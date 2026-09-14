@@ -453,16 +453,45 @@ export const PATTERNS = [
 
 /**
  * B18's pre-check (§12's mitigation, built in rather than waited for): the
- * literal prefix every pattern above starts with, as one alternation. A
- * string that matches none of these cannot match any of the nineteen
- * patterns either, so {@link content} skips the whole table rather than
- * running twenty regexes over every string a recording ever touches.
+ * literal prefix every CASE-SENSITIVE pattern above starts with, as one
+ * alternation. A string that matches neither this nor {@link TRIGGER_CI}
+ * cannot match any of the nineteen patterns either, so {@link content} skips
+ * the whole table rather than running twenty regexes over every string a
+ * recording ever touches.
  */
 export const TRIGGER = new RegExp([
   '://', '-----BEGIN', 'eyJ', 'sk-', 'sk_', 'rk_', 'gh', 'github_pat_',
   'glpat-', 'xox', 'AKIA', 'ASIA', 'AIza', 'hf_', 'npm_', 'pypi-',
-  'dop_v1_', 'shpat_', 'SG.', 'Bearer', 'Basic', 'bearer', 'basic',
+  'dop_v1_', 'shpat_', 'SG.',
 ].map(escapeLiteral).join('|'));
+
+/**
+ * The same pre-check for the one pattern above that is itself case-blind.
+ *
+ * `authorization-header` accepts every case spelling of each word, and a
+ * literal alternation of `Bearer|Basic|bearer|basic` stood in front of it
+ * covering two of each: `Authorization: BEARER <token>` matched no literal,
+ * skipped the table, and reached the spool in plaintext. A pre-check
+ * NARROWER than the pattern it guards is a leak and not an optimisation
+ * (ruling R21). Its own `RegExp` with the `i` flag, which is this engine's
+ * only spelling of a scoped case fold, and the shape the Python and Rust
+ * twins take too so the three agree in behaviour rather than in syntax.
+ */
+export const TRIGGER_CI = /Bearer|Basic/i;
+
+/**
+ * Whether any §2.2 pattern could match `text` at all: the union of the two
+ * pre-checks, and the one thing {@link content} consults.
+ *
+ * The union is what a test may pin. Either half alone is a pre-check for
+ * part of the table, and pinning one of them proves nothing about the shapes
+ * the other stands in front of.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function triggers(text) {
+  return TRIGGER.test(text) || TRIGGER_CI.test(text);
+}
 
 /**
  * One pattern's substitution over `text`: the whole match for group `0`
@@ -514,7 +543,7 @@ function applyOne(text, { regex, group }) {
  * @returns {{text: string, hit: boolean}}
  */
 export function content(text) {
-  if (!text || !TRIGGER.test(text)) return { text, hit: false };
+  if (!text || !triggers(text)) return { text, hit: false };
   let out = text;
   for (const pattern of PATTERNS) out = applyOne(out, pattern);
   return { text: out, hit: out !== text };

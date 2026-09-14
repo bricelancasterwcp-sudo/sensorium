@@ -18,7 +18,7 @@ import test from 'node:test';
 
 import { dbg, exc } from '../src/dbg.mjs';
 import {
-  Key, KEY_VAR, PATTERNS, REDACTED, RULE, TRIGGER, bootEnv, content, current,
+  Key, KEY_VAR, PATTERNS, REDACTED, RULE, bootEnv, content, current, triggers,
   fires, knobsFromEnv, lastSegment, normalise, redactCaptures, redactEnv,
   redactReturn, redactionMeta, split,
 } from '../src/redact.mjs';
@@ -375,10 +375,13 @@ test('every pattern has a positive and a negative row', () => {
 
 test('every positive passes the trigger', () => {
   // B18's pre-check: a positive case the trigger misses is a secret the
-  // content rule would silently never look at.
+  // content rule would silently never look at. `triggers`, never one of its
+  // two halves: the case-sensitive alternation alone answered false on
+  // `Authorization: BEARER <token>` and the table never ran (ruling R21),
+  // which is exactly what this test exists to catch.
   for (const c of FIXTURE.content) {
     if (c.after !== c.text) {
-      assert.ok(TRIGGER.test(c.text),
+      assert.ok(triggers(c.text),
         `${JSON.stringify(c.pattern)}'s positive does not pass the trigger: ${JSON.stringify(c.text)}`);
     }
   }

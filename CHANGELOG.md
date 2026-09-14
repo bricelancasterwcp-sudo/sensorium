@@ -21,11 +21,11 @@ record kind. The Rust spool wire moves to **v4**; the TypeScript wire stays
   fixture.** A URL's userinfo password, a PEM private-key body, an
   `Authorization: Bearer`/`Basic` value, a JWT, and the provider-prefixed
   shapes (`sk-ant-`, `sk-`, Stripe, GitHub, GitLab, Slack, AWS, Google,
-  Hugging Face, npm, PyPI, DigitalOcean, Shopify, SendGrid) — each with a
-  minimum length so a short benign string cannot fire. A **hit** means the
-  text CHANGED, never that a pattern matched: the userinfo pattern matches
-  the marker it put there itself, which is what makes a re-conversion
-  idempotent and the count below honest. The cases are
+  Hugging Face, npm, PyPI, DigitalOcean, Shopify, SendGrid) — most floored by
+  a minimum length so a short benign string cannot fire, the rest by their own
+  delimiters. A **hit** means the text CHANGED, never that a pattern matched:
+  the userinfo pattern matches the marker it put there itself, which is what
+  makes a re-conversion idempotent and the count below honest. The cases are
   `docs/trace-format/redaction-v1.json`; `src/sensorium/redact_content.py`,
   `rust/cargo-sensorium/src/convert/redact_content.rs` and
   `typescript/src/redact.mjs` all read it.

@@ -88,8 +88,8 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   used the process umask — `0644` on a default Linux setup, readable by
   every account on the machine. A trace holds the process environment and the
   captured values (minus what rule v1 withheld from each), everything the
-  program wrote to stdout/stderr, the command line, which rule v1 does not
-  reach, and the working directory. Treat one as a core dump or a `.env`;
+  program wrote to stdout/stderr, the working directory, and the command
+  line — which rule v1 does not reach. Treat one as a core dump or a `.env`;
   see the README's "What a trace file holds" and [`redaction.md`](redaction.md).
 
 ## 3. Tables

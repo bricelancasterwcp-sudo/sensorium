@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from sensorium.redact_content import PATTERNS, _TRIGGER, content
+from sensorium.redact_content import PATTERNS, content, triggers
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURE = REPO / "docs" / "trace-format" / "redaction-v1.json"
@@ -50,11 +50,16 @@ def test_every_pattern_has_a_positive_and_a_negative_row():
 
 def test_every_positive_passes_the_trigger():
     """B18's pre-check: a positive case that the trigger misses is a secret
-    the content rule would silently never look at."""
+    the content rule would silently never look at.
+
+    `triggers`, never one of its two halves: the case-sensitive alternation
+    alone answered False on `Authorization: BEARER <token>` and the table
+    never ran (ruling R21), which is exactly what this test exists to catch.
+    """
     for case in CASES:
         if case["after"] != case["text"]:
-            assert _TRIGGER.search(case["text"]), (
-                f"{case['pattern']!r}'s positive does not pass _TRIGGER: "
+            assert triggers(case["text"]), (
+                f"{case['pattern']!r}'s positive does not pass the trigger: "
                 f"{case['text']!r}")
 
 

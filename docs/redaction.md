@@ -83,8 +83,10 @@ a trace, and the digest still makes the value comparable.
 
 ## The content rule
 
-Nineteen patterns over a stored TEXT, whatever that text was called, each
-with a minimum length so a short benign string cannot fire: a URL's userinfo
+Nineteen patterns over a stored TEXT, whatever that text was called, most
+floored by a minimum length so a short benign string cannot fire and the rest
+by their own delimiters (`url-userinfo` by the `://` and the `@`, `pem` by
+its BEGIN and END lines): a URL's userinfo
 password, a PEM private-key body, an `Authorization: Bearer`/`Basic` value, a
 JWT, and the provider-prefixed shapes — `sk-ant-`, `sk-`, Stripe's
 `sk_live_`/`rk_test_`, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`, `github_pat_`,
@@ -111,10 +113,16 @@ Three things about it are worth stating plainly:
   runtime is dependency-free and has no regex engine, and one rule with two
   spellings would be two rules.
 
-Before the table runs at all, one search for the alternation of every
-pattern's literal prefix decides whether any of the nineteen could match, so
-a string holding no secret-shaped prefix — which is nearly every string a
-recorder touches — costs one scan rather than nineteen.
+Before the table runs at all, a pre-check decides whether any of the nineteen
+could match, so a string holding no secret-shaped prefix — which is nearly
+every string a recorder touches — costs two searches rather than nineteen
+substitutions. Two searches and not one: an alternation of the literal
+prefixes of the case-SENSITIVE patterns, and a case-blind `Bearer|Basic` for
+the one pattern that is itself case-blind. A pre-check narrower than the
+pattern it guards is a leak, not an optimisation — the first spelling of it
+covered `Bearer` and `bearer` and let `Authorization: BEARER <token>` through
+untouched (ruling R21, fixed with the two fixture rows that now pin it in all
+three languages).
 
 ## The three knobs
 
@@ -483,8 +491,16 @@ advisory there.
   recorder's `key_id` in `redaction` while the CAPTURE digests the converter
   took are under the ingesting store's key. On one box those are one key; a
   spool carried elsewhere makes them two, and nothing in the trace says so.
-- **`exceptions` groups chains by the origin message it prints**, so two
-  messages differing only inside a redacted span read as one message.
+- **`exceptions` counts an origin message as one of a SET.** The message is
+  deliberately not in a group's key (`query/exceptions_group.py`: Rust's is
+  `(tag, site, masked verdict, route)`, TypeScript's
+  `(disposition, reason, site, masked verdict, route)`); it rides in
+  `shape.messages`, and a group whose members differ there prints
+  `messages: N distinct (first shown)`. Two messages identical after
+  redaction therefore drop that N by one. On the Python side an exception's
+  identity is its `serial`, which redaction never touches; only the legacy
+  `(type, msg, oid)` fallback for traces recorded before serials existed
+  reads the message at all.
 - **A digest is guessable for a low-entropy value** by anyone holding the key
   file. See "The key, and what a digest is" above.
 - **Digests compare within one language.** A non-UTF-8 environment value

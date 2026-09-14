@@ -109,10 +109,11 @@ fn patterns() -> &'static [Pattern] {
 }
 
 /// B18's pre-check (§12's mitigation, built in rather than waited for): the
-/// literal prefix every pattern above starts with, as one alternation. A
-/// string that matches none of these cannot match any of the nineteen
-/// patterns either, so [`content`] skips the whole table rather than
-/// running twenty regexes over every string a conversion ever touches.
+/// literal prefix every CASE-SENSITIVE pattern above starts with, as one
+/// alternation. A string that matches neither this nor [`trigger_ci`] cannot
+/// match any of the nineteen patterns either, so [`content`] skips the whole
+/// table rather than running twenty regexes over every string a conversion
+/// ever touches.
 fn trigger() -> &'static Regex {
     static TRIGGER: OnceLock<Regex> = OnceLock::new();
     TRIGGER.get_or_init(|| {
@@ -136,10 +137,6 @@ fn trigger() -> &'static Regex {
             "dop_v1_",
             "shpat_",
             "SG.",
-            "Bearer",
-            "Basic",
-            "bearer",
-            "basic",
         ];
         let source: String = literals
             .iter()
@@ -148,6 +145,32 @@ fn trigger() -> &'static Regex {
             .join("|");
         Regex::new(&source).expect("_TRIGGER: an alternation of literal strings always compiles")
     })
+}
+
+/// The same pre-check for the one pattern above that is itself `(?i)`.
+///
+/// `authorization-header` accepts every case spelling of each word, and a
+/// literal alternation of `Bearer|Basic|bearer|basic` stood in front of it
+/// covering two of each: `Authorization: BEARER <token>` matched no literal,
+/// skipped the table, and was written to the trace in plaintext. A pre-check
+/// NARROWER than the pattern it guards is a leak and not an optimisation
+/// (ruling R21). Its own `Regex` rather than an inline `(?i:...)` group
+/// because the TypeScript twin has no inline-flag spelling, and the three
+/// implementations have to agree in behaviour rather than in syntax.
+fn trigger_ci() -> &'static Regex {
+    static TRIGGER_CI: OnceLock<Regex> = OnceLock::new();
+    TRIGGER_CI
+        .get_or_init(|| Regex::new("(?i)(?:Bearer|Basic)").expect("a literal alternation compiles"))
+}
+
+/// Whether any §2.2 pattern could match `text` at all: the union of the two
+/// pre-checks, and the one thing [`content`] consults.
+///
+/// The union is what a test may pin. Either half alone is a pre-check for
+/// part of the table, and pinning one of them proves nothing about the
+/// shapes the other stands in front of.
+pub(crate) fn triggers(text: &str) -> bool {
+    trigger().is_match(text) || trigger_ci().is_match(text)
 }
 
 /// `text` with every matched span replaced by [`REDACTED`], and whether the
@@ -164,7 +187,7 @@ fn trigger() -> &'static Regex {
 /// never the original secret twice.
 #[must_use]
 pub fn content(text: &str) -> (Cow<'_, str>, bool) {
-    if text.is_empty() || !trigger().is_match(text) {
+    if text.is_empty() || !triggers(text) {
         return (Cow::Borrowed(text), false);
     }
     let mut out = text.to_owned();
@@ -213,7 +236,7 @@ mod tests {
 
     use serde_json::Value;
 
-    use super::{content, patterns, trigger, REDACTED};
+    use super::{content, patterns, triggers, REDACTED};
 
     /// The shared fixture, read the way the Python and TypeScript suites
     /// read it: off disk, from the repository root, never imported from a
@@ -295,7 +318,7 @@ mod tests {
             let (text, after) = (text_of(case), after_of(case));
             if after != text {
                 assert!(
-                    trigger().is_match(text),
+                    triggers(text),
                     "{:?}'s positive does not pass the trigger: {text:?}",
                     pattern_of(case)
                 );

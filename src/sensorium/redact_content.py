@@ -82,15 +82,38 @@ PATTERNS: tuple[tuple[str, "re.Pattern[str]", int], ...] = (
 )
 
 #: B18's pre-check (§12's mitigation, built in rather than waited for): the
-#: literal prefix every pattern above starts with, as one alternation. A
-#: string that matches none of these cannot match any of the nineteen
-#: patterns either, so `content` skips the whole table rather than running
-#: twenty regexes over every string a recorder ever touches.
+#: literal prefix every CASE-SENSITIVE pattern above starts with, as one
+#: alternation. A string that matches neither this nor `_TRIGGER_CI` cannot
+#: match any of the nineteen patterns either, so `content` skips the whole
+#: table rather than running twenty regexes over every string a recorder
+#: ever touches.
 _TRIGGER = re.compile("|".join(re.escape(p) for p in (
     "://", "-----BEGIN", "eyJ", "sk-", "sk_", "rk_", "gh", "github_pat_",
     "glpat-", "xox", "AKIA", "ASIA", "AIza", "hf_", "npm_", "pypi-",
-    "dop_v1_", "shpat_", "SG.", "Bearer", "Basic", "bearer", "basic",
+    "dop_v1_", "shpat_", "SG.",
 )))
+
+#: The same pre-check for the one pattern above that is itself `(?i)`.
+#: `authorization-header` accepts every case spelling of each word, and a
+#: literal alternation of `Bearer|Basic|bearer|basic` stood in front of it
+#: covering two of each: `Authorization: BEARER <token>` matched no literal,
+#: skipped the table, and was stored in plaintext. A pre-check NARROWER than
+#: pattern it guards is a leak and not an optimisation (ruling R21). Its own
+#: object rather than an inline `(?i:...)` group because the TypeScript twin
+#: has no inline-flag spelling, and the three implementations have to agree
+#: in behaviour rather than in syntax.
+_TRIGGER_CI = re.compile("Bearer|Basic", re.IGNORECASE)
+
+
+def triggers(text: str) -> bool:
+    """Whether any §2.2 pattern could match `text` at all: the union of the
+    two pre-checks, and the one thing `content` consults.
+
+    The union is what a test may pin. Either half alone is a pre-check for
+    part of the table, and pinning one of them proves nothing about the
+    shapes the other stands in front of.
+    """
+    return bool(_TRIGGER.search(text) or _TRIGGER_CI.search(text))
 
 
 def content(text: str) -> tuple[str, bool]:
@@ -108,7 +131,7 @@ def content(text: str) -> tuple[str, bool]:
     CURRENT text -- so a later pattern sees an earlier pattern's markers,
     never the original secret twice.
     """
-    if not text or not _TRIGGER.search(text):
+    if not text or not triggers(text):
         return text, False
     out = text
     for _, pattern, group in PATTERNS:

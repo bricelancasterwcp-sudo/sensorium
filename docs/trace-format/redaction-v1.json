@@ -91,6 +91,8 @@
     {"pattern": "pem", "text": "-----BEGIN EC PRIVATE KEY-----\nMIIFAKETRUNCATEDDATA", "after": "-----BEGIN EC PRIVATE KEY-----<redacted>"},
     {"pattern": "pem", "text": "-----BEGIN CERTIFICATE-----\nMIIBAAA\n-----END CERTIFICATE-----\n", "after": "-----BEGIN CERTIFICATE-----\nMIIBAAA\n-----END CERTIFICATE-----\n"},
     {"pattern": "authorization-header", "text": "Authorization: Bearer abcdEFGH12345678ijklMNOP", "after": "Authorization: Bearer <redacted>"},
+    {"pattern": "authorization-header", "text": "Authorization: BEARER abcdEFGH12345678ijklMNOP", "after": "Authorization: BEARER <redacted>"},
+    {"pattern": "authorization-header", "text": "BASIC abcdEFGH12345678ijklMNOP", "after": "BASIC <redacted>"},
     {"pattern": "authorization-header", "text": "Bearer token", "after": "Bearer token"},
     {"pattern": "jwt", "text": "auth=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", "after": "auth=<redacted>"},
     {"pattern": "jwt", "text": "eyJ", "after": "eyJ"},
