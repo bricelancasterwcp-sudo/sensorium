@@ -625,6 +625,13 @@ fn a_childs_knobs_are_recorded_with_the_names_they_amended() {
     assert_eq!(allow, vec!["APIKEY"]);
 }
 
+/// The directory case here is the one where the RUNTIME creates it: a
+/// hand-launched or test binary with `SENSORIUM_SPOOL` pointing at a path that
+/// does not exist yet (`TempDir::reserved`). Under the driver the directory is
+/// created by `cargo-sensorium` BEFORE the instrumented build launches, so the
+/// runtime's `DirBuilder` never applies to it and its mode is the driver's to
+/// set -- asserted end to end in the driver's own tests (ruling R23), not
+/// here. The two file modes are the runtime's on both routes.
 #[test]
 fn the_spool_the_header_and_the_spool_directory_are_private() {
     let dir = TempDir::reserved("redact-modes");

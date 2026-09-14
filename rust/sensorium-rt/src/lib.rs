@@ -77,6 +77,10 @@ compile_error!(
 mod errflow;
 mod exit;
 mod ffi;
+// The one JSON string escaper: `spool.rs` writes the header and `redact.rs`
+// writes two of its keys, and a second escaper beside the first is how two
+// writers of one file end up disagreeing about a backslash.
+mod json;
 mod line;
 mod panic;
 pub mod probe;

@@ -63,9 +63,9 @@ use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::OnceLock;
 
 use crate::ffi;
+use crate::json::push_json_str;
 use crate::redact;
 use crate::sha256::{hex_prefix, Sha256};
 
@@ -160,8 +160,11 @@ impl Spool {
         let mut opts = OpenOptions::new();
         opts.read(true).write(true).create(true).truncate(true);
         // 0600: a spool holds captured return values and err messages out of
-        // somebody's program. Set at CREATION rather than chmod-ed after, so
-        // there is no window in which the file exists and is world-readable.
+        // somebody's program. The mode is the one the file is CREATED with; a
+        // file already at this path keeps the mode it has, which is why a
+        // 0.5.0 spool left in a reused directory under a recycled pid is
+        // rewritten at whatever it was. Nothing here chmods, so there is no
+        // window between creating a file and tightening it.
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
@@ -409,22 +412,6 @@ fn truncate_name(name: &str) -> &str {
 // The per-process header
 // ---------------------------------------------------------------------------
 
-/// The redaction knobs and the key, read ONCE per process.
-///
-/// The header is rewritten at every unit registration -- 77 times on a
-/// bloomery invocation -- and a rule that re-read its own knobs each time
-/// would let a program that edits its own environment mid-run produce a trace
-/// whose header contradicts the values already in it.
-fn knobs() -> &'static redact::Knobs {
-    static KNOBS: OnceLock<redact::Knobs> = OnceLock::new();
-    KNOBS.get_or_init(redact::Knobs::from_env)
-}
-
-fn key() -> &'static redact::Key {
-    static KEY: OnceLock<redact::Key> = OnceLock::new();
-    KEY.get_or_init(redact::Key::from_env)
-}
-
 /// Write `<dir>/<pid>.proc.json`. Called at the process's first event and again
 /// at every unit registration and at a refusal (the file is small; rewriting it
 /// keeps one source of truth and needs no incremental scheme).
@@ -437,9 +424,10 @@ pub(crate) fn write_proc_header(
     refused: Option<&'static str>,
 ) -> io::Result<()> {
     // Rule v1, applied HERE -- before the environment reaches a string, let
-    // alone the disk. `sorted_env` sorts, which is what makes the table below
-    // sorted (R13); `redact_env` keeps the order it is given.
-    let (env, redacted) = redact::redact_env(sorted_env(), key(), knobs());
+    // alone the disk. `sorted_env` sorts, which is what makes the table sorted
+    // (R13); `redact.rs` keeps the order it is given and writes the two
+    // siblings that describe what it did.
+    let (env, redacted) = redact::redact_process_env(sorted_env());
     let mut json = String::with_capacity(4096);
     json.push_str("{\"pid\":");
     json.push_str(&pid.to_string());
@@ -484,20 +472,7 @@ pub(crate) fn write_proc_header(
     // trace HOLDS, and hashing the plaintext would make two traces of the same
     // program disagree for a reason neither of them records.
     push_json_str(&mut json, &env_hash(&env));
-    json.push_str(",\"env_redaction\":{");
-    for (i, (name, digest)) in redacted.iter().enumerate() {
-        if i > 0 {
-            json.push(',');
-        }
-        push_json_str(&mut json, name);
-        json.push(':');
-        match digest {
-            Some(d) => push_json_str(&mut json, d),
-            None => json.push_str("null"),
-        }
-    }
-    json.push_str("},\"redaction\":");
-    json.push_str(&redact::redaction_json(key(), knobs()));
+    redact::push_header_siblings(&mut json, &redacted);
     json.push_str(",\"units\":{");
     for (id, metadata) in units.iter().enumerate() {
         if id > 0 {
@@ -588,27 +563,6 @@ fn env_hash(env: &[(String, String)]) -> String {
     hex_prefix(&h.finish(), 16)
 }
 
-pub(crate) fn push_json_str(out: &mut String, s: &str) {
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => {
-                let cp = c as u32;
-                out.push_str("\\u00");
-                out.push(char::from_digit(cp >> 4, 16).unwrap());
-                out.push(char::from_digit(cp & 0xf, 16).unwrap());
-            }
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -630,13 +584,6 @@ mod tests {
             ("B".to_owned(), "2".to_owned()),
         ];
         assert_eq!(env_hash(&env), "c1f0203c784f4397");
-    }
-
-    #[test]
-    fn json_strings_escape_what_json_requires() {
-        let mut out = String::new();
-        push_json_str(&mut out, "a\"b\\c\nd\te\u{1}f\u{e9}");
-        assert_eq!(out, "\"a\\\"b\\\\c\\nd\\te\\u0001f\u{e9}\"");
     }
 
     #[test]

@@ -40,6 +40,9 @@
 //! these functions directly; nothing outside this crate is expected to call
 //! them.
 
+use std::sync::OnceLock;
+
+use crate::json::push_json_str;
 use crate::sha256::{hex_prefix, Sha256};
 
 /// The rule's identity, stamped in every header it touches. A later rule is
@@ -238,10 +241,15 @@ fn listed(raw: Option<&str>) -> Vec<String> {
 pub fn fires(name: &str, knobs: &Knobs) -> bool {
     let segments = split(name);
     let normalised = segments.concat();
-    if knobs.allow.binary_search(&normalised).is_ok() {
+    // A LINEAR scan, not a binary search over the sorted fields. `Knobs` is a
+    // public struct with public fields, and a `Knobs` some other hand built
+    // with an unsorted list would make a binary search miss -- silently, and
+    // the price of a miss here is a plaintext secret on disk. The lists are
+    // two or three entries long.
+    if knobs.allow.iter().any(|a| a == &normalised) {
         return false;
     }
-    if knobs.names.binary_search(&normalised).is_ok() {
+    if knobs.names.iter().any(|n| n == &normalised) {
         return true;
     }
     if EXACT.contains(&normalised.as_str()) {
@@ -423,7 +431,7 @@ pub fn redact_env(
 pub fn redaction_json(key: &Key, knobs: &Knobs) -> String {
     let mut out = String::with_capacity(128);
     out.push_str("{\"rule\":");
-    crate::spool::push_json_str(&mut out, RULE);
+    push_json_str(&mut out, RULE);
     if knobs.off {
         out.push_str(",\"mode\":\"off\"}");
         return out;
@@ -432,7 +440,7 @@ pub fn redaction_json(key: &Key, knobs: &Knobs) -> String {
     out.push_str(if key.keyed() { "true" } else { "false" });
     out.push_str(",\"key_id\":");
     match key.key_id() {
-        Some(id) => crate::spool::push_json_str(&mut out, &id),
+        Some(id) => push_json_str(&mut out, &id),
         None => out.push_str("null"),
     }
     out.push_str(",\"names\":");
@@ -443,13 +451,65 @@ pub fn redaction_json(key: &Key, knobs: &Knobs) -> String {
     out
 }
 
+// ---------------------------------------------------------------------------
+// The header's redaction plumbing
+// ---------------------------------------------------------------------------
+
+/// The redaction knobs and the key, read ONCE per process.
+///
+/// The header is rewritten at every unit registration -- 77 times on a
+/// bloomery invocation -- and a rule that re-read its own knobs each time
+/// would let a program that edits its own environment mid-run produce a trace
+/// whose header contradicts the values already in it.
+fn knobs() -> &'static Knobs {
+    static KNOBS: OnceLock<Knobs> = OnceLock::new();
+    KNOBS.get_or_init(Knobs::from_env)
+}
+
+fn key() -> &'static Key {
+    static KEY: OnceLock<Key> = OnceLock::new();
+    KEY.get_or_init(Key::from_env)
+}
+
+/// [`redact_env`] under this process's own key and knobs: the environment to
+/// STORE, and the table its siblings are written from.
+///
+/// Paired with [`push_header_siblings`], and split from it only because
+/// `env_hash` goes between the two -- the hash is taken over the environment
+/// this returns, and the siblings are written after it.
+pub(crate) fn redact_process_env(env: Vec<(String, String)>) -> (Vec<(String, String)>, Table) {
+    redact_env(env, key(), knobs())
+}
+
+/// `,"env_redaction":{..},"redaction":{..}` -- the two header keys that say
+/// what the rule did, appended after `env_hash`.
+///
+/// The table is written in the order it arrived in, which is sorted because
+/// `spool::sorted_env` sorts (R13).
+pub(crate) fn push_header_siblings(json: &mut String, table: &Table) {
+    json.push_str(",\"env_redaction\":{");
+    for (i, (name, digest)) in table.iter().enumerate() {
+        if i > 0 {
+            json.push(',');
+        }
+        push_json_str(json, name);
+        json.push(':');
+        match digest {
+            Some(d) => push_json_str(json, d),
+            None => json.push_str("null"),
+        }
+    }
+    json.push_str("},\"redaction\":");
+    json.push_str(&redaction_json(key(), knobs()));
+}
+
 fn push_json_list(out: &mut String, items: &[String]) {
     out.push('[');
     for (i, item) in items.iter().enumerate() {
         if i > 0 {
             out.push(',');
         }
-        crate::spool::push_json_str(out, item);
+        push_json_str(out, item);
     }
     out.push(']');
 }
