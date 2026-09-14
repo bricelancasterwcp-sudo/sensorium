@@ -1,11 +1,11 @@
 # The TypeScript corpus
 
-Forty-seven cases recorded by the **TypeScript** recorder
+Forty-eight cases recorded by the **TypeScript** recorder
 (`sensorium ts run -- npx vitest run <case>`) and questioned through the same
-Python CLI as the rest of the corpus. Twelve of them are recorded one flag
+Python CLI as the rest of the corpus. Thirteen of them are recorded one flag
 deeper — `record: {focus: [...]}` in the case file becomes
 `sensorium ts run --focus <spec> … --`, one `--focus` per entry, before the
-`--` — and those are the twelve that may ask a per-line question at all.
+`--` — and those are the thirteen that may ask a per-line question at all.
 `record` is the ONLY key a vitest case shares with the Python recorder, it
 may hold nothing but `focus`, and a `window` under it is refused by name:
 `sensorium ts run` has no such flag, and a key that reached no recorder
@@ -32,9 +32,12 @@ as one, and whichever ran first would silently own `$RUN`. Its
 `harness_args` is `["run", "untraced_catcher/"]` instead — the trailing
 slash matches the directory boundary, which is not a substring of either
 sibling's path — and that is the fix for the next prefix-named case, not a
-new `$RUN2` situation to declare. The twelve focus cases take the slash form as
-a matter of course: none of their names is a prefix of any other today, and
-the next `focus_*` case somebody adds may well make one of them one.
+new `$RUN2` situation to declare. Twelve of the thirteen focus cases take the
+slash form as a matter of course: none of their names is a prefix of any
+other today, and the next `focus_*` case somebody adds may well make one of
+them one. The thirteenth, `secret_in_env`, needs no slash — no sibling
+name prefixes it — and stays bare, matching `async_interleaved` and the
+other unprefixed cases above.
 
 ```
 npm ci --prefix corpus/typescript             # once; the lock is committed
@@ -137,6 +140,20 @@ same table, twice, rather than left to the absence of a case.
 | `focus_place_write` | `state.x = 5`: a row at the line with NO delta after the site, and `flow --value 5` sighting nothing across the four captures searched. The blind spot as a present row and an absent value, said from both sides | `frame`, `flow` |
 | `focus_container` | `--focus Fog` and `--focus fog.ts:Fog` in one recording select the same two methods and no more: `focus matched: 2 — …Fog.compute, …Fog.render`, with `info` printing the specs as they were TYPED beside what they resolved to | `info`, `tree` |
 | `flow_value_inspect` | the inspect dialect's spellings: `flow --value 5.0` sights a JS `5`, `--value "'A1'"` sights a string, a 150-character value is rendered at `str=100` with `… 50 more characters` and a needle spelling it out sights nothing (exit 1), and `watch` answers `parsed == null` and `missing == undefined` as claims about values, not about absent names | `flow` ×3, `watch` ×2 |
+
+## The redaction case
+
+Added by the secrets-redaction slice, this recorder's twin of the Python and
+Rust `secret_in_env` cases: `secret()`'s RETURN, the `token` CALL argument
+and the `apiKey`/`authHeaders` deltas are every one of them a name rule v1
+fires on, and `info` counts `values redacted: 4`. Not a seeded bug — the
+planted truth is that the token never reaches the trace at all, which
+`frame`, `watch` and `flow --object` each confirm in their own vocabulary
+(a marker, a refusal to compare, a refusal to follow).
+
+| Case | Planted truth | Commands |
+|---|---|---|
+| `secret_in_env` | a token read from the environment and threaded through a local, a header object and a call: `info` names it among the redacted env vars and counts four values taken; `frame` renders `token=<redacted #…>`; `watch "token == 'x'"` ends NOTHING WAS CHECKED, exit 3; `flow --object handle:token` refuses at exit 2, redacted by name | `info`, `frame`, `watch`, `flow --object` |
 
 ## Three things a case here must know
 

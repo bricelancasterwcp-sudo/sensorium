@@ -1,7 +1,17 @@
 # Every binding name in corpus/, docs/trace-format/vectors/ and tests/fixtures/ts-spools/
 # that rule v1's NAME rule fires on -- so PR B's renderers meet a list, not a surprise.
 # Harvested by: python tests/test_redact_census.py > tests/fixtures/corpus-firing-names.txt
+corpus/rust/secret_in_env/src/main.rs: api_key
+corpus/rust/secret_in_env/src/main.rs: auth_headers
+corpus/rust/secret_in_env/src/main.rs: secret
+corpus/rust/secret_in_env/src/main.rs: token
+corpus/secret_in_env/main.py: secret
+corpus/secret_in_env/main.py: token
 corpus/typescript/callback_handled/token.ts: refreshToken
 corpus/typescript/callback_handled/token.ts: tokenAge
 corpus/typescript/focus_catch_binding/retry.ts: parseKey
+corpus/typescript/secret_in_env/secret.ts: apiKey
+corpus/typescript/secret_in_env/secret.ts: authHeaders
+corpus/typescript/secret_in_env/secret.ts: secret
+corpus/typescript/secret_in_env/secret.ts: token
 docs/trace-format/vectors/v42-redaction-render.json: token

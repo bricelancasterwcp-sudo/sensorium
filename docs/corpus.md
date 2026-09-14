@@ -204,7 +204,14 @@ container under `--no-isolate --maxWorkers 1`: refusal 7's sentence, exit 2,
 before anything is re-run, and `runs` shows the store unchanged — pinned
 through the task-root-frame reading ruling P3 gave refusal 7, since under
 `--no-isolate` the converter records one `test_file`, singular, for the
-container that ran two).
+container that ran two). None of the three asks an `exceptions` question.
+
+The secrets-redaction slice (2026-09-14) adds `secret_in_env` — a ported
+trio, one case per recorder, all three built around the same planted token
+and the same four rows rule v1 takes from it: `secret`'s RETURN, the
+argument or local `token` binds through, a struct or object field named
+`authorization`, and (Python only) a dict value taken under that key
+(B8). It asks no `exceptions` question either.
 
 `focus_catch_binding`, one of rung 4's own ten, is the one that gained an
 `exceptions` question this slice: a new case cannot ask one against a table
@@ -220,7 +227,7 @@ question was written and run showed `dispositions: swallowed 1` — a plain
 `catch` that only bumps a counter is the swallow `silent_swallow` already
 named.
 
-The current totals: twenty-two of the forty-four TypeScript cases carry an
+The current totals: twenty-two of the forty-eight TypeScript cases carry an
 `exceptions` verdict and a `dispositions:` tally (the seventeen above plus
 rung 3's four plus `focus_catch_binding`), thirteen of them pinned to accuse
 NOTHING (the nine above plus all four of rung 3's) and NINE now accuse

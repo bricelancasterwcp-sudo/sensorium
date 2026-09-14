@@ -1,0 +1,101 @@
+program: cargo
+cargo_args: ["--focus", "handle", "run"]
+env: {SENSORIUM_CORPUS_TOKEN: tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK}
+questions:
+  - id: info-counts-the-values-the-rule-took
+    ask: >
+      handle reads an API token out of the environment and threads it
+      through two more bindings. What does info say became of it?
+    truth: >
+      Redacted at every one of the four places rule v1 can reach it: the
+      env line names SENSORIUM_CORPUS_TOKEN among the redacted variables,
+      and the redaction line counts values redacted: 4 -- secret's RETURN
+      (taken by the callee's own name, B7), the token parameter (Rust
+      captures a parameter as its first LINE delta rather than as a CALL
+      argument, and the name rule reaches it there just the same), the
+      api_key delta and the auth_headers delta (the whole Headers value is
+      taken, because its Debug rendering would otherwise print
+      authorization's contents). handle fires on nothing itself, so its own
+      name is not what is redacted -- the four values that passed through
+      it are.
+    why_logs_fail: >
+      A dbg!(token) at any of those bindings is exactly what this rule
+      exists to stop -- it would put a live token in this trace's own
+      stored output, in a case whose whole point is that the trace never
+      holds it. The honest way to confirm the token never reached disk is
+      to ask the tool what it redacted, not to log the value the rule is
+      protecting.
+    command: ["info", "$RUN"]
+    expect_contains:
+      - "SENSORIUM_CORPUS_TOKEN"
+      - "values redacted: 4"
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
+
+  - id: frame-renders-the-marker-not-the-token
+    ask: >
+      frame handle prints a timeline of its bindings. What does it print
+      for the token this function is holding?
+    truth: >
+      A marker, token=<redacted #xxxxxxxx> -- eight hex characters of a
+      digest keyed to this store, never the token itself. The digest lets
+      two takings of the same value be told apart by eye without printing
+      either; it is not pinned here because it is per-store and would
+      differ on every recording.
+    why_logs_fail: >
+      A dbg!(token) to check it against the planted value is the same act
+      this trace refuses to commit to disk -- a log line here would hold
+      the plaintext the recording does not.
+    command: ["frame", "$RUN", "--fn", "handle"]
+    expect_contains: ["token=<redacted #"]
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
+
+  - id: watch-refuses-to-compare-a-redacted-name
+    ask: >
+      Would watch --expr "token == 'x'" at handle find the token equal to
+      'x', or say it differs?
+    truth: >
+      Neither. The predicate touches only a name the rule took, so watch
+      ends at NOTHING WAS CHECKED (exit 3) rather than deciding true or
+      false about a value it does not hold, and the state line for token
+      reads <redacted; no comparable value> rather than the marker's
+      digest -- a state line is read by eye, and a digest there would be an
+      offline guessing target for the value it stands for.
+    why_logs_fail: >
+      A dbg!(token) at this line would answer the comparison directly, and
+      getting it there is the leak this recorder exists to prevent --
+      RUST_LOG reaches no logger in this crate and nothing panics, so
+      RUST_BACKTRACE never prints either. The honest answer is that the
+      recording cannot support the comparison at all, not that it silently
+      ran one.
+    command: ["watch", "$RUN", "--at", "handle", "--expr", "token == 'x'"]
+    expect_exit: 3
+    expect_contains:
+      - "NOTHING WAS CHECKED"
+      - "<redacted; no comparable value>"
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
+
+  - id: flow-refuses-before-redaction-even-has-to
+    ask: >
+      Can flow follow handle's token as an object here, the way it would
+      for a value with an identity?
+    truth: >
+      It refuses at exit 3, but for a fact this recorder states about
+      EVERY Rust case, not about this one's redaction: sensorium-rt
+      declares object_identity false (capabilities.object_identity: false),
+      so flow --object refuses on every Rust trace this corpus records,
+      redacted name or not -- rust/aliasing and rust/stale_cache hit the
+      identical refusal over values the rule never touches. The three
+      questions above are what actually exercise rule v1 here; this one
+      would read the same with the token in plaintext, and is asked mainly
+      so a reader does not mistake its silence on token for evidence of
+      anything.
+    why_logs_fail: >
+      Following an alleged identity here would need object identity this
+      recorder does not produce at all -- a dbg!(Arc::as_ptr(...)) answers
+      nothing this trace could have captured, with or without redaction.
+    command: ["flow", "$RUN", "--object", "handle:token"]
+    expect_exit: 3
+    expect_contains:
+      - "REFUSED: flow --object needs object_identity"
+      - "nothing was checked"
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
