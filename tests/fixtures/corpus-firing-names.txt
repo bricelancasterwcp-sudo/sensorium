@@ -4,7 +4,4 @@
 corpus/typescript/callback_handled/token.ts: refreshToken
 corpus/typescript/callback_handled/token.ts: tokenAge
 corpus/typescript/focus_catch_binding/retry.ts: parseKey
-corpus/typescript/suspended_at_end/fetcher.ts: awaitToken
-corpus/typescript/suspended_at_end/fetcher.ts: tokenAge
-corpus/typescript/suspended_at_end/suspended_at_end.test.ts: token
 docs/trace-format/vectors/v42-redaction-render.json: token
