@@ -39,7 +39,13 @@ questions:
     # recorder's name in the sentence moved. (Re-pinned 2026-09-04, rung 3:
     # 0.1.0 -> 0.3.0 for wire v3 and err_flow, design R13.)
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-rt 0.5.0 declares it does not produce (capabilities.line: false); nothing was checked"
+    # Re-pinned 2026-09-14 (secrets redaction PR A shipped red): 0.5.0 -> 0.6.0,
+    # because `sensorium-rt` 0.6.0 redacts its environment in the proc header
+    # and the refusal's only moving part is the recorder's own name. The
+    # local corpus run that called PR A green recorded through a STALE
+    # driver on PATH, which embeds the runtime it was built with; CI builds
+    # the driver fresh and read 0.6.0 (run 34840430230).
+      - "REFUSED: watch needs line, which recorder sensorium-rt 0.6.0 declares it does not produce (capabilities.line: false); nothing was checked"
     expect_absent: ["hits:", "near-miss", "verdict:"]
   - id: did-the-key-move-with-the-record
     ask: >
