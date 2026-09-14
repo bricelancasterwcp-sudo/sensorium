@@ -20,6 +20,11 @@ mod manifest;
 mod merge;
 mod meta;
 mod redaction;
+// Task 2 fills this in; Task 6 wires it into `convert_one`. Module-level so
+// that every item in it -- not just the ones a later task reaches first --
+// stays quiet under `-D warnings` until that wiring lands.
+#[allow(dead_code)]
+mod redact_content;
 mod runid;
 mod spool;
 mod sqlite;

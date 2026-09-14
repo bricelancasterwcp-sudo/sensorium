@@ -364,3 +364,151 @@ export function bootEnv(processEnv) {
     redaction: redactionMeta(key, knobs),
   };
 }
+
+// ---------------------------------------------------------------------------
+// The content rule (§2.2)
+// ---------------------------------------------------------------------------
+//
+// `redactEnv` above is the NAME half of rule v1: it decides whether a whole
+// value is worth redacting at all. `content` below is the CONTENT half: a
+// fixed list of patterns over a value's TEXT, whatever it was called. §2.3:
+// a name hit redacts the WHOLE value; a content hit replaces the matched
+// SPAN and keeps everything around it (`postgres://u:<redacted>@h/db`) — a
+// repr or a log line is not a value with an identity, it is text that
+// happened to contain one.
+//
+// NOT A SECRET SCANNER: the list is a floor, nineteen shapes each with a
+// minimum length so a short benign string cannot fire. A secret that
+// matches none of them is stored as typed.
+//
+// THE FIXTURE: `docs/trace-format/redaction-v1.json`'s `content` list holds
+// every case, and `src/sensorium/redact_content.py`'s suite and
+// `cargo-sensorium`'s `redact_content.rs` read the SAME file. The three
+// implementations are the same nineteen patterns, textually, save for the
+// one place the three engines cannot agree on a spelling: end-of-text in
+// the PEM row's truncated form (`\Z` in Python, `\z` in Rust, plain `$`
+// here under the `s` flag) and inline case/dotall flags — Python and Rust
+// accept `(?i)`/`(?s)` inside the pattern text; JavaScript's `RegExp` does
+// not, so the `i`/`s` flags stand in for them on the two patterns that need
+// them. Three spellings, one pattern.
+
+/**
+ * Escapes a literal string for use inside a `RegExp` source — the handful
+ * of characters that are regex metacharacters get a backslash. No engine
+ * ships `RegExp.escape` yet; this is the whole of what {@link TRIGGER}
+ * needs it for.
+ * @param {string} s
+ * @returns {string}
+ */
+function escapeLiteral(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * §2.2's table, verbatim, in the order the table gives it — table order
+ * matters exactly once, for `sk-ant` before `sk`: both match an Anthropic
+ * key, the whole match is replaced either way so the two rows' output never
+ * differs, and the order is only for which row NAME a test or a report
+ * attributes the hit to.
+ *
+ * `group` is which capture a match replaces (`0` is the whole match). The
+ * three patterns whose group is not `0` carry the `d` (`hasIndices`) flag,
+ * which is how {@link applyOne} recovers a group's own start and end
+ * offsets — `String.prototype.replace`'s replacer callback is handed a
+ * group's captured VALUE but never its position, so there is no way to
+ * "replace only the group" through `replace` alone.
+ * @type {{name: string, regex: RegExp, group: number}[]}
+ */
+export const PATTERNS = [
+  { name: 'url-userinfo', regex: /:\/\/[^/\s:@]{1,64}:([^@\s/]{1,256})@/gd, group: 1 },
+  // The PEM body, through the matching END line or to end of text when
+  // truncated. `s` is inline DOTALL: the body spans real newlines.
+  {
+    name: 'pem',
+    regex: /-----BEGIN [A-Z ]*PRIVATE KEY-----(.*?)(?:-----END [A-Z ]*PRIVATE KEY-----|$)/gsd,
+    group: 1,
+  },
+  { name: 'authorization-header', regex: /\b(Bearer|Basic)\s+([A-Za-z0-9._~+/=-]{16,})/gid, group: 2 },
+  { name: 'jwt', regex: /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, group: 0 },
+  { name: 'sk-ant', regex: /\bsk-ant-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'sk', regex: /\bsk-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'stripe', regex: /\b(sk|rk)_(live|test)_[A-Za-z0-9]{16,}/g, group: 0 },
+  { name: 'github', regex: /\bgh[pousr]_[A-Za-z0-9]{20,}/g, group: 0 },
+  { name: 'github-pat', regex: /\bgithub_pat_[A-Za-z0-9_]{20,}/g, group: 0 },
+  { name: 'gitlab', regex: /\bglpat-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'slack', regex: /\bxox[abprs]-[A-Za-z0-9-]{10,}/g, group: 0 },
+  { name: 'aws', regex: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g, group: 0 },
+  { name: 'google', regex: /\bAIza[0-9A-Za-z_-]{35}\b/g, group: 0 },
+  { name: 'huggingface', regex: /\bhf_[A-Za-z0-9]{20,}/g, group: 0 },
+  { name: 'npm', regex: /\bnpm_[A-Za-z0-9]{20,}/g, group: 0 },
+  { name: 'pypi', regex: /\bpypi-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'digitalocean', regex: /\bdop_v1_[a-f0-9]{20,}/g, group: 0 },
+  { name: 'shopify', regex: /\bshpat_[a-f0-9]{20,}/g, group: 0 },
+  { name: 'sendgrid', regex: /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g, group: 0 },
+];
+
+/**
+ * B18's pre-check (§12's mitigation, built in rather than waited for): the
+ * literal prefix every pattern above starts with, as one alternation. A
+ * string that matches none of these cannot match any of the nineteen
+ * patterns either, so {@link content} skips the whole table rather than
+ * running twenty regexes over every string a recording ever touches.
+ */
+export const TRIGGER = new RegExp([
+  '://', '-----BEGIN', 'eyJ', 'sk-', 'sk_', 'rk_', 'gh', 'github_pat_',
+  'glpat-', 'xox', 'AKIA', 'ASIA', 'AIza', 'hf_', 'npm_', 'pypi-',
+  'dop_v1_', 'shpat_', 'SG.', 'Bearer', 'Basic', 'bearer', 'basic',
+].map(escapeLiteral).join('|'));
+
+/**
+ * One pattern's substitution over `text`: the whole match for group `0`
+ * (a plain string replacement — `REDACTED` holds no `$` and needs no
+ * replacer), or the match with only its group's span swapped for
+ * `REDACTED` — never the whole match when a narrower group was asked for
+ * (§2.3's span operation: everything around the secret is kept).
+ * @param {string} text
+ * @param {{regex: RegExp, group: number}} pattern
+ * @returns {string}
+ */
+function applyOne(text, { regex, group }) {
+  regex.lastIndex = 0;
+  if (group === 0) return text.replace(regex, REDACTED);
+
+  let out = '';
+  let lastEnd = 0;
+  let m = regex.exec(text);
+  while (m !== null) {
+    const [groupStart, groupEnd] = m.indices[group];
+    out += text.slice(lastEnd, groupStart) + REDACTED;
+    lastEnd = groupEnd;
+    // A pattern that could match empty would loop forever at the same
+    // position; none of the three do, but a broken pattern must not hang.
+    if (m[0].length === 0) regex.lastIndex += 1;
+    m = regex.exec(text);
+  }
+  return out + text.slice(lastEnd);
+}
+
+/**
+ * `text` with every matched span replaced by `REDACTED`, and whether the
+ * text CHANGED — never whether some pattern merely matched.
+ *
+ * That distinction is the whole of the contract: `url-userinfo` matches
+ * `postgres://u:<redacted>@h/db` (its group already reads as the marker),
+ * and replacing it with itself is not a hit. Comparing the WHOLE result to
+ * the input, once, at the end, is what makes that true without a special
+ * case for it — the converters that count `values` from this flag rely on
+ * it (Task 6/7).
+ *
+ * Applied left to right, pattern by pattern in table order, over the
+ * CURRENT text — so a later pattern sees an earlier pattern's markers,
+ * never the original secret twice.
+ * @param {string} text
+ * @returns {{text: string, hit: boolean}}
+ */
+export function content(text) {
+  if (!text || !TRIGGER.test(text)) return { text, hit: false };
+  let out = text;
+  for (const pattern of PATTERNS) out = applyOne(out, pattern);
+  return { text: out, hit: out !== text };
+}

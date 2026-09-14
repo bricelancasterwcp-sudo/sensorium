@@ -88,10 +88,17 @@ def test_the_fixture_gives_every_exact_name_a_firing_case():
     assert set(redact.EXACT) <= firing
 
 
-def test_the_fixtures_content_list_is_still_empty():
-    """PR B fills it; PR A must not, or the two suites that read the file
-    would be asked for a rule that does not exist yet."""
-    assert CASES["content"] == []
+def test_the_fixtures_content_rows_hold_the_shape_the_content_rule_reads():
+    """PR A left `content` empty; PR B fills it (`test_redact_content.py`
+    is the suite that reads every row's VALUES -- this is only the SHAPE
+    every row must hold, the same three keys the Rust and TypeScript
+    suites read off the identical file)."""
+    assert CASES["content"], "PR B must fill this list"
+    for case in CASES["content"]:
+        assert set(case) == {"pattern", "text", "after"}
+        assert isinstance(case["pattern"], str) and case["pattern"]
+        assert isinstance(case["text"], str)
+        assert isinstance(case["after"], str)
 
 
 def test_env_replaces_value_and_tables_digest(tmp_path):

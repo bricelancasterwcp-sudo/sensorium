@@ -17,8 +17,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
-  Key, KEY_VAR, REDACTED, RULE, bootEnv, fires, knobsFromEnv, normalise,
-  redactEnv, redactionMeta, split,
+  Key, KEY_VAR, PATTERNS, REDACTED, RULE, TRIGGER, bootEnv, content, fires,
+  knobsFromEnv, normalise, redactEnv, redactionMeta, split,
 } from '../src/redact.mjs';
 
 /** The shared fixture, read the way the Rust suite reads it: off disk. */
@@ -316,4 +316,73 @@ test('with the rule off the record says so and holds the plaintext', () => {
   assert.deepEqual(boot.redaction, { rule: RULE, mode: 'off' });
   assert.deepEqual(boot.envRedaction, {});
   assert.equal(KEY_VAR in boot.env, false);
+});
+
+// --- the content rule (§2.2) ------------------------------------------------
+//
+// Two operations exist in rule v1 (§2.3): a NAME hit redacts the whole
+// value (above); a CONTENT hit replaces the matched SPAN and keeps
+// everything around it. `docs/trace-format/redaction-v1.json`'s `content`
+// list is what `src/sensorium/redact_content.py`'s suite and
+// `redact_content.rs`'s `#[cfg(test)]` read too.
+
+test('every content case in the shared fixture', () => {
+  assert.ok(FIXTURE.content.length > 0, 'the fixture has content cases');
+  for (const c of FIXTURE.content) {
+    const { text, hit } = content(c.text);
+    assert.equal(text, c.after, `pattern ${JSON.stringify(c.pattern)}`);
+    assert.equal(hit, c.after !== c.text, `pattern ${JSON.stringify(c.pattern)}`);
+  }
+});
+
+test('every pattern has a positive and a negative row', () => {
+  // A pattern with no positive is a pattern nothing here proves fires; a
+  // pattern with no negative is a pattern nothing here proves has a floor.
+  const byPattern = new Map();
+  for (const c of FIXTURE.content) {
+    const hits = byPattern.get(c.pattern) ?? [];
+    hits.push(c.after !== c.text);
+    byPattern.set(c.pattern, hits);
+  }
+  for (const { name } of PATTERNS) {
+    const hits = byPattern.get(name) ?? [];
+    assert.ok(hits.some(Boolean), `${name} has no positive row`);
+    assert.ok(hits.some((h) => !h), `${name} has no negative row`);
+  }
+});
+
+test('every positive passes the trigger', () => {
+  // B18's pre-check: a positive case the trigger misses is a secret the
+  // content rule would silently never look at.
+  for (const c of FIXTURE.content) {
+    if (c.after !== c.text) {
+      assert.ok(TRIGGER.test(c.text),
+        `${JSON.stringify(c.pattern)}'s positive does not pass the trigger: ${JSON.stringify(c.text)}`);
+    }
+  }
+});
+
+test('the rule is a fixed point', () => {
+  // A text that has been through the rule once holds no trigger the rule
+  // would act on again -- the marker itself contains none of §2.2's shapes.
+  for (const c of FIXTURE.content) {
+    assert.equal(content(c.after).text, c.after, `pattern ${JSON.stringify(c.pattern)}`);
+  }
+});
+
+test('a marker is never re-redacted', () => {
+  assert.deepEqual(content(REDACTED), { text: REDACTED, hit: false });
+});
+
+test('a url-userinfo marker in context is a no-op', () => {
+  // §2.3's boundary case: `hit` means the TEXT CHANGED, not that a pattern
+  // matched. `url-userinfo` matches `postgres://u:<redacted>@h/db` (its
+  // group is already the marker), and the converter (Task 6/7) counts on
+  // this staying a no-op.
+  const text = `postgres://u:${REDACTED}@h/db`;
+  assert.deepEqual(content(text), { text, hit: false });
+});
+
+test('the empty string is a no-op', () => {
+  assert.deepEqual(content(''), { text: '', hit: false });
 });
