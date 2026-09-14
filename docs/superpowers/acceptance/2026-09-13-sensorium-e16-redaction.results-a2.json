@@ -1,0 +1,5726 @@
+{
+  "cells": {
+    "H1": {
+      "files_examined": 1033,
+      "offenders": [],
+      "why": "1033 file(s) examined, every count 0",
+      "word": "PASS"
+    },
+    "H2": {
+      "in_scope": 23,
+      "offenders": [],
+      "out_of_scope": 13,
+      "why": "23 path(s) in scope, every file 600 and directory 700",
+      "word": "PASS"
+    },
+    "H3": {
+      "offenders": [],
+      "pairs": [
+        {
+          "env_line": "env: unchanged (7 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)",
+          "env_status": "unchanged",
+          "exit": 0,
+          "licence": "granted",
+          "licence_line": "licence: verified against 20260914-013409-bdc9a0 on exactly these points, and no others:",
+          "name": "python-unchanged",
+          "ok": true,
+          "predicted": "granted",
+          "seconds": 0.097,
+          "token_in_changed": false,
+          "token_in_recorded_env": true,
+          "token_on_env_line": false,
+          "verdict_line": "refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence",
+          "verdict_word": "MATCH",
+          "why": "licence granted, environment unchanged, and the token named on no exclusion list"
+        },
+        {
+          "env_line": "env: unchanged (33 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS",
+          "env_status": "unchanged",
+          "exit": 0,
+          "licence": "granted",
+          "licence_line": "licence: verified against 20260914-013409-b4033a on exactly these points, and no others:",
+          "name": "rust-unchanged",
+          "ok": true,
+          "predicted": "granted",
+          "seconds": 0.182,
+          "token_in_changed": false,
+          "token_in_recorded_env": true,
+          "token_on_env_line": false,
+          "verdict_line": "refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence",
+          "verdict_word": "MATCH",
+          "why": "licence granted, environment unchanged, and the token named on no exclusion list"
+        },
+        {
+          "env_line": "env: CHANGED since the original run -- 1 variable(s) differ: SENSORIUM_E16_TOKEN   (names only)",
+          "env_status": "CHANGED",
+          "exit": 0,
+          "licence": "WITHHELD",
+          "licence_line": "licence: WITHHELD -- this MATCH is about call shape, and these checks say it is not a statement about the run as a whole:",
+          "name": "python-changed",
+          "ok": true,
+          "predicted": "WITHHELD",
+          "seconds": 0.097,
+          "token_in_changed": true,
+          "token_in_recorded_env": true,
+          "token_on_env_line": true,
+          "verdict_line": "refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence",
+          "verdict_word": "MATCH",
+          "why": "licence WITHHELD over SENSORIUM_E16_TOKEN in the changed list"
+        },
+        {
+          "env_line": "env: CHANGED since the original run -- 1 variable(s) differ: SENSORIUM_E16_TOKEN   (names only)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS",
+          "env_status": "CHANGED",
+          "exit": 0,
+          "licence": "WITHHELD",
+          "licence_line": "licence: WITHHELD -- this MATCH is about call shape, and these checks say it is not a statement about the run as a whole:",
+          "name": "rust-changed",
+          "ok": true,
+          "predicted": "WITHHELD",
+          "seconds": 0.111,
+          "token_in_changed": true,
+          "token_in_recorded_env": true,
+          "token_on_env_line": true,
+          "verdict_line": "refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence",
+          "verdict_word": "MATCH",
+          "why": "licence WITHHELD over SENSORIUM_E16_TOKEN in the changed list"
+        }
+      ],
+      "why": "all 4 pair(s) read as predicted",
+      "word": "PASS"
+    },
+    "H6": {
+      "offenders": [],
+      "traces": 3,
+      "why": "3 trace(s), each redacting exactly SENSORIUM_E16_TOKEN",
+      "word": "PASS"
+    }
+  },
+  "copies": {
+    "python": "py-case-a2",
+    "rust": "rust-crate-a2",
+    "typescript": "ts-project-a2"
+  },
+  "driver_build": {
+    "binary": "$DRIVER_DIR/cargo-sensorium",
+    "binary_abs": "$DRIVER_DIR/cargo-sensorium",
+    "built": true,
+    "cargo_target": "$DRIVER_DIR/..",
+    "finished_line": "Finished `release` profile [optimized] target(s) in 0.01s",
+    "mtime": 1789365778.7068787,
+    "seconds": 0.03,
+    "size": 7219552
+  },
+  "dropped": [
+    {
+      "cell": "H1-values",
+      "reason": "part B",
+      "word": "dropped"
+    },
+    {
+      "cell": "H4",
+      "reason": "part C",
+      "word": "dropped"
+    },
+    {
+      "cell": "H5",
+      "reason": "part B",
+      "word": "dropped"
+    },
+    {
+      "cell": "H6-values",
+      "reason": "part B",
+      "word": "dropped"
+    }
+  ],
+  "dry_run": false,
+  "dry_run_findings": [
+    "`build-driver` raised `KeyError: 'build'` \u2014 the new phase asked for a timer `TIMERS` did not have \u2014 and `phase()` swallowed it into the phase's `error` field, so the run went on to record with the unrebuilt binary and reported `DONE`. A rebuild that is not a refusal is not a rebuild. Fixed before the measurement in `10bdc18`: the timer table gained `build`, and `phase(..., critical=True)` turns any exception in a PRECONDITION phase \u2014 `build-driver` and `preflight` \u2014 into a refusal that ends the run. A measurement phase still leaves `None` and drops its cell.",
+    "Rendering the dry run's raw record showed two prose defects, both fixed in the same commit: a cell's `why` is a table clause with no full stop and swallowed the sentence after it when run into \u00a72's prose, and cargo's own `Finished \\`release\\` profile` line carries backticks that ended the code span around it early.",
+    "Everything the reader opens existed and parsed: `driver_build` stamped with the binary's labelled path, mtime, size and cargo's `Finished` line; `h2_roots` naming `store-a2` and `rust-target/sensorium/spool`, both `ok`; `arm` on every H6 row; all ten transcripts written; and the section rendered whole from a copy of the dry raw with the flag flipped, `offenders()` empty.",
+    "The dry run's own outputs, its store and its cargo target were deleted before the measurement, together with run 1's `rust-target` \u2014 the launcher now refuses a work root whose `rust-target/sensorium/spool` holds an earlier run's spools, because they would be swept as if this run's recorders had made them.",
+    "One launch of the measurement was discarded UNREAD before this one: it was started without `E16_DRY_FINDINGS`, so it would have carried no dry-run reading at all. Its store, out directory, transcripts, copies and token were deleted without its log or results being opened, and this run was made from zero with a freshly minted token."
+  ],
+  "finished": 1789367650.9989617,
+  "h1_sweep": {
+    "excluded": [
+      "token",
+      "a2-out"
+    ],
+    "files": [
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-out/e16a.DONE"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-out/e16a.log"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-out/results-a.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-out/section.md"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/info-python-20260914-001903-871933.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/info-rust-20260914-001904-03554b.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/info-typescript-20260914-001904-aa30cb.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/record-python.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/record-rust.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/record-typescript.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/refocus-python-changed.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/refocus-python-unchanged.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/refocus-rust-changed.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a-transcripts/refocus-rust-unchanged.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/build-driver.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/info-python-20260914-013409-bdc9a0.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/info-rust-20260914-013409-b4033a.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/info-typescript-20260914-013410-b5779c.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/record-python.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/record-rust.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/record-typescript.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/refocus-python-changed.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/refocus-python-unchanged.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/refocus-rust-changed.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "a2-transcripts/refocus-rust-unchanged.txt"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "py-case-a2/main.py"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "py-case-a2/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "py-case/main.py"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "py-case/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate-a2/Cargo.lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate-a2/Cargo.toml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate-a2/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate-a2/src/main.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate/Cargo.lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate/Cargo.toml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-crate/src/main.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/.rustc_info.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.cargo-artifact-lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.cargo-build-lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.cargo-lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-13e08677aa7c413f/bin-aliasing"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-13e08677aa7c413f/bin-aliasing.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-13e08677aa7c413f/dep-bin-aliasing"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-13e08677aa7c413f/invoked.timestamp"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-13e08677aa7c413f/output-bin-aliasing"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-b4477c7eb27a7fce/bin-aliasing"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-b4477c7eb27a7fce/bin-aliasing.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-b4477c7eb27a7fce/dep-bin-aliasing"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-b4477c7eb27a7fce/invoked.timestamp"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/.fingerprint/corpus_aliasing-b4477c7eb27a7fce/output-bin-aliasing"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/aliasing"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/aliasing.d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/deps/aliasing-13e08677aa7c413f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/deps/aliasing-13e08677aa7c413f.d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/deps/aliasing-b4477c7eb27a7fce"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/deps/aliasing-b4477c7eb27a7fce.d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/069xkr8qxmg6tcc62keh1s12h.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/1h2y46e6tj5e3km09f1crbbuu.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/1i65vlfbrxkl4ts1masho0883.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/1wjvkuozi2hsp00z8ats1nymo.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/1yro0nhj0v3esxib5unv4vr0w.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/2nsvqwxu8e5o9iv4q0x1sey8w.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/2r9g3cfe9zsvkme46r28ycjk7.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/2st2y5oi631ovxtou5378rcsu.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/34d35ctu12rx317v1ppooqh8x.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/3jkeyvg90nc2a4ght0vp3vxtc.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/4fwsdtl1v7tpwkt2mzxam4bmg.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/5b1zg8190pm0zolmpoydf9yzq.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/5dmf8xx9srilowfjr43dpwdwa.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/66qeo50t08kcrv4k7te4datl7.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/676hfavqrbgtd6rp2fbuus7xl.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/6hfzqt6ovp07s7tl9scn5ovcy.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/6j8awijsfw2yt6p93rg0qod1r.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/78zx32cy039oh1pjgv1pwsyzc.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/7w1u1u8hwmxtttkj7t8sktafo.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/8yzfcnyj5qn2ep7njuk1nv44x.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/93w47556n73j8j3y3b3atd8c0.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/9csiunt87kxbgujkj49yuwlwe.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/9j1ku50a49fqajcpui3hv1xjl.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/9j7ypikgul1og9w968vl73vry.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/9zvpavjny7vd2trrqyail0lvk.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/bckzcatmlfr52s7y0q3nl1o9w.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/btx03rvr9jkzrrhgt3d1qq73v.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/cbqkdqqv1pdroorqf70h16w7q.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/dep-graph.bin"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/dhfttohszluhmgxjkn8zoh24h.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/dpvxmsvz5tqdqxepwzam5fn3p.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/eicfd36ljqey4oi7eh8zv5ynx.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/ephlgwitc5itkl7a7ndbjak3e.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/evyc8odhxevqeh9h0evp4i86m.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/query-cache.bin"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc-2fe4izj401nlwcc375z9n2d7o/work-products.bin"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-37thk3u8ju9qv/s-hma05f3seu-05pj7jc.lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/0ghs1exnexlkjbru5x7vljkpc.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/0xt9ybbcv4xagr6vqf1ys9lbd.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/14b4z3161ptmidty77ldbq52e.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/2mxttpt5xjt9i0axbf2cly37n.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/2xjjw4r5izn3xhw6ywvywf032.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/3afqkhx5p3cq47u8dsyfyqhmu.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/44amnk38ujyuz9815hb5ngqjv.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/44ven36jxvml0it3hhjhndbvd.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/47tjmi5tnt3xdgqduzfk78vlt.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/4d1eboglxy045p10ol1whwjyk.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/4pgkz8rfwdvezucdjyreo4f07.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/4pxpwgvwrcduxmz4xp4wpbyu6.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/742zvh8u0q9tjtdige1yfu4va.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/7unhyvuqocf5peii0p7ggyvd7.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/838hjlfskpsr168steoxwy7b6.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/84ipbmnmwrkmm5b6ojo6y3ayp.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/8as52stsmwtickakuli5kkhez.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/8k31wf6mujjbs9hzazhi7m52c.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/8onfpkbnqc3hxbc9yi8oykkiq.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/8wylb4b3g3xlk4hrhku7vmnfo.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/8yvb1klc7k920b7klfagctzi1.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/9vqlqr96s1xzv3fsvkq0tgiar.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/9vx64yzjug47rgetlwhtqyzo7.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/bc7crrp6so5vj47j1lwpb9n06.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/blfbqt1760425km3ma274pjil.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/ce6g4e26hbkgaz4doagafsd77.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/cwer0h7y2qbf1csjquj6i9fpe.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/d0q1gpywv80lal45qav8hmxz1.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/d8lipd9ikd79onzsqy7a2ylkt.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/dep-graph.bin"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/e0u5j8blt62u2e9lovgt7g360.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/esvkhcsbvop3nitv621yt11tb.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/etxbv3oh8wogun8mcj66xpzsf.o"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/query-cache.bin"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0-7p3vg8s0y5karzxdf3h2qfic1/work-products.bin"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/debug/incremental/aliasing-3quxzfck31zmc/s-hma05ekff7-1a5osa0.lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/cache/4a72abec9db2d718/42cb6807ad74b3e201c5a7ca98b911c5fa08380e942be6e4ac5807f8377f87fc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/cache/8249ec867d2da267/42cb6807ad74b3e201c5a7ca98b911c5fa08380e942be6e4ac5807f8377f87fc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/manifests/4a72abec9db2d718.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/manifests/8249ec867d2da267.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/mirror/4a72abec9db2d718.lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/mirror/4a72abec9db2d718/src/main.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/mirror/8249ec867d2da267.lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/mirror/8249ec867d2da267/src/main.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/errflow.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/exit.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/ffi.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/json.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/lib.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/line.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/panic.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/probe.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/redact.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/sha256.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/spool.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/tasks.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/src/thread.rs"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/unwind.lock"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/rt/9ca44c8eb0e8ab7c/unwind/libsensorium_rt.rlib"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/shim/9ca44c8eb0e8ab7c-c412bbb6317c7fad/cargo-sensorium"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/shim/9ca44c8eb0e8ab7c/cargo-sensorium"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/1725510.1.spool"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/1725510.proc.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/1725510.runner.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/invocation.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-07f558/1725732.1.spool"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-07f558/1725732.proc.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-07f558/1725732.runner.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-07f558/invocation.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-6c53ac/1725800.1.spool"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-6c53ac/1725800.proc.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-6c53ac/1725800.runner.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "rust-target/sensorium/spool/20260914-013410-6c53ac/invocation.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/invocations.jsonl"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/redaction.key"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/spool/20260914-001904-f6b424/1516515-0.jsonl"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/spool/20260914-001904-f6b424/harness.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/spool/20260914-001904-f6b424/ingested.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/spool/20260914-001904-f6b424/invocation.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/spool/20260914-001904-f6b424/manifests/_tally.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__async_interleaved.test.ts.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__store.ts.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001903-871933.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001903-871933.db-shm"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001903-871933.db-wal"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001904-03554b.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001904-03554b.db-shm"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001904-03554b.db-wal"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001904-aa30cb.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001904-aa30cb.db-shm"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001904-aa30cb.db-wal"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001904-f7adae.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001905-04f53e.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001905-28af2f.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a/traces/20260914-001905-bb6ecd.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/invocations.jsonl"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/redaction.key"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/spool/20260914-013409-bda173/1725556-0.jsonl"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/spool/20260914-013409-bda173/harness.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/spool/20260914-013409-bda173/ingested.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/spool/20260914-013409-bda173/invocation.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/spool/20260914-013409-bda173/manifests/_tally.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/spool/20260914-013409-bda173/manifests/async_interleaved__async_interleaved.test.ts.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/spool/20260914-013409-bda173/manifests/async_interleaved__store.ts.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013409-b4033a.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013409-b4033a.db-shm"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013409-b4033a.db-wal"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013409-bdc9a0.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013409-bdc9a0.db-shm"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013409-bdc9a0.db-wal"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013410-511dc8.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013410-6dca36.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013410-b5779c.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013410-b5779c.db-shm"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013410-b5779c.db-wal"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013410-d4459c.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "store-a2/traces/20260914-013410-fad347.db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00371506"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00b737c7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00c259f6"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00cb1677"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0123ddaa"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/014a96a4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/01ef6db5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/02a6af43"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0468071d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0487bdaa"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/04c5172b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/05962a3c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/060fa164"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/066f2028"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/07149902"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/07388446"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/076e3acc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/07bde15b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/090f8f81"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0a873137"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0ad305b8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0c0c3635"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0c66ef34"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0c6e8fa7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0cdeadf2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0d2bf3fe"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0dad0ffa"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0e5153fb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0f0f5576"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0f884574"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0f903bdd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/10336f98"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/105be512"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/10f17e4f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1126651e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1183eab3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/11c72559"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/12096822"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/127655b9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/13c31377"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/141b76fd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/144a77b9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/146805c9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/15498d04"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/15d22ce5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/16a222b1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/17f8c010"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1a22f47b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1a451a99"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1abccbdb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1b23d553"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1bc10918"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1bc826e0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1cd4af61"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1d68c66e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1e03fbbb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1e719332"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1ee31e07"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1eee0c79"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1f949e03"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2023622f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/21227232"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/22a2f1a3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2357301d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/23787065"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/240b3166"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/240bebf6"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/240defc1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2410f942"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/24724469"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/24b125dd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2555fd5e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/256f7232"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/26ed9f11"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/27338c5a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/27e79ea6"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/28afeba5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/29b15eab"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/29deb8e6"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2a84c16d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ac80b3d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2af19961"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2b147419"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2b38e42d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2bfbe3c5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2c12c610"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2c2a46a9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ce5cdd2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2cf2dadd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2d40f448"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2df71c10"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2e7f524c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2e915963"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ef7380d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2fa32afb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2fcd8f86"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ffe9eed"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/300c7024"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30276281"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30b3b360"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30f4fc63"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30fd0e5d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/31a782e4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/320bf41a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/321de947"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3264e94a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/33007c28"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/337401f4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/33a834d9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34147890"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3415690d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34243365"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3429d6e5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34a06fd2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34a3c2af"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35580eac"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35b13c78"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35d26d63"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35e86976"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/362a6780"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/36df52c7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/374745cf"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/381f865f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/385fa553"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/38afd4d0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/39a020ce"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3abc0f99"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3abd2fcd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3adbd4b1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3b50649e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3c191e89"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3c1e0014"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3c2de1a1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3d1525f7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3d3fb7b4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3e5f9ea6"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3e92e654"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3ea5821d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3eef268c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3fabc82d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3fc74460"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/40529920"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4071b214"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/415d470d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4254323d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/425e86cf"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/42c57d5a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/43492cd2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/43536371"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/43ffddd4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/449c5a7d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/44ad7a60"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/457e5a2a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/46852506"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/470b1248"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/47ccf7d7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/47d0a83c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/485974ff"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49a576a5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49b82db8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49efc59e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49ffe437"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a027d65"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a2d5576"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a511c15"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a863d1e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4af241dd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4b6897ad"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4b7b2959"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4bf5bce9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4d6d1edc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4df4a26d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4dfae099"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4f65a939"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4fd3e2e3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/50394d72"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/51260299"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/514c4634"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/515733bb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5157d083"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5199d16a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/52309bd0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5237b27e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/52f099a0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5302d0da"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/53187d16"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5320943f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/538ae6ff"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/540acb29"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/54b0acd7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/55572c61"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/55a36316"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/55e3f535"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/56264071"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/57090db1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5726934b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/579e598f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5959b4e5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/59b24d81"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5a92f75f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5aa285eb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5aaded64"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5b2a7dd3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5b9d33a7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5bf27cf1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5c798765"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5cd28a58"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5d88dfd4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5df17f5d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5e04c257"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5e679f11"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5ee12ead"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5f1d55cf"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/618349d1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/61b1091c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/61c7b4d1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/61d1ae16"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/62de8149"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/63b3a740"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/63d17e94"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/63d97d09"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/647df25e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/65df8e3b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/65f271b5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6606fefe"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/66f8f4d8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/672d8d2a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/67636cdd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6847bf17"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/68fda5c7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6948d08c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6b562e9e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6b74e194"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c09e4ee"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c3629b6"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c46e67c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c8d6773"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6d4be4e2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6d7f4672"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6dd1773a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6dfd8717"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6e02e7e8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6e532673"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6f1b0b32"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6f3247c9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6f9ecacd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6fae5f71"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/700f98c4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7023ad9f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/705aa152"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/705f2bf2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/71a64013"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/71fbd8d7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/72ae0057"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/74543f17"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/756e0714"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/75f7a877"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/764c8654"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/76f122be"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/770cb1f9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/77635af2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/77a38c9f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/77cce5e5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/780ea187"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/78236ce9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7968c851"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7a722c44"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7aa84143"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7b25124b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7baa80ac"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7bd059f2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7be4a39c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7d91cebb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7dbca0c5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e0b55fd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e3f785d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e563022"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e8fa7f4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7ea34086"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7ee598bb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7fb3ea10"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7fe3eaba"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8021e77e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/811fa7cf"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/817f969a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/81d1452e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/81ebb63a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/83175a7e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/832138e8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/834a384b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8360381f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/83d506db"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/842b30c9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8464076a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/849bda6f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/850331c3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/852430b3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/85409f3a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/85615d41"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/86720bec"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/86c67931"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/877c1e04"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/878c657b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/889fe70c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8988f011"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/89aa8f91"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8a517164"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8af0e248"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8c5090b4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8e07a378"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8eab59cb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8f13ac08"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8f2f5a0c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8f7f87ee"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8fcc1dba"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9016da23"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/903407a8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9165e51b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/916fc03d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/91912535"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9194dc79"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/91f427af"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9334b977"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/934add0f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/93f35d56"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/944abfa1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/94f8d79f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/95460faf"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9573f839"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9646bc21"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/977a84b7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/981bf6ec"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/98489b73"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9884c269"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/99f8be8f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a215a51"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a3a15fa"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a643651"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a8712d8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9af61c52"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9bfa9288"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9c2da8c9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9cd33cd5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9d5c6371"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9de2f1d9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9eb2ad28"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a280e146"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a45ec96b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a472ee5b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a4aeaafc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a4ee090c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a6956741"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a6aa4346"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a73f217e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a74a2f44"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a7da7a56"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a89c3dfd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a89dc662"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a96ea274"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/aa15edf4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ac4e5e45"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ac65e977"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/acb20559"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/af32659f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/afb32b7d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b04a10d2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b04c05c3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b0dfff40"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b2e714d8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b4d63193"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b5164e15"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b52e093d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b56447f8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b5b7e93e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b5d56046"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b6a0067f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b726bea7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b760c5a4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b82df033"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b86a9c2c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b8edfc58"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b8fd8a3a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b9b3ae31"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b9b4e48c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ba941cb2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bb1a536c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bb1d8a42"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bb9962f0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc2e9ac2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc318402"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc3e3d7c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc83cfad"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bd1d4eeb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bd3e8607"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bda54f8b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/be566495"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/beb40767"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/beb868a0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bee05487"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bf413a81"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bf8f94dc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bfa44d58"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c088aab7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c09399c1"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c1119e15"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c11b2630"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c16d23de"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c1af6a6b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c1b2f103"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c4b0e671"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c50b8f74"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c55fcb13"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5707b89"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5b89fd0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5c3cea0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5cfab27"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c6773133"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c6b6c513"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c6f1c5ab"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c76ed034"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c7ff8792"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c8316399"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c8db4e43"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c93fa4c3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c9a31c2d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cb07845f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cc09394a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cc455d84"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ccf67005"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cd1c8a0a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cd6aa456"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cf3ec3e3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cf62992f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cfc18f59"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cff44c58"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d01aeed2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d0d76660"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d1ad27ed"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d2454387"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d3f16ad5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d4f02933"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d5852eee"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d5bfce9a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d634b9e9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d65f3a5a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d668aded"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d6c98d76"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d73687d5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d73ac4a2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d79ea50b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d7bc8a5f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d7c63abc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d9f1e025"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/da89e257"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dac7f703"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dae58242"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/db5e917e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dc60fad9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dc7464ab"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dd65b4d9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/de114370"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/df37538c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dff05ae2"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e119edac"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e2f3470d"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e31ee9bd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e3294831"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e3357a58"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e3384400"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e464e172"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e47f4725"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e4bcc15b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e529ad4b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e5438760"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e584ece8"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e5fe9aa3"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e6409e99"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e7a6e802"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e83edf6b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e897eb21"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e9adf795"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ea003305"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ea5e6a41"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ea6db24f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eaa11a5b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eaaaf219"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eb53babe"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eb600f93"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eb9c3e7e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ec477b63"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ec7e83ef"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eca34f59"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ecf5d116"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/edde2ff7"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eeb2c12a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ef533479"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/efa87392"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/efc7820e"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f13772bd"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f1995746"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f2493065"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f2874eda"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f3132455"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f34a8a97"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4092bc0"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4152c2b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4f01d3b"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4f85dcc"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f504f078"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f524578c"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f632f23f"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f644f5ae"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f6a22381"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f6c164c9"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f777de68"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f9901146"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f9ff588a"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fb93b023"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fc436eeb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fdd6ec01"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fddcc5d5"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fe6b2fb6"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/feb71874"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fee13bc4"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ff161775"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ffa180fb"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/.gitignore"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/README.md"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/asserted_catch/asserted_catch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/asserted_catch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/asserted_catch/validate.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/async_interleaved/async_interleaved.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/async_interleaved/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/async_interleaved/store.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/await_rejection_caught/await_rejection_caught.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/await_rejection_caught/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/await_rejection_caught/quote.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_escaped/callback_escaped.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_escaped/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_escaped/sync.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_handled/callback_handled.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_handled/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_handled/token.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_opaque/callback_opaque.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_opaque/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_opaque/report.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_sink/callback_sink.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_sink/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/callback_sink/upstream.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/dependency_throw/dependency_throw.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/dependency_throw/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/dependency_throw/settings.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/double_call/double_call.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/double_call/orders.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/double_call/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/each_naming/each_naming.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/each_naming/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/each_naming/squares.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/escaped_catch/amount.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/escaped_catch/escaped_catch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/escaped_catch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/finally_return/finally_return.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/finally_return/ledger.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/finally_return/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/flow_value_inspect/flow_value_inspect.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/flow_value_inspect/grid.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/flow_value_inspect/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_args/focus_args.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_args/invoice.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_args/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_async/cache.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_async/focus_async.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_async/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_block_scope/focus_block_scope.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_block_scope/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_block_scope/scope.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_catch_binding/focus_catch_binding.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_catch_binding/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_catch_binding/retry.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_container/focus_container.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_container/fog.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_container/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_destructure/focus_destructure.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_destructure/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_destructure/unpack.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_finally_return/finally.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_finally_return/focus_finally_return.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_finally_return/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_let_chain/chain.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_let_chain/focus_let_chain.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_let_chain/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_long_string/focus_long_string.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_long_string/long.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_long_string/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_loop_counter/counter.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_loop_counter/focus_loop_counter.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_loop_counter/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_place_write/focus_place_write.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_place_write/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/focus_place_write/state.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/logged_catch/logged_catch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/logged_catch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/logged_catch/quota.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/logged_rethrow_to_harness/loader.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/logged_rethrow_to_harness/logged_rethrow_to_harness.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/logged_rethrow_to_harness/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/nondeterministic/counter.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/nondeterministic/nondeterministic.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/nondeterministic/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/object_identity/object_identity.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/object_identity/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/object_identity/settings.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/package-lock.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/package.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/pass_vs_fail/above.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/pass_vs_fail/boundary.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/pass_vs_fail/pricing.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/pass_vs_fail/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/primitive_rethrow/primitive_rethrow.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/primitive_rethrow/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/primitive_rethrow/scan.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_diverged/counter.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_diverged/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_diverged/refocus_diverged.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_match/fill.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_match/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_match/refocus_match.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_refused_reused_worker/a.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_refused_reused_worker/b.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_refused_reused_worker/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/refocus_refused_reused_worker/shared.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/rethrow_hop/disk.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/rethrow_hop/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/rethrow_hop/rethrow_hop.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/silent_swallow/config.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/silent_swallow/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/silent_swallow/silent_swallow.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/suspended_at_end/fetcher.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/suspended_at_end/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/suspended_at_end/suspended_at_end.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/suspended_handler/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/suspended_handler/queue.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/suspended_handler/suspended_handler.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/test_failed/order.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/test_failed/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/test_failed/test_failed.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/timer_callback_parentless/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/timer_callback_parentless/sweeper.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/timer_callback_parentless/timer_callback_parentless.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/translated/decode.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/translated/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/translated/translated.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/unhandled_rejection_in_info/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/unhandled_rejection_in_info/refresh.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/unhandled_rejection_in_info/unhandled_rejection_in_info.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/unit_mismatch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/unit_mismatch/shipping.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/unit_mismatch/unit_mismatch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher/formula.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher/untraced_catcher.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher_later_failure/formula.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher_later_failure/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher_later_failure/untraced_catcher_later_failure.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher_rejection/network.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher_rejection/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/untraced_catcher_rejection/untraced_catcher_rejection.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/vitest.config.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/watch_refused/cache.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/watch_refused/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/watch_refused/watch_refused.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/wrong_branch/pricing.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/wrong_branch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project-a2/wrong_branch/wrong_branch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/.gitignore"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/README.md"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/asserted_catch/asserted_catch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/asserted_catch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/asserted_catch/validate.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/async_interleaved/async_interleaved.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/async_interleaved/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/async_interleaved/store.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/await_rejection_caught/await_rejection_caught.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/await_rejection_caught/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/await_rejection_caught/quote.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_escaped/callback_escaped.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_escaped/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_escaped/sync.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_handled/callback_handled.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_handled/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_handled/token.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_opaque/callback_opaque.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_opaque/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_opaque/report.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_sink/callback_sink.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_sink/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/callback_sink/upstream.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/dependency_throw/dependency_throw.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/dependency_throw/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/dependency_throw/settings.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/double_call/double_call.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/double_call/orders.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/double_call/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/each_naming/each_naming.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/each_naming/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/each_naming/squares.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/escaped_catch/amount.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/escaped_catch/escaped_catch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/escaped_catch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/finally_return/finally_return.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/finally_return/ledger.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/finally_return/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/flow_value_inspect/flow_value_inspect.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/flow_value_inspect/grid.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/flow_value_inspect/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_args/focus_args.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_args/invoice.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_args/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_async/cache.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_async/focus_async.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_async/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_block_scope/focus_block_scope.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_block_scope/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_block_scope/scope.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_catch_binding/focus_catch_binding.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_catch_binding/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_catch_binding/retry.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_container/focus_container.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_container/fog.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_container/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_destructure/focus_destructure.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_destructure/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_destructure/unpack.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_finally_return/finally.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_finally_return/focus_finally_return.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_finally_return/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_let_chain/chain.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_let_chain/focus_let_chain.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_let_chain/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_long_string/focus_long_string.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_long_string/long.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_long_string/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_loop_counter/counter.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_loop_counter/focus_loop_counter.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_loop_counter/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_place_write/focus_place_write.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_place_write/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/focus_place_write/state.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/logged_catch/logged_catch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/logged_catch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/logged_catch/quota.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/logged_rethrow_to_harness/loader.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/logged_rethrow_to_harness/logged_rethrow_to_harness.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/logged_rethrow_to_harness/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/nondeterministic/counter.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/nondeterministic/nondeterministic.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/nondeterministic/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/object_identity/object_identity.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/object_identity/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/object_identity/settings.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/package-lock.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/package.json"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/pass_vs_fail/above.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/pass_vs_fail/boundary.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/pass_vs_fail/pricing.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/pass_vs_fail/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/primitive_rethrow/primitive_rethrow.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/primitive_rethrow/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/primitive_rethrow/scan.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_diverged/counter.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_diverged/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_diverged/refocus_diverged.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_match/fill.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_match/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_match/refocus_match.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_refused_reused_worker/a.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_refused_reused_worker/b.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_refused_reused_worker/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/refocus_refused_reused_worker/shared.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/rethrow_hop/disk.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/rethrow_hop/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/rethrow_hop/rethrow_hop.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/silent_swallow/config.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/silent_swallow/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/silent_swallow/silent_swallow.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/suspended_at_end/fetcher.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/suspended_at_end/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/suspended_at_end/suspended_at_end.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/suspended_handler/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/suspended_handler/queue.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/suspended_handler/suspended_handler.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/test_failed/order.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/test_failed/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/test_failed/test_failed.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/timer_callback_parentless/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/timer_callback_parentless/sweeper.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/timer_callback_parentless/timer_callback_parentless.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/translated/decode.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/translated/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/translated/translated.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/unhandled_rejection_in_info/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/unhandled_rejection_in_info/refresh.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/unhandled_rejection_in_info/unhandled_rejection_in_info.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/unit_mismatch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/unit_mismatch/shipping.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/unit_mismatch/unit_mismatch.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher/formula.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher/untraced_catcher.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher_later_failure/formula.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher_later_failure/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher_later_failure/untraced_catcher_later_failure.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher_rejection/network.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher_rejection/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/untraced_catcher_rejection/untraced_catcher_rejection.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/vitest.config.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/watch_refused/cache.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/watch_refused/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/watch_refused/watch_refused.test.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/wrong_branch/pricing.ts"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/wrong_branch/questions.yaml"
+      },
+      {
+        "count": 0,
+        "fresh_count": 0,
+        "path": "ts-project/wrong_branch/wrong_branch.test.ts"
+      }
+    ],
+    "instrument_output": [
+      {
+        "count": 0,
+        "path": "a2-out/e16a.log"
+      }
+    ]
+  },
+  "h2_roots": [
+    {
+      "ok": true,
+      "root": "store-a2",
+      "why": ""
+    },
+    {
+      "ok": true,
+      "root": "rust-target/sensorium/spool",
+      "why": ""
+    }
+  ],
+  "h2_sweep": [
+    {
+      "kind": "dir",
+      "mode": "700",
+      "path": "store-a2",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/redaction.key",
+      "scope": "in"
+    },
+    {
+      "kind": "dir",
+      "mode": "700",
+      "path": "store-a2/traces",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/traces/20260914-013410-b5779c.db",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/traces/20260914-013409-bdc9a0.db",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/traces/20260914-013409-b4033a.db",
+      "scope": "in"
+    },
+    {
+      "kind": "dir",
+      "mode": "700",
+      "path": "store-a2/spool",
+      "scope": "in"
+    },
+    {
+      "kind": "dir",
+      "mode": "700",
+      "path": "store-a2/spool/20260914-013409-bda173",
+      "scope": "in"
+    },
+    {
+      "kind": "dir",
+      "mode": "700",
+      "path": "store-a2/spool/20260914-013409-bda173/manifests",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/spool/20260914-013409-bda173/manifests/async_interleaved__async_interleaved.test.ts.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/spool/20260914-013409-bda173/manifests/async_interleaved__store.ts.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/spool/20260914-013409-bda173/manifests/_tally.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/spool/20260914-013409-bda173/harness.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/spool/20260914-013409-bda173/ingested.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/spool/20260914-013409-bda173/1725556-0.jsonl",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/spool/20260914-013409-bda173/invocation.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "store-a2/invocations.jsonl",
+      "scope": "in"
+    },
+    {
+      "kind": "dir",
+      "mode": "700",
+      "path": "rust-target/sensorium/spool",
+      "scope": "in"
+    },
+    {
+      "kind": "dir",
+      "mode": "700",
+      "path": "rust-target/sensorium/spool/20260914-013409-6e9bda",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/1725510.proc.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/1725510.runner.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/invocation.json",
+      "scope": "in"
+    },
+    {
+      "kind": "file",
+      "mode": "600",
+      "path": "rust-target/sensorium/spool/20260914-013409-6e9bda/1725510.1.spool",
+      "scope": "in"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-target/sensorium/cache",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-target/sensorium/manifests",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-target/sensorium/mirror",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-target/sensorium/rt",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-target/sensorium/shim",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-target/sensorium",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": ".",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-target",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "py-case-a2",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "rust-crate-a2",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "ts-project-a2",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "a2-transcripts",
+      "scope": "out"
+    },
+    {
+      "kind": "dir",
+      "mode": "775",
+      "path": "a2-out",
+      "scope": "out"
+    }
+  ],
+  "h6_traces": [
+    {
+      "arm": "python",
+      "env_hash": "53a44d06b723753b",
+      "exit": 0,
+      "names": [
+        "SENSORIUM_E16_TOKEN"
+      ],
+      "recorder": "sensorium 0.15.0",
+      "run": "20260914-013409-bdc9a0",
+      "vars": 8
+    },
+    {
+      "arm": "rust",
+      "env_hash": "2f5d2ad7046b622b",
+      "exit": 0,
+      "names": [
+        "SENSORIUM_E16_TOKEN"
+      ],
+      "recorder": "sensorium-rt 0.6.0",
+      "run": "20260914-013409-b4033a",
+      "vars": 44
+    },
+    {
+      "arm": "typescript",
+      "env_hash": "2ea1f0eaed4445dd",
+      "exit": 0,
+      "names": [
+        "SENSORIUM_E16_TOKEN"
+      ],
+      "recorder": "sensorium-ts 0.5.0",
+      "run": "20260914-013410-b5779c",
+      "vars": 50
+    }
+  ],
+  "label": "a2",
+  "lens": {
+    "cargo_target": "$E16_DIR/rust-target",
+    "out": "$E16_DIR/a2-out",
+    "python_case": "$E16_DIR/py-case-a2",
+    "repo": "$REPO",
+    "rust_crate": "$E16_DIR/rust-crate-a2",
+    "store": "$E16_DIR/store-a2",
+    "transcripts": "$E16_DIR/a2-transcripts",
+    "ts_project": "$E16_DIR/ts-project-a2",
+    "work_root": "$E16_DIR"
+  },
+  "part": "DONE",
+  "phases": [
+    {
+      "error": null,
+      "name": "build-driver",
+      "seconds": 0.031
+    },
+    {
+      "error": null,
+      "name": "preflight",
+      "seconds": 0.218
+    },
+    {
+      "error": null,
+      "name": "mint",
+      "seconds": 0.0
+    },
+    {
+      "error": null,
+      "name": "copies",
+      "seconds": 0.004
+    },
+    {
+      "error": null,
+      "name": "record-python",
+      "seconds": 0.096
+    },
+    {
+      "error": null,
+      "name": "record-rust",
+      "seconds": 0.372
+    },
+    {
+      "error": null,
+      "name": "record-typescript",
+      "seconds": 0.497
+    },
+    {
+      "error": null,
+      "name": "modes",
+      "seconds": 0.015
+    },
+    {
+      "error": null,
+      "name": "info-pre",
+      "seconds": 0.139
+    },
+    {
+      "error": null,
+      "name": "refocus",
+      "seconds": 0.488
+    },
+    {
+      "error": null,
+      "name": "versions",
+      "seconds": 0.009
+    },
+    {
+      "error": null,
+      "name": "grep",
+      "seconds": 0.033
+    }
+  ],
+  "preflight": {
+    "allowlist": [
+      "PATH",
+      "HOME",
+      "USER",
+      "LANG",
+      "TMPDIR",
+      "CARGO_TARGET_DIR",
+      "SENSORIUM_DIR",
+      "SENSORIUM_E16_TOKEN"
+    ],
+    "dry_run": false,
+    "free_bytes": 85691596800,
+    "rule_fires_on_the_token": true,
+    "tools": {
+      "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+      "node": "v24.16.0",
+      "vitest": "vitest/4.1.9 linux-x64 node-v24.16.0"
+    }
+  },
+  "runs": {
+    "python": [
+      "20260914-013409-bdc9a0"
+    ],
+    "rust": [
+      "20260914-013409-b4033a"
+    ],
+    "typescript": [
+      "20260914-013410-b5779c"
+    ]
+  },
+  "seconds": 1.9,
+  "started": 1789367649.098276,
+  "status": "complete",
+  "token": {
+    "fresh_sha8": "496d48cd",
+    "length": 40,
+    "sha8": "a4badc8d"
+  },
+  "versions": {
+    "driver_version": {
+      "python": null,
+      "rust": "cargo-sensorium 0.7.0",
+      "typescript": "0.15.0"
+    },
+    "expected": {
+      "cargo-sensorium": "0.7.0",
+      "sensorium": "0.15.0",
+      "sensorium-rt": "0.6.0",
+      "sensorium-ts": "0.5.0"
+    },
+    "recorder": {
+      "python": "sensorium 0.15.0",
+      "rust": "sensorium-rt 0.6.0",
+      "typescript": "sensorium-ts 0.5.0"
+    },
+    "sensorium": "0.15.0",
+    "tools": {
+      "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+      "node": "v24.16.0",
+      "vitest": "vitest/4.1.9 linux-x64 node-v24.16.0"
+    }
+  }
+}
