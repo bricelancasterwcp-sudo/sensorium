@@ -481,7 +481,7 @@ def test_the_fixture_carries_the_keys_the_driver_writes(tmp_path, monkeypatch,
 # -- the recorder's own environment ----------------------------------------
 @pytest.mark.parametrize("name", [
     "SENSORIUM_FOCUS", "SENSORIUM_INVOCATION", "SENSORIUM_SPOOL",
-    "SENSORIUM_TIER", "SENSORIUM_CARGO_SENSORIUM", "RUSTC_WORKSPACE_WRAPPER",
+    "SENSORIUM_TIER", "RUSTC_WORKSPACE_WRAPPER",
     "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER"])
 def test_the_recorders_own_variables_are_recognised_as_its_own(name):
     assert refocus_rust._is_recorder_key(name)
@@ -489,7 +489,15 @@ def test_the_recorders_own_variables_are_recognised_as_its_own(name):
 
 @pytest.mark.parametrize("name", [
     "PATH", "HOME", "CARGO", "CARGO_MANIFEST_DIR", "RUSTC", "CARGO_TARGET_DIR",
-    "SENSORIUMISH", "MY_SENSORIUM_FOCUS"])
+    "SENSORIUMISH", "MY_SENSORIUM_FOCUS",
+    # Under the prefix this was the recorder's own, and it was wrong for the
+    # reason E16 measured one variable over: nothing in `cargo-sensorium`
+    # sets it. It is the PYTHON side's knob for WHICH driver binary to
+    # re-run with, so a pair recorded under two different drivers is a pair
+    # of two different tools -- exactly the difference a licence should
+    # name. `tests/test_refocus_rust_recorder_keys.py` holds the set to the
+    # sources that set its members; this name is in none of them.
+    "SENSORIUM_CARGO_SENSORIUM"])
 def test_an_ordinary_variable_is_not_mistaken_for_the_recorders(name):
     """The rule must not swallow a variable the PROGRAM reads: a check that
     excludes too much grants a licence over a real difference."""

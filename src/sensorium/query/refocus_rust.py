@@ -84,7 +84,7 @@ import sys
 import time
 from pathlib import Path
 
-from sensorium import paths
+from sensorium import paths, redact
 from sensorium.driver import cargo_sensorium
 from sensorium.exit import UNSETTLED
 # The licence code this file used to own, at its shared home now that a
@@ -339,6 +339,30 @@ def _refused_after_rerun(orig: Trace, reason: str) -> int:
     return UNSETTLED
 
 
+#: Every `SENSORIUM_` name `cargo-sensorium` itself puts into the recorded
+#: process's environment, and no other. Read off the sources that set them
+#: -- `launch.rs`'s eight `.env(...)` calls and `runner.rs`'s
+#: `SENSORIUM_INNER_RUNNER` -- plus `SENSORIUM_REDACT_KEY`, which the Python
+#: side hands down. `tests/test_refocus_rust_recorder_keys.py` greps those
+#: sources and holds this set equal to what it finds, in both directions: a
+#: variable the driver starts setting without a line here would be compared
+#: on every focused re-run and withhold every licence, and a name left here
+#: after the driver stopped setting it would keep a variable of the PROGRAM
+#: out of the comparison.
+RECORDER_KEYS = frozenset({
+    "SENSORIUM_FOCUS",
+    "SENSORIUM_INNER_RUNNER",
+    "SENSORIUM_INVOCATION",
+    "SENSORIUM_RT_DIR",
+    "SENSORIUM_SPOOL",
+    "SENSORIUM_TARGET",
+    "SENSORIUM_TIER",
+    "SENSORIUM_TOOL_HASH",
+    "SENSORIUM_WS",
+    redact.KEY_VAR,
+})
+
+
 def _is_recorder_key(name: str) -> bool:
     """Whether this variable is the RECORDER's own bookkeeping.
 
@@ -348,22 +372,46 @@ def _is_recorder_key(name: str) -> bool:
     a focused re-run changes `SENSORIUM_FOCUS` by definition, mints a new
     `SENSORIUM_INVOCATION` and `SENSORIUM_SPOOL`, and -- because `--focus`
     keys a fresh shim -- hands cargo different `RUSTC_WORKSPACE_WRAPPER`
-    and `CARGO_TARGET_<TRIPLE>_RUNNER` values. Compared, those six fire on
+    and `CARGO_TARGET_<TRIPLE>_RUNNER` values. Compared, those fire on
     EVERY Rust refocus, and a check that always fires says nothing.
 
-    `SENSORIUM_REDACT_KEY` rides the same prefix and has to keep riding it
-    if the prefix is ever narrowed to a list: every recorder DELETES it from
-    what it records (`redact.env`), so a pair of current traces never holds
-    it -- but a trace converted before rule v1 existed does, and comparing
-    it against a re-run that does not would report the tool's own key as a
-    change the world made.
+    A LIST AND NOT A PREFIX (E16 part A, H3, 2026-09-14)
+    ---------------------------------------------------
+    This was `name.startswith("SENSORIUM_")`, and the measurement is what
+    that cost. E16 planted `SENSORIUM_E16_TOKEN` in the recorded program's
+    environment and re-exported it to a fresh value between the recording
+    and the re-run. The Python pair reported the difference and WITHHELD
+    the licence, as pre-registered; the Rust pair granted it -- twice, in
+    both arms -- because the prefix had removed the name before `env_of`
+    compared anything. A rotated secret the licence could not see.
+
+    A prefix is a promise about names nobody has written yet, and the
+    namespace it claims is not the recorder's to claim: a user's program
+    reads whatever variables it likes, and several of ours invite the
+    shape (`SENSORIUM_E16_TOKEN` was pre-registered by this project's own
+    instrument and no reviewer noticed). So the driver's own variables are
+    a LIST, pinned to the sources that set them, and everything else --
+    `SENSORIUM_NO_REDACT`, `SENSORIUM_REDACT_NAMES`,
+    `SENSORIUM_REDACT_ALLOW`, and any `SENSORIUM_`-shaped name a person
+    exports -- is the user's and is compared like any other variable.
+
+    `SENSORIUM_REDACT_KEY` is the one member of the set no Rust source
+    sets, and it stays: every recorder DELETES it from what it records
+    (`redact.env`), so a pair of current traces never holds it -- but a
+    trace converted before rule v1 existed does, and comparing it against a
+    re-run that does not would report the tool's own key as a change the
+    world made.
+
+    The two cargo-derived names are still SHAPES rather than list members:
+    `CARGO_TARGET_<TRIPLE>_RUNNER` carries the host triple, which is the
+    box's and not something a source file can be grepped for.
 
     Not applied to the Python branch, and not added to `_UNCOMPARED_ENV`:
     these are variables of a recorder Python's traces never carry. The
     names are printed beside the count rather than hidden behind it, which
     is the rule the shell list follows too.
     """
-    return (name.startswith("SENSORIUM_")
+    return (name in RECORDER_KEYS
             or name == "RUSTC_WORKSPACE_WRAPPER"
             or (name.startswith("CARGO_TARGET_")
                 and name.endswith("_RUNNER")))

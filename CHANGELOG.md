@@ -74,6 +74,20 @@ TypeScript wire **v1** — one optional meta key, no column and no record kind.
   uncomparable, since a line that counts a check it did not run is lying by
   arithmetic (R22). Vector `v43-refocus-redacted-env`;
   `tests/test_refocus_redaction.py`.
+- **A Rust `refocus` compares every variable that is not the driver's own,
+  by NAME and not by prefix.** `refocus_rust._is_recorder_key` treated any
+  `SENSORIUM_`-prefixed name as the recorder's bookkeeping and dropped it
+  before the comparison. E16 part A measured the cost (H3): its
+  pre-registered `SENSORIUM_E16_TOKEN` was never compared, so a Rust re-run
+  whose value had been ROTATED still earned a full licence, while the Python
+  pair withheld it as designed. The prefix is now the exact set of the ten
+  names `launch.rs`, `runner.rs` and `driver.rs` set plus
+  `SENSORIUM_REDACT_KEY`, pinned to those sources by a test that greps them,
+  so a driver variable added without a line fails loudly. The two
+  cargo-derived names stay shapes. Anything else `SENSORIUM_`-named is the
+  USER's -- the three redaction knobs, `SENSORIUM_CARGO_SENSORIUM`, and
+  whatever their program reads -- and is compared like any other variable.
+  `tests/test_refocus_rust_recorder_keys.py`.
 - **0600 and 0700, at creation and never by a later `chmod`** — a file
   created `0644` and tightened a moment later is readable for exactly the
   moment it is being filled with what it holds. The trace, the store root,
