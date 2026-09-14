@@ -100,12 +100,23 @@ def test_nothing_inside_a_taken_container_is_reachable():
     assert find_in_value(plain, "hunter2", "arg cfg") == ["arg cfg.pw"]
 
 
-def test_a_taken_container_that_still_carried_a_sample_lists_no_root():
-    """Belt and braces on the KEEP rule: if a writer ever left a sample on
-    a taken container, the container itself is still not a sighting -- the
-    guard is on the capture, not on the absence of members."""
-    sample = [[{"k": "str", "v": "pw"}, {"k": "str", "v": STORED}]]
-    assert "" not in find_in_value(taken_map(sample), STORED)
+def test_the_walk_stops_AT_a_taken_container_rather_than_inside_it():
+    """The property the brief states: no path inside a taken container is
+    ever listed. `matches`' own guard only clears the ROOT -- the walk
+    would still descend into a sample and list `arg cfg.pw`, which is a
+    path into a value the rule took, reported as a sighting.
+
+    Today's Python recorder strips the sample, so this shape reaches the
+    reader only from another recorder's converter. The guard is on the
+    capture, not on the absence of members, because the reader is shared.
+    """
+    sample = [[{"k": "str", "v": "pw"}, {"k": "str", "v": "hunter2"}]]
+    assert find_in_value(taken_map(sample), "hunter2", "arg cfg") == []
+    assert find_in_value(taken_map(sample), STORED, "arg cfg") == []
+    # ...and the same container, untaken, still lists its member: the guard
+    # is what stops the walk, not a walk that stopped working.
+    plain = {n: x for n, x in taken_map(sample).items() if n != "redacted"}
+    assert find_in_value(plain, "hunter2", "arg cfg") == ["arg cfg.pw"]
 
 
 # -- the false lineage -----------------------------------------------------

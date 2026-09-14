@@ -59,7 +59,7 @@ import shlex
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from sensorium import paths
+from sensorium import paths, redact
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import print_incomplete, require
 from sensorium.query.expr import (CLIPPED, CONTAINER, NO_LENGTH, NO_VALUE,
@@ -77,6 +77,14 @@ from sensorium.store.reader import Trace
 
 _MAX_LISTED_CODES = 20
 _MAX_LISTED_ERRORS = 5
+
+#: What a state line says for a name the redaction rule took. One constant
+#: because two places read it -- `_render`, which prints it at a site, and
+#: `_guidance`, which quotes it so a reader who never reaches a hit knows
+#: what the words will be. Two literals would drift, and a test or a vector
+#: needle that matched only the quoted one would pin nothing about the
+#: renderer.
+REDACTED_STATE = "<redacted; no comparable value>"
 
 CLAIM = (
     "a site is one RECORDED event in a matching frame: a CALL (its arguments)",
@@ -218,7 +226,7 @@ def _render(name: str, site: Site) -> str:
         # here: `<redacted #01234567>` names WHICH value was taken, and
         # what a predicate's state line has to say is that there was
         # nothing to compare it with.
-        return "<redacted; no comparable value>"
+        return REDACTED_STATE
     if v is NOT_CAPTURED:
         return f"<{cap.get('type', 'object')}; no comparable value>"
     if v is TRUNCATED:
@@ -305,10 +313,19 @@ def _guidance(reason: str, name: str, ever: bool, has_line: bool,
         # what was in it.
         return ["the redaction rule took it at the recorder, before "
                 "anything reached disk, so no re-reading of this trace "
-                "holds a value; a state line shows such a name as "
-                "<redacted; no comparable value>",
-                f"see the rule this run was recorded under with: sensorium "
-                f"info {shlex.quote(trace.path.stem)}"]
+                f"holds a value; a state line shows such a name as "
+                f"{REDACTED_STATE}",
+                # The REMEDY, not just the diagnosis. The rule runs at
+                # record time, so the only thing that changes this answer
+                # is recording again with the name allowed -- and the
+                # allow list is compared after the same normalisation the
+                # rule uses, so the binding's own spelling is the value to
+                # set. Named in one command with the re-run, because
+                # exporting the variable and forgetting to re-record is
+                # the obvious way to follow this advice and get nowhere.
+                f"re-record with that name allowed, where its value is "
+                f"not a secret: export {redact.ALLOW_VAR}="
+                f"{shlex.quote(name)} && {refocus_cmd(trace, codes)}"]
     if reason == CLIPPED:
         return ["the capture is a prefix cut at the string cap, so the value "
                 "itself was never recorded",

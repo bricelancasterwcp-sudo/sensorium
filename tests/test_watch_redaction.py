@@ -30,8 +30,8 @@ import pytest
 from sensorium import cli
 from sensorium.exit import ANSWERED, NEGATIVE, UNSETTLED
 from sensorium.query import watch_cmd
-from sensorium.query.expr import (REDACTED, REDACTED_REASON, NotCaptured,
-                                  compile_expr, resolve)
+from sensorium.query.expr import (REDACTED, REDACTED_REASON, SAMPLED,
+                                  NotCaptured, compile_expr, resolve)
 from sensorium.query.watch_cmd import _render, evaluate, sites_for
 from tests.flow_programs import open_trace
 from tests.helpers import finalize_synthetic
@@ -163,9 +163,28 @@ def test_the_guidance_says_the_rule_ran_at_the_recorder(
     trace_with(tmp_path, monkeypatch, {"token": taken()})
     cli.main(["watch", RUN, "--at", AT, "--expr", "token == 'x'"])
     out = capsys.readouterr().out
-    assert "<redacted; no comparable value>" in out
+    assert watch_cmd.REDACTED_STATE in out
     assert "before anything reached disk" in out
     assert "this is scope, not capture depth" not in out
+    # The remedy, not just the diagnosis: the name of the knob and the
+    # value to set it to, which is the binding's own name.
+    assert "SENSORIUM_REDACT_ALLOW=token" in out
+    assert "sensorium run" in out
+
+
+def test_a_hit_decided_without_the_taken_name_still_renders_it(
+        tmp_path, monkeypatch, capsys):
+    """The only path `_render` reaches the screen by: `state_of`, from
+    `print_hits` and `print_near`. `or` short-circuits on the plain name,
+    so the site is a HIT that never read the taken one -- and the state
+    line still has to say what the trace holds for it."""
+    trace_with(tmp_path, monkeypatch,
+               {"url": content_hit(), "token": taken()})
+    assert cli.main(["watch", RUN, "--at", AT,
+                     "--expr", f"url != 'x' or token == 'y'"]) == ANSWERED
+    out = capsys.readouterr().out
+    assert "not-captured: 0" in out                  # token was never read
+    assert (f"state: token={watch_cmd.REDACTED_STATE}  url='{URL}'") in out
 
 
 def test_one_taken_site_beside_one_checked_site_is_still_a_no(
@@ -210,6 +229,32 @@ def test_the_marker_is_not_a_value_a_predicate_can_meet(
     assert cli.main(["watch", RUN, "--at", AT,
                      "--expr", f"token == '{STORED}'"]) == UNSETTLED
     assert "hits: 0" in capsys.readouterr().out
+
+
+def test_a_taken_member_is_not_a_member_value(tmp_path, monkeypatch):
+    """`literal in name` is answered from a container's SAMPLE. A taken
+    member joining that set as the marker text would make
+    `'<redacted>' in cfg` a hit, and -- worse -- would let `'hunter2' in
+    cfg` come back a DECIDED False about a container one of whose members
+    nobody recorded. It counts as a member the sample does not hold, which
+    is what `_Sized.complete` already says about an incomplete sample."""
+    cfg = {"k": "seq", "type": "list", "len": 2, "oid": 1,
+           "sample": [{"k": "str", "v": "plain"},
+                      {"k": "str", "v": STORED,
+                       "redacted": {"by": "name", "digest": None}}]}
+    env = {"cfg": resolve(cfg)}
+    assert compile_expr("'plain' in cfg").eval(env) is True
+    for src in (f"'{STORED}' in cfg", "'hunter2' in cfg"):
+        with pytest.raises(NotCaptured) as caught:
+            compile_expr(src).eval(env)
+        assert caught.value.reason == SAMPLED
+
+
+def test_the_state_text_is_one_constant_two_places_read():
+    """`_render` prints it and the guidance QUOTES it. Two literals would
+    drift, and a vector needle that matched only the quoted one would pin
+    nothing about the renderer."""
+    assert watch_cmd.REDACTED_STATE == "<redacted; no comparable value>"
 
 
 def test_the_reason_is_one_sentence_the_whole_reader_shares():

@@ -140,6 +140,16 @@ def _walk(v: dict, path: str = ""):
     empty list, so it is always read with `.get` -- never `v["sample"]`.
     """
     yield path, v
+    if (v.get("redacted") or {}).get("by") == "name":
+        # Yielded, never descended into. `matches` clears the container
+        # itself, but a walk that carried on would list `arg cfg.pw` --
+        # a path INSIDE a value the rule took, reported as a sighting.
+        # Today's Python writer strips the sample from a taken container
+        # (B4), so this shape reaches the reader only from another
+        # recorder's converter: the guard is on the capture, not on the
+        # absence of members, because the reader is shared by three
+        # languages.
+        return
     k = v.get("k")
     if k == "seq":
         for i, x in enumerate(v.get("sample", [])):

@@ -279,7 +279,14 @@ def _members(v: dict, n: int):
     compared with, and whether they are ALL of it. A map samples (key, value)
     pairs -- membership is over keys, as in Python. A member that is itself a
     container, an object, or a clipped string is not comparable, so a sample
-    holding one can prove presence but never absence."""
+    holding one can prove presence but never absence.
+
+    A member the redaction rule TOOK is one of those: every taken capture
+    holds the same marker text, so adding it to the set would make
+    `'<redacted>' in cfg` a hit, and -- far worse -- would let
+    `'hunter2' in cfg` come back a DECIDED False about a container one of
+    whose members nobody recorded. It is counted as a member the sample
+    does not decide, which is exactly what `complete` already means."""
     sample = v.get("sample")
     if sample is None:
         return None, False
@@ -287,7 +294,8 @@ def _members(v: dict, n: int):
     for entry in sample:
         item = entry[0] if v.get("k") == "map" else entry
         if (not isinstance(item, dict) or item.get("k") not in _PRIMITIVE
-                or item.get("trunc")):
+                or item.get("trunc")
+                or (item.get("redacted") or {}).get("by") == "name"):
             comparable = False
             continue
         members.add(None if item["k"] == "none" else item.get("v"))
