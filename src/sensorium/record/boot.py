@@ -668,6 +668,7 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         # the uncaught record names the exact RAISE row that produced it
         # rather than being matched back by a recyclable address.
         uncaught = rv.exc(capture.capture_exc(e, tracer.serial_of(e)))
+        rv.stats["values"] += rv.count_capture(uncaught)
         traceback.print_exception(e)   # tee'd: the trace holds what was shown
     finally:
         tracer.uninstall()             # stop callbacks before closing the db

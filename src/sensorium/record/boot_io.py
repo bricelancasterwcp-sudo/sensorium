@@ -51,8 +51,12 @@ class _Tee:
         # the bytes the program wrote -- an instrument that changed what a
         # program SHOWS would be a worse instrument -- so what the rule
         # applies to is this proxy's own copy, the one that reaches disk.
-        text = rv.text(capture.plain_str(s))
+        text, hit = rv.text(capture.plain_str(s))
         if text:
+            # Counted here, at the write, like every capture the tracer
+            # stores: `values` is what the trace holds (B3).
+            if hit:
+                rv.stats["values"] += 1
             self._writer.add_output(self._writer.last_event_id, self._name,
                                     text)
         return n

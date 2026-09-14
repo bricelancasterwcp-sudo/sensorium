@@ -79,6 +79,23 @@ def _deltas(trace, code_id) -> list[dict]:
             for e in trace.events(kind="LINE", code_id=code_id)]
 
 
+def _withheld_by_the_trace(trace) -> int:
+    """What the trace HOLDS, counted from the trace itself and not from the
+    recorder's bookkeeping: every capture carrying a `redacted` object, plus
+    every stored output chunk holding the marker.
+
+    Deliberately not `redact_values.count`: this is the reading
+    `redaction.values` CLAIMS, computed a second way, so an accounting slip
+    in the recorder cannot agree with itself.
+    """
+    blob = "".join(json.dumps(e.payload or {}) for e in trace.events())
+    blob += "".join(json.dumps(f.unwind_exc)
+                    for f in trace.frames() if f.unwind_exc)
+    blob += json.dumps(trace.meta.get("uncaught") or {})
+    return blob.count('"redacted":') + sum(
+        1 for _, _, data in trace.output_chunks() if redact.REDACTED in data)
+
+
 def _delta_of(trace, code_id, name):
     """The one recorded delta for `name`, and how many rows carried it."""
     rows = [d[name] for d in _deltas(trace, code_id) if name in d]
@@ -122,6 +139,7 @@ def test_the_five_rows_are_redacted_and_counted(tmp_path):
     assert redact.REDACTED in chunks
 
     assert trace.meta["redaction"]["values"] == 5
+    assert trace.meta["redaction"]["values"] == _withheld_by_the_trace(trace)
 
 
 def test_no_plaintext_token_in_any_event_payload_or_output(tmp_path):
@@ -270,6 +288,41 @@ def test_a_secret_local_in_a_loop_is_counted_once_not_once_per_line(tmp_path):
     _, rows = _delta_of(trace, _codes(trace)["handle"], "api_key")
     assert rows == 1
     assert trace.meta["redaction"]["values"] == 1
+    assert trace.meta["redaction"]["values"] == _withheld_by_the_trace(trace)
+
+
+def test_a_repr_that_prints_is_counted_though_its_local_never_changes(
+        tmp_path):
+    """R10's case: `values` is a function of what the trace HOLDS.
+
+    `capture_value` on an `obj` local runs the program's own `__repr__`, and
+    one that PRINTS reaches the tee -- which redacts and counts -- from
+    inside the capture of a local that is about to compare equal to the
+    previous line's and be dropped. A counter bumped by the rule and rolled
+    back for the dropped capture erased those chunks' counts with it, on a
+    single thread, with no concurrency at all.
+    """
+    source = ("class Loud:\n"
+              "    def __repr__(self):\n"
+              f"        print('leak {TOKEN}')\n"
+              "        return 'Loud()'\n"
+              "\n"
+              "def handle():\n"
+              "    noisy = Loud()\n"
+              "    total = 0\n"
+              "    for i in range(3):\n"
+              "        total += i\n"
+              "    return total\n"
+              "\n"
+              "handle()\n")
+    trace, _, _ = _record(tmp_path, source, None)
+    hits = [data for _, _, data in trace.output_chunks()
+            if redact.REDACTED in data]
+    assert len(hits) > 1, "the fixture must print from __repr__ repeatedly"
+    for _, _, data in trace.output_chunks():
+        assert TOKEN not in data
+    assert trace.meta["redaction"]["values"] == _withheld_by_the_trace(trace)
+    assert trace.meta["redaction"]["values"] >= len(hits)
 
 
 def test_a_value_that_does_not_change_across_lines_is_one_delta(tmp_path):

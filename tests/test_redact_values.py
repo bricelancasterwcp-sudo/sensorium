@@ -4,9 +4,12 @@ The two operations of §2.3 meet the recorder's payload dialect here. A NAME
 hit redacts the whole capture per B4's per-kind table (`str`/`num`/`obj`/`dbg`
 lose their text, a container loses its sample); a CONTENT hit replaces the
 matched span inside whatever text the capture holds and leaves the rest.
-Neither is allowed to touch the caller's dict, and every one of them bumps
-`stats["values"]` exactly once -- the count a trace publishes as
-`redaction.values`, which is a witness and not an estimate.
+Neither is allowed to touch the caller's dict, and neither COUNTS: the
+transforms are pure, and `count`/`count_capture` read a finished payload for
+the number of values it withholds. That number is what the recorder adds to
+`stats["values"]` as it writes the payload, and what a trace publishes as
+`redaction.values` -- a witness of what the trace holds, not of how often
+the rule ran.
 
 Captures are built by hand, never by recording something: the unit under
 test is the rule, and a capture built from a live object would also be
@@ -15,10 +18,15 @@ real recorder applies this at every site -- is
 `tests/test_record_values_redaction.py`.
 """
 import copy
+import json
+import re
+from pathlib import Path
 
 import pytest
 
 from sensorium import redact, redact_values as rv
+
+REPO = Path(__file__).resolve().parents[1]
 
 #: A key with no store behind it: `Key.from_hex` is the shape a driver hands
 #: down a wire, and it makes the digests in this module reproducible without
@@ -62,14 +70,14 @@ def test_a_firing_name_takes_a_str_whole(installed):
     assert out == {"k": "str", "v": redact.REDACTED,
                    "redacted": {"by": "name", "digest": KEY.digest(SECRET)}}
     assert "trunc" not in out          # nothing was clipped: it was taken
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_a_firing_name_takes_a_num_and_digests_its_repr(installed):
     out = unchanged(lambda c: rv.named("api_key", c), {"k": "num", "v": 1234})
     assert out == {"k": "num", "v": redact.REDACTED,
                    "redacted": {"by": "name", "digest": KEY.digest("1234")}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_a_firing_name_takes_an_obj_repr_and_keeps_its_identity(installed):
@@ -80,7 +88,7 @@ def test_a_firing_name_takes_an_obj_repr_and_keeps_its_identity(installed):
                    "repr": redact.REDACTED,
                    "redacted": {"by": "name",
                                 "digest": KEY.digest(f"Cfg({SECRET!r})")}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_a_firing_name_takes_a_dbg_text_and_says_it_is_not_clipped(installed):
@@ -94,7 +102,7 @@ def test_a_firing_name_takes_a_dbg_text_and_says_it_is_not_clipped(installed):
     assert out == {"k": "dbg", "v": redact.REDACTED, "trunc": False,
                    "redacted": {"by": "name",
                                 "digest": KEY.digest(f"'{SECRET}'")}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 @pytest.mark.parametrize("kind, sample", [
@@ -110,7 +118,7 @@ def test_a_firing_name_takes_a_containers_sample_and_keeps_its_shape(
     out = unchanged(lambda c: rv.named("secret_map", c), cap)
     assert out == {"k": kind, "type": "T", "len": 3, "oid": 9,
                    "redacted": {"by": "name", "digest": None}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 @pytest.mark.parametrize("cap", [
@@ -125,7 +133,7 @@ def test_a_firing_name_leaves_a_value_that_withholds_nothing(installed, cap):
     out = unchanged(lambda c: rv.named("password", c), cap)
     assert out == cap
     assert "redacted" not in out
-    assert counted(installed) == 0
+    assert rv.count_capture(out) == 0
 
 
 # -- names, and the names inside a container -------------------------------
@@ -144,7 +152,7 @@ def test_a_map_value_under_a_firing_key_is_redacted_by_that_name(installed):
                                       "digest": KEY.digest("tok")}}
     assert out["len"] == 1 and out["oid"] == 3
     assert "redacted" not in out       # the container itself withheld nothing
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1  # ...and the count reaches inside it
 
 
 def test_content_reaches_a_str_inside_a_seq_sample(installed):
@@ -155,7 +163,7 @@ def test_content_reaches_a_str_inside_a_seq_sample(installed):
     assert out["sample"][1] == {
         "k": "str", "v": f"use {redact.REDACTED} now",
         "redacted": {"by": "content", "digest": None}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_content_reaches_an_obj_repr(installed):
@@ -164,7 +172,7 @@ def test_content_reaches_an_obj_repr(installed):
     assert out["repr"] == f"Cfg({redact.REDACTED!r})"
     assert out["redacted"] == {"by": "content", "digest": None}
     assert out["type"] == "Cfg" and out["oid"] == 7
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_named_reaches_the_content_rule_when_the_name_does_not_fire(
@@ -173,7 +181,7 @@ def test_named_reaches_the_content_rule_when_the_name_does_not_fire(
                     {"k": "str", "v": TOKEN})
     assert out == {"k": "str", "v": redact.REDACTED,
                    "redacted": {"by": "content", "digest": None}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_named_return_reads_the_last_segment(installed):
@@ -190,7 +198,7 @@ def test_named_return_reads_the_last_segment(installed):
     # all: a class whose own name fires does not make every method's return
     # a secret. `ApiKey.load` returns a config, not a key.
     assert rv.named_return("ApiKey.load", cap) == cap
-    assert counted(installed) == 1
+    assert rv.count_capture(fired) == 1
     assert rv.last_segment("Cls.get_api_key") == "get_api_key"
     assert rv.last_segment("ApiKey.load") == "load"
     assert rv.last_segment("main") == "main"
@@ -202,7 +210,7 @@ def test_the_content_rule_never_touches_a_name_redacted_capture(installed):
     taken = rv.named("api_key", {"k": "str", "v": f"{TOKEN} and more"})
     assert taken["redacted"]["by"] == "name"
     assert rv.value(taken) is taken
-    assert counted(installed) == 1     # the name hit, and nothing after it
+    assert rv.count_capture(taken) == 1    # one value, not two operations
 
 
 def test_the_content_rule_does_not_descend_into_a_taken_container(installed):
@@ -212,7 +220,7 @@ def test_the_content_rule_does_not_descend_into_a_taken_container(installed):
                                       {"k": "str", "v": TOKEN}]]})
     assert "sample" not in taken       # there is nothing left to descend into
     assert rv.value(taken) == taken
-    assert counted(installed) == 1
+    assert rv.count_capture(taken) == 1
 
 
 # -- the knobs, the key, the count, and the other two texts ----------------
@@ -225,7 +233,7 @@ def test_off_is_identity_and_counts_nothing(installed):
     assert rv.value(cap) is cap
     exc = {"type": "ValueError", "msg": TOKEN, "oid": 1}
     assert rv.exc(exc) is exc
-    assert rv.text(TOKEN) == TOKEN
+    assert rv.text(TOKEN) == (TOKEN, False)
     assert counted(installed) == 0
 
 
@@ -235,7 +243,7 @@ def test_unkeyed_redacts_with_a_null_digest(installed):
     out = rv.named("api_key", {"k": "str", "v": SECRET})
     assert out == {"k": "str", "v": redact.REDACTED,
                    "redacted": {"by": "name", "digest": None}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_the_default_state_is_the_rule_on_and_unkeyed(installed):
@@ -259,7 +267,7 @@ def test_exc_hit_marks_the_exc_object(installed):
                    "msg": f"bad key {redact.REDACTED}", "oid": 5,
                    "serial": 2,
                    "redacted": {"by": "content", "digest": None}}
-    assert counted(installed) == 1
+    assert rv.count_capture(out) == 1
 
 
 def test_an_exc_message_with_nothing_in_it_is_left_alone(installed):
@@ -274,18 +282,99 @@ def test_an_exc_message_with_nothing_in_it_is_left_alone(installed):
 
 
 def test_an_output_chunk_is_content_ruled(installed):
-    assert rv.text(f"token={TOKEN}\n") == f"token={redact.REDACTED}\n"
-    assert counted(installed) == 1
-    assert rv.text("hello\n") == "hello\n"
-    assert counted(installed) == 1
+    """The pair, not the text alone: the tee counts a chunk it stores, and
+    comparing the two strings again to find out would be the rule's own
+    comparison run twice."""
+    assert rv.text(f"token={TOKEN}\n") == (f"token={redact.REDACTED}\n",
+                                           True)
+    assert rv.text("hello\n") == ("hello\n", False)
+    assert rv.text("") == ("", False)
 
 
-def test_stats_count_every_operation_once(installed):
+def test_the_transforms_never_count(installed):
+    """R10: `stats` is the WRITE sites' business. A transform that counted
+    as it fired would have to be un-counted for every capture the recorder
+    builds and drops -- which is most of them, at every line -- and the
+    roll-back that took would erase whatever else landed in its window (an
+    `obj` whose `__repr__` prints reaches the tee from inside it)."""
     rv.named("api_key", {"k": "str", "v": SECRET})            # a name hit
     rv.value({"k": "str", "v": TOKEN})                        # a content hit
+    rv.named_return("get_secret", {"k": "str", "v": SECRET})  # a return hit
     rv.exc({"type": "E", "msg": TOKEN, "oid": 1})             # an exc hit
     rv.text(TOKEN)                                            # an output hit
-    assert counted(installed) == 4
+    assert counted(installed) == 0
+
+
+def test_count_reads_every_capture_a_payload_holds(installed):
+    """One per capture carrying `redacted`, over the five payload keys the
+    recorder writes -- and nothing for the keys that are not captures."""
+    taken = rv.named("api_key", {"k": "str", "v": SECRET})
+    plain = {"k": "num", "v": 1}
+    assert rv.count({"args": {"token": taken, "n": plain}}) == 1
+    assert rv.count({"deltas": {"a": taken, "b": taken},
+                     "unbound": ["api_key"]}) == 2
+    assert rv.count({"value": taken}) == 1
+    assert rv.count({"exc": rv.exc({"type": "E", "msg": TOKEN,
+                                    "oid": 1})}) == 1
+    assert rv.count({"thrown": rv.exc({"type": "E", "msg": TOKEN,
+                                       "oid": 1})}) == 1
+    # An unbound NAME is not a value (R5), and neither is a caller or an
+    # unread marker: a payload that withholds nothing counts nothing.
+    assert rv.count({"deltas": {"n": plain}, "unbound": ["api_key"],
+                     "unread": ["locals"], "caller": "main"}) == 0
+    assert rv.count({}) == 0 and rv.count(None) == 0
+
+
+def test_count_capture_reaches_into_a_sample(installed):
+    """A container withholds whatever its entries do -- and a `map` pair's
+    two halves are two captures, which is why a key taken by content and a
+    value taken by name count two."""
+    nested = rv.value({"k": "seq", "type": "list", "len": 2, "oid": 1,
+                       "sample": [{"k": "str", "v": TOKEN},
+                                  {"k": "str", "v": TOKEN}]})
+    assert rv.count_capture(nested) == 2
+    pairs = rv.value({"k": "map", "type": "dict", "len": 2, "oid": 2,
+                      "sample": [
+                          [{"k": "str", "v": f"see {TOKEN}"},
+                           {"k": "str", "v": "plain"}],
+                          [{"k": "str", "v": "authorization"},
+                           {"k": "str", "v": "tok"}]]})
+    assert rv.count_capture(pairs) == 2
+    assert rv.count_capture({"k": "seq", "len": 0}) == 0
+    assert rv.count_capture(None) == 0
+
+
+def test_an_unknown_kind_is_withheld_whole_under_a_firing_name(installed):
+    """A redaction control's failure direction has to be a lost fact, never
+    a kept secret. A capture shape this rule has no table row for is taken
+    entirely: the kind stays, so a reader can see WHAT was withheld, and
+    there is no digest, because nothing here knows which field held it."""
+    cap = {"k": "future", "v": SECRET, "extra": {"payload": SECRET}}
+    out = unchanged(lambda c: rv.named("api_key", c), cap)
+    assert out == {"k": "future", "redacted": {"by": "name", "digest": None}}
+    assert rv.count_capture(out) == 1
+    assert SECRET not in json.dumps(out)
+    # The CONTENT rule is the other direction: it replaces a span it FOUND,
+    # and in a shape it cannot read it finds nothing, so the capture passes.
+    assert rv.value(cap) is cap
+
+
+def test_every_kind_capture_can_produce_is_one_this_module_knows(installed):
+    """Read off `record/capture.py` itself, so a kind added there without a
+    rule here fails loudly instead of being stored as typed under a name
+    that fires. `dbg` is in KINDS and not in capture.py: it is the Rust and
+    TypeScript recorders' kind, which reaches this module through the
+    converters."""
+    source = (REPO / "src" / "sensorium" / "record" / "capture.py").read_text()
+    # The two ways that file names a kind: the literal it builds into a
+    # capture, and the `kind` it hands `_capture_sized` for a container.
+    produced = (set(re.findall(r'"k":\s*"(\w+)"', source))
+                | set(re.findall(r'_capture_sized\([^,]+,[^,]+,\s*"(\w+)"',
+                                 source)))
+    assert produced, "the scan found no kinds at all -- read it again"
+    # Equality both ways: a kind added to `capture.py` with no rule here
+    # fails, and so does a scan that has quietly stopped matching.
+    assert produced == rv.KINDS - {"dbg"}, produced ^ (rv.KINDS - {"dbg"})
 
 
 def test_digest_of_reads_each_kinds_own_text(installed):

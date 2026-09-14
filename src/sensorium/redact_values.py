@@ -28,11 +28,22 @@ is the rule ON and UNKEYED. That default is deliberate: "no key" must mean
 
 THE COUNT
 ---------
-`stats["values"]` is bumped once per capture redacted by either operation,
-once per output chunk with a content hit and once per exception message with
-one -- nested captures included, since each is a value a reader would
-otherwise have seen. `boot` publishes the run's delta as `redaction.values`
-(B3): the count is a WITNESS written by the hand that wrote the trace.
+Nothing here counts. The transforms are pure: they take a capture and give
+one back. `count(payload)` and `count_capture(capture)` READ a finished
+payload and say how many values it withholds, and the recorder adds that at
+each WRITE -- `tracer` at every `add_event`, the unwind exception it hands
+`close_frame`, `boot` at the uncaught record, the tee at a chunk it stores.
+`boot` publishes the run's delta as `redaction.values` (B3).
+
+That shape is the whole of the count's honesty. The rule runs over values
+the trace does not keep (`_on_line` re-captures every local at every line
+and stores only the ones that CHANGED), and building a capture inside a
+capture runs the observed program's own `__repr__`, which may itself print
+-- reaching the tee, and the count -- from inside the window. A counter
+bumped as the rule fires had to be rolled back for the dropped ones, and an
+absolute roll-back erases whatever else landed in that window. Counting what
+was WRITTEN needs no window: `values` is a function of the trace, which is
+what B3 says it is and what the two converters independently compute.
 
 This module imports `redact` and `redact_content` only -- nothing from
 `record` or `query` -- and never raises. Like `capture.py`, everything here
@@ -71,6 +82,18 @@ _WITHHOLDS_NOTHING = frozenset({"none", "bool", "unread"})
 #: about the program, not about the value; the sample is the value.
 _CONTAINER_KEEPS = frozenset({"k", "type", "len", "oid"})
 
+#: Every capture kind this module has a rule for. `record/capture.py`
+#: produces all of these but `dbg`, which is the Rust and TypeScript
+#: recorders' kind, and `tests/test_redact_values.py` pins that containment
+#: against `capture.py` itself -- a kind added there without a rule here
+#: would otherwise be stored as typed under a name that fires.
+KINDS = frozenset(_MARKER_FIELD) | {"seq", "map"} | _WITHHOLDS_NOTHING
+
+#: Where a payload keeps a capture, and where it keeps a map of them. Every
+#: payload this recorder writes is built from these five keys.
+_PAYLOAD_CAPTURES = ("value", "exc", "thrown")
+_PAYLOAD_MAPS = ("args", "deltas")
+
 
 @dataclass(frozen=True)
 class State:
@@ -88,6 +111,8 @@ _UNINSTALLED = State(redact.Key(Path("unset"), None, "not installed"),
 _state = _UNINSTALLED
 
 #: Read by `boot` as a before/after delta, exactly as `capture_stats` is.
+#: Added to by the WRITE sites, from `count`/`count_capture` below -- never
+#: by the transforms in this module.
 stats = {"values": 0}
 
 
@@ -164,12 +189,6 @@ def named(name: str, capture: dict) -> dict:
     kind = capture.get("k")
     if kind in _WITHHOLDS_NOTHING:
         return capture
-    if kind not in _MARKER_FIELD and kind not in ("seq", "map"):
-        # A kind this rule has never heard of. Leaving it is the honest
-        # answer: `<redacted>` written over a shape nobody knows the fields
-        # of would be a claim about a value this module cannot read, and
-        # this module never raises.
-        return capture
     return _taken(capture, kind)
 
 
@@ -183,7 +202,7 @@ def _taken(capture: dict, kind: str) -> dict:
     digest = digest_of(capture)
     if kind in ("seq", "map"):
         out = {n: v for n, v in capture.items() if n in _CONTAINER_KEEPS}
-    else:
+    elif kind in _MARKER_FIELD:
         out = dict(capture)
         out.pop("trunc", None)          # nothing was clipped: it was taken
         out[_MARKER_FIELD[kind]] = redact.REDACTED
@@ -192,8 +211,17 @@ def _taken(capture: dict, kind: str) -> dict:
             # rather than dropped: a reader that met it missing would have
             # to guess whether the formatter had been cut short.
             out["trunc"] = False
+    else:
+        # A kind this rule has never heard of, under a name that fires. The
+        # only honest answer to "I do not know this shape" is to withhold
+        # the whole of it: keeping it would store a secret the rule was
+        # asked to take, and this control's failure direction has to be a
+        # lost fact, never a kept secret. The kind itself stays -- a reader
+        # has to be able to see WHAT was withheld -- and there is no digest,
+        # because nothing here knows which field held the value.
+        out = {n: v for n, v in capture.items() if n == "k"}
+        digest = None
     out["redacted"] = {"by": BY_NAME, "digest": digest}
-    stats["values"] += 1
     return out
 
 
@@ -215,6 +243,10 @@ def value(capture: dict) -> dict:
         return _sampled(capture, _item)
     if kind == "map":
         return _sampled(capture, _pair)
+    # A kind with no text this scanner knows, `none`/`bool`/`unread`
+    # included. Pass-through is right HERE and wrong in `named`: the content
+    # rule replaces a span it FOUND, and it found nothing; the name rule was
+    # told the whole value is a secret.
     return capture
 
 
@@ -229,7 +261,6 @@ def _scanned(capture: dict, field: str) -> dict:
     out[field] = after
     # `trunc` stays: the text WAS clipped, and a span inside it was replaced.
     out["redacted"] = {"by": BY_CONTENT, "digest": None}
-    stats["values"] += 1
     return out
 
 
@@ -289,9 +320,13 @@ def exc(e: dict) -> dict:
     return _scanned(e, "msg")
 
 
-def text(chunk: str) -> str:
+def text(chunk: str) -> tuple[str, bool]:
     """One output chunk, as the program wrote it, with the content rule over
-    it.
+    it -- and whether anything CHANGED.
+
+    The pair is `redact_content.content`'s own shape, and it is what lets the
+    tee count a chunk it stores without comparing two strings it has already
+    compared inside the rule.
 
     One `write()` at a time, which is the boundary the tee has: a secret
     split across two writes is not seen. A known limit of this rule, not an
@@ -299,8 +334,45 @@ def text(chunk: str) -> str:
     did would be a buffer of the program's output living in the instrument.
     """
     if _state.knobs.off or not isinstance(chunk, str):
-        return chunk
-    after, hit = content(chunk)
-    if hit:
-        stats["values"] += 1
-    return after
+        return chunk, False
+    return content(chunk)
+
+
+def count_capture(capture) -> int:
+    """How many values one capture withholds: itself if it carries a
+    `redacted` object, else however many its sample's captures do.
+
+    A capture taken by NAME has no sample left, and a container is never a
+    content hit (it stores no text of its own), so the early return cannot
+    hide a nested count. A `map` pair is a two-element list and both halves
+    are asked: a key can be a content hit while its value is a name hit, and
+    that is two values withheld, not one.
+    """
+    if not isinstance(capture, dict):
+        return 0
+    if "redacted" in capture:
+        return 1
+    sample = capture.get("sample")
+    if not isinstance(sample, list):
+        return 0
+    return sum(count_capture(x) for entry in sample
+               for x in (entry if isinstance(entry, list) else (entry,)))
+
+
+def count(payload) -> int:
+    """How many values a finished payload withholds -- the number the writer
+    adds to `stats` as it stores that payload.
+
+    Reads the payload's own vocabulary (`args`, `deltas`, `value`, `exc`,
+    `thrown`) rather than walking it blind: a payload key that is not a
+    capture (`unbound`, `unread`, `caller`, `chain`) must never be counted,
+    and a key that becomes one has to be added HERE, deliberately.
+    """
+    if not isinstance(payload, dict):
+        return 0
+    total = sum(count_capture(payload.get(k)) for k in _PAYLOAD_CAPTURES)
+    for name in _PAYLOAD_MAPS:
+        group = payload.get(name)
+        if isinstance(group, dict):
+            total += sum(count_capture(c) for c in group.values())
+    return total
