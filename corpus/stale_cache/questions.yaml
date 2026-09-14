@@ -6,7 +6,7 @@ questions:
       record the cache key was built from actually change between the two
       lookups, or is the same record being priced twice?
     truth: >
-      One record object -- one address -- was passed to build_key twice, and
+      One record object -- one address -- was passed to memo_id twice, and
       its contents differ between the two sightings: tier 'basic' on the
       first, tier 'pro' on the second, after upgrade mutated it in place.
       So the key was built from a record that no longer exists in that form.
@@ -16,17 +16,17 @@ questions:
       which value logging cannot express. Logging both and diffing them by
       hand also requires knowing in advance that the record is the thing
       that moved, rather than the cache.
-    command: ["flow", "$RUN", "--object", "build_key:record"]
+    command: ["flow", "$RUN", "--object", "memo_id:record"]
     expect_contains: ["flow of object #"]
     expect_line:
-      - ["CALL", "build_key(record=dict[2]={'sku': 'A1', 'tier': 'basic'}"]
-      - ["CALL", "build_key(record=dict[2]={'sku': 'A1', 'tier': 'pro'}"]
+      - ["CALL", "memo_id(record=dict[2]={'sku': 'A1', 'tier': 'basic'}"]
+      - ["CALL", "memo_id(record=dict[2]={'sku': 'A1', 'tier': 'pro'}"]
       - ["CALL", "upgrade(record=dict[2]={'sku': 'A1', 'tier': 'basic'}"]
   - id: did-the-key-move-with-it
     ask: >
       Given the record changed, did the cache key change with it?
     truth: >
-      No. build_key returned 'A1' both times, because it reads only the sku.
+      No. memo_id returned 'A1' both times, because it reads only the sku.
       Two calls, two identical keys -- so the second price_of hit the memo
       entry inserted for the basic tier and never recomputed the price.
     why_logs_fail: >
@@ -34,6 +34,6 @@ questions:
       identical on both calls, so even a log of it would look correct in
       isolation. The fault is only visible as "identical key, changed
       record", which needs both halves at once.
-    command: ["grep", "$RUN", "build_key", "--kind", "RETURN"]
+    command: ["grep", "$RUN", "memo_id", "--kind", "RETURN"]
     expect_contains: ["matches: 2"]
-    expect_count: {"build_key -> 'A1'": 2}
+    expect_count: {"memo_id -> 'A1'": 2}

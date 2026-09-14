@@ -3,7 +3,6 @@
 # Harvested by: python tests/test_redact_census.py > tests/fixtures/corpus-firing-names.txt
 corpus/rust/focus_unfocused_refuses/src/main.rs: build_key
 corpus/rust/stale_cache/src/main.rs: build_key
-corpus/stale_cache/main.py: build_key
 corpus/typescript/callback_handled/token.ts: refreshToken
 corpus/typescript/callback_handled/token.ts: tokenAge
 corpus/typescript/focus_catch_binding/retry.ts: parseKey
