@@ -1,13 +1,14 @@
-"""Rule v1: which NAMES hold a secret, the knobs that amend that judgement,
-and the per-store key the digests are taken under.
+"""Rule v1: which NAMES hold a secret, and the knobs that amend that
+judgement.
 
 Every recorder stored the whole process environment in plaintext until this
 slice, so a trace of any program launched from this box's shell held a live
 `CLAUDE_CODE_MESSAGING_TOKEN` at 0644. Rule v1 replaces such a value with
-`<redacted>` at the WRITER, before anything reaches disk, and keeps an
-HMAC-SHA256 of the plaintext under `<trace root>/redaction.key` so `refocus`
-and `diff` can still say "this changed" without printing what it changed to
-(design §2, §3).
+`<redacted>` at the WRITER, before anything reaches disk.
+
+The digest that stands in its place, and the per-store key the digests are
+taken under, are `redact_key`'s -- re-exported below, so `redact.Key` and
+`redact.KEY_VAR` still resolve here.
 
 WHAT THIS IS NOT
 ----------------

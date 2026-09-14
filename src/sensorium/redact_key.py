@@ -1,5 +1,5 @@
-"""The per-store redaction key: the 32 bytes at `<trace root>/redaction.key`,
-the digest taken under them, and the once-only creation that publishes that
+"""The per-store key the digests are taken under: its 32 bytes at
+`<trace root>/redaction.key`, and the once-only creation that publishes that
 file whole.
 
 Split out of `redact.py`, which holds rule v1's NAME rule and is about to
@@ -11,10 +11,13 @@ to this repository's 800-line ceiling. `redact.py` imports `Key`, `KEY_VAR`,
 `redact.KEY_VAR` keep resolving for every caller that already spells them
 that way: this is a move, not an interface.
 
-The key is what lets `refocus` and `diff` still say "this changed" without
-printing what it changed to. An HMAC-SHA256 of the plaintext stands in the
-trace where the value was, so two recordings made under one key compare
-exactly and a reader of either learns nothing (design §2, §3).
+Rule v1 replaces a secret-shaped value with `<redacted>` at the WRITER,
+before anything reaches disk, and keeps an HMAC-SHA256 of the plaintext
+under `<trace root>/redaction.key` so `refocus` and `diff` can still say
+"this changed" without printing what it changed to (design §2, §3). That
+sentence came from `redact.py`'s docstring with the code: its second half --
+the file, its bytes, and the digest taken under them -- is this module, and
+its first half stayed with the name rule.
 
 Like `redact.py`, this module is pure -- it imports nothing from `record` or
 `query` -- and never raises.
