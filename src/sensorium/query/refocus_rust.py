@@ -340,18 +340,24 @@ def _refused_after_rerun(orig: Trace, reason: str) -> int:
 
 
 #: Every `SENSORIUM_` name `cargo-sensorium` itself puts into the recorded
-#: process's environment, and no other. Read off the sources that set them
-#: -- `launch.rs`'s eight `.env(...)` calls and `runner.rs`'s
-#: `SENSORIUM_INNER_RUNNER` -- plus `SENSORIUM_REDACT_KEY`, which the Python
-#: side hands down. `tests/test_refocus_rust_recorder_keys.py` greps those
-#: sources and holds this set equal to what it finds, in both directions: a
-#: variable the driver starts setting without a line here would be compared
-#: on every focused re-run and withhold every licence, and a name left here
-#: after the driver stopped setting it would keep a variable of the PROGRAM
-#: out of the comparison.
+#: process's environment, and no other. Read off the SET sites --
+#: `launch.rs`'s eight `.env("SENSORIUM_…", …)` calls, plus the ninth it sets
+#: through a constant, `.env(sensorium_rt::redact::KEY_VAR, hex)`.
+#: `tests/test_refocus_rust_recorder_keys.py` greps `launch.rs`, `runner.rs`
+#: and `driver.rs` for that call shape and holds this set equal to what it
+#: finds, in both directions: a variable the driver starts setting without a
+#: line here would be compared on every focused re-run and withhold every
+#: licence, and a name left here after the driver stopped setting it would
+#: keep a variable of the PROGRAM out of the comparison.
+#:
+#: SET, never merely READ (R34, 2026-09-14). `SENSORIUM_INNER_RUNNER` was in
+#: this set for a day because the first pin matched bare literals and
+#: `runner.rs` reads one. Nothing here sets it: it names the runner program
+#: the USER configured, which the runner chains by running it as the
+#: executable, so a re-run under a different one ran the binary under a
+#: different program. Reading a variable is the opposite of owning it.
 RECORDER_KEYS = frozenset({
     "SENSORIUM_FOCUS",
-    "SENSORIUM_INNER_RUNNER",
     "SENSORIUM_INVOCATION",
     "SENSORIUM_RT_DIR",
     "SENSORIUM_SPOOL",
@@ -390,10 +396,15 @@ def _is_recorder_key(name: str) -> bool:
     reads whatever variables it likes, and several of ours invite the
     shape (`SENSORIUM_E16_TOKEN` was pre-registered by this project's own
     instrument and no reviewer noticed). So the driver's own variables are
-    a LIST, pinned to the sources that set them, and everything else --
+    a LIST, pinned to the sites that SET them, and everything else --
     `SENSORIUM_NO_REDACT`, `SENSORIUM_REDACT_NAMES`,
-    `SENSORIUM_REDACT_ALLOW`, and any `SENSORIUM_`-shaped name a person
-    exports -- is the user's and is compared like any other variable.
+    `SENSORIUM_REDACT_ALLOW`, `SENSORIUM_CARGO_SENSORIUM`,
+    `SENSORIUM_INNER_RUNNER`, and any `SENSORIUM_`-shaped name a person
+    exports -- is the user's and is compared like any other variable. The
+    last two are variables this tool READS, which is not the same as owning
+    them: one names the driver binary a re-run uses and the other the runner
+    program the test binary is launched under, and a pair that differs in
+    either is a pair of two different tools.
 
     `SENSORIUM_REDACT_KEY` is the one member of the set no Rust source
     sets, and it stays: every recorder DELETES it from what it records
