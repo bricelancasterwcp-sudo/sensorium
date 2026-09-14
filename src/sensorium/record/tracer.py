@@ -90,6 +90,7 @@ import time
 import weakref
 from pathlib import Path
 
+from sensorium import redact_values as rv
 from sensorium.record.capture import (capture_exc, capture_value, plain_str,
                                       type_name)
 from sensorium.record.fingerprint import Fingerprint
@@ -228,8 +229,13 @@ class Tracer(_FrameDecisions):
             # this project has already watched rot twice, and the snapshot
             # makes it structural instead.
             loc = locals_snapshot(frame)
+            # Rule v1 applies HERE, before the payload exists: an argument
+            # bound to a secret-shaped NAME is taken whole, and every text
+            # in every other one is scanned. `capture.py` stays pure -- it
+            # decides what a value looks like, never what may be stored.
             args = ({} if loc is None else
-                    {n: capture_value(loc[n]) for n in names if n in loc})
+                    {n: rv.named(n, capture_value(loc[n]))
+                     for n in names if n in loc})
             payload = {"args": args} if loc is not None else {
                 "args": {}, "unread": ["locals"]}
             tid = tls.thread_serial
@@ -276,7 +282,8 @@ class Tracer(_FrameDecisions):
             task = self._task_serial(tls)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "RETURN",
                                         fid, cid, None,
-                                        {"value": capture_value(retval)},
+                                        {"value": rv.named_return(
+                                            qual, capture_value(retval))},
                                         task_id=task)
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
@@ -300,7 +307,7 @@ class Tracer(_FrameDecisions):
                 del tls.live[id(frame)]
                 self.writer.close_frame(
                     entry[0], None, "unwind",
-                    capture_exc(exc, self.serial_of(exc)))
+                    rv.exc(capture_exc(exc, self.serial_of(exc))))
         finally:
             tls.in_hook = False
         return None
@@ -404,7 +411,8 @@ class Tracer(_FrameDecisions):
         refs = tls.cf_exc if _is_control_flow(exc) else tls.exc
         return self._suspension(
             code, sys._getframe(1), "RESUME",
-            lambda: {"thrown": capture_exc(exc, refs.identify(exc))},
+            lambda: {"thrown": rv.exc(capture_exc(exc,
+                                                  refs.identify(exc)))},
             disable_ok=False)
 
     # The triggering frame is sys._getframe(1) *of the registered callback*,
@@ -491,7 +499,7 @@ class Tracer(_FrameDecisions):
             task = self._task_serial(tls)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
                                   frame.f_lineno,
-                                  {"exc": capture_exc(exc, serial)},
+                                  {"exc": rv.exc(capture_exc(exc, serial))},
                                   task_id=task)
             self._fp_for(tid, task).update(fp_file, qual, kind)
         finally:
@@ -537,7 +545,13 @@ class Tracer(_FrameDecisions):
                 return None
             cur, deltas = {}, {}
             for name, val in snap.items():
-                cap = capture_value(val)
+                # The NAME rule runs BEFORE the comparison below, not
+                # after it: a redacted value is what this frame now holds,
+                # so two sightings of one unchanged secret must compare
+                # equal (their digests do) and be ONE delta, exactly as
+                # they were before the rule.
+                counted = rv.stats["values"]
+                cap = rv.named(name, capture_value(val))
                 cur[name] = cap
                 # Captures, never live objects -- and NAMES that are exact
                 # `str`, never the program's own key objects. Both halves
@@ -550,6 +564,14 @@ class Tracer(_FrameDecisions):
                 # no guard anywhere on the path.
                 if prev.get(name) != cap:
                     deltas[name] = cap
+                else:
+                    # Every local in scope is re-captured at every line, and
+                    # only the ones that CHANGED are written. `values` counts
+                    # what the TRACE HOLDS (B3) -- the same thing the two
+                    # converters count as they build -- so a capture dropped
+                    # here takes its count back with it. Without this, one
+                    # secret local in a loop would be counted once per line.
+                    rv.stats["values"] = counted
             gone = prev.keys() - cur.keys()
             entry[3] = cur
             if deltas or gone:

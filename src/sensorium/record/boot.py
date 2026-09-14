@@ -33,6 +33,7 @@ import traceback
 from pathlib import Path
 
 from sensorium import paths, redact
+from sensorium import redact_values as rv
 from sensorium.record import capture
 # The stream interception, split out at this file's 800-line ceiling.
 # Re-exported so `boot._Tee` and `boot._StdinProxy` keep resolving:
@@ -443,7 +444,7 @@ def _source_hashes(files) -> dict:
 
 
 def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
-                    refocus_of, *, key, knobs) -> None:
+                    refocus_of, *, key, knobs) -> dict:
     # Rule v1 applies HERE, at the writer, before anything reaches disk:
     # `env` is what the trace holds and there is no moment at which the
     # plaintext was in the file. `env_hash` is taken over that stored
@@ -453,13 +454,14 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
     # longer holds. `table` is the name -> digest map; `redact.meta` is the
     # only thing that decides the `redaction` object's shape.
     env, table = redact.env(os.environ, key, knobs)
+    redaction = redact.meta(key, knobs, table)
     w.set_meta("run_id", run_id)
     w.set_meta("argv", list(argv))
     w.set_meta("cwd", str(Path.cwd()))
     w.set_meta("env", env)
     w.set_meta("env_hash", hashlib.sha256(
         json.dumps(env, sort_keys=True).encode()).hexdigest()[:16])
-    w.set_meta("redaction", redact.meta(key, knobs, table))
+    w.set_meta("redaction", redaction)
     w.set_meta("python", sys.version.split()[0])
     w.set_meta("recorder", _recorder_id())
     w.set_meta("lang", "python")
@@ -482,12 +484,24 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
     w.set_meta("incomplete", True)      # cleared only after a clean finish
     if refocus_of:
         w.set_meta("refocus_of", refocus_of)
+    # Returned, not re-read: `_finalize_meta` rewrites this same object with
+    # the run's `values` count, and a second `redact.meta(...)` there could
+    # drift from the one the trace already holds.
+    return redaction
 
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
                    truncated_count, live_threads, entry, threads_started,
-                   audit_errors, spawn_syscalls, task_errors) -> None:
+                   audit_errors, spawn_syscalls, task_errors,
+                   redaction, values) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
+    # How many values rule v1 took, counted by the hand that wrote them (B3)
+    # -- captures taken by name or by content, output chunks and exception
+    # messages alike. Written only under `mode: on`: a recording made with
+    # the rule off counted nothing, and a `values: 0` there would read as
+    # "the rule ran and found none" (B26).
+    if redaction.get("mode") == "on":
+        w.set_meta_final("redaction", {**redaction, "values": values})
     w.set_meta_final("uncaught", uncaught)
     w.set_meta_final("stdin_consumed", stdin_consumed)
     w.set_meta_final("children", children)
@@ -605,14 +619,18 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
     # taken under or change the rule the recording was made under.
     key = redact.Key.load_or_create(paths.trace_root())
     knobs = redact.Knobs.from_environ(os.environ)
+    # The value half of the rule reads the same key and the same knobs, from
+    # the same moment: one recording is made under one rule.
+    rv.install(key, knobs)
     target = resolve_target(list(argv))   # resolve before hooks: never traced
     # Resolved here, before the program can chdir underneath us.
     entry = (str(Path(argv[0]).resolve())
              if argv and str(argv[0]).endswith(".py") else None)
     w = _LateWriteGuard(TraceWriter(trace_path))
-    _write_run_meta(w, run_id, argv, focus, include, exclude, window,
-                    refocus_of, key=key, knobs=knobs)
+    redaction = _write_run_meta(w, run_id, argv, focus, include, exclude,
+                                window, refocus_of, key=key, knobs=knobs)
     truncated_before = capture.capture_stats["truncated"]
+    values_before = rv.stats["values"]
     tracer = Tracer(w, root=Path.cwd(), focus=FocusSpec(list(focus)),
                     include=include, exclude=exclude, window=window)
     # The thread constructing the Tracer -- this one, which runs `target()`
@@ -649,7 +667,7 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         # Ask the tracer for this object's serial before uninstalling it, so
         # the uncaught record names the exact RAISE row that produced it
         # rather than being matched back by a recyclable address.
-        uncaught = capture.capture_exc(e, tracer.serial_of(e))
+        uncaught = rv.exc(capture.capture_exc(e, tracer.serial_of(e)))
         traceback.print_exception(e)   # tee'd: the trace holds what was shown
     finally:
         tracer.uninstall()             # stop callbacks before closing the db
@@ -668,7 +686,9 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 threads_started=len(started),
                 audit_errors=len(audit_errors),
                 spawn_syscalls=len(spawns),
-                task_errors=tracer.task_errors)
+                task_errors=tracer.task_errors,
+                redaction=redaction,
+                values=rv.stats["values"] - values_before)
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)

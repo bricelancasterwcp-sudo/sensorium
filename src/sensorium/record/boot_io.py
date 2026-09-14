@@ -15,6 +15,7 @@ The reason is stated at each and is one reason: a `str` subclass with live
 dunders would otherwise run the program's own code from inside the
 instrument, at the program's own line.
 """
+from sensorium import redact_values as rv
 from sensorium.record import capture
 
 
@@ -44,7 +45,13 @@ class _Tee:
         # next flush, and bound into sqlite from there. An exception out of
         # any of that is the recorder killing the program it observes, at the
         # program's own line. Found by the sweep for item 7, not reported.
-        text = capture.plain_str(s)
+        # Normalised first, then rule v1's CONTENT half over the chunk.
+        # One `write()` at a time is the boundary this proxy has: a secret
+        # split across two writes is not seen. The real stream above got
+        # the bytes the program wrote -- an instrument that changed what a
+        # program SHOWS would be a worse instrument -- so what the rule
+        # applies to is this proxy's own copy, the one that reaches disk.
+        text = rv.text(capture.plain_str(s))
         if text:
             self._writer.add_output(self._writer.last_event_id, self._name,
                                     text)
