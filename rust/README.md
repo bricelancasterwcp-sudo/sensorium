@@ -253,12 +253,17 @@ table, and `redaction`, the rule, the mode, the key and the two knobs, which
 the converter folds into the trace's one `redaction` key. **The driver mints
 the store's `redaction.key`** (0600, beside `traces/`) and hands the hex to the
 recorded process as `SENSORIUM_REDACT_KEY`, which the runtime deletes from what
-it records; when neither `SENSORIUM_DIR` nor `HOME` resolves, it records unkeyed
-and says so on stderr once, after the build. And every file either of them
-creates is **0600** in a **0700** directory — the spool, the proc header, the
-runner record, the trace, `traces/` and the store root — by explicit mode at
-creation, never a later `chmod`. `tests/convert_e2e.rs` (`check_modes`,
-`check_redaction`) asserts both over a real invocation;
+it records. A store whose key cannot be created or read records unkeyed and
+says so on stderr once, **before** the build — `sensorium: no redaction key at
+<path> (<reason>); digests will be absent`. A store root that resolves to
+nothing — neither `SENSORIUM_DIR` nor `HOME` set — produces no trace at all:
+cargo runs, and the converter's own error afterwards names the missing store.
+And every file either of them creates is **0600** in a **0700** directory — the
+spool, the proc header, the runner record, the trace and `traces/` — by
+explicit mode at creation, never a later `chmod`. `tests/convert_e2e.rs`
+(`check_modes`, `check_redaction`) asserts those over a real invocation, and
+`redaction_key.rs::load_or_create_mints_a_32_byte_key_at_0600_under_a_0700_root`
+the store root the key is minted under;
 [`docs/redaction.md`](../docs/redaction.md) is the rule and its limits.
 
 ## Ask

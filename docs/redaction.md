@@ -22,9 +22,9 @@ The rule fires on a NAME. A secret in a variable called `x`, or in one this
 set has never heard of, is stored as typed. Nothing in this version reads a
 VALUE looking for something that looks like a token — the content rule is a
 later version's, and so is the redaction of captured argument, local, return
-and output values, which **this version still stores in plaintext**
-(`info`'s own `redaction: OFF` line says so in words:
-`src/sensorium/query/info_cmd.py::redaction_line`).
+and output values, which **this version still stores in plaintext**. The
+README's "What a trace file holds" says so in the bullet about captured
+values, and so does this version's CHANGELOG entry.
 
 Treat a trace the way you would treat a core dump. What the rule removes is
 one class of accident — the shell's exported credentials, which nobody chose
@@ -144,10 +144,20 @@ real invocation end to end). `refocus` knows the name too and never reports
 it as a world change
 (`tests/test_refocus_redaction.py::test_the_key_variable_is_not_compared_on_the_live_side`).
 
-Under `cargo sensorium`, when neither `SENSORIUM_DIR` nor `HOME` resolves to
-a store, the driver records **unkeyed** and says so on stderr once — and only
-after the build, never per recorded pid, which under a `cargo test` would be
-once per process.
+Under `cargo sensorium`, a store whose key cannot be created or read records
+**unkeyed** and says so on stderr once, **before the build** —
+`sensorium: no redaction key at <path> (<reason>); digests will be absent` —
+once for the whole invocation and never per recorded pid, which under a
+`cargo test` would be once per process.
+(`redaction_key.rs::only_the_door_that_was_asked_to_make_the_key_reports_not_having_one`
+pins the REASON that line carries and which of the two doors produces one;
+nothing asserts the printed line itself.) A store root that resolves to nothing
+— neither `SENSORIUM_DIR` nor `HOME` set — is a different case and produces no
+trace at all: the driver says nothing, cargo runs, and the converter's own
+error afterwards names the missing store
+(`cargo-sensorium: SENSORIUM_DIR is unset and HOME is unset too`, exit 2).
+Failing in front of the build would cost a person the test run they asked for
+over a trace they were going to be told about anyway.
 
 ## What lands in the trace
 
@@ -255,9 +265,9 @@ Everything a recorder CREATES from this version on is `0600`, and every
 directory it creates is `0700` — by explicit mode at creation, never by a
 later `chmod`, because a file created `0644` and tightened a moment later is
 readable for exactly the moment it is being filled with what it holds. That
-covers the trace, the store root, `traces/`, `redaction.key`, the Rust
-spool directory and its `<pid>.proc.json` / `.spool` / `<pid>.runner.json`,
-and the TypeScript spool
+covers the trace, the store root, `traces/`, `redaction.key`,
+`invocations.jsonl`, the Rust spool directory and its `<pid>.proc.json` /
+`.spool` / `<pid>.runner.json`, and the TypeScript spool
 (`tests/test_record_redaction.py::test_created_files_are_0600_and_dirs_0700`;
 `rust/cargo-sensorium/tests/convert_e2e.rs::check_modes` asserts the same
 end to end over a real invocation).

@@ -33,8 +33,8 @@ TypeScript wire **v1** — one optional meta key, no column and no record kind.
   rule off, `SENSORIUM_REDACT_NAMES` adds names, `SENSORIUM_REDACT_ALLOW`
   removes them and wins over `NAMES`. None of the three fires the rule — a
   knob that redacted itself would hide the terms of its own recording — and
-  all three are written into `redaction` so a reader sees what the recording
-  was made under (`tests/test_redact.py::test_env_honours_both_knobs`,
+  under `mode: on` all three are written into `redaction` so a reader sees
+  what the recording was made under (`tests/test_redact.py::test_env_honours_both_knobs`,
   `tests/test_record_redaction.py::test_names_and_allow_knobs`).
 - **The key is published by content, never by an empty file** (ruling R15).
   32 bytes go into a private per-pid temporary, are written whole and
