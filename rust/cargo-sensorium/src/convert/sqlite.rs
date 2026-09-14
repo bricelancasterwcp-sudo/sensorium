@@ -91,7 +91,10 @@ impl TraceWriter {
     /// Any SQLite failure opening or initialising the file.
     pub fn create(tmp_path: &Path) -> Result<TraceWriter, String> {
         if let Some(dir) = tmp_path.parent() {
-            std::fs::create_dir_all(dir)
+            // 0700, like every other directory this driver makes (R26): the
+            // trace it is about to create is 0600, and a 0755 parent lists
+            // every run recorded on the box to every account on it.
+            crate::perms::dir_all(dir)
                 .map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
         }
         // A stale `.tmp` from a killed prior run must not resurrect old rows.

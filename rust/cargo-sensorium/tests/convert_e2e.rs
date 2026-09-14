@@ -160,6 +160,16 @@ fn check_modes(stderr: &str, dbs: &[std::path::PathBuf]) {
     for db in dbs {
         assert_eq!(mode(db), 0o600, "{}", db.display());
     }
+
+    // The store's `traces/` directory, which the CONVERTER creates (ruling
+    // R26). It was the one directory in the store this driver still made with
+    // the process umask, so a 0600 trace sat in a 0755 directory whose listing
+    // named every run on the box.
+    let traces = dbs
+        .first()
+        .and_then(|db| db.parent())
+        .expect("a trace lives in the store's traces directory");
+    assert_eq!(mode(traces), 0o700, "{}", traces.display());
 }
 
 /// The driver minted the store's key, handed it to the runtime, and the

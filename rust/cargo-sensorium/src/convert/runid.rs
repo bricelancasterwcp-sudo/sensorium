@@ -44,7 +44,10 @@ pub fn store_root() -> Result<PathBuf, String> {
 /// If [`store_root`] cannot be resolved, or the directory cannot be created.
 pub fn traces_dir() -> Result<PathBuf, String> {
     let dir = store_root()?.join("traces");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
+    // 0700, like every other directory this driver makes (R26). The traces in
+    // it are 0600, and a 0755 directory hands their names -- one per recorded
+    // run -- to every account on the box.
+    crate::perms::dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
     Ok(dir)
 }
 
