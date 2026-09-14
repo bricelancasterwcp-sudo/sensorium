@@ -12,6 +12,16 @@
 //! box carry digests a reader can compare. A difference here is a store whose
 //! two halves silently stop comparing, which is why the protocol below is
 //! stated rather than reinvented.
+//!
+//! ONE DIFFERENCE, written down rather than left to be discovered: the
+//! fallback when `hard_link` fails. Python falls back to `os.replace` for
+//! `EPERM`, `ENOTSUP` and `EXDEV` alone (`redact._NO_LINK`) and returns an
+//! UNKEYED store for any other `OSError`; this file falls back to `rename`
+//! for every error that is not `AlreadyExists`. Both are safe -- the loser of
+//! a race re-reads the winner's material either way, and neither can publish
+//! a short or half-written key -- but a filesystem that refuses `link` for
+//! some third reason mints a key here and records unkeyed in Python. Closing
+//! it is a code change with its own tests, not a doc fix.
 
 use std::io::Read;
 use std::path::{Path, PathBuf};

@@ -258,12 +258,15 @@ says so on stderr once, **before** the build — `sensorium: no redaction key at
 <path> (<reason>); digests will be absent`. A store root that resolves to
 nothing — neither `SENSORIUM_DIR` nor `HOME` set — produces no trace at all:
 cargo runs, and the converter's own error afterwards names the missing store.
-And every file either of them creates is **0600** in a **0700** directory — the
-spool, the proc header, the runner record, the trace and `traces/` — by
-explicit mode at creation, never a later `chmod`. `tests/convert_e2e.rs`
-(`check_modes`, `check_redaction`) asserts those over a real invocation, and
+And every file either of them creates **under the store and the spool
+directories** is **0600** in a **0700** directory — the spool, the proc header,
+the runner record, the trace and `traces/` — by explicit mode at creation,
+never a later `chmod`. The build tree under `<target>/sensorium/` (the mirror,
+which holds a copy of your source) is not covered and stays at the platform
+default. `tests/convert_e2e.rs` (`check_modes`, `check_redaction`) asserts
+those over a real invocation, and
 `redaction_key.rs::load_or_create_mints_a_32_byte_key_at_0600_under_a_0700_root`
-the store root the key is minted under;
+pins the store root the key is minted under;
 [`docs/redaction.md`](../docs/redaction.md) is the rule and its limits.
 
 ## Ask

@@ -833,6 +833,17 @@ above is not misled by them.
 14. **§5.5's mode table missed the converter's own `traces/`.** Shipped 0700
     via `perms::dir_all` with a test (**R26**). Where: `convert/sqlite.rs`,
     `convert/runid.rs`.
+15. **§5.5's opening sentence is categorical; the writers outside the store
+    are not covered** (2026-09-14). §5.5 opens "Every file this slice's
+    writers CREATE is 0600 and every directory 0700", which reads over the
+    whole branch; shipped, the writers outside the store and the spools —
+    `mirror.rs`, `rt_build.rs`, `fallback.rs`'s `<target>/sensorium/manifests`,
+    and `ts/wrapper.py`'s files under the user's `node_modules` — are
+    unchanged at default modes and are named in CARRIED-DEBT as outside this
+    PR's promise. The mode TABLE below that sentence is right as it stands:
+    every row in it shipped. Where: the topic sentence in `CHANGELOG.md`,
+    `docs/redaction.md`, `rust/README.md` and `docs/CARRIED-DEBT.md` is
+    scoped to the store and the spool directories.
 
 #### (d) E16 part A's outcome
 

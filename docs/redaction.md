@@ -261,16 +261,24 @@ Three rules follow from that, and each is a pin:
 
 ## File modes
 
-Everything a recorder CREATES from this version on is `0600`, and every
-directory it creates is `0700` — by explicit mode at creation, never by a
-later `chmod`, because a file created `0644` and tightened a moment later is
-readable for exactly the moment it is being filled with what it holds. That
-covers the trace, the store root, `traces/`, `redaction.key`,
-`invocations.jsonl`, the Rust spool directory and its `<pid>.proc.json` /
-`.spool` / `<pid>.runner.json`, and the TypeScript spool
+Everything a recorder CREATES under the store and the spool directories
+from this version on is `0600`, and every directory it creates there is
+`0700` — by explicit mode at creation, never by a later `chmod`, because a
+file created `0644` and tightened a moment later is readable for exactly the
+moment it is being filled with what it holds. That covers the trace, the
+store root, `traces/`, `redaction.key`, `invocations.jsonl`, the Rust spool
+directory and its `<pid>.proc.json` / `.spool` / `<pid>.runner.json`, and
+the TypeScript spool
 (`tests/test_record_redaction.py::test_created_files_are_0600_and_dirs_0700`;
 `rust/cargo-sensorium/tests/convert_e2e.rs::check_modes` asserts the same
 end to end over a real invocation).
+
+**What this does NOT cover**, and what stays at the platform default: the
+Rust build tree under `<target>/sensorium/` — `mirror.rs`, `rt_build.rs` and
+`fallback.rs`'s `manifests/`, and **the mirror holds a copy of your source** —
+and `ts/wrapper.py`'s files under the user's `node_modules`. They hold no
+environment and no digests, but they are not `0600`, and they are named in
+`docs/CARRIED-DEBT.md` as outside this version's promise.
 
 A file or directory that **already exists** keeps the permissions its owner
 chose: a person who pointed `SENSORIUM_DIR` at a directory of their own is

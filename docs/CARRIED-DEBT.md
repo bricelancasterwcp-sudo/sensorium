@@ -486,8 +486,9 @@ costs if wrong, beside the fourteen places the shipped code differs from the
 spec. **DONE** — E16 part A was measured **twice**: run 1 `DONE-WITH-STOP`
 (H1 PASS, H2 STOP, H3 STOP, H6 PASS), run 2 from zero with a fresh token
 after the fixes, all four **PASS**
-(`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §2, run 1
-byte-untouched beneath run 2). Values are PR B's, the retrofit PR C's.
+(`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §2:
+every measured reading in run 1 is byte-untouched; run 2 follows it). Values
+are PR B's, the retrofit PR C's.
 
 ### Settled — closed here
 
@@ -506,10 +507,11 @@ byte-untouched beneath run 2). Values are PR B's, the retrofit PR C's.
   handed to both runtimes as hex in `SENSORIUM_REDACT_KEY`, which every
   recorder deletes from what it records. Only the drivers and the Python
   recorder mint one (**A5**).
-- **Every file the recorders and drivers create is 0600, every directory
-  0700** — including the **ten** paths E16 run 1 found at 0664/0775: the
-  TypeScript driver's `spool/<inv>/` tree, its `manifests/` dir and four JSON
-  records, `harness.json`, `ingested.json`, `invocation.json`, and
+- **Every file the recorders and drivers create under the store and the
+  spool directories is 0600, every directory 0700** — including the **ten**
+  paths E16 run 1 found at 0664/0775: the TypeScript driver's
+  `spool/<inv>/` tree, its `manifests/` dir and four JSON records,
+  `harness.json`, `ingested.json`, `invocation.json`, and
   `cargo-sensorium`'s own `invocation.json` (`6a719e4`). With them: the store
   root and `traces/` as a two-level idiom (**R4**, `61aec55`),
   `invocations.record`'s third creator (**R18**), the Rust converter's

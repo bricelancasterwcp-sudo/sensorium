@@ -9,10 +9,10 @@ launched from a developer's shell held whatever that shell was carrying —
 secret-*named* value with `<redacted>` at the WRITER, before anything reaches
 disk, and keeps an HMAC-SHA256 of the plaintext under a per-store key so
 `refocus` can still say whether it changed without being told what it changed
-to; every file a recorder now creates is `0600` in a `0700` directory. This
-is PART A: the environment and the file modes. Captured argument, local,
-return and output values are still stored as the caps clipped them, and part
-B redacts those. Python **0.15.0**, `sensorium-ts` **0.5.0**, `sensorium-rt`
+to; every file a recorder now creates **under the store and the spool
+directories** is `0600` in a `0700` directory. This is PART A: the
+environment and the file modes. Captured argument, local, return and output
+values are still stored as the caps clipped them, and part B redacts those. Python **0.15.0**, `sensorium-ts` **0.5.0**, `sensorium-rt`
 **0.6.0**, `cargo-sensorium` **0.7.0**; `sensorium-transform` stays **0.5.0**,
 `TRACE_FORMAT` stays **4**, the Rust spool wire stays **v3** and the
 TypeScript wire **v1** — one optional meta key, no column and no record kind.
