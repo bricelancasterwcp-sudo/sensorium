@@ -19,6 +19,7 @@ either adds is a field the other sees.
 """
 import hashlib
 import json
+import os
 from collections.abc import Mapping
 from dataclasses import MISSING, asdict, dataclass, field, fields
 from pathlib import Path
@@ -35,6 +36,37 @@ HARNESS_FILE = "harness.json"
 class InvocationError(Exception):
     """A spool directory's own record is missing or unreadable. Always
     names the file: the caller's next move is to look at it."""
+
+
+def write_record(path: Path, text: str) -> None:
+    """Write one of a spool directory's records, 0600 AT CREATION.
+
+    `Path.write_text` opens 0666-under-the-umask, which is 0664 on a box
+    with the usual group-writable default. E16 part A measured what that
+    cost: `invocation.json`, `harness.json`, `ingested.json` and the
+    plugin's `manifests/*.json` were the only files beside a recording that
+    anybody on the box could read (H2, 2026-09-14). They hold the user's
+    argv, their project root, their target directory and the names of every
+    function in every file the transform touched.
+
+    At creation and never by a later `chmod`: a file created 0664 and
+    tightened a moment later is readable for that moment, and the moment is
+    exactly when it is being filled. `rust/cargo-sensorium/src/perms.rs`
+    takes the same position for the same store, and `store/db.py` and
+    `invocations.py` are this idiom's other two spellings.
+
+    The mode applies only to a file this CREATES. `O_TRUNC` re-writes an
+    existing record in place and leaves whatever mode its owner gave it --
+    `ingest` is re-runnable over a directory it has already converted, and
+    a person's own file is theirs.
+
+    HERE rather than in either caller: the driver writes two of these
+    records and the converter writes the third, and a mode spelled three
+    times is a mode that will be spelled two ways.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
 
 
 @dataclass(frozen=True)

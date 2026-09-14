@@ -54,6 +54,22 @@ pub fn create_new(path: &Path) -> io::Result<File> {
     options().write(true).create_new(true).open(path)
 }
 
+/// `std::fs::write`, but 0600 on a file this call creates.
+///
+/// The plain form opens 0666-under-the-umask, which is 0664 on the usual
+/// box. E16 part A measured the one caller that still used it -- the
+/// driver's own `invocation.json`, the only file in a spool directory that
+/// holds nothing out of the recorded process, and therefore the one nobody
+/// had looked at (H2, 2026-09-14). It holds the user's argv, their workspace
+/// root and their target directory.
+///
+/// # Errors
+/// Whatever the open or the write returns.
+pub fn write(path: &Path, contents: &[u8]) -> io::Result<()> {
+    use std::io::Write;
+    create(path)?.write_all(contents)
+}
+
 fn options() -> OpenOptions {
     let mut opts = OpenOptions::new();
     #[cfg(unix)]
@@ -113,6 +129,25 @@ mod tests {
         // Idempotent, and it does not touch a directory that already exists.
         dir_all(&leaf).unwrap();
         assert_eq!(mode_of(&leaf), 0o700);
+    }
+
+    /// `write` is `create` plus the bytes, and the mode has to survive the
+    /// convenience: this is the spelling every record-writing caller uses,
+    /// so a `write` that forgot the options would put every one of them back
+    /// at 0664 while `create`'s own test stayed green.
+    #[test]
+    fn write_creates_at_0600_and_puts_the_bytes_there() {
+        let d = Dir::new("write");
+        let path = d.0.join("record.json");
+        write(&path, b"{\"a\":1}").unwrap();
+        assert_eq!(mode_of(&path), 0o600);
+        assert_eq!(std::fs::read(&path).unwrap(), b"{\"a\":1}");
+
+        // Truncating, like `create`: a shorter second record leaves no tail
+        // of the first behind for a reader to parse.
+        write(&path, b"{}").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"{}");
+        assert_eq!(mode_of(&path), 0o600);
     }
 
     #[test]

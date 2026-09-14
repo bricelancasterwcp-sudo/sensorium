@@ -77,14 +77,23 @@ TypeScript wire **v1** — one optional meta key, no column and no record kind.
 - **0600 and 0700, at creation and never by a later `chmod`** — a file
   created `0644` and tightened a moment later is readable for exactly the
   moment it is being filled with what it holds. The trace, the store root,
-  `traces/`, `redaction.key`, the Rust spool directory and its
-  `<pid>.proc.json` / `.spool` / `<pid>.runner.json`, and the TypeScript
-  spool. The converter's own `traces/` was the last directory still made
-  under the process umask and is now `perms::dir_all` like the rest (R26);
-  `tests/test_record_redaction.py::test_created_files_are_0600_and_dirs_0700`
-  and `convert_e2e.rs::check_modes` assert it, the second over a real
-  invocation. An existing file or directory keeps the permissions its owner
-  chose, and Windows treats every one of these numbers as advisory.
+  `traces/`, `redaction.key`, and both spool directories with everything in
+  them: the Rust `<pid>.proc.json` / `.spool` / `<pid>.runner.json` and the
+  driver's `invocation.json` beside them, and on the TypeScript side the
+  `<pid>-<n>.jsonl`, the driver's `invocation.json` / `harness.json` /
+  `ingested.json`, and the `manifests/` directory the transform writes a
+  per-file manifest and the invocation's tally into. The last ten of those
+  were found at `0775`/`0664` by E16 part A and fixed after it (H2, and the
+  §5.5 claim is categorical, so a file beside a spool holding argv and
+  project paths is not a footnote); the converter's own `traces/` was the
+  last directory still made under the process umask and is now
+  `perms::dir_all` like the rest (R26).
+  `tests/test_record_redaction.py::test_created_files_are_0600_and_dirs_0700`,
+  `tests/test_ts_driver_redaction.py::test_every_path_a_run_creates_under_the_spool_is_private`,
+  `typescript/test/tally.test.mjs` and `convert_e2e.rs::check_modes` assert
+  it, the second and the last over a real invocation. An existing file or
+  directory keeps the permissions its owner chose, and Windows treats every
+  one of these numbers as advisory.
 
 **Documented as it landed, not as it was designed.** `docs/redaction.md` is
 new — the rule, the knobs, the key, what each command prints, and the honest

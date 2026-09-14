@@ -202,7 +202,7 @@ fn local_stamp(secs: i64) -> Result<String, String> {
 pub(crate) fn write_invocation(path: &Path, record: &Invocation) -> Result<(), String> {
     let json = serde_json::to_string(record)
         .map_err(|e| format!("cannot serialise the invocation record: {e}"))?;
-    std::fs::write(path, json.as_bytes())
+    crate::perms::write(path, json.as_bytes())
         .map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 

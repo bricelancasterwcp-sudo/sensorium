@@ -148,14 +148,22 @@ fn check_modes(stderr: &str, dbs: &[std::path::PathBuf]) {
         if name.ends_with(".spool")
             || name.ends_with(".proc.json")
             || name.ends_with(".runner.json")
+            // The DRIVER's own record of what it was about to spawn, and the
+            // one file in this directory that held nothing out of the
+            // recorded process -- so it was the one written with plain
+            // `std::fs::write` and the one E16 part A found at 0664 (H2, the
+            // tenth path). It holds the user's argv, their workspace root and
+            // their target directory, which is not nothing.
+            || name == "invocation.json"
         {
             assert_eq!(mode(&path), 0o600, "{name}");
             seen += 1;
         }
     }
-    // A recording writes at least a header, a spool and a runner record; a
-    // loop over an empty directory would assert nothing at all.
-    assert!(seen >= 3, "only {seen} spool files in {}", spool.display());
+    // A recording writes at least a header, a spool, a runner record and the
+    // driver's own record; a loop over an empty directory would assert
+    // nothing at all.
+    assert!(seen >= 4, "only {seen} spool files in {}", spool.display());
 
     for db in dbs {
         assert_eq!(mode(db), 0o600, "{}", db.display());

@@ -165,8 +165,18 @@ def _record(plan, package: Path, node: str, cwd: Path, args,
             link: str | None = None) -> int:
     """Everything from the mint to the conversion."""
     inv_id = paths.new_run_id()
-    spool = paths.trace_root() / SPOOL_DIR / inv_id
-    spool.mkdir(parents=True, exist_ok=True)
+    # One level at a time, 0700 each, for `paths.traces_dir()`'s reason:
+    # `Path.mkdir(parents=True, mode=...)` applies the mode to the directory
+    # it NAMES and gives every parent it creates on the way the default, so
+    # a single `spool.mkdir(parents=True, mode=0o700)` would leave
+    # `<store>/spool` -- and the store root above it, where `redaction.key`
+    # lives -- at 0775. Measured at 0775 by E16 part A (H2). An existing
+    # directory is never chmod'ed: the user's own store is theirs.
+    root = paths.trace_root()
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    (root / SPOOL_DIR).mkdir(exist_ok=True, mode=0o700)
+    spool = root / SPOOL_DIR / inv_id
+    spool.mkdir(exist_ok=True, mode=0o700)
     config = (wrapper.home(plan.root) /
               f"{inv_id}{wrapper.CONFIG_SUFFIX}"
               if plan.kind == "vitest" else None)
@@ -195,8 +205,9 @@ def _record(plan, package: Path, node: str, cwd: Path, args,
             _discard(spool)
             raise SpawnError(
                 f"{argv[0]} could not be started: {e.strerror}") from None
-        (spool / invocation.HARNESS_FILE).write_text(
-            json.dumps(ending.to_json(), indent=2) + "\n", encoding="utf-8")
+        invocation.write_record(
+            spool / invocation.HARNESS_FILE,
+            json.dumps(ending.to_json(), indent=2) + "\n")
     finally:
         wrapper.remove(files)
     return _convert(spool, inv_id, ending, getattr(args, "jobs", None),
@@ -257,8 +268,8 @@ def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
         # no `refocus_of` key at all: an absent key is what every reader of
         # a trace branches on.
         refocus_of=refocus_of)
-    (spool / invocation.INVOCATION_FILE).write_text(
-        json.dumps(record.to_json(), indent=2) + "\n", encoding="utf-8")
+    invocation.write_record(spool / invocation.INVOCATION_FILE,
+                            json.dumps(record.to_json(), indent=2) + "\n")
 
 
 def _env_hash() -> str:

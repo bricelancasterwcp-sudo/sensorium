@@ -10,16 +10,21 @@ somebody else's test suite. So the driver mints or reads
 language recording into one store.
 
 `tests/test_ts_driver.py` drives the rest of the command end to end; what is
-here is the environment hop and the one predicate that keeps the key
-variable out of a `refocus` comparison. Its own file because that module is
-at 683 lines.
+here is the environment hop, the one predicate that keeps the key variable
+out of a `refocus` comparison, and the modes every path this driver creates
+is created with. Its own file because that module is at 683 lines.
 """
 from pathlib import Path
+
+import pytest
 
 from sensorium import redact
 from sensorium.query import refocus_rust, refocus_typescript
 from sensorium.ts import driver as driver_mod
 from sensorium.ts import harness as harness_mod
+from sensorium.ts import pkg as pkg_mod
+from tests.helpers import run_cli
+from tests.test_ts_driver import LIB, SKIP, TEST
 
 
 def _env(tmp_path: Path) -> dict:
@@ -75,3 +80,67 @@ def test_the_key_variable_is_the_recorders_own_in_both_languages():
     """
     assert refocus_typescript.is_recorder_key(redact.KEY_VAR)
     assert refocus_rust._is_recorder_key(redact.KEY_VAR)
+
+
+# -- the modes, end to end --------------------------------------------------
+@pytest.fixture
+def project(tmp_path):
+    """`test_ts_driver.py`'s `node --test` project: two files and the one
+    dependency the loader hook resolves from the ROOT. Copied rather than
+    imported, as `test_ts_driver_focus.py` copies it, so that a module whose
+    other tests need no Node holds its own fixture."""
+    root = tmp_path / "app"
+    (root / "node_modules").mkdir(parents=True)
+    (root / "package.json").write_text('{"name": "app", "type": "module"}\n')
+    (root / "lib.ts").write_text(LIB)
+    (root / "a.test.ts").write_text(TEST % 3)
+    (root / "node_modules" / "typescript").symlink_to(
+        pkg_mod.locate() / "node_modules" / "typescript")
+    return root
+
+
+@pytest.mark.skipif(SKIP is not None, reason=SKIP or "")
+def test_every_path_a_run_creates_under_the_spool_is_private(project,
+                                                             tmp_path):
+    """§5.5 is categorical: every file this recorder writes is 0600 and
+    every directory 0700, AT CREATION.
+
+    Measured otherwise by E16 part A (H2, ten paths at 0775/0664): the
+    driver made its spool with a bare `mkdir(parents=True)` and wrote
+    `invocation.json`, `harness.json`, `ingested.json` and the plugin's
+    `manifests/*.json` with plain `write_text`/`writeFileSync`, so all of
+    them landed at whatever the umask allowed -- 0775/0664 on that box.
+    Only the files carrying a recorded ENVIRONMENT were private, and a
+    record holding the user's argv and their project paths beside them is
+    not a footnote.
+
+    A sweep and not a list: the point is that no path under the spool
+    escapes, and a test naming six files would say nothing about the
+    seventh somebody adds. The named-presence check below is what stops an
+    empty sweep from passing.
+    """
+    sdir = tmp_path / "sdir"
+    r = run_cli(["ts", "run", "--", "node", "--test", "a.test.ts"],
+                cwd=project, sensorium_dir=sdir)
+    assert r.returncode == 0, r.stderr
+
+    spool_root = sdir / "spool"
+    spools = sorted(p for p in spool_root.iterdir() if p.is_dir())
+    assert len(spools) == 1, spools
+    spool = spools[0]
+
+    wrong = {}
+    for path in (spool_root, spool, *sorted(spool.rglob("*"))):
+        want = 0o700 if path.is_dir() else 0o600
+        mode = path.stat().st_mode & 0o7777
+        if mode != want:
+            wrong[str(path.relative_to(sdir))] = f"{mode:o}, want {want:o}"
+    assert wrong == {}
+
+    # What the sweep had to have walked. `manifests/` is the loader hook's,
+    # written from inside the harness; the other three are the driver's own,
+    # and the `.jsonl` is the runtime's spool.
+    assert {"invocation.json", "harness.json", "ingested.json",
+            "manifests"} <= {p.name for p in spool.iterdir()}
+    assert any(p.suffix == ".jsonl" for p in spool.iterdir()), sorted(spool)
+    assert sorted((spool / "manifests").iterdir())
