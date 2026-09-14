@@ -1,0 +1,19 @@
+$ $REPO/.venv/bin/python -m sensorium info 20260914-180856-948ced
+# cwd $E16_DIR  exit 0  0.048s
+run 20260914-180856-948ced  trace: $E16_DIR/store-b/traces/20260914-180856-948ced.db
+cmd: main.py    cwd: $E16_DIR/py-case-b
+python 3.13.13  env:c84564fee786b559 (8 vars, 1 redacted: SENSORIUM_E16_TOKEN)  exit: 0  events: 10  duration: 0.01s
+recorder: sensorium 0.16.0  lang: python  capabilities: children=yes line=yes locals=yes object_identity=yes output=yes refocus=yes return_value=yes stdin=yes tasks=yes threads=yes
+recorded: CALL 4  RETURN 4  RAISE 0  HANDLED 0  YIELD 0  RESUME 0  LINE 2
+focus: main:handle    window: -
+caps: str=200 repr=200 sample=8 depth=3   truncated values: 0
+redaction: rule v1, keyed (key f4de4c4a), by recorder; values redacted: 5
+fingerprint thread 1 (main): ae0e549709a20cfeef08849118c1be74 (8 causal events)
+fingerprints: per-task basis -- each thread row covers the events that ran in no asyncio task
+unframed calls: 0 (all calls framed in format 3)
+tasks: none (no event ran inside an asyncio task)
+hot functions:
+  1x main.py:<module>
+  1x main.py:handle
+  1x main.py:secret
+  1x main.py:send

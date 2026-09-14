@@ -541,4 +541,189 @@ licence: WITHHELD -- this MATCH is about call shape, and these checks say it is 
 
 ## 3. Part B
 
-Not yet measured.
+### measured 2026-09-14
+
+Measured once, on this box, under `e16b.sh`. **Part B: DONE** — H1 (values) PASS  H5 (overhead) measured  H6 (`redaction.values`) PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = 7785be0f`. Every recording ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN` — no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. The two bench tables ran with the token OUT of the environment: H5 is a measurement of overhead, and a secret in a tree H1 does not sweep is a secret nobody checked. 85.3s wall clock.
+
+| cell | word | §9's rule | what was read |
+|---|---|---|---|
+| H1 (values) | **PASS** | every count 0 where 0 is required | 20 file(s) examined: every count 0 under the store, in every proc header and in the TypeScript spool, and exactly 3 occurrence(s) in the Rust spools; 762 further file(s) swept outside the four readings (not gated), none holding the token |
+| H5 (overhead) | **measured** | n/a — an outlier ratio is a finding for CARRIED-DEBT, not a stop | 7 workload row(s); both tables parsed |
+| H6 (`redaction.values`) | **PASS** | exact | 3 trace(s): python 5, rust 4, typescript 4, each redacting exactly SENSORIUM_E16_TOKEN |
+| H1-env | dropped | -- | part A |
+| H2 | dropped | -- | part A |
+| H3 | dropped | -- | part A |
+| H4 | dropped | -- | part C |
+| H6-env | dropped | -- | part A |
+
+#### Pins
+
+| pin | path |
+|---|---|
+| work root | `E16_DIR=/mnt/extra/sensorium-rung2/e16` |
+| store | `$E16_DIR/store-b` |
+| transcripts | `$E16_DIR/b-transcripts/` |
+| Python case copy | `$E16_DIR/py-case-b/` |
+| crate copy | `$E16_DIR/rust-crate-b/` |
+| vitest project copy | `$E16_DIR/ts-project-b/` |
+| cargo target | `$E16_DIR/rust-target/` |
+| instrument output | `$E16_DIR/b-out/` |
+| baseline worktree (`7dd25d2`) | `$E16_DIR/baseline-7dd25d2/` |
+| bench scratch store | `$E16_DIR/bench-b/` |
+| driver (the committed transcripts' label) | `$DRIVER_DIR` — the release `cargo-sensorium`'s own directory, outside the work root |
+
+#### The dry run
+
+Before the measurement, with a `dry-` decoy that cannot match the content rule and the recordings capped at 60 s, each bench table at 300 s, the driver build at 1800 s and the baseline worktree at 600 s, into a work root of its own that was deleted afterwards. What it found, and what changed in the instrument between it and the run above:
+
+- Three dry runs preceded the measurement, into a work root of their own -- its own store, cargo target directory, baseline worktree and case copies, all deleted afterwards -- with a `dry-` plus four decoy that cannot match the content rule, the recordings capped at 60 s, each bench table at 300 s and the benchmark at `reps=1`. Every phase completed, every artifact path the reader opens existed and parsed, and the assembler refused the dry raw record by name (`dry_run: true`), which is the refusal the dry run exists to exercise; a copy with the flag flipped rendered every section with `offenders()` empty.
+- The decoy's census read the NAME rows alone and exactly as predicted -- Python 4, TypeScript 2, Rust 2 -- and its complement was visible in the same sweep: the Python trace held the decoy once (the `print` chunk), the Rust and TypeScript traces twice each (`copy` and the header value), and the Rust `.spool` files three times together. 4+1, 2+2 and 2+2 are §1's amendment's 5, 4 and 4, so every row it counts is where it says it is and the content rule is the only thing that can reach three of them.
+- The TypeScript spool directory lives UNDER the store, so every file in it is in two of §1's four readings: the cell named one offender twice and reported 27 readings as 27 files examined where the sweep had looked at 20. Both the cell and §3's table now answer per FILE and name the readings each file belongs to.
+- H5's command line was built from the `BENCH_REPS` constant and printed `reps=5` directly above evidence reading `best of 1 timed runs`. The reps are read off the run now, and the cell's own sentence no longer claims a number it cannot see.
+- The `driver_version` expectation for the Rust trace was spelled `0.8.0` beside a read of `cargo-sensorium 0.8.0` -- a difference where there is none -- and an em dash in H1's prose rendered as two hyphens. Both corrected. From self-review beside them: a `versions` phase that left `None` crashed the renderer instead of dropping the block in words.
+- A fourth dry run, after the task review: the sweep had held back the whole Rust spool tree from the `rust-target/` reading, so `<pid>.runner.json` and `invocation.json` were in no grep set; only the gated `.proc.json` and `.spool` files are held back now, the two land in the other-sweep table (both read 0 on the decoy), and `mint` became a precondition.
+- Nothing else was altered in response to what the dry runs read. No prediction, no constant, no cell and no line of `sensorium` changed: `RULES`, `EXPECTED_VALUES`, `SPOOL_OCCURRENCES`, `DRY_NAME_ROWS` and the token's name went into the run exactly as §1's amendment fixed them.
+
+#### Amendments, beside §1
+
+- **R11, the Python probe's focus.** §1's part B block records the Python probe with `sensorium run --focus handle -- main.py`. A bare `--focus handle` names a MODULE: `FocusSpec` splits each entry on `:` into `module` and an optional `qualname` (`record/tracer_frames.py`), so `handle` alone matches only code whose module is called `handle` — nothing in `main.py` — and the recording would carry no LINE deltas at all, which is three of the five rows §1 counts. Corrected clause: **`sensorium run --focus main:handle -- main.py`**, which is how `corpus/secret_in_env/questions.yaml` spells the same focus for the corpus's own case. The Rust arm (`cargo sensorium --focus handle run`) and the TypeScript arm (`--focus handle`) are unchanged: neither recorder's focus spec is module-qualified.
+- **The TypeScript project copy omits `corpus/typescript/secret_in_env`.** §1 records the TypeScript probe with `npx vitest run secret`, and vitest's positional filter is a SUBSTRING match over test file paths: the corpus's own `secret_in_env/secret_in_env.test.ts` matches it as surely as the probe's `e16_probe/secret.test.ts` does. Both would be recorded into one trace and that case's four planted rows counted into the probe's census of four. The disposable copy therefore leaves that one case directory out; the command, the probe and the predicted count are unchanged. (The probe is copied into a SUBDIRECTORY for the same reason it is copied at all: the corpus project's `vitest.config.ts` includes `*/**/*.test.ts`, which a file at the project root does not match.)
+
+#### Versions
+
+**Driver built by the run (R37):** `cargo build --release -p cargo-sensorium` in 0.151s before anything was recorded; `$DRIVER_DIR/cargo-sensorium`, 9737152 bytes, mtime 2026-09-14T16:46:30. cargo said: Finished `release` profile [optimized] target(s) in 0.10s
+
+| version | read | §1 expected |
+|---|---|---|
+| `sensorium` (installed) | 0.16.0 | 0.16.0 |
+| `recorder:` on the python trace | sensorium 0.16.0 | sensorium 0.16.0 |
+| `recorder:` on the rust trace | sensorium-rt 0.7.0 | sensorium-rt 0.7.0 |
+| `recorder:` on the typescript trace | sensorium-ts 0.6.0 | sensorium-ts 0.6.0 |
+| `driver_version` on the python trace | (none recorded) | -- |
+| `driver_version` on the rust trace | cargo-sensorium 0.8.0 | cargo-sensorium 0.8.0 |
+| `driver_version` on the typescript trace | 0.16.0 | -- |
+| `cargo` under the scrubbed environment | cargo 1.96.0 (30a34c682 2026-05-25) | -- |
+| `node` under the scrubbed environment | v24.16.0 | -- |
+| `vitest` under the scrubbed environment | vitest/4.1.9 linux-x64 node-v24.16.0 | -- |
+| `python` in the `7dd25d2` worktree | Python 3.13.13 | -- |
+
+#### H1 (values) — the token's bytes, per file
+
+| file (under `$E16_DIR`) | set | occurrences | required |
+|---|---|---|---|
+| `store-b/invocations.jsonl` | every file under the store | 0 | 0 |
+| `store-b/redaction.key` | every file under the store | 0 | 0 |
+| `store-b/spool/20260914-180856-2bbfe9/4057260-0.jsonl` | every file under the store + TypeScript spool | 0 | 0 |
+| `store-b/spool/20260914-180856-2bbfe9/harness.json` | every file under the store + TypeScript spool | 0 | 0 |
+| `store-b/spool/20260914-180856-2bbfe9/ingested.json` | every file under the store + TypeScript spool | 0 | 0 |
+| `store-b/spool/20260914-180856-2bbfe9/invocation.json` | every file under the store + TypeScript spool | 0 | 0 |
+| `store-b/spool/20260914-180856-2bbfe9/manifests/_tally.json` | every file under the store + TypeScript spool | 0 | 0 |
+| `store-b/spool/20260914-180856-2bbfe9/manifests/e16_probe__secret.test.ts.json` | every file under the store + TypeScript spool | 0 | 0 |
+| `store-b/spool/20260914-180856-2bbfe9/manifests/e16_probe__secret.ts.json` | every file under the store + TypeScript spool | 0 | 0 |
+| `store-b/traces/20260914-180856-948ced.db` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180856-948ced.db-shm` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180856-948ced.db-wal` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180856-d41cc8.db` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180856-d41cc8.db-shm` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180856-d41cc8.db-wal` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180857-5e0231.db` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180857-5e0231.db-shm` | every file under the store | 0 | 0 |
+| `store-b/traces/20260914-180857-5e0231.db-wal` | every file under the store | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-180856-fae745/4057202.proc.json` | Rust `<pid>.proc.json` | 0 | 0 |
+| `rust-target/sensorium/spool/20260914-180856-fae745/4057202.1.spool` | Rust `.spool` | 3 | 3 together |
+
+The Rust `.spool` files hold 3 occurrence(s) together, against the 3 §1's amendment predicts: the three rows the CONVERTER redacts (`copy`, the `Headers` `Debug` text and `secret`'s RETURN) are plaintext in the spool until it runs, and the fourth Rust row — the `token` parameter delta — is taken by the recorder before the spool is written.
+
+Swept and listed, outside the four readings and gated by none of them — the disposable copies, the transcripts, the cargo build tree (the two Rust spool files §1's amendment does not name among them: `<pid>.runner.json` and `invocation.json`), the TMPDIR every recording ran under and this instrument's own output, by top directory:
+
+| path (under `$E16_DIR`) | files swept | max occurrences |
+|---|---|---|
+| `b-out/` | 1 | 0 |
+| `b-transcripts/` | 10 | 0 |
+| `py-case-b/` | 1 | 0 |
+| `rust-crate-b/` | 3 | 0 |
+| `rust-target/` | 71 | 0 |
+| `tmp/` | 526 | 0 |
+| `ts-project-b/` | 150 | 0 |
+
+#### H5 — the overhead, before and after
+
+`python -c "from corpus._bench import bench; bench.report(reps=5)"`, in each tree, back to back on this box.
+
+**At `7dd25d2`:**
+
+```
+workload            tier      baseline  recorded       x    events  us/event
+call_dense          default     0.0087    1.4707   168.6    185428       7.9
+call_dense          focused     0.0086    2.0526   238.2    278140       7.3
+work_between_calls  default     0.1427    0.4040     2.8     24004      10.9
+work_between_calls  focused     0.1436    0.5680     4.0     48006       8.8
+async_call_dense    default     0.0264    0.3929    14.9     40004       9.2
+async_call_dense    focused  n/a  (no focus target registered for this workload)
+await_dense         default     0.0459    0.3164     6.9     40004       6.8
+await_dense         focused     0.0455    0.4756    10.5     60005       7.2
+
+recorder fixed cost: 0.080s on a program that does nothing (0.0073s -> 0.0868s).
+  Every row above includes it, so a short program's multiplier is mostly this.
+best of 5 timed runs after one untimed warm-up; python 3.13.13.
+  Measurements of THIS machine and these workloads, not a promise about yours: the
+  multiplier tracks how call-dense the program is, and us/event is the figure that travels.
+```
+
+**At HEAD (this branch):**
+
+```
+workload            tier      baseline  recorded       x    events  us/event
+call_dense          default     0.0089    1.7501   197.0    185428       9.4
+call_dense          focused     0.0086    2.4674   287.5    278140       8.8
+work_between_calls  default     0.1415    0.4761     3.4     24004      13.9
+work_between_calls  focused     0.1421    0.7837     5.5     48006      13.4
+async_call_dense    default     0.0266    0.4605    17.3     40004      10.8
+async_call_dense    focused  n/a  (no focus target registered for this workload)
+await_dense         default     0.0457    0.3317     7.3     40004       7.1
+await_dense         focused     0.0462    0.5708    12.4     60005       8.7
+
+recorder fixed cost: 0.082s on a program that does nothing (0.0071s -> 0.0894s).
+  Every row above includes it, so a short program's multiplier is mostly this.
+best of 5 timed runs after one untimed warm-up; python 3.13.13.
+  Measurements of THIS machine and these workloads, not a promise about yours: the
+  multiplier tracks how call-dense the program is, and us/event is the figure that travels.
+```
+
+| workload | tier | recorded/baseline at `7dd25d2` | recorded/baseline at HEAD | HEAD over `7dd25d2` |
+|---|---|---|---|---|
+| async_call_dense | default | 14.88 | 17.31 | 1.16 |
+| await_dense | default | 6.89 | 7.26 | 1.05 |
+| await_dense | focused | 10.45 | 12.35 | 1.18 |
+| call_dense | default | 169.05 | 196.64 | 1.16 |
+| call_dense | focused | 238.67 | 286.91 | 1.20 |
+| work_between_calls | default | 2.83 | 3.36 | 1.19 |
+| work_between_calls | focused | 3.96 | 5.52 | 1.39 |
+
+Never gated (§9, and rust/HONESTY.md §10: cost is reported, never gated). An outlier is a CARRIED-DEBT finding, not a stop.
+
+#### H6 (`redaction.values`) — the census
+
+| trace | arm | `values redacted:` | §1 expected | `redaction.env` names |
+|---|---|---|---|---|
+| `20260914-180856-948ced` | python | 5 | 5 | `SENSORIUM_E16_TOKEN` |
+| `20260914-180856-d41cc8` | rust | 4 | 4 | `SENSORIUM_E16_TOKEN` |
+| `20260914-180857-5e0231` | typescript | 4 | 4 | `SENSORIUM_E16_TOKEN` |
+
+#### Phases
+
+| phase | seconds |
+|---|---|
+| build-driver | 0.152 |
+| preflight | 0.311 |
+| baseline | 0.667 |
+| mint | 0.0 |
+| copies | 0.018 |
+| record-python | 0.137 |
+| record-rust | 0.648 |
+| record-typescript | 0.67 |
+| info | 0.142 |
+| versions | 0.009 |
+| grep-values | 0.276 |
+| bench-baseline | 37.656 |
+| bench-head | 44.6 |

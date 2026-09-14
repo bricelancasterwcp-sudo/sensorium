@@ -1,0 +1,28 @@
+$ $REPO/.venv/bin/python -m sensorium info 20260914-180857-5e0231
+# cwd $E16_DIR  exit 0  0.047s
+run 20260914-180857-5e0231  trace: $E16_DIR/store-b/traces/20260914-180857-5e0231.db
+cmd: $HOME/.nvm/versions/node/v24.16.0/bin/node $REPO/corpus/typescript/node_modules/vitest/dist/workers/forks.js    cwd: $E16_DIR/ts-project-b
+node v24.16.0 (vitest 4.1.9, node)  env:878a384fa55fc57e (51 vars, 1 redacted: SENSORIUM_E16_TOKEN)  exit: unwitnessed  events: 8  duration: 0.03s
+recorder: sensorium-ts 0.6.0  lang: typescript  capabilities: children=no err_flow=yes line=yes locals=yes object_identity=yes output=no refocus=yes return_value=yes stdin=no tasks=yes threads=no
+recorded: CALL 3  RETURN 3  RAISE 0  HANDLED 0  YIELD 0  RESUME 0  LINE 2
+focus: handle    window: -
+focus matched: 1 — e16_probe/secret.ts:handle
+caps: dbg=200 depth=2 sample=8 str=100   truncated values: 0
+redaction: rule v1, keyed (key f4de4c4a), by recorder; values redacted: 4
+harness: npx vitest run secret  exit: 0 (waited)
+harness cwd: $E16_DIR/ts-project-b
+container: pid 4057260  thread 0 (main)  file: e16_probe/secret.test.ts
+container exit: self-reported signal SIGTERM (nobody waited)
+tests: 1 as tasks, 1 seen by the harness; task names: vitest
+files: 2 transformed
+unhandled rejections: 0
+fingerprint thread 1 (main): cae66941d9efbd404e4d88758ea67670 (0 causal events outside any test)
+fingerprints: per-task basis -- each thread row covers the events that ran in no test; 1 task fingerprint(s) beside it
+not recorded in this trace: threads_started -- recorder sensorium-ts 0.6.0 declares threads not witnessed (capabilities.threads: false), so there is no thread record to read; absence of the record is not a record of absence
+not recorded in this trace: children, spawn_syscalls, audit_errors -- recorder sensorium-ts 0.6.0 declares children not witnessed (capabilities.children: false), so there is no child-process record to read; absence of the record is not a record of absence
+unframed calls: 0 (all calls framed in format 3)
+tasks: 1 (t1 the token length is measured, never printed)
+hot functions:
+  1x secret.test.ts:<anonymous>
+  1x secret.ts:secret
+  1x secret.ts:handle

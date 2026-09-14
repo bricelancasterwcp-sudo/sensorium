@@ -1,0 +1,14 @@
+$ $REPO/.venv/bin/python -m sensorium ts run --focus handle -- npx vitest run secret
+# cwd $E16_DIR/ts-project-b  exit 0  0.67s
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90m$E16_DIR/ts-project-b[39m
+
+ [32m✓[39m e16_probe/secret.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m   Start at [22m 18:08:57
+[2m   Duration [22m 98ms[2m (transform 24ms, setup 8ms, import 26ms, tests 2ms, environment 0ms)[22m
+
+run: 20260914-180857-5e0231  pid: 4057260  file: e16_probe/secret.test.ts  events: 8  tasks: 1
+invocation: 20260914-180856-2bbfe9  traces: 1  harness exit: 0 (waited)

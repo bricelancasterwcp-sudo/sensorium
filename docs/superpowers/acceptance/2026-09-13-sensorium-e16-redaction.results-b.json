@@ -1,0 +1,4455 @@
+{
+  "amendments": [
+    "- **R11, the Python probe's focus.** \u00a71's part B block records the Python probe with `sensorium run --focus handle -- main.py`. A bare `--focus handle` names a MODULE: `FocusSpec` splits each entry on `:` into `module` and an optional `qualname` (`record/tracer_frames.py`), so `handle` alone matches only code whose module is called `handle` \u2014 nothing in `main.py` \u2014 and the recording would carry no LINE deltas at all, which is three of the five rows \u00a71 counts. Corrected clause: **`sensorium run --focus main:handle -- main.py`**, which is how `corpus/secret_in_env/questions.yaml` spells the same focus for the corpus's own case. The Rust arm (`cargo sensorium --focus handle run`) and the TypeScript arm (`--focus handle`) are unchanged: neither recorder's focus spec is module-qualified.",
+    "- **The TypeScript project copy omits `corpus/typescript/secret_in_env`.** \u00a71 records the TypeScript probe with `npx vitest run secret`, and vitest's positional filter is a SUBSTRING match over test file paths: the corpus's own `secret_in_env/secret_in_env.test.ts` matches it as surely as the probe's `e16_probe/secret.test.ts` does. Both would be recorded into one trace and that case's four planted rows counted into the probe's census of four. The disposable copy therefore leaves that one case directory out; the command, the probe and the predicted count are unchanged. (The probe is copied into a SUBDIRECTORY for the same reason it is copied at all: the corpus project's `vitest.config.ts` includes `*/**/*.test.ts`, which a file at the project root does not match.)"
+  ],
+  "baseline": {
+    "built": true,
+    "commit": "7dd25d2",
+    "path": "$E16_DIR/baseline-7dd25d2",
+    "python": "$E16_DIR/baseline-7dd25d2/.venv/bin/python",
+    "python_version": "Python 3.13.13",
+    "seconds": {
+      "install": 0.514,
+      "venv": 0.037,
+      "worktree": 0.115
+    }
+  },
+  "bench": {
+    "baseline": {
+      "killed": false,
+      "rc": 0,
+      "reps": 5,
+      "seconds": 37.656,
+      "text": "workload            tier      baseline  recorded       x    events  us/event\ncall_dense          default     0.0087    1.4707   168.6    185428       7.9\ncall_dense          focused     0.0086    2.0526   238.2    278140       7.3\nwork_between_calls  default     0.1427    0.4040     2.8     24004      10.9\nwork_between_calls  focused     0.1436    0.5680     4.0     48006       8.8\nasync_call_dense    default     0.0264    0.3929    14.9     40004       9.2\nasync_call_dense    focused  n/a  (no focus target registered for this workload)\nawait_dense         default     0.0459    0.3164     6.9     40004       6.8\nawait_dense         focused     0.0455    0.4756    10.5     60005       7.2\n\nrecorder fixed cost: 0.080s on a program that does nothing (0.0073s -> 0.0868s).\n  Every row above includes it, so a short program's multiplier is mostly this.\nbest of 5 timed runs after one untimed warm-up; python 3.13.13.\n  Measurements of THIS machine and these workloads, not a promise about yours: the\n  multiplier tracks how call-dense the program is, and us/event is the figure that travels.\n",
+      "tree": "7dd25d2",
+      "why": null
+    },
+    "head": {
+      "killed": false,
+      "rc": 0,
+      "reps": 5,
+      "seconds": 44.6,
+      "text": "workload            tier      baseline  recorded       x    events  us/event\ncall_dense          default     0.0089    1.7501   197.0    185428       9.4\ncall_dense          focused     0.0086    2.4674   287.5    278140       8.8\nwork_between_calls  default     0.1415    0.4761     3.4     24004      13.9\nwork_between_calls  focused     0.1421    0.7837     5.5     48006      13.4\nasync_call_dense    default     0.0266    0.4605    17.3     40004      10.8\nasync_call_dense    focused  n/a  (no focus target registered for this workload)\nawait_dense         default     0.0457    0.3317     7.3     40004       7.1\nawait_dense         focused     0.0462    0.5708    12.4     60005       8.7\n\nrecorder fixed cost: 0.082s on a program that does nothing (0.0071s -> 0.0894s).\n  Every row above includes it, so a short program's multiplier is mostly this.\nbest of 5 timed runs after one untimed warm-up; python 3.13.13.\n  Measurements of THIS machine and these workloads, not a promise about yours: the\n  multiplier tracks how call-dense the program is, and us/event is the figure that travels.\n",
+      "tree": "head",
+      "why": null
+    }
+  },
+  "cells": {
+    "H1-values": {
+      "beyond_the_readings": [],
+      "files_examined": 20,
+      "offenders": [],
+      "other_examined": 762,
+      "spool_occurrences": 3,
+      "why": "20 file(s) examined: every count 0 under the store, in every proc header and in the TypeScript spool, and exactly 3 occurrence(s) in the Rust spools; 762 further file(s) swept outside the four readings (not gated), none holding the token",
+      "word": "PASS"
+    },
+    "H5": {
+      "baseline_table": "workload            tier      baseline  recorded       x    events  us/event\ncall_dense          default     0.0087    1.4707   168.6    185428       7.9\ncall_dense          focused     0.0086    2.0526   238.2    278140       7.3\nwork_between_calls  default     0.1427    0.4040     2.8     24004      10.9\nwork_between_calls  focused     0.1436    0.5680     4.0     48006       8.8\nasync_call_dense    default     0.0264    0.3929    14.9     40004       9.2\nasync_call_dense    focused  n/a  (no focus target registered for this workload)\nawait_dense         default     0.0459    0.3164     6.9     40004       6.8\nawait_dense         focused     0.0455    0.4756    10.5     60005       7.2\n\nrecorder fixed cost: 0.080s on a program that does nothing (0.0073s -> 0.0868s).\n  Every row above includes it, so a short program's multiplier is mostly this.\nbest of 5 timed runs after one untimed warm-up; python 3.13.13.\n  Measurements of THIS machine and these workloads, not a promise about yours: the\n  multiplier tracks how call-dense the program is, and us/event is the figure that travels.\n",
+      "head_table": "workload            tier      baseline  recorded       x    events  us/event\ncall_dense          default     0.0089    1.7501   197.0    185428       9.4\ncall_dense          focused     0.0086    2.4674   287.5    278140       8.8\nwork_between_calls  default     0.1415    0.4761     3.4     24004      13.9\nwork_between_calls  focused     0.1421    0.7837     5.5     48006      13.4\nasync_call_dense    default     0.0266    0.4605    17.3     40004      10.8\nasync_call_dense    focused  n/a  (no focus target registered for this workload)\nawait_dense         default     0.0457    0.3317     7.3     40004       7.1\nawait_dense         focused     0.0462    0.5708    12.4     60005       8.7\n\nrecorder fixed cost: 0.082s on a program that does nothing (0.0071s -> 0.0894s).\n  Every row above includes it, so a short program's multiplier is mostly this.\nbest of 5 timed runs after one untimed warm-up; python 3.13.13.\n  Measurements of THIS machine and these workloads, not a promise about yours: the\n  multiplier tracks how call-dense the program is, and us/event is the figure that travels.\n",
+      "rows": [
+        {
+          "baseline": {
+            "baseline_s": 0.0264,
+            "events": 40004,
+            "line": "async_call_dense    default     0.0264    0.3929    14.9     40004       9.2",
+            "multiplier": 14.9,
+            "recorded_s": 0.3929,
+            "tier": "default",
+            "us_per_event": 9.2,
+            "workload": "async_call_dense"
+          },
+          "head": {
+            "baseline_s": 0.0266,
+            "events": 40004,
+            "line": "async_call_dense    default     0.0266    0.4605    17.3     40004      10.8",
+            "multiplier": 17.3,
+            "recorded_s": 0.4605,
+            "tier": "default",
+            "us_per_event": 10.8,
+            "workload": "async_call_dense"
+          },
+          "ratio_baseline": 14.88257575757576,
+          "ratio_head": 17.312030075187973,
+          "ratio_of_ratios": 1.1632415219775067,
+          "tier": "default",
+          "workload": "async_call_dense"
+        },
+        {
+          "baseline": {
+            "baseline_s": 0.0459,
+            "events": 40004,
+            "line": "await_dense         default     0.0459    0.3164     6.9     40004       6.8",
+            "multiplier": 6.9,
+            "recorded_s": 0.3164,
+            "tier": "default",
+            "us_per_event": 6.8,
+            "workload": "await_dense"
+          },
+          "head": {
+            "baseline_s": 0.0457,
+            "events": 40004,
+            "line": "await_dense         default     0.0457    0.3317     7.3     40004       7.1",
+            "multiplier": 7.3,
+            "recorded_s": 0.3317,
+            "tier": "default",
+            "us_per_event": 7.1,
+            "workload": "await_dense"
+          },
+          "ratio_baseline": 6.893246187363834,
+          "ratio_head": 7.2582056892779,
+          "ratio_of_ratios": 1.0529445042283678,
+          "tier": "default",
+          "workload": "await_dense"
+        },
+        {
+          "baseline": {
+            "baseline_s": 0.0455,
+            "events": 60005,
+            "line": "await_dense         focused     0.0455    0.4756    10.5     60005       7.2\n",
+            "multiplier": 10.5,
+            "recorded_s": 0.4756,
+            "tier": "focused",
+            "us_per_event": 7.2,
+            "workload": "await_dense"
+          },
+          "head": {
+            "baseline_s": 0.0462,
+            "events": 60005,
+            "line": "await_dense         focused     0.0462    0.5708    12.4     60005       8.7\n",
+            "multiplier": 12.4,
+            "recorded_s": 0.5708,
+            "tier": "focused",
+            "us_per_event": 8.7,
+            "workload": "await_dense"
+          },
+          "ratio_baseline": 10.452747252747253,
+          "ratio_head": 12.354978354978355,
+          "ratio_of_ratios": 1.1819838417819915,
+          "tier": "focused",
+          "workload": "await_dense"
+        },
+        {
+          "baseline": {
+            "baseline_s": 0.0087,
+            "events": 185428,
+            "line": "call_dense          default     0.0087    1.4707   168.6    185428       7.9",
+            "multiplier": 168.6,
+            "recorded_s": 1.4707,
+            "tier": "default",
+            "us_per_event": 7.9,
+            "workload": "call_dense"
+          },
+          "head": {
+            "baseline_s": 0.0089,
+            "events": 185428,
+            "line": "call_dense          default     0.0089    1.7501   197.0    185428       9.4",
+            "multiplier": 197.0,
+            "recorded_s": 1.7501,
+            "tier": "default",
+            "us_per_event": 9.4,
+            "workload": "call_dense"
+          },
+          "ratio_baseline": 169.04597701149424,
+          "ratio_head": 196.64044943820224,
+          "ratio_of_ratios": 1.163236492902944,
+          "tier": "default",
+          "workload": "call_dense"
+        },
+        {
+          "baseline": {
+            "baseline_s": 0.0086,
+            "events": 278140,
+            "line": "call_dense          focused     0.0086    2.0526   238.2    278140       7.3",
+            "multiplier": 238.2,
+            "recorded_s": 2.0526,
+            "tier": "focused",
+            "us_per_event": 7.3,
+            "workload": "call_dense"
+          },
+          "head": {
+            "baseline_s": 0.0086,
+            "events": 278140,
+            "line": "call_dense          focused     0.0086    2.4674   287.5    278140       8.8",
+            "multiplier": 287.5,
+            "recorded_s": 2.4674,
+            "tier": "focused",
+            "us_per_event": 8.8,
+            "workload": "call_dense"
+          },
+          "ratio_baseline": 238.67441860465115,
+          "ratio_head": 286.90697674418607,
+          "ratio_of_ratios": 1.2020851602845173,
+          "tier": "focused",
+          "workload": "call_dense"
+        },
+        {
+          "baseline": {
+            "baseline_s": 0.1427,
+            "events": 24004,
+            "line": "work_between_calls  default     0.1427    0.4040     2.8     24004      10.9",
+            "multiplier": 2.8,
+            "recorded_s": 0.404,
+            "tier": "default",
+            "us_per_event": 10.9,
+            "workload": "work_between_calls"
+          },
+          "head": {
+            "baseline_s": 0.1415,
+            "events": 24004,
+            "line": "work_between_calls  default     0.1415    0.4761     3.4     24004      13.9",
+            "multiplier": 3.4,
+            "recorded_s": 0.4761,
+            "tier": "default",
+            "us_per_event": 13.9,
+            "workload": "work_between_calls"
+          },
+          "ratio_baseline": 2.8311142256482134,
+          "ratio_head": 3.364664310954064,
+          "ratio_of_ratios": 1.188459398943428,
+          "tier": "default",
+          "workload": "work_between_calls"
+        },
+        {
+          "baseline": {
+            "baseline_s": 0.1436,
+            "events": 48006,
+            "line": "work_between_calls  focused     0.1436    0.5680     4.0     48006       8.8",
+            "multiplier": 4.0,
+            "recorded_s": 0.568,
+            "tier": "focused",
+            "us_per_event": 8.8,
+            "workload": "work_between_calls"
+          },
+          "head": {
+            "baseline_s": 0.1421,
+            "events": 48006,
+            "line": "work_between_calls  focused     0.1421    0.7837     5.5     48006      13.4",
+            "multiplier": 5.5,
+            "recorded_s": 0.7837,
+            "tier": "focused",
+            "us_per_event": 13.4,
+            "workload": "work_between_calls"
+          },
+          "ratio_baseline": 3.955431754874651,
+          "ratio_head": 5.515130190007037,
+          "ratio_of_ratios": 1.3943181255017794,
+          "tier": "focused",
+          "workload": "work_between_calls"
+        }
+      ],
+      "why": "7 workload row(s); both tables parsed",
+      "word": "measured"
+    },
+    "H6-values": {
+      "offenders": [],
+      "traces": 3,
+      "why": "3 trace(s): python 5, rust 4, typescript 4, each redacting exactly SENSORIUM_E16_TOKEN",
+      "word": "PASS"
+    }
+  },
+  "copies": {
+    "python": "py-case-b",
+    "rust": "rust-crate-b",
+    "typescript": "ts-project-b",
+    "typescript_omitted": "secret_in_env",
+    "typescript_probe": "e16_probe",
+    "vitest_selects": [
+      "e16_probe/secret.test.ts"
+    ]
+  },
+  "driver_build": {
+    "binary": "$DRIVER_DIR/cargo-sensorium",
+    "binary_abs": "$DRIVER_DIR/cargo-sensorium",
+    "built": true,
+    "cargo_target": "$DRIVER_DIR/..",
+    "finished_line": "Finished `release` profile [optimized] target(s) in 0.10s",
+    "mtime": 1789422390.575864,
+    "seconds": 0.151,
+    "size": 9737152
+  },
+  "dropped": [
+    {
+      "cell": "H1-env",
+      "reason": "part A",
+      "word": "dropped"
+    },
+    {
+      "cell": "H2",
+      "reason": "part A",
+      "word": "dropped"
+    },
+    {
+      "cell": "H3",
+      "reason": "part A",
+      "word": "dropped"
+    },
+    {
+      "cell": "H4",
+      "reason": "part C",
+      "word": "dropped"
+    },
+    {
+      "cell": "H6-env",
+      "reason": "part A",
+      "word": "dropped"
+    }
+  ],
+  "dry_run": false,
+  "dry_run_findings": [
+    "Three dry runs preceded the measurement, into a work root of their own -- its own store, cargo target directory, baseline worktree and case copies, all deleted afterwards -- with a `dry-` plus four decoy that cannot match the content rule, the recordings capped at 60 s, each bench table at 300 s and the benchmark at `reps=1`. Every phase completed, every artifact path the reader opens existed and parsed, and the assembler refused the dry raw record by name (`dry_run: true`), which is the refusal the dry run exists to exercise; a copy with the flag flipped rendered every section with `offenders()` empty.",
+    "The decoy's census read the NAME rows alone and exactly as predicted -- Python 4, TypeScript 2, Rust 2 -- and its complement was visible in the same sweep: the Python trace held the decoy once (the `print` chunk), the Rust and TypeScript traces twice each (`copy` and the header value), and the Rust `.spool` files three times together. 4+1, 2+2 and 2+2 are \u00a71's amendment's 5, 4 and 4, so every row it counts is where it says it is and the content rule is the only thing that can reach three of them.",
+    "The TypeScript spool directory lives UNDER the store, so every file in it is in two of \u00a71's four readings: the cell named one offender twice and reported 27 readings as 27 files examined where the sweep had looked at 20. Both the cell and \u00a73's table now answer per FILE and name the readings each file belongs to.",
+    "H5's command line was built from the `BENCH_REPS` constant and printed `reps=5` directly above evidence reading `best of 1 timed runs`. The reps are read off the run now, and the cell's own sentence no longer claims a number it cannot see.",
+    "The `driver_version` expectation for the Rust trace was spelled `0.8.0` beside a read of `cargo-sensorium 0.8.0` -- a difference where there is none -- and an em dash in H1's prose rendered as two hyphens. Both corrected. From self-review beside them: a `versions` phase that left `None` crashed the renderer instead of dropping the block in words.",
+    "A fourth dry run, after the task review: the sweep had held back the whole Rust spool tree from the `rust-target/` reading, so `<pid>.runner.json` and `invocation.json` were in no grep set; only the gated `.proc.json` and `.spool` files are held back now, the two land in the other-sweep table (both read 0 on the decoy), and `mint` became a precondition.",
+    "Nothing else was altered in response to what the dry runs read. No prediction, no constant, no cell and no line of `sensorium` changed: `RULES`, `EXPECTED_VALUES`, `SPOOL_OCCURRENCES`, `DRY_NAME_ROWS` and the token's name went into the run exactly as \u00a71's amendment fixed them."
+  ],
+  "finished": 1789427420.0767074,
+  "h1_values": {
+    "headers": [
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/spool/20260914-180856-fae745/4057202.proc.json"
+      }
+    ],
+    "other": [
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-out/e16b.log"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/baseline-install.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/baseline-venv.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/baseline-worktree.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/build-driver.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/info-python-20260914-180856-948ced.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/info-rust-20260914-180856-d41cc8.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/info-typescript-20260914-180857-5e0231.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/record-python.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/record-rust.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "b-transcripts/record-typescript.txt"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "py-case-b/main.py"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-crate-b/Cargo.lock"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-crate-b/Cargo.toml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-crate-b/src/main.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/.rustc_info.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/.cargo-artifact-lock"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/.cargo-build-lock"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/.cargo-lock"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/.fingerprint/e16_probe_secret-efed6fa4a49b2c5f/bin-secret"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/.fingerprint/e16_probe_secret-efed6fa4a49b2c5f/bin-secret.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/.fingerprint/e16_probe_secret-efed6fa4a49b2c5f/dep-bin-secret"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/.fingerprint/e16_probe_secret-efed6fa4a49b2c5f/invoked.timestamp"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/deps/secret-efed6fa4a49b2c5f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/deps/secret-efed6fa4a49b2c5f.d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/0eqszwzpkr87t5iuqeh27dgpo.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/1967n3j31af7qa9knvi5ur9n1.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/1twzw3inlznj9y8quu7t3k9uq.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/1y1m1feg26cdvnmmlzch3kd9j.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/22z2uao9acjuoodlc5f5ovm9s.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/276dt89189kwgprwb9chq0kvw.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/2xpidjudwhz0c6ng38eb9mp8u.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/3zy6nzunvf9t7m08g92qxmtdc.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/4h5l17hpt0nb33gozdgmk5ao5.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/4xt13m178rzo3wn4j146s05ce.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/580561uf9x5byzeqcfj8ty2o6.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/5j0eknc2h594sz48fpn6s86br.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/5qvcyfio8dh00z810kh771pg5.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/6dkzukvadrrw24o93l7tfuwgz.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/6h69sjp0hgo9rezv5otl6mnep.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/6lohuvby7xorqsx0h0fqxnplx.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/6q3x3mbyxe88u7dny9ao7s6v8.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/6uzhg2zu7n7thqk48uoszcemu.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/7vfui38nswdd10cbq5p26wpaz.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/9bqy7l1i0k2se1adu7r67lbkk.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/9n6l8l9mzwjf8w8h076nv5le0.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/9x12zmoosjtnzzyfu5ibw142m.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/ammab1x75j5qt1epgq4vx9y57.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/b4lam3l7cfujhd33wdlro7x28.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/bqvpqg2t4qutklm808ath83oz.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/c3rjnitx2bj7t7vwpevb08a4f.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/cdfnsl0sm8r9loaabszay3faj.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/csmf9u08b2z4dtv8i2uw3vciz.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/cwy0mclriojzvmew9rua2do5h.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/dep-graph.bin"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/dsico5m3lianekra5855aka1n.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/e7upyu0decbo1rulzzpdhzn4k.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/eh7tksys48vmbb2rakzl7xvvg.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/enbxz7rnatmji585tzz1rdgjs.o"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/query-cache.bin"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g-6eoky70bzwa56k065n13z0rxw/work-products.bin"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/incremental/secret-2li9srz4v3ig5/s-hmarkikzy2-1u1us2g.lock"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/secret"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/debug/secret.d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/cache/fd6035aea5e426b9/42cb6807ad74b3e201c5a7ca98b911c5fa08380e942be6e4ac5807f8377f87fc"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/manifests/fd6035aea5e426b9.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/mirror/fd6035aea5e426b9/src/main.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/mirror/fd6035aea5e426b9.lock"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/errflow.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/exit.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/ffi.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/json.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/lib.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/line.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/panic.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/probe.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/redact.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/sha256.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/spool.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/tasks.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/src/thread.rs"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/unwind/libsensorium_rt.rlib"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/rt/4c60f61aceb904b1/unwind.lock"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/shim/4c60f61aceb904b1-c2a116aa910d147b/cargo-sensorium"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/spool/20260914-180856-fae745/4057202.runner.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "rust-target/sensorium/spool/20260914-180856-fae745/invocation.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00371506"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00b737c7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00c259f6"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/00cb1677"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0123ddaa"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/014a96a4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/01ef6db5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/02a6af43"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0468071d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0487bdaa"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/04c5172b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/05962a3c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/060fa164"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/066f2028"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/07149902"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/07388446"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/076e3acc"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/07bde15b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/090f8f81"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0a873137"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0ad305b8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0c0c3635"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0c66ef34"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0c6e8fa7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0cdeadf2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0d2bf3fe"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0dad0ffa"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0e5153fb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0f0f5576"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0f884574"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/0f903bdd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/10336f98"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/105be512"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/10f17e4f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1126651e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1183eab3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/11c72559"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/12096822"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/127655b9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/13c31377"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/141b76fd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/144a77b9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/146805c9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/15498d04"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/15d22ce5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/16a222b1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/17f8c010"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1a22f47b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1a451a99"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1abccbdb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1b23d553"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1bc10918"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1bc826e0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1cd4af61"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1d68c66e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1e03fbbb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1e719332"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1ee31e07"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1eee0c79"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/1f949e03"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2023622f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/21227232"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/22a2f1a3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2357301d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/23787065"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/240b3166"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/240bebf6"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/240defc1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2410f942"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/24724469"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/24b125dd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2555fd5e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/256f7232"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/26ed9f11"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/27338c5a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/27e79ea6"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/28afeba5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/29b15eab"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/29deb8e6"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2a84c16d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ac80b3d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2af19961"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2b147419"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2b38e42d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2bfbe3c5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2c12c610"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2c2a46a9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ce5cdd2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2cf2dadd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2d40f448"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2df71c10"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2e7f524c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2e915963"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ef7380d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2fa32afb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2fcd8f86"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/2ffe9eed"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/300c7024"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30276281"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30b3b360"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30f4fc63"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/30fd0e5d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/31a782e4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/320bf41a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/321de947"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3264e94a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/33007c28"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/337401f4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/33a834d9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34147890"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3415690d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34243365"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3429d6e5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34a06fd2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/34a3c2af"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35580eac"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35b13c78"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35d26d63"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/35e86976"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/362a6780"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/36df52c7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/374745cf"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/381f865f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/385fa553"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/38afd4d0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/39a020ce"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3abc0f99"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3abd2fcd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3adbd4b1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3b50649e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3c191e89"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3c1e0014"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3c2de1a1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3d1525f7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3d3fb7b4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3e5f9ea6"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3e92e654"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3ea5821d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3eef268c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3fabc82d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/3fc74460"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/40529920"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4071b214"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/415d470d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4254323d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/425e86cf"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/42c57d5a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/43492cd2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/43536371"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/43ffddd4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/449c5a7d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/44ad7a60"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/457e5a2a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/46852506"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/470b1248"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/47ccf7d7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/47d0a83c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/485974ff"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49a576a5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49b82db8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49efc59e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/49ffe437"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a027d65"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a2d5576"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a511c15"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4a863d1e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4af241dd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4b6897ad"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4b7b2959"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4bf5bce9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4d6d1edc"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4df4a26d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4dfae099"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4f65a939"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/4fd3e2e3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/50394d72"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/51260299"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/514c4634"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/515733bb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5157d083"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5199d16a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/52309bd0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5237b27e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/52f099a0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5302d0da"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/53187d16"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5320943f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/538ae6ff"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/540acb29"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/54b0acd7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/55572c61"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/55a36316"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/55e3f535"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/56264071"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/57090db1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5726934b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/579e598f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5959b4e5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/59b24d81"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5a92f75f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5aa285eb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5aaded64"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5b2a7dd3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5b9d33a7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5bf27cf1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5c798765"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5cd28a58"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5d88dfd4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5df17f5d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5e04c257"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5e679f11"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5ee12ead"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/5f1d55cf"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/618349d1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/61b1091c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/61c7b4d1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/61d1ae16"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/62de8149"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/63b3a740"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/63d17e94"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/63d97d09"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/647df25e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/65df8e3b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/65f271b5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6606fefe"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/66f8f4d8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/672d8d2a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/67636cdd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6847bf17"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/68fda5c7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6948d08c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6b562e9e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6b74e194"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c09e4ee"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c3629b6"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c46e67c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6c8d6773"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6d4be4e2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6d7f4672"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6dd1773a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6dfd8717"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6e02e7e8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6e532673"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6f1b0b32"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6f3247c9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6f9ecacd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/6fae5f71"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/700f98c4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7023ad9f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/705aa152"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/705f2bf2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/71a64013"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/71fbd8d7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/72ae0057"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/74543f17"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/756e0714"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/75f7a877"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/764c8654"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/76f122be"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/770cb1f9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/77635af2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/77a38c9f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/77cce5e5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/780ea187"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/78236ce9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7968c851"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7a722c44"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7aa84143"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7b25124b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7baa80ac"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7bd059f2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7be4a39c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7d91cebb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7dbca0c5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e0b55fd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e3f785d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e563022"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7e8fa7f4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7ea34086"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7ee598bb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7fb3ea10"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/7fe3eaba"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8021e77e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/811fa7cf"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/817f969a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/81d1452e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/81ebb63a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/83175a7e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/832138e8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/834a384b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8360381f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/83d506db"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/842b30c9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8464076a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/849bda6f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/850331c3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/852430b3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/85409f3a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/85615d41"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/86720bec"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/86c67931"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/877c1e04"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/878c657b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/889fe70c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8988f011"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/89aa8f91"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8a517164"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8af0e248"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8c5090b4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8e07a378"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8eab59cb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8f13ac08"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8f2f5a0c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8f7f87ee"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/8fcc1dba"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9016da23"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/903407a8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9165e51b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/916fc03d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/91912535"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9194dc79"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/91f427af"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9334b977"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/934add0f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/93f35d56"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/944abfa1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/94f8d79f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/95460faf"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9573f839"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9646bc21"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/977a84b7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/981bf6ec"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/98489b73"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9884c269"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/99f8be8f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a215a51"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a3a15fa"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a643651"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9a8712d8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9af61c52"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9bfa9288"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9c2da8c9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9cd33cd5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9d5c6371"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9de2f1d9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/9eb2ad28"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a280e146"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a45ec96b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a472ee5b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a4aeaafc"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a4ee090c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a6956741"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a6aa4346"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a73f217e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a74a2f44"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a7da7a56"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a89c3dfd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a89dc662"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/a96ea274"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/aa15edf4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ac4e5e45"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ac65e977"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/acb20559"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/af32659f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/afb32b7d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b04a10d2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b04c05c3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b0dfff40"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b2e714d8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b4d63193"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b5164e15"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b52e093d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b56447f8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b5b7e93e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b5d56046"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b6a0067f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b726bea7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b760c5a4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b82df033"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b86a9c2c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b8edfc58"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b8fd8a3a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b9b3ae31"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/b9b4e48c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ba941cb2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bb1a536c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bb1d8a42"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bb9962f0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc2e9ac2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc318402"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc3e3d7c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bc83cfad"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bd1d4eeb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bd3e8607"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bda54f8b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/be566495"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/beb40767"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/beb868a0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bee05487"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bf413a81"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bf8f94dc"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/bfa44d58"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c088aab7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c09399c1"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c1119e15"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c11b2630"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c16d23de"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c1af6a6b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c1b2f103"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c4b0e671"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c50b8f74"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c55fcb13"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5707b89"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5b89fd0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5c3cea0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c5cfab27"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c6773133"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c6b6c513"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c6f1c5ab"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c76ed034"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c7ff8792"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c8316399"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c8db4e43"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c93fa4c3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/c9a31c2d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cb07845f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cc09394a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cc455d84"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ccf67005"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cd1c8a0a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cd6aa456"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cf3ec3e3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cf62992f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cfc18f59"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/cff44c58"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d01aeed2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d0d76660"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d1ad27ed"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d2454387"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d3f16ad5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d4f02933"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d5852eee"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d5bfce9a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d634b9e9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d65f3a5a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d668aded"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d6c98d76"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d73687d5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d73ac4a2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d79ea50b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d7bc8a5f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d7c63abc"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/d9f1e025"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/da89e257"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dac7f703"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dae58242"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/db5e917e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dc60fad9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dc7464ab"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dd65b4d9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/de114370"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/df37538c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/dff05ae2"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e119edac"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e2f3470d"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e31ee9bd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e3294831"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e3357a58"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e3384400"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e464e172"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e47f4725"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e4bcc15b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e529ad4b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e5438760"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e584ece8"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e5fe9aa3"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e6409e99"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e7a6e802"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e83edf6b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e897eb21"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/e9adf795"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ea003305"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ea5e6a41"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ea6db24f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eaa11a5b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eaaaf219"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eb53babe"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eb600f93"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eb9c3e7e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ec477b63"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ec7e83ef"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eca34f59"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ecf5d116"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/edde2ff7"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/eeb2c12a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ef533479"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/efa87392"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/efc7820e"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f13772bd"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f1995746"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f2493065"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f2874eda"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f3132455"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f34a8a97"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4092bc0"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4152c2b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4f01d3b"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f4f85dcc"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f504f078"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f524578c"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f632f23f"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f644f5ae"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f6a22381"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f6c164c9"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f777de68"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f9901146"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/f9ff588a"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fb93b023"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fc436eeb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fdd6ec01"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fddcc5d5"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fe6b2fb6"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/feb71874"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/fee13bc4"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ff161775"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "tmp/node-compile-cache/v24.16.0-x64-cf738c9d-1000/ffa180fb"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/.gitignore"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/README.md"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/asserted_catch/asserted_catch.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/asserted_catch/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/asserted_catch/validate.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/async_interleaved/async_interleaved.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/async_interleaved/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/async_interleaved/store.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/await_rejection_caught/await_rejection_caught.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/await_rejection_caught/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/await_rejection_caught/quote.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_escaped/callback_escaped.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_escaped/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_escaped/sync.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_handled/callback_handled.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_handled/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_handled/token.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_opaque/callback_opaque.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_opaque/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_opaque/report.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_sink/callback_sink.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_sink/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/callback_sink/upstream.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/dependency_throw/dependency_throw.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/dependency_throw/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/dependency_throw/settings.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/double_call/double_call.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/double_call/orders.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/double_call/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/e16_probe/secret.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/e16_probe/secret.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/each_naming/each_naming.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/each_naming/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/each_naming/squares.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/escaped_catch/amount.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/escaped_catch/escaped_catch.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/escaped_catch/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/finally_return/finally_return.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/finally_return/ledger.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/finally_return/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/flow_value_inspect/flow_value_inspect.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/flow_value_inspect/grid.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/flow_value_inspect/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_args/focus_args.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_args/invoice.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_args/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_async/cache.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_async/focus_async.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_async/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_block_scope/focus_block_scope.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_block_scope/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_block_scope/scope.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_catch_binding/focus_catch_binding.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_catch_binding/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_catch_binding/retry.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_container/focus_container.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_container/fog.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_container/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_destructure/focus_destructure.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_destructure/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_destructure/unpack.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_finally_return/finally.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_finally_return/focus_finally_return.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_finally_return/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_let_chain/chain.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_let_chain/focus_let_chain.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_let_chain/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_long_string/focus_long_string.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_long_string/long.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_long_string/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_loop_counter/counter.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_loop_counter/focus_loop_counter.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_loop_counter/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_place_write/focus_place_write.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_place_write/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/focus_place_write/state.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/logged_catch/logged_catch.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/logged_catch/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/logged_catch/quota.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/logged_rethrow_to_harness/loader.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/logged_rethrow_to_harness/logged_rethrow_to_harness.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/logged_rethrow_to_harness/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/nondeterministic/counter.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/nondeterministic/nondeterministic.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/nondeterministic/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/object_identity/object_identity.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/object_identity/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/object_identity/settings.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/package-lock.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/package.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/pass_vs_fail/above.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/pass_vs_fail/boundary.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/pass_vs_fail/pricing.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/pass_vs_fail/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/primitive_rethrow/primitive_rethrow.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/primitive_rethrow/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/primitive_rethrow/scan.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_diverged/counter.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_diverged/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_diverged/refocus_diverged.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_match/fill.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_match/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_match/refocus_match.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_refused_reused_worker/a.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_refused_reused_worker/b.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_refused_reused_worker/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/refocus_refused_reused_worker/shared.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/rethrow_hop/disk.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/rethrow_hop/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/rethrow_hop/rethrow_hop.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/silent_swallow/config.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/silent_swallow/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/silent_swallow/silent_swallow.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/suspended_at_end/fetcher.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/suspended_at_end/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/suspended_at_end/suspended_at_end.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/suspended_handler/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/suspended_handler/queue.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/suspended_handler/suspended_handler.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/test_failed/order.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/test_failed/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/test_failed/test_failed.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/timer_callback_parentless/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/timer_callback_parentless/sweeper.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/timer_callback_parentless/timer_callback_parentless.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/translated/decode.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/translated/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/translated/translated.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/unhandled_rejection_in_info/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/unhandled_rejection_in_info/refresh.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/unhandled_rejection_in_info/unhandled_rejection_in_info.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/unit_mismatch/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/unit_mismatch/shipping.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/unit_mismatch/unit_mismatch.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher/formula.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher/untraced_catcher.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher_later_failure/formula.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher_later_failure/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher_later_failure/untraced_catcher_later_failure.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher_rejection/network.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher_rejection/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/untraced_catcher_rejection/untraced_catcher_rejection.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/vitest.config.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/watch_refused/cache.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/watch_refused/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/watch_refused/watch_refused.test.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/wrong_branch/pricing.ts"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/wrong_branch/questions.yaml"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "ts-project-b/wrong_branch/wrong_branch.test.ts"
+      }
+    ],
+    "roots": {
+      "rust_spool": "rust-target/sensorium/spool",
+      "store": "store-b",
+      "ts_spool": "store-b/spool"
+    },
+    "spools": [
+      {
+        "grep_exit": 0,
+        "occurrences": 3,
+        "path": "rust-target/sensorium/spool/20260914-180856-fae745/4057202.1.spool"
+      }
+    ],
+    "store": [
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/invocations.jsonl"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/redaction.key"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/4057260-0.jsonl"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/harness.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/ingested.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/invocation.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/manifests/_tally.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/manifests/e16_probe__secret.test.ts.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/manifests/e16_probe__secret.ts.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180856-948ced.db"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180856-948ced.db-shm"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180856-948ced.db-wal"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180856-d41cc8.db"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180856-d41cc8.db-shm"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180856-d41cc8.db-wal"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180857-5e0231.db"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180857-5e0231.db-shm"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/traces/20260914-180857-5e0231.db-wal"
+      }
+    ],
+    "ts_spools": [
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/4057260-0.jsonl"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/harness.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/ingested.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/invocation.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/manifests/_tally.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/manifests/e16_probe__secret.test.ts.json"
+      },
+      {
+        "grep_exit": 1,
+        "occurrences": 0,
+        "path": "store-b/spool/20260914-180856-2bbfe9/manifests/e16_probe__secret.ts.json"
+      }
+    ]
+  },
+  "h6_values": [
+    {
+      "arm": "python",
+      "names": [
+        "SENSORIUM_E16_TOKEN"
+      ],
+      "run": "20260914-180856-948ced",
+      "values": 5,
+      "vars": 8
+    },
+    {
+      "arm": "rust",
+      "names": [
+        "SENSORIUM_E16_TOKEN"
+      ],
+      "run": "20260914-180856-d41cc8",
+      "values": 4,
+      "vars": 44
+    },
+    {
+      "arm": "typescript",
+      "names": [
+        "SENSORIUM_E16_TOKEN"
+      ],
+      "run": "20260914-180857-5e0231",
+      "values": 4,
+      "vars": 51
+    }
+  ],
+  "label": "b",
+  "lens": {
+    "baseline": "$E16_DIR/baseline-7dd25d2",
+    "bench": "$E16_DIR/bench-b",
+    "cargo_target": "$E16_DIR/rust-target",
+    "out": "$E16_DIR/b-out",
+    "python_case": "$E16_DIR/py-case-b",
+    "repo": "$REPO",
+    "rust_crate": "$E16_DIR/rust-crate-b",
+    "store": "$E16_DIR/store-b",
+    "transcripts": "$E16_DIR/b-transcripts",
+    "ts_project": "$E16_DIR/ts-project-b",
+    "work_root": "$E16_DIR"
+  },
+  "part": "DONE",
+  "phases": [
+    {
+      "error": null,
+      "name": "build-driver",
+      "seconds": 0.152
+    },
+    {
+      "error": null,
+      "name": "preflight",
+      "seconds": 0.311
+    },
+    {
+      "error": null,
+      "name": "baseline",
+      "seconds": 0.667
+    },
+    {
+      "error": null,
+      "name": "mint",
+      "seconds": 0.0
+    },
+    {
+      "error": null,
+      "name": "copies",
+      "seconds": 0.018
+    },
+    {
+      "error": null,
+      "name": "record-python",
+      "seconds": 0.137
+    },
+    {
+      "error": null,
+      "name": "record-rust",
+      "seconds": 0.648
+    },
+    {
+      "error": null,
+      "name": "record-typescript",
+      "seconds": 0.67
+    },
+    {
+      "error": null,
+      "name": "info",
+      "seconds": 0.142
+    },
+    {
+      "error": null,
+      "name": "versions",
+      "seconds": 0.009
+    },
+    {
+      "error": null,
+      "name": "grep-values",
+      "seconds": 0.276
+    },
+    {
+      "error": null,
+      "name": "bench-baseline",
+      "seconds": 37.656
+    },
+    {
+      "error": null,
+      "name": "bench-head",
+      "seconds": 44.6
+    }
+  ],
+  "preflight": {
+    "allowlist": [
+      "PATH",
+      "HOME",
+      "USER",
+      "LANG",
+      "TMPDIR",
+      "CARGO_TARGET_DIR",
+      "SENSORIUM_DIR",
+      "SENSORIUM_E16_TOKEN"
+    ],
+    "baseline_commit": "7dd25d2d455dcbb3965913b43e39e159446ccdc6",
+    "bench_reps": 5,
+    "dry_run": false,
+    "free_bytes": 81348128768,
+    "probes": [
+      "python/main.py",
+      "rust/Cargo.toml",
+      "rust/src/main.rs",
+      "typescript/secret.test.ts",
+      "typescript/secret.ts"
+    ],
+    "rule_fires_on_the_token": true,
+    "tools": {
+      "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+      "node": "v24.16.0",
+      "vitest": "vitest/4.1.9 linux-x64 node-v24.16.0"
+    }
+  },
+  "runs": {
+    "python": [
+      "20260914-180856-948ced"
+    ],
+    "rust": [
+      "20260914-180856-d41cc8"
+    ],
+    "typescript": [
+      "20260914-180857-5e0231"
+    ]
+  },
+  "seconds": 85.3,
+  "started": 1789427334.7913115,
+  "status": "complete",
+  "token": {
+    "fresh_sha8": "269bbb44",
+    "length": 40,
+    "sha8": "7785be0f"
+  },
+  "versions": {
+    "driver_version": {
+      "python": null,
+      "rust": "cargo-sensorium 0.8.0",
+      "typescript": "0.16.0"
+    },
+    "expected": {
+      "cargo-sensorium": "0.8.0",
+      "sensorium": "0.16.0",
+      "sensorium-rt": "0.7.0",
+      "sensorium-ts": "0.6.0"
+    },
+    "recorder": {
+      "python": "sensorium 0.16.0",
+      "rust": "sensorium-rt 0.7.0",
+      "typescript": "sensorium-ts 0.6.0"
+    },
+    "sensorium": "0.16.0",
+    "tools": {
+      "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+      "node": "v24.16.0",
+      "vitest": "vitest/4.1.9 linux-x64 node-v24.16.0"
+    }
+  }
+}
