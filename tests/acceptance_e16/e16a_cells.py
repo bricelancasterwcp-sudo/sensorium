@@ -115,8 +115,13 @@ EXPECTED = {"sensorium": "0.15.0", "sensorium-rt": "0.6.0",
 #: §1's kill rules, in seconds, and the dry run's minute. The Rust arm has
 #: its own entry because §1 allows it 1200 s if the cold build needs one;
 #: measured on this box it is under a second, and the row records that.
-TIMERS = {"record": 600, "record_rust": 600, "refocus": 900, "part": 45 * 60}
-DRY_TIMERS = {"record": 60, "record_rust": 60, "refocus": 60, "part": 15 * 60}
+TIMERS = {"build": 1800, "record": 600, "record_rust": 600,
+          "refocus": 900, "part": 45 * 60}
+#: The dry run caps the RECORDINGS at a minute, not the R37 driver build: a
+#: cold `cargo build --release` is minutes of work that says nothing about
+#: the instrument's plumbing, and killing it would only test the refusal.
+DRY_TIMERS = {"build": 1800, "record": 60, "record_rust": 60,
+              "refocus": 60, "part": 15 * 60}
 
 
 class Refused(Exception):

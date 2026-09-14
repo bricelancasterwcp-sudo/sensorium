@@ -159,7 +159,10 @@ def versions_table(raw: dict) -> list[str]:
         f"**Driver built by the run (R37):** `cargo build --release -p "
         f"cargo-sensorium` in {b['seconds']}s before anything was recorded; "
         f"`{b['binary']}`, {b['size']} bytes, mtime {when}."
-        + (f" cargo said: `{b['finished_line']}`."
+        # No code span around cargo's own line: it contains backticks of its
+        # own (`Finished \`release\` profile`) and a span around them ends
+        # early, leaving the rest of the sentence in code font.
+        + (f" cargo said: {b['finished_line']}"
            if b.get("finished_line") else ""))
     versions = raw["versions"]
     rows = [("`sensorium` (installed)", versions["sensorium"],
@@ -482,16 +485,26 @@ def first_pass_block(raw: dict, previous: dict | None) -> list[str]:
                         f"reads **{after}** here.")
         elif after == "PASS":
             rows.append(
-                f"- **{CELL_TITLES[cell]} — run 2 is the first PASS.** Run 1 "
-                f"read {before}: {previous['cells'][cell]['why']} Fixed by "
-                f"{FIX_COMMITS.get(cell, 'the branch')}; run 2 reads "
-                f"{raw['cells'][cell]['why']}")
+                f"- **{CELL_TITLES[cell]} — this run is the first PASS.** "
+                f"The run before it read {before}: "
+                f"{_sentence(previous['cells'][cell]['why'])} Fixed by "
+                f"{FIX_COMMITS.get(cell, 'the branch')}. This run reads: "
+                f"{_sentence(raw['cells'][cell]['why'])}")
         else:
             rows.append(
                 f"- **{CELL_TITLES[cell]} — still {after}, no first PASS "
-                f"yet.** Run 1 read {before}: {previous['cells'][cell]['why']}"
-                f" Run 2 reads: {raw['cells'][cell]['why']}")
+                f"yet.** The run before it read {before}: "
+                f"{_sentence(previous['cells'][cell]['why'])} This run "
+                f"reads: {_sentence(raw['cells'][cell]['why'])}")
     return ["", "#### Against run 1 — which run is the first PASS", ""] + rows
+
+
+def _sentence(why: str) -> str:
+    """A cell's `why` ends without punctuation -- it is a clause meant for a
+    table. Run into prose it swallows the next sentence, so it is closed
+    here rather than each caller remembering."""
+    why = why.strip()
+    return why if why.endswith((".", "!", "?")) else why + "."
 
 
 def dry_run_block(raw: dict) -> list[str]:

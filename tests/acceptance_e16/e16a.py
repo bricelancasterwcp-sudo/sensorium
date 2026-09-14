@@ -157,7 +157,19 @@ class Part:
                                                      set(ALLOWLIST))
         return values
 
-    def phase(self, name: str, fn):
+    def phase(self, name: str, fn, critical: bool = False):
+        """One phase, timed, with its own failure recorded rather than
+        raised -- so a cell that lost its input drops instead of the run
+        dying with three cells unread.
+
+        `critical` inverts that for the phases that are PRECONDITIONS
+        rather than measurements. The dry run of ruling R37 caught this
+        exactly: `build-driver` raised a `KeyError` on its own timer, the
+        exception was swallowed into `error`, and the run went on to record
+        with the stale binary and report DONE -- the very failure the
+        rebuild phase was added to make impossible. A precondition that
+        fails has to end the run.
+        """
         started = time.time()
         try:
             value = fn()
@@ -166,6 +178,11 @@ class Part:
             raise
         except Exception as exc:                       # noqa: BLE001
             value, error = None, f"{type(exc).__name__}: {exc}"
+            if critical:
+                self.phases.append({"name": name, "seconds": round(
+                    time.time() - started, 3), "error": error})
+                raise Refused(f"{name} is a precondition and it failed: "
+                              f"{error}") from exc
         self.phases.append({"name": name, "seconds":
                             round(time.time() - started, 3), "error": error})
         elapsed = time.time() - self.started
@@ -587,8 +604,10 @@ def main() -> int:
     result = {"dry_run": part.dry, "started": time.time(),
               "dry_run_findings": dry_run_findings()}
     try:
-        result["driver_build"] = part.phase("build-driver", part.build_driver)
-        result["preflight"] = part.phase("preflight", part.preflight)
+        result["driver_build"] = part.phase("build-driver",
+                                            part.build_driver, critical=True)
+        result["preflight"] = part.phase("preflight", part.preflight,
+                                         critical=True)
         result["token"] = part.phase("mint", part.mint)
         result["copies"] = part.phase("copies", part.copies)
         part.phase("record-python", part.record_python)

@@ -578,8 +578,8 @@ def test_the_first_pass_line_names_the_run_that_first_passed():
     now = _cells(H1="PASS", H2="PASS", H3="PASS", H6="PASS")
     was = _cells(H1="PASS", H2="STOP", H3="STOP", H6="PASS")
     out = "\n".join(assemble_e16a.first_pass_block(now, was))
-    assert "H2 — run 2 is the first PASS" in out
-    assert "H3 — run 2 is the first PASS" in out
+    assert "H2 — this run is the first PASS" in out
+    assert "H3 — this run is the first PASS" in out
     assert "passed in run 1 and reads **PASS** here" in out
     assert assemble_e16a.FIX_COMMITS["H2"] in out
 
@@ -589,7 +589,7 @@ def test_a_cell_that_stops_twice_is_told_it_has_no_first_pass_yet():
     was = _cells(H1="PASS", H2="STOP", H3="STOP", H6="PASS")
     out = "\n".join(assemble_e16a.first_pass_block(now, was))
     assert "H2 — still STOP, no first PASS yet" in out
-    assert "H3 — run 2 is the first PASS" in out
+    assert "H3 — this run is the first PASS" in out
 
 
 def test_there_is_no_first_pass_block_for_a_first_run():
