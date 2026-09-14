@@ -59,7 +59,13 @@ def record(argv: list[str], exit_status: int, error: str | None) -> None:
             "error": error}
     try:
         p = path()
-        p.parent.mkdir(parents=True, exist_ok=True)
+        # 0700, like `paths.traces_dir` and `redact.Key.load_or_create`:
+        # this is the third hand that can create the store root, and the
+        # root is where `redaction.key` and this log live. An EXISTING
+        # directory keeps its own mode -- `exist_ok=True` ignores this one,
+        # which is the intent, and the parents created on the way get the
+        # default, exactly as `paths.traces_dir` documents.
+        p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         # 0600 on creation, not afterwards: the log names every sensorium
         # invocation and its argv, and `p.open("a")` would create it
         # 0666-under-the-umask. The mode is ignored when the file is already

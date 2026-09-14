@@ -23,13 +23,15 @@ counted for the same reason.
 import hashlib
 from pathlib import Path
 
+from sensorium import paths, redact
 from sensorium.query.caps import witness_gap
 from sensorium.query.refocus_env import (HARNESS_DIFFER, HARNESS_SET,
                                          SESSION_DIFFER, SESSION_SET,
-                                         differs_only_by_root, is_harness_key,
-                                         is_session_key, relocated_clause,
-                                         relocation, strip_recorder_fragment,
-                                         stripped_clause)
+                                         RedactionPair, differs_only_by_root,
+                                         is_harness_key, is_session_key,
+                                         relocated_clause, relocation,
+                                         strip_recorder_fragment,
+                                         stripped_clause, uncomparable_clause)
 # The licence code the Rust branch used to own, moved to a shared home when
 # a third recorder needed it and split out at this file's 800-line ceiling.
 # Re-exported on the same pattern and for the same reason as the block below.
@@ -45,10 +47,11 @@ from sensorium.query.refocus_threads import (  # noqa: F401
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
-# A check that CANNOT RUN on this pair, because the recorder declares it
-# does not produce what the check reads. Distinct from every other string in
-# this file, and deliberately so: the caveats below are findings -- a signal
-# that fired -- and these three are the absence of a signal to fire.
+# A check that CANNOT RUN on this pair -- because the recorder declares it
+# does not produce what the check reads, or because rule v1 redacted a value
+# neither side can compare. Distinct from every other string in this file,
+# and deliberately so: the caveats below are findings -- a signal that fired
+# -- and these four are the absence of a signal to fire.
 #
 # The bug class they exist for is the one this whole file is arranged
 # around, one step further on. `_output_difference` over two recordings that
@@ -72,10 +75,18 @@ UNVERIFIABLE_CHILDREN = "children: unverifiable (not witnessed)"
 #: a witness GAP until this slice, which withholds; a check that could not
 #: run is not a finding against the pair, so it says so and does not vote.
 UNVERIFIABLE_THREADS = "threads: unverifiable (not witnessed)"
+#: The fourth, and the first that is about a VALUE rather than a record: a
+#: variable rule v1 redacted on one side and cannot compare on the other
+#: (no key, or another store's key) was checked by nothing. Fixed text, with
+#: the names on the env line and in the fact instead of in the marker --
+#: `relicense` filters caveats by exact string, and a marker carrying names
+#: would never match itself.
+UNVERIFIABLE_ENV = ("env: unverifiable in part (redacted variables not "
+                    "comparable)")
 UNVERIFIABLE = (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN,
-                UNVERIFIABLE_THREADS)
+                UNVERIFIABLE_THREADS, UNVERIFIABLE_ENV)
 
-#: The same three checks named for a line that has ALREADY said the word
+#: The same four checks named for a line that has ALREADY said the word
 #: "unverifiable" once -- `info`'s replay of the stamp. Each keeps its own
 #: reason; only the repeated word goes. A name this table does not know is
 #: printed exactly as it was stamped: an older reader must not rewrite the
@@ -84,6 +95,7 @@ _SHORT_UNVERIFIABLE = {
     UNVERIFIABLE_OUTPUT: "output (not recorded)",
     UNVERIFIABLE_CHILDREN: "children (not witnessed)",
     UNVERIFIABLE_THREADS: "threads (not witnessed)",
+    UNVERIFIABLE_ENV: "env (redacted, not comparable)",
 }
 
 
@@ -119,6 +131,12 @@ def unverifiable_checks(orig: Trace, new: Trace) -> list[str]:
         out.append(UNVERIFIABLE_CHILDREN)
     if any(t.declares("threads") is False for t in (orig, new)):
         out.append(UNVERIFIABLE_THREADS)
+    # The fourth is keyed on the two METAS and not on a capability: what
+    # makes this check impossible is a digest with no key to read it by,
+    # which is a fact about the pair rather than about either recorder.
+    if redact.uncomparable(orig.meta, new.meta,
+                           redact.Key.load(paths.trace_root()))[0]:
+        out.append(UNVERIFIABLE_ENV)
     return out
 
 
@@ -267,12 +285,14 @@ def _capped(names: list[str]) -> str:
     return shown + (f", +{len(names) - 8} more" if len(names) > 8 else "")
 
 
-def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str], list[str],
-                                             list[str], list[str]]:
+def _env_diff(was: dict, now: dict, redaction: RedactionPair | None = None
+              ) -> tuple[list[str], list[str], list[str], list[str],
+                         list[str], list[str]]:
     """(names that differ, names that differ ONLY by the target directory,
     names the recorder's own fragment was stripped from, names that
     identify the SESSION the re-run was launched from, names that identify
-    the harness SLOT it ran in).
+    the harness SLOT it ran in, names rule v1 redacted that no comparison
+    could decide).
 
     Names only -- values are never printed, because environments carry
     secrets. Every split here is `refocus_env`'s rule and its whole reason:
@@ -284,7 +304,14 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str], list[str],
     difference.
 
     Only the FIRST list withholds. The other four are findings the line
-    and the fact both carry by name.
+    and the fact both carry by name -- and the sixth is a finding of a
+    different kind: a check that could not run, which is never a finding
+    against the pair (`UNVERIFIABLE_ENV`).
+
+    `redaction` is None for every pair in which neither side redacted
+    anything, which is every pair recorded before rule v1 existed; then the
+    sixth list is empty and every string below is byte for byte the one it
+    was.
 
     Order per key: the fragment goes first, because what is compared is
     what the world put there; then equality; then the relocation rule over
@@ -301,8 +328,22 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str], list[str],
     keys = (set(was) | set(now)) - _UNCOMPARED_ENV
     move = relocation(was, now)
     changed, relocated, stripped, session, harness = [], [], [], [], []
+    uncomparable = []
     for key in sorted(keys):
         before, after = was.get(key), now.get(key)
+        # A name at least one side REDACTED is decided by `redact.compare`
+        # and by nothing else below: the value is a digest, so there is no
+        # fragment to strip from it, no root to reroot it at, and a set's
+        # membership says nothing about a value nobody can read. It differs
+        # or it does not or it cannot be told, and only the middle answer
+        # is silence.
+        if redaction is not None and redaction.covers(key):
+            verdict = redaction.compare(key, before, after)
+            if verdict is None:
+                uncomparable.append(key)
+            elif not verdict:
+                changed.append(key)
+            continue
         removed = 0
         if isinstance(before, str):
             before, n = strip_recorder_fragment(before)
@@ -326,7 +367,7 @@ def _env_diff(was: dict, now: dict) -> tuple[list[str], list[str], list[str],
             harness.append(key)
         else:
             changed.append(key)
-    return changed, relocated, stripped, session, harness
+    return changed, relocated, stripped, session, harness, uncomparable
 
 
 def _sets_clause(session: list[str], harness: list[str]) -> tuple[str, str]:
@@ -367,13 +408,21 @@ def _sets_clause(session: list[str], harness: list[str]) -> tuple[str, str]:
             "".join(f"; {c}" for _name, c in parts))
 
 
-def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
+def _env_state(meta: dict, env: dict,
+               now_meta: dict | None = None) -> tuple[str, str | None,
+                                                      str | None]:
     """(status line, caveat, verified fact) for the rerun's environment.
 
     The ignored keys are NAMED, not counted. "4 volatile keys ignored" is
     not something a reader can judge; `COLUMNS` sitting silently on that
     list is how a program that sized its output by terminal width earned a
     full licence while writing 80 bytes one run and 9000 the next.
+
+    `now_meta` is the re-run trace's own meta, or None when `env` is this
+    process's LIVE environment -- which is what the Python branch compares
+    against, because it performs the re-run itself. The difference is a
+    real one: a live side holds plaintext and is verified through the
+    store's key, a recorded side holds its own digests.
     """
     was = meta.get("env")
     if not isinstance(was, dict):
@@ -382,7 +431,9 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
                 "the environment could not be checked at all, so nothing "
                 "rules out the rerun getting different input through it",
                 None)
-    names, relocated, stripped, session, harness = _env_diff(was, env)
+    key = redact.Key.load(paths.trace_root())
+    names, relocated, stripped, session, harness, unsure = _env_diff(
+        was, env, redaction=RedactionPair.of(meta, now_meta, key))
     # Named on BOTH channels or on neither: the line a person reads and the
     # fact the trace keeps have to agree about which keys the check
     # explained away, or `info` replays a licence whose terminal said more.
@@ -392,8 +443,14 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
     # with the separator each already ends its own names with.
     clause = "; ".join(c for c in (relocated_clause(relocated),
                                    stripped_clause(stripped)) if c)
-    on_line = f"  {clause}" if clause else ""
-    on_fact = f"; {clause}" if clause else ""
+    # The reason word is `redact.uncomparable`'s, read from the two metas
+    # rather than derived a second time here: one word for the whole list,
+    # and one function that decides which word it is.
+    reason = redact.uncomparable(meta, now_meta, key)[1] if unsure else None
+    tail = uncomparable_clause(unsure, reason, _capped(unsure))
+    tail = f"; {tail}" if tail else ""
+    on_line = (f"  {clause}" if clause else "") + tail
+    on_fact = (f"; {clause}" if clause else "") + tail
     compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
     ignored = ", ".join(sorted(_UNCOMPARED_ENV))
     # Neither set withholds, so each is counted and named instead -- and the
@@ -426,7 +483,7 @@ def _env_state(meta: dict, env: dict) -> tuple[str, str | None, str | None]:
             f"variable(s) differ: {shown}   (names only){told}{on_line}",
             f"{len(names)} environment variable(s) differ between the two "
             f"runs ({shown}); a program that reads them got different input",
-            "; ".join(c for c in (told[2:], clause) if c) or None)
+            "; ".join(c for c in (told[2:], clause, tail[2:]) if c) or None)
 
 
 # -- everything else that bears on the licence -----------------------------
@@ -472,7 +529,7 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
     cannot check belongs in `_BLIND_SPOTS`, which is printed regardless.
     """
     out = []
-    # Decided once, up front: three of the checks below cannot run on this
+    # Decided once, up front: some of the checks below cannot run on this
     # pair at all, and both the branch that would have run them and the
     # branch that would have reported their absence as a finding have to
     # read the same answer.

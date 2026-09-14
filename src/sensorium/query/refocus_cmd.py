@@ -530,7 +530,12 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     focus = _merged_focus(meta, args.focus)
     window = args.window if args.window is not None else meta.get("window")
     source, source_caveat, source_fact = _source_state(meta)
-    env_line, env_caveat, env_fact = _env_state(meta, env)
+    # `now_meta=None`: `env` is this process's LIVE environment, in
+    # plaintext, because this branch performs the re-run itself. A redacted
+    # variable is therefore compared by hashing the live value under the
+    # store's key -- never by redacting the live side, which would grant a
+    # licence over a secret that really had changed.
+    env_line, env_caveat, env_fact = _env_state(meta, env, now_meta=None)
 
     print(f"refocus-of: {orig_name}   cmd: {' '.join(argv)}")
     print(f"cwd: {os.getcwd()}")

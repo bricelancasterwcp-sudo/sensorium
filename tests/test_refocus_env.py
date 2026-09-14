@@ -258,11 +258,13 @@ def test_the_recorders_own_fragment_is_stripped_before_the_compare(
 
     # The partition itself, not only its rendering: RUSTDOCFLAGS is on
     # neither the changed nor the relocated list.
-    changed, relocated, stripped, session, harness = _env_diff(was, now)
+    (changed, relocated, stripped, session, harness,
+     uncomparable) = _env_diff(was, now)
     assert changed == []
     assert relocated == ["CARGO_BIN_EXE_demo", "CARGO_TARGET_DIR",
                          "LD_LIBRARY_PATH"]
     assert stripped == ["RUSTDOCFLAGS"] and session == [] and harness == []
+    assert uncomparable == []
 
 
 def test_a_world_flag_beside_the_fragment_still_withholds(
@@ -522,9 +524,10 @@ def test_a_session_key_present_on_one_side_only_is_still_a_session_key(
     assert "env: CHANGED" not in out
     assert "1 session variable(s) differ: TMUX" in out
     assert "licence: WITHHELD" not in out
-    changed, relocated, stripped, session, harness = _env_diff(was, now)
+    (changed, relocated, stripped, session, harness,
+     uncomparable) = _env_diff(was, now)
     assert changed == [] and relocated == [] and stripped == []
-    assert session == ["TMUX"] and harness == []
+    assert session == ["TMUX"] and harness == [] and uncomparable == []
 
 
 # -- fix round 1: what the review found ------------------------------------

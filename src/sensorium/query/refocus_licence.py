@@ -121,11 +121,17 @@ def env_of(meta: dict, new: Trace,
     # them twice would read as two separate holes in one check.
     mine = sorted({k for k in ((was if isinstance(was, dict) else {}) | now)
                    if is_recorder_key(k) and k not in _UNCOMPARED_ENV})
+    # `new.meta` whole, beside the FILTERED environment: the recorder's own
+    # keys are taken out of the compare, but the re-run's `redaction` table
+    # is how a redacted variable is compared at all, and a side handed no
+    # meta would be read as the live plaintext one -- which a driver
+    # language's re-run never is.
     line, caveat, fact = _env_state(
         {**meta, "env": {k: v for k, v in was.items()
                          if not is_recorder_key(k)}}
         if isinstance(was, dict) else meta,
-        {k: v for k, v in now.items() if not is_recorder_key(k)})
+        {k: v for k, v in now.items() if not is_recorder_key(k)},
+        now_meta=new.meta)
     if mine:
         named = f"; the recorder's own, also not compared: {', '.join(mine)}"
         line += f"  {named[2:]}"
