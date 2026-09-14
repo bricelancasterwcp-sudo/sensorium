@@ -27,6 +27,7 @@ import stat
 from pathlib import Path
 
 from sensorium import redact
+from sensorium.store import db
 from sensorium.store.reader import Trace
 from sensorium.ts import ingest
 from tests.helpers import record_script, run_cli
@@ -146,6 +147,29 @@ def test_created_files_are_0600_and_dirs_0700(tmp_path):
     for sidecar in (Path(f"{trace}-wal"), Path(f"{trace}-shm")):
         if sidecar.exists():
             assert _mode(sidecar) == 0o600, sidecar.name
+
+
+def test_create_trace_makes_the_directory_it_needs_at_0700(tmp_path):
+    """R35, 2026-09-14. `create_trace` creates its own parent, and until
+    this ruling it did so with a bare `mkdir(parents=True, exist_ok=True)`
+    -- the last default-mode creator inside the store.
+
+    It is normally preceded by `paths.traces_dir()`, so E16 read `traces/`
+    at 0700 and the hole was latent rather than live. Latent is not fixed: a
+    caller that reaches `create_trace` first -- a `--run-id` into a store
+    that does not exist yet, a converter worker, a future entry point --
+    would have made the directory holding every trace on the box
+    world-listable. Called directly here, and with NEITHER level on disk,
+    because a parent a test made first would be asserting on the test's
+    umask.
+    """
+    store = tmp_path / "store"
+    monkey = store / "traces"
+    conn = db.create_trace(monkey / "20260101-000000-aaaaaa.db")
+    conn.close()
+
+    assert _mode(store) == 0o700
+    assert _mode(monkey) == 0o700
 
 
 def test_unreadable_key_records_unkeyed(tmp_path):

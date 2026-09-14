@@ -5,6 +5,8 @@ import os
 import sqlite3
 from pathlib import Path
 
+from sensorium import paths
+
 TRACE_FORMAT = 4
 
 # The languages this sensorium has a vocabulary column for
@@ -112,9 +114,43 @@ CREATE INDEX idx_frames_code ON frames(code_id);
 """
 
 
+def _create_parent(parent: Path) -> None:
+    """The directory a trace is about to be written into, 0700 (R35).
+
+    This was `parent.mkdir(parents=True, exist_ok=True)` -- the last
+    default-mode creator left inside the store after E16 part A. It is
+    normally preceded by `paths.traces_dir()`, so the hole was latent (E16
+    read `traces/` at 0700), but a caller reaching here first would have
+    made the directory holding every trace on the box world-listable.
+
+    Routed through `paths.traces_dir()` when the parent IS the store's own
+    `traces/`, so that directory has ONE owner and one rule. Otherwise the
+    same two-level idiom that function documents: `mkdir(parents=True,
+    mode=...)` applies the mode to the directory it NAMES and gives every
+    parent it creates the default, so the level above is created explicitly
+    too. An existing directory is never chmod'ed.
+
+    The comparison is against `trace_root() / "traces"` and not against
+    `traces_dir()`, because the latter CREATES what it names: asking it
+    where the store is would mint a `~/.sensorium` for a caller writing a
+    trace somewhere else entirely. `RuntimeError` is `Path.home()`'s answer
+    when there is no home and `SENSORIUM_DIR` is unset -- then this is not
+    the store's `traces/` by definition.
+    """
+    try:
+        is_the_store = parent == paths.trace_root() / "traces"
+    except RuntimeError:
+        is_the_store = False
+    if is_the_store:
+        paths.traces_dir()
+        return
+    parent.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    parent.mkdir(exist_ok=True, mode=0o700)
+
+
 def create_trace(path: Path) -> sqlite3.Connection:
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _create_parent(path.parent)
     # The trace exists at 0600 from its first instant. sqlite would create
     # it 0666-under-the-umask -- 0644 on most boxes -- and a trace holds the
     # whole recorded environment, so the window between "file appears" and
