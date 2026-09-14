@@ -19,12 +19,17 @@ plaintext side is verified THROUGH the store's key (case 3) rather than
 excused, and why a missing value on the plaintext side is a decided
 difference and not a hole.
 
-The pairs are built from `meta` alone. What is under test is the comparison
-table and the two sentences it writes, and a recorded pair would carry
-whatever the launching shell held -- the same reason
+The first half's pairs are built from `meta` alone. What is under test there
+is the comparison table and the two sentences it writes, and a recorded pair
+would carry whatever the launching shell held -- the same reason
 `tests/test_record_redaction.py` gives for never asserting on the SIZE of a
-real `redaction.env`. `tests/test_refocus_licence.py` covers the live
-plaintext path end to end, through a real re-run.
+real `redaction.env`.
+
+The second half re-runs a real program through `sensorium refocus`, because
+what it tests is the Python branch's own WIRING -- which of the licence's
+two hands the branch calls, and what the environment it compares against is
+-- and neither of those is visible from a meta-built pair. Those tests
+assert on membership and never on counts, for the reason above.
 """
 import pytest
 
@@ -35,7 +40,8 @@ from sensorium.query.refocus_world import (UNVERIFIABLE_ENV, _env_diff,
                                            unverifiable_checks)
 from sensorium.store.reader import Trace
 from sensorium.store.writer import TraceWriter
-from tests.helpers import finalize_synthetic
+from tests.helpers import finalize_synthetic, record_script, run_cli
+from tests.refocus_programs import LOOP, new_run
 
 #: One redacted name and one that was never redacted, so every case states
 #: both halves: what the table decided AND that everything else still takes
@@ -263,3 +269,113 @@ def test_a_match_whose_only_caveat_is_the_marker_is_granted(store):
     out = relicense(a, orig, new, [])
     assert out["caveats"] == [] and out["licence"] == "granted"
     assert out["verified"], "a granted licence rests on stated facts"
+
+
+# -- the Python branch, end to end -----------------------------------------
+#: A name whose segments fire the rule, planted in the RECORDED process's
+#: own environment (`env_extra`), because this process's environment is not
+#: the one under test -- the recorder runs in a subprocess.
+LIVE = "MY_API_KEY"
+
+
+def _record(tmp_path, value=SECRET, sdir=None):
+    """Record `LOOP` with `LIVE` planted, into `tmp_path/sdir`."""
+    run_id, _trace, r = record_script(tmp_path, LOOP, env_extra={LIVE: value})
+    assert run_id, r.stderr + r.stdout
+    return run_id, (sdir or tmp_path / "sdir")
+
+
+def _refocus(tmp_path, sdir, run_id, **env_extra):
+    """Re-run through the real CLI. `LIVE` is planted on the live side too
+    unless a test overrides it: the ordinary case is one shell re-running
+    its own recording, where the secret is still there and still the same,
+    and a test that silently dropped it would be measuring a variable that
+    VANISHED -- which is a difference, and a verified one."""
+    r = run_cli(["refocus", run_id, "--focus", "prog:accumulate"],
+                cwd=tmp_path, sensorium_dir=sdir,
+                env_extra={LIVE: SECRET, **env_extra})
+    assert r.returncode == 0, r.stdout + r.stderr
+    return r, Trace.open(sdir / "traces" / f"{new_run(r.stdout)}.db").meta
+
+
+def _env_line(out: str) -> str:
+    return next(ln for ln in out.splitlines() if ln.startswith("env: "))
+
+
+def test_a_pair_whose_digests_cannot_be_compared_is_still_granted(tmp_path):
+    """R19. The Python branch performs its own re-run and used to keep the
+    unverifiable markers in the WITHHOLDING decision, because it never
+    called `relicense` -- so a store whose key was gone when the original
+    was recorded withheld the licence over a check that could not run,
+    which is the one thing §6.2 says the marker must not do.
+
+    The store's key is a ZERO-BYTE file when the original is recorded (the
+    shape `Key.load_or_create` refuses to write over: it is the user's
+    file), so that recording is unkeyed and its digests are `null`. The key
+    is then removed, and the re-run mints a real one -- two sides that can
+    never be compared, over a variable that in fact never changed.
+    """
+    sdir = tmp_path / "sdir"
+    (sdir / "traces").mkdir(parents=True)
+    (sdir / redact.KEY_FILE).write_bytes(b"")
+    run_id, _ = _record(tmp_path)
+    (sdir / redact.KEY_FILE).unlink()
+
+    r, meta = _refocus(tmp_path, sdir, run_id)
+    line = _env_line(r.stdout)
+    assert line.startswith("env: unchanged (")
+    assert "redacted variable(s) not comparable (unkeyed): " in line
+    assert LIVE in line
+    assert "licence: WITHHELD" not in r.stdout
+    assert meta["refocus_licence"] == "granted"
+    assert meta["refocus_licence_unverifiable"] == [UNVERIFIABLE_ENV]
+
+
+def test_info_replays_the_python_pair_s_unverifiable_check(tmp_path):
+    """The other half of R19: the Python branch STAMPS the markers too, so
+    `info` on the re-run says which check the granted licence does not rest
+    on. Without the stamp a reader of the trace was told the licence was
+    granted and never told what went unchecked."""
+    sdir = tmp_path / "sdir"
+    (sdir / "traces").mkdir(parents=True)
+    (sdir / redact.KEY_FILE).write_bytes(b"")
+    run_id, _ = _record(tmp_path)
+    (sdir / redact.KEY_FILE).unlink()
+    r, meta = _refocus(tmp_path, sdir, run_id)
+
+    out = run_cli(["info", meta["run_id"]], cwd=tmp_path, sensorium_dir=sdir)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "licence unverifiable: env (redacted, not comparable)" in out.stdout
+    assert "licence: granted" in out.stdout
+
+
+def test_a_redacted_variable_that_really_changed_still_withholds(tmp_path):
+    """The discriminating control, and the reason R19 is a narrow change: a
+    digest that DIFFERS under one key is a variable that changed, and it
+    withholds exactly as it always did. `relicense` removes the markers'
+    vote and nothing else's -- a licence granted over a rotated secret is
+    the failure this whole check exists to refuse."""
+    run_id, sdir = _record(tmp_path)
+    r, meta = _refocus(tmp_path, sdir, run_id, **{LIVE: "rotated"})
+
+    assert f"env: CHANGED since the original run -- 1 variable(s) differ: " \
+           f"{LIVE}" in _env_line(r.stdout)
+    assert "licence: WITHHELD" in r.stdout
+    assert meta["refocus_licence"] == "withheld"
+    assert meta["refocus_licence_unverifiable"] == []
+
+
+def test_the_key_variable_is_not_compared_on_the_live_side(tmp_path):
+    """R20. Every recorder DELETES `SENSORIUM_REDACT_KEY` from what it
+    records (`redact.env`), so a trace never holds it -- but the Python
+    branch compares against this process's live environment, where a driver
+    that handed the key down has left it set. Compared as it arrives, it is
+    a variable that appeared out of nowhere and withholds the licence over
+    the tool's own plumbing. Popped from the snapshot, the live side is the
+    same view of the environment the recorder took."""
+    run_id, sdir = _record(tmp_path)
+    r, meta = _refocus(tmp_path, sdir, run_id, **{redact.KEY_VAR: "ab" * 32})
+
+    assert _env_line(r.stdout).startswith("env: unchanged (")
+    assert redact.KEY_VAR not in r.stdout
+    assert meta["refocus_licence"] == "granted"
