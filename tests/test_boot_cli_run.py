@@ -253,13 +253,18 @@ def test_target_argv_is_visible_to_the_program(tmp_path):
 
 
 def test_cli_refuses_a_python_that_predates_sys_monitoring(
-        monkeypatch, capsys):
+        tmp_path, monkeypatch, capsys):
     """The recorder is PEP 669 and nothing else, so on 3.11 there is no
     degraded mode to fall back to -- only a refusal that names the version
     it needs and the one it got. An ImportError deep in the tracer would be
     the same fact delivered as a bug report."""
     from sensorium import cli
 
+    # The store is this test's, not the box's. `main` writes the refusal to
+    # the invocation log before returning, and with `SENSORIUM_DIR` unset
+    # that log is the developer's own `~/.sensorium/invocations.jsonl` --
+    # one line of this suite's noise in a real store, on every run.
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     monkeypatch.setattr(sys, "version_info", (3, 11, 9, "final", 0))
     assert cli.main(["runs"]) == 2
 
