@@ -156,13 +156,15 @@ fn a_header_carrying_the_two_redaction_siblings_reads_them_both() {
     );
 }
 
-// -- wire v3 ----------------------------------------------------------
+// -- wire v3 and v4 ---------------------------------------------------
 
 /// Design R1: v3 is read, v2 is still read, and the version is carried per
 /// FILE because it is what decides how an `err` RETURN's payload is cut.
+/// v4 (2026-09-14) joins them for the same kind of reason: it is what decides
+/// whether a LINE delta's tag 4 is a redacted capture or corruption.
 #[test]
 fn both_wire_versions_are_read_and_the_files_own_version_is_kept() {
-    for version in [2u8, 3] {
+    for version in [2u8, 3, 4] {
         let s = parse_spool_bytes("t", &header_v("main", 0, 0, version)).unwrap();
         assert_eq!(s.version, version);
     }
@@ -170,9 +172,9 @@ fn both_wire_versions_are_read_and_the_files_own_version_is_kept() {
 
 #[test]
 fn a_version_this_converter_does_not_read_is_refused_by_number() {
-    let err = parse_spool_bytes("t", &header_v("main", 0, 0, 4)).unwrap_err();
-    assert!(err.contains("version 4"), "{err}");
-    assert!(err.contains("versions 2 and 3"), "{err}");
+    let err = parse_spool_bytes("t", &header_v("main", 0, 0, 5)).unwrap_err();
+    assert!(err.contains("version 5"), "{err}");
+    assert!(err.contains("versions 2, 3 and 4"), "{err}");
 }
 
 /// The err-flow record kinds and `how` bytes, written out as NUMBERS: they
@@ -423,270 +425,10 @@ fn a_v3_spool_carries_its_err_flow_records_through_the_reader() {
     assert_eq!(s.records[2].outcome, 2);
 }
 
-// ---------------------------------------------------------------------------
-// LINE payloads (wire kind 6)
-// ---------------------------------------------------------------------------
-
-use super::line::parse_line_payload;
-
-/// One delta block, by the grammar: `u16 name_len, name, u8 tag, u8 truncated,
-/// [u16 text_len, text] iff tag == 1`. Built here rather than by a typed helper
-/// so the tag byte can be anything -- including the 0 the runtime never writes.
-fn delta(name: &[u8], tag: u8, truncated: u8, text: Option<&str>) -> Vec<u8> {
-    let mut b = (name.len() as u16).to_le_bytes().to_vec();
-    b.extend_from_slice(name);
-    b.push(tag);
-    b.push(truncated);
-    if let Some(text) = text {
-        b.extend_from_slice(&(text.len() as u16).to_le_bytes());
-        b.extend_from_slice(text.as_bytes());
-    }
-    b
-}
-
-fn line_payload(flags: u8, blocks: &[Vec<u8>]) -> Vec<u8> {
-    let mut b = vec![flags];
-    b.extend_from_slice(&(blocks.len() as u16).to_le_bytes());
-    for block in blocks {
-        b.extend_from_slice(block);
-    }
-    b
-}
-
-/// Task 1's own pinned vector for `("x", debug "5"), ("buf", unread)`, byte for
-/// byte (`sensorium-rt/src/line/tests.rs`
-/// `two_deltas_encode_to_the_bytes_the_wire_format_names`). The two sides are
-/// written independently from the same grammar; this is where they are held
-/// against each other.
-#[test]
-fn a_line_payload_round_trips_the_vector_the_runtimes_own_test_pins() {
-    #[rustfmt::skip]
-    let payload: Vec<u8> = vec![
-        0x00,                         // flags: nothing dropped
-        0x02, 0x00,                   // n = 2
-        0x01, 0x00, b'x',             // name_len 1, "x"
-        0x01, 0x00,                   // tag 1 (debug text), truncated 0
-        0x01, 0x00, b'5',             // text_len 1, "5"
-        0x03, 0x00, b'b', b'u', b'f', // name_len 3, "buf"
-        0x02, 0x00,                   // tag 2 (unread), truncated 0
-    ];
-    let p = parse_line_payload("t", &payload).unwrap();
-    assert!(!p.dropped);
-    assert_eq!(p.deltas.len(), 2);
-    assert_eq!(p.deltas[0].0, "x");
-    assert_eq!(
-        p.deltas[0].1,
-        serde_json::json!({"k": "dbg", "v": "5", "trunc": false})
-    );
-    assert_eq!(p.deltas[1].0, "buf");
-    assert_eq!(p.deltas[1].1, serde_json::json!({"k": "unread"}));
-}
-
-/// A statement that wrote nothing is still a row: three bytes, no deltas, and
-/// NOT a refusal.
-#[test]
-fn a_line_payload_with_no_deltas_is_a_record_not_an_error() {
-    let p = parse_line_payload("t", &[0, 0, 0]).unwrap();
-    assert!(!p.dropped);
-    assert!(p.deltas.is_empty());
-}
-
-/// `flags.bit0` is the runtime saying the record is SHORT. A reader that
-/// dropped it would report a partial statement as a complete one.
-#[test]
-fn the_dropped_flag_is_read_off_bit_zero() {
-    let p = parse_line_payload("t", &line_payload(1, &[delta(b"x", 2, 0, None)])).unwrap();
-    assert!(p.dropped);
-    assert_eq!(p.deltas.len(), 1);
-}
-
-/// The writer's own truncation flag rides the delta, exactly as it does on a
-/// RETURN value.
-#[test]
-fn a_cut_debug_text_carries_trunc_true() {
-    let p = parse_line_payload("t", &line_payload(0, &[delta(b"s", 1, 1, Some("ab"))])).unwrap();
-    assert_eq!(
-        p.deltas[0].1,
-        serde_json::json!({"k": "dbg", "v": "ab", "trunc": true})
-    );
-}
-
-/// An empty `Debug` rendering was READ and rendered nothing (tag 1); a value
-/// with no `Debug` impl was not read at all (tag 2). The runtime keeps the two
-/// apart in bytes, and so must this reader.
-#[test]
-fn an_empty_debug_rendering_stays_a_read_value_here_too() {
-    let p = parse_line_payload("t", &line_payload(0, &[delta(b"s", 1, 0, Some(""))])).unwrap();
-    assert_eq!(
-        p.deltas[0].1,
-        serde_json::json!({"k": "dbg", "v": "", "trunc": false})
-    );
-}
-
-#[test]
-fn a_line_payload_shorter_than_its_three_fixed_bytes_is_refused_by_label() {
-    let err = parse_line_payload("pid 1 thread 1 seq 4", &[0, 0]).unwrap_err();
-    assert!(err.contains("pid 1 thread 1 seq 4"), "{err}");
-    assert!(err.contains("LINE payload"), "{err}");
-}
-
-/// Three ways one record can run off its own end: a name, a text, and a delta
-/// block that stops mid-header. Each names the label and the delta.
-#[test]
-fn a_line_payload_that_runs_past_its_end_is_refused_by_label_and_field() {
-    let mut name_past = line_payload(0, &[delta(b"xyz", 2, 0, None)]);
-    name_past.truncate(6); // "xyz" cut to one byte
-    let err = parse_line_payload("L", &name_past).unwrap_err();
-    assert!(err.contains('L'), "{err}");
-    assert!(err.contains("name"), "{err}");
-
-    let mut text_past = line_payload(0, &[delta(b"x", 1, 0, Some("hello"))]);
-    text_past.truncate(text_past.len() - 3);
-    let err = parse_line_payload("L", &text_past).unwrap_err();
-    assert!(err.contains("delta `x`"), "{err}");
-    assert!(err.contains("text"), "{err}");
-
-    // `block` and not `delta`: with no tag byte there is nothing to say which
-    // of the two this was.
-    let short_block = line_payload(0, &[vec![0x01, 0x00, b'x']]); // no tag byte
-    let err = parse_line_payload("L", &short_block).unwrap_err();
-    assert!(err.contains("block `x`"), "{err}");
-}
-
-/// Design amendment A7: tag 0 is legal in the grammar and unwritable by the
-/// runtime, so meeting one is corruption -- and the refusal names the delta,
-/// never a row guessed from it.
-#[test]
-fn a_delta_carrying_tag_zero_is_refused_by_name() {
-    let err = parse_line_payload("L", &line_payload(0, &[delta(b"x", 0, 0, None)])).unwrap_err();
-    assert!(err.contains('L'), "{err}");
-    assert!(err.contains("delta `x`"), "{err}");
-    assert!(err.contains("tag 0"), "{err}");
-}
-
-#[test]
-fn a_delta_carrying_an_unknown_tag_is_refused_by_number() {
-    let err = parse_line_payload("L", &line_payload(0, &[delta(b"x", 4, 0, None)])).unwrap_err();
-    assert!(err.contains("delta `x`"), "{err}");
-    assert!(err.contains("tag 4"), "{err}");
-    assert!(err.contains("not 0..=3"), "{err}");
-}
-
-/// The deltas become one JSON OBJECT, so a repeated name would silently
-/// overwrite the earlier reading and the row would claim a statement wrote one
-/// value where the record says two. The transformer never emits a duplicate
-/// (one splice, one `bound_names` walk), so meeting one is corruption.
-#[test]
-fn a_duplicate_delta_name_within_one_record_is_refused() {
-    let payload = line_payload(0, &[delta(b"x", 2, 0, None), delta(b"x", 1, 0, Some("5"))]);
-    let err = parse_line_payload("L", &payload).unwrap_err();
-    assert!(err.contains('L'), "{err}");
-    assert!(err.contains("delta `x`"), "{err}");
-    assert!(err.contains("twice"), "{err}");
-}
-
-#[test]
-fn a_delta_name_that_is_not_utf8_is_refused() {
-    let err = parse_line_payload("L", &line_payload(0, &[delta(&[0xff], 2, 0, None)])).unwrap_err();
-    assert!(err.contains("not UTF-8"), "{err}");
-}
-
-// -- tag 3: the names a statement's scope took with it (rt 0.5.0) -----------
-
-/// The fourth tag is a NAME and not a value: it says this binding's scope
-/// ended on this row (design 2026-09-12 §5.3), so it belongs in `unbound` and
-/// nowhere in `deltas`. A reader that routed it into the deltas would fold a
-/// dead name forward as though the statement had written it -- the exact
-/// wrong answer the tag exists to prevent.
-#[test]
-fn a_tag_three_block_is_an_unbound_name_and_never_a_delta() {
-    let p = parse_line_payload("t", &line_payload(0, &[delta(b"a", 3, 0, None)])).unwrap();
-    assert_eq!(p.unbound, ["a"]);
-    assert!(p.deltas.is_empty(), "{:?}", p.deltas);
-    assert!(!p.dropped);
-}
-
-/// `n` counts deltas AND names, the names ride after the deltas, and each list
-/// keeps the order the record carried -- source order, which is what `frame`
-/// prints after `unbound:`.
-#[test]
-fn deltas_and_unbound_names_ride_one_record_each_into_its_own_list() {
-    let payload = line_payload(
-        0,
-        &[
-            delta(b"acc", 1, 0, Some("6")),
-            delta(b"n", 3, 0, None),
-            delta(b"big", 3, 0, None),
-        ],
-    );
-    let p = parse_line_payload("t", &payload).unwrap();
-    assert_eq!(p.deltas.len(), 1);
-    assert_eq!(p.deltas[0].0, "acc");
-    assert_eq!(
-        p.deltas[0].1,
-        serde_json::json!({"k": "dbg", "v": "6", "trunc": false})
-    );
-    assert_eq!(p.unbound, ["n", "big"], "record order, not sorted");
-}
-
-/// `flags.bit0` is over the WHOLE payload: a name that did not fit sets it and
-/// ends the row exactly as a delta does, so a short record carrying names is
-/// still a short record and still says so.
-#[test]
-fn a_short_record_that_carries_names_is_still_marked_short() {
-    let payload = line_payload(1, &[delta(b"x", 2, 0, None), delta(b"y", 3, 0, None)]);
-    let p = parse_line_payload("t", &payload).unwrap();
-    assert!(p.dropped);
-    assert_eq!(p.deltas.len(), 1);
-    assert_eq!(p.unbound, ["y"]);
-}
-
-/// A statement writes what it writes and unbinds what dies with it, and the
-/// transformer lists a name bound in both a head pattern and an inner `let`
-/// ONCE -- so a name on both lists is corruption, in either order, and the
-/// refusal says which contradiction it met rather than keying one over the
-/// other.
-#[test]
-fn a_name_on_both_lists_within_one_record_is_refused_in_either_order() {
-    let expected = "L: LINE payload names `x` as both a delta and an unbound name; a statement \
-                    cannot write what it unbinds";
-
-    let delta_first = line_payload(0, &[delta(b"x", 1, 0, Some("2")), delta(b"x", 3, 0, None)]);
-    assert_eq!(parse_line_payload("L", &delta_first).unwrap_err(), expected);
-
-    let name_first = line_payload(0, &[delta(b"x", 3, 0, None), delta(b"x", 1, 0, Some("2"))]);
-    assert_eq!(parse_line_payload("L", &name_first).unwrap_err(), expected);
-}
-
-/// The same rule read on the second list: a scope ends once, so a name listed
-/// twice as unbound is the same corruption a repeated delta is, and the
-/// sentence names which list it met it on.
-#[test]
-fn a_duplicate_unbound_name_within_one_record_is_refused() {
-    let payload = line_payload(0, &[delta(b"x", 3, 0, None), delta(b"x", 3, 0, None)]);
-    let err = parse_line_payload("L", &payload).unwrap_err();
-    assert!(err.contains('L'), "{err}");
-    assert!(err.contains("unbound name `x`"), "{err}");
-    assert!(err.contains("twice"), "{err}");
-}
-
-/// `n` and the payload's length must agree exactly: bytes after the last delta
-/// are a record this reader cannot account for, not padding to skip.
-#[test]
-fn bytes_after_the_last_delta_are_refused() {
-    let mut payload = line_payload(0, &[delta(b"x", 2, 0, None)]);
-    payload.push(0);
-    let err = parse_line_payload("L", &payload).unwrap_err();
-    assert!(err.contains("L: "), "{err}");
-    assert!(err.contains("after"), "{err}");
-}
-
-/// The mirrored constant, as a NUMBER: the converter reads the wire, and
-/// asserting it against the writer's own constant would pin nothing.
-#[test]
-fn the_line_kind_is_the_number_the_wire_format_names() {
-    assert_eq!(KIND_LINE, 6);
-}
+// The LINE payload's own tests are `tests/line.rs`: one payload, one grammar,
+// one file -- and the two together were over this repository's 800-line
+// ceiling.
+mod line;
 
 /// The two `#[serde(default)]` fields of `InvocationRecord`, pinned on the
 /// PARSE rather than only end to end: an `invocation.json` written by an

@@ -270,7 +270,7 @@ fn the_spool_says_the_current_wire_version_and_the_header_declares_err_flow() {
     // thing this assertion has left to notice is the header's own number.
     assert_eq!(dir.spool(1).version, 4, "wire version");
     let h = dir.proc_header(subject.pid);
-    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.6.0");
+    assert_eq!(h.get("rt_version").str(), "sensorium-rt 0.7.0");
     assert!(
         h.get("capabilities").get("err_flow").bool(),
         "a rung-3 runtime declares the capability whose records it writes"

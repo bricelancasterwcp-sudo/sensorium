@@ -1,7 +1,7 @@
 """Turn a `case.json` description into a real spool directory `cargo-
 sensorium convert` can read: `invocation.json`, `<pid>.proc.json`,
-`<pid>.<serial>.spool` (wire format v2 by default, v3 where a case or a
-thread says `"version": 3`) and the unit manifests under
+`<pid>.<serial>.spool` (wire format v2 by default, v3 or v4 where a case or
+a thread says `"version": 3` / `"version": 4`) and the unit manifests under
 `<target>/sensorium/manifests/`.
 
 Every byte this module writes is encoded from the wire block reproduced in
@@ -222,6 +222,60 @@ def _panic_payload(loc: str, msg: str) -> bytes:
     return struct.pack("<H", len(loc_b)) + loc_b + msg.encode()
 
 
+# The LINE payload's delta tags. 0 (no value) is deliberately absent: it is
+# legal in the grammar and no runtime writes it for a delta, so a case cannot
+# spell one by name. 4 is wire v4's REDACTED BY NAME, whose text block holds a
+# 16-hex digest instead of the value the delta captured -- a case that uses it
+# must declare `"version": 4`, because a v2 or v3 spool carrying the tag is
+# corruption and the converter refuses it as such.
+_TAG_DEBUG = 1
+_TAG_UNREAD = 2
+_TAG_UNBOUND = 3
+_TAG_REDACTED = 4
+
+
+def _line_block(name: str, tag: int, truncated: bool,
+                text: str | None) -> bytes:
+    """`u16 name_len, name, u8 tag, u8 truncated, [u16 text_len, text]` --
+    the text block present exactly for the two tags that carry one."""
+    name_b = name.encode()
+    out = (struct.pack("<H", len(name_b)) + name_b
+           + bytes([tag, 1 if truncated else 0]))
+    if text is not None:
+        text_b = text.encode()
+        out += struct.pack("<H", len(text_b)) + text_b
+    return out
+
+
+def _delta_block(delta: dict) -> bytes:
+    """One delta block, from what the case says about the binding:
+
+      {"name": n, "text": t}            the value as the probe rendered it
+      {"name": n, "redacted": "<hex>"}  taken by the RECORDER, digest and all
+      {"name": n, "unread": true}       no `Debug` impl to read it with
+
+    `truncated` is forced to 0 on a redacted block, as the runtime forces it:
+    a digest never says whether the value it stands for was cut.
+    """
+    name = delta["name"]
+    if delta.get("unread"):
+        return _line_block(name, _TAG_UNREAD, False, None)
+    if "redacted" in delta:
+        return _line_block(name, _TAG_REDACTED, False, delta["redacted"])
+    return _line_block(name, _TAG_DEBUG, delta.get("truncated", False),
+                       delta["text"])
+
+
+def _line_payload(deltas: list[dict], unbound: list[str],
+                  dropped: bool = False) -> bytes:
+    """`u8 flags, u16 n`, then the deltas and then the unbound names -- the
+    order the runtime writes them in, which is what a reader's `n` counts."""
+    blocks = ([_delta_block(d) for d in deltas]
+              + [_line_block(n, _TAG_UNBOUND, False, None) for n in unbound])
+    return (bytes([1 if dropped else 0]) + struct.pack("<H", len(blocks))
+            + b"".join(blocks))
+
+
 # One encoder per symbolic op a case's thread `records` list can name,
 # mirroring `SpoolBuilder`'s typed helpers one for one.
 def _encode_op(op: dict) -> bytes:
@@ -264,6 +318,11 @@ def _encode_op(op: dict) -> bytes:
                                    op.get("msg_truncated", False))
         return _record(seq, ts, site, 4 if kind == "raise" else 5,
                        _how_byte(op, kind), payload)
+    if kind == "line":
+        site = _site(op["unit"], op["site"])
+        payload = _line_payload(op.get("deltas", []), op.get("unbound", []),
+                                op.get("dropped", False))
+        return _record(seq, ts, site, 6, 0, payload)
     if kind == "panic":
         payload = _panic_payload(op["loc"], op["msg"])
         return _record(seq, ts, 0, 3, 0, payload)

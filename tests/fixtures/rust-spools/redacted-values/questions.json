@@ -1,0 +1,40 @@
+[
+  {
+    "id": "a-delta-the-recorder-took-renders-as-its-digest",
+    "ask": "A wire-v4 recorder wrote the delta `token` as tag 4 -- a digest where the value was. Does the converter read it back as a redacted capture, so the timeline names the binding and its digest instead of its value?",
+    "command": ["frame", "$RUN", "--fn", "demo::run"],
+    "expect_exit": 0,
+    "expect_line": [
+      ["LINE", "token=<redacted #aabbccdd>"]
+    ],
+    "expect_absent": ["aabbccddeeff0011"]
+  },
+  {
+    "id": "the-content-rule-keeps-the-sentence-around-the-secret",
+    "ask": "The delta `cfg` has an ordinary name and a DSN inside its text. Does the converter replace only the password span, leaving the rest of the value readable?",
+    "command": ["frame", "$RUN", "--fn", "demo::run"],
+    "expect_exit": 0,
+    "expect_line": [
+      ["LINE", "cfg=Cfg { url: \"postgres://u:<redacted>@h/db\" }"]
+    ],
+    "expect_absent": ["u:pw@"]
+  },
+  {
+    "id": "a-return-under-a-firing-name-is-withheld-with-its-digest",
+    "ask": "No runtime judges a RETURN: the exit probe has no qualname to fire on. Does the converter apply the name rule to `get_token`'s returned value, and leave the store's digest of it behind?",
+    "command": ["grep", "$RUN", "get_token", "--kind", "RETURN"],
+    "expect_exit": 0,
+    "expect_contains": ["get_token -> <redacted #301865b2>"],
+    "expect_absent": ["s3cr3t"]
+  },
+  {
+    "id": "info-counts-every-value-the-trace-withholds",
+    "ask": "Three values are missing from this trace for three different reasons -- one taken by the recorder, one by the converter's name rule, one by its content rule. Does `info` say how many, and say that the recorder was the last hand to apply the rule?",
+    "command": ["info", "$RUN"],
+    "expect_exit": 0,
+    "expect_contains": [
+      "redaction: rule v1, keyed (key 4ca14526), by recorder; values redacted: 3"
+    ],
+    "expect_absent": ["s3cr3t", "u:pw@"]
+  }
+]

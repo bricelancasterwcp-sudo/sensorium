@@ -11,9 +11,13 @@
 //!                u16 n      blocks present -- the deltas, then the names
 //!                n × { u16 name_len, name UTF-8,
 //!                      u8 tag (0 no value | 1 debug text | 2 unread
-//!                              | 3 unbound: a name, no value),
-//!                      u8 truncated,
-//!                      [u16 text_len, text UTF-8]   -- only when tag = 1 }
+//!                              | 3 unbound: a name, no value
+//!                              | 4 REDACTED BY NAME -- wire v4 only),
+//!                      u8 truncated (0 on tags 2, 3, 4),
+//!                      [u16 text_len, text UTF-8]   -- only when tag = 1 or tag = 4;
+//!                                                      on tag 4 the text is the 16-hex
+//!                                                      digest of the value, or empty
+//!                                                      when the recorder was unkeyed }
 //! ```
 //!
 //! The value block is the RETURN payload's, repeated with a name in front of
@@ -27,14 +31,25 @@
 //! that the binding is gone; the two readings go to the two lists below, and a
 //! name the record puts on both is corruption, not a row to guess at.
 //!
+//! **Tag 4 is a value the RECORDER took** (rt 0.7.0, wire v4, design
+//! 2026-09-14): the delta's NAME fired rule v1 at the runtime's own writer, so
+//! the text block holds a digest rather than the value, and the row reads as
+//! the capture `redact_values`/`convert::redaction` produce for a value taken
+//! by name. Legal ONLY from v4 (B1): on a v2 or v3 spool no runtime writes the
+//! tag, so meeting one there is corruption and is refused with the range that
+//! version's grammar actually allows. That is why every reading below takes
+//! the file's own `version` -- a reader that assumed today's would accept a
+//! digest where an older spool can only hold a defect.
+//!
 //! Every refusal here names the record's label and the offending FIELD, and
 //! never yields a partial reading: a LINE row this reader had to guess at
 //! would be a statement's locals invented out of corruption, which is the one
 //! thing a locals tier may not do.
 
+use sensorium_rt::redact::REDACTED;
 use serde_json::{json, Value};
 
-use super::{TAG_DEBUG, TAG_NO_VALUE, TAG_UNREAD};
+use super::{TAG_DEBUG, TAG_NO_VALUE, TAG_UNREAD, VERSION_V4};
 
 /// `bit0` of the flags byte: at least one block did not fit in the record and
 /// was left out, along with every block after it -- a delta, or an unbound
@@ -47,6 +62,12 @@ const FLAG_DELTAS_DROPPED: u8 = 1 << 0;
 /// block's, which a delta reuses; 3 is the LINE payload's alone, because a
 /// returned value cannot go out of scope.
 const TAG_UNBOUND: u8 = 3;
+
+/// The fifth tag: a delta whose NAME fired rule v1 at the RECORDER, whose
+/// text block is therefore the value's digest. LINE-only and v4-only, for the
+/// same reason 3 is LINE-only: rule v1 never took a RETURN's value on the
+/// wire, and no runtime before 0.7.0 took a delta's either.
+const TAG_REDACTED: u8 = 4;
 
 /// What [`read_value`] answers for a tag-3 block: no value at all.
 ///
@@ -88,7 +109,10 @@ pub struct LinePayload {
     pub unbound: Vec<String>,
 }
 
-/// Decode a LINE payload.
+/// Decode a LINE payload written at wire `version`.
+///
+/// `version` is the file header's own, and it decides exactly one thing here:
+/// whether tag 4 is a value the recorder took by name or a corrupt block (B1).
 ///
 /// Bits of the flags byte other than `bit0` are not read: the runtime writes
 /// only that one, and a bit a future runtime adds is a fact this converter has
@@ -99,14 +123,14 @@ pub struct LinePayload {
 /// A payload shorter than its three fixed bytes; a name, a text or a delta
 /// block that runs past the payload; a name that is not UTF-8; a text that is
 /// not UTF-8; `tag == 0` (legal in the grammar, unwritable by the runtime --
-/// design amendment A7); an unknown tag; the same name twice in one record --
-/// twice on one list, or once on each, which is a statement claiming to have
-/// written what it unbinds (the deltas become one JSON object, so a duplicate
-/// would silently overwrite a reading; the transformer mints one block per
-/// binding a statement wrote or unbound, never two, and lists a name bound in
-/// both a head pattern and an inner `let` once); or bytes left over after the
-/// last block.
-pub fn parse_line_payload(label: &str, payload: &[u8]) -> Result<LinePayload, String> {
+/// design amendment A7); a tag this `version`'s grammar does not name; the
+/// same name twice in one record -- twice on one list, or once on each, which
+/// is a statement claiming to have written what it unbinds (the deltas become
+/// one JSON object, so a duplicate would silently overwrite a reading; the
+/// transformer mints one block per binding a statement wrote or unbound, never
+/// two, and lists a name bound in both a head pattern and an inner `let`
+/// once); or bytes left over after the last block.
+pub fn parse_line_payload(label: &str, payload: &[u8], version: u8) -> Result<LinePayload, String> {
     if payload.len() < LINE_HEADER {
         return Err(format!(
             "{label}: LINE payload is shorter than its {LINE_HEADER} fixed bytes"
@@ -126,7 +150,7 @@ pub fn parse_line_payload(label: &str, payload: &[u8]) -> Result<LinePayload, St
     let mut unbound: Vec<String> = Vec::new();
     for i in 0..n {
         let name = read_name(label, payload, &mut at, i)?;
-        let value = read_value(label, payload, &mut at, &name)?;
+        let value = read_value(label, payload, &mut at, &name, version)?;
         let now_unbound = value == UNBOUND_MARKER;
         if let Some(was_unbound) = seen_as(&deltas, &unbound, &name) {
             return Err(duplicate_refusal(label, &name, was_unbound, now_unbound));
@@ -202,7 +226,13 @@ fn read_name(label: &str, payload: &[u8], at: &mut usize, i: u16) -> Result<Stri
 /// `u8 tag, u8 truncated, [u16 text_len, text]`, advancing `at`, as the
 /// converted capture the row carries -- or [`UNBOUND_MARKER`], which is this
 /// block saying it carries no value because the binding is gone.
-fn read_value(label: &str, payload: &[u8], at: &mut usize, name: &str) -> Result<Value, String> {
+fn read_value(
+    label: &str,
+    payload: &[u8],
+    at: &mut usize,
+    name: &str,
+    version: u8,
+) -> Result<Value, String> {
     if *at + 2 > payload.len() {
         return Err(format!(
             "{label}: LINE payload's block `{name}` stops before its tag"
@@ -212,21 +242,24 @@ fn read_value(label: &str, payload: &[u8], at: &mut usize, name: &str) -> Result
     *at += 2;
     match tag {
         TAG_DEBUG => {
-            let len = read_u16(payload, at).ok_or_else(|| {
-                format!("{label}: LINE payload's delta `{name}` stops inside its text length")
-            })?;
-            let end = *at + len;
-            if end > payload.len() {
-                return Err(format!(
-                    "{label}: LINE payload's delta `{name}` claims a {len}-byte text past the end \
-                     of the payload"
-                ));
-            }
-            let text = std::str::from_utf8(&payload[*at..end]).map_err(|e| {
-                format!("{label}: LINE payload's delta `{name}` text is not UTF-8: {e}")
-            })?;
-            *at = end;
+            let text = read_text(label, payload, at, name)?;
             Ok(json!({"k": "dbg", "v": text, "trunc": truncated}))
+        }
+        // The recorder took this one by name (wire v4), so the text block is
+        // the digest of what it took and not the value. `trunc: false` is
+        // written rather than read off the wire: the writer forces that byte
+        // to 0 on this tag (B1 -- a digest never says whether the value it
+        // stands for was cut), and the key is always present on a `dbg`
+        // capture, so a reader that met it missing would have to guess.
+        //
+        // An EMPTY text block is an unkeyed recorder: the value was taken and
+        // there is no digest. `null` and not `""`, because the renderers tell
+        // "redacted, no digest" from "redacted, digest ..." by this field.
+        TAG_REDACTED if version >= VERSION_V4 => {
+            let digest = read_text(label, payload, at, name)?;
+            let digest = (!digest.is_empty()).then_some(digest);
+            Ok(json!({"k": "dbg", "v": REDACTED, "trunc": false,
+                      "redacted": {"by": "name", "digest": digest}}))
         }
         // The truncated byte is the WRITER's, and only a text can be cut: an
         // unread value has nothing to truncate, so the byte is not read into
@@ -240,10 +273,37 @@ fn read_value(label: &str, payload: &[u8], at: &mut usize, name: &str) -> Result
             "{label}: LINE payload's delta `{name}` carries tag 0 (no value), which is legal in \
              the grammar and no runtime writes for a delta"
         )),
-        other => Err(format!(
-            "{label}: LINE payload's delta `{name}` carries tag {other}, which is not 0..=3"
-        )),
+        // The range names what THIS version's grammar allows, so a v3 spool
+        // carrying tag 4 is told it holds a tag no v3 runtime writes rather
+        // than being quietly read as a digest.
+        other => {
+            let highest = if version >= VERSION_V4 { 4 } else { 3 };
+            Err(format!(
+                "{label}: LINE payload's delta `{name}` carries tag {other}, which is not \
+                 0..={highest}"
+            ))
+        }
     }
+}
+
+/// `u16 text_len, text UTF-8`, advancing `at` -- the block both a tag-1 delta
+/// and a tag-4 one carry, read once.
+fn read_text(label: &str, payload: &[u8], at: &mut usize, name: &str) -> Result<String, String> {
+    let len = read_u16(payload, at).ok_or_else(|| {
+        format!("{label}: LINE payload's delta `{name}` stops inside its text length")
+    })?;
+    let end = *at + len;
+    if end > payload.len() {
+        return Err(format!(
+            "{label}: LINE payload's delta `{name}` claims a {len}-byte text past the end of the \
+             payload"
+        ));
+    }
+    let text = std::str::from_utf8(&payload[*at..end])
+        .map_err(|e| format!("{label}: LINE payload's delta `{name}` text is not UTF-8: {e}"))?
+        .to_owned();
+    *at = end;
+    Ok(text)
 }
 
 /// A little-endian `u16` at `at`, advancing it -- `None` when the two bytes are

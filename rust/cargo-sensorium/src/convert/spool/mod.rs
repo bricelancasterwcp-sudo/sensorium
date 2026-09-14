@@ -8,13 +8,15 @@
 //! the fixtures this reader is tested against are hand-built bytes, never the
 //! output of running the runtime.
 //!
-//! Wire format v3, verbatim -- and v2, which this reader still accepts whole
-//! (design R1: "a v2 spool still converts"). v3 adds the two err-flow kinds
-//! and the error type on an `err` RETURN; nothing else moved, so every v2
-//! payload below is read by the same code path it always was:
+//! Wire format v4, verbatim -- and v3 and v2, which this reader still accepts
+//! whole (design R1: "a v2 spool still converts"). v3 added the two err-flow
+//! kinds and the error type on an `err` RETURN; v4 added one LINE delta tag,
+//! 4, for a delta the RUNTIME redacted by name (design 2026-09-14). Nothing
+//! else moved in either, so every v2 payload below is read by the same code
+//! path it always was:
 //!
 //! ```text
-//! file header:  b"SNSR" u8 version(2|3) u8 flags u16 name_len u32 thread_serial u64 records_dropped
+//! file header:  b"SNSR" u8 version(2|3|4) u8 flags u16 name_len u32 thread_serial u64 records_dropped
 //!               u64 truncated  name_bytes   (28 bytes fixed, then name_bytes)
 //! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len  [payload]
 //! kind:         0 unwritten tail (STOP here), 1 CALL, 2 RETURN, 3 PANIC, 4 RAISE, 5 HANDLED,
@@ -24,19 +26,22 @@
 //!               4 sink_let_underscore, 5 arm_propagate, 6 arm_handled, 7 arm_ambiguous.
 //!               8 (exit) is the converter's own synthesised origin and NEVER appears here.
 //! RETURN payload:  u8 tag (0 none, 1 debug text, 2 unread)  u8 truncated
-//!                  then, ON OUTCOME 2 (err) AND VERSION 3 ONLY: u8 type_flags (bit0 present,
-//!                  bit1 truncated)  u16 type_len  type UTF-8
+//!                  then, ON OUTCOME 2 (err) AND VERSION 3 OR BETTER ONLY: u8 type_flags
+//!                  (bit0 present, bit1 truncated)  u16 type_len  type UTF-8
 //!                  then the value's UTF-8 text (rest)
 //! RAISE/HANDLED payload:  u8 flags (bit0 msg present, bit1 msg truncated, bit2 type truncated,
 //!                  bit3 type present)  u16 type_len  type UTF-8  msg UTF-8 (rest)
 //! PANIC payload:   u16 loc_len  loc UTF-8  msg UTF-8 (rest)
 //! LINE payload:    u8 flags (bit0 deltas dropped)  u16 n  n × {u16 name_len, name UTF-8,
-//!                  u8 tag, u8 truncated, [u16 text_len, text UTF-8] iff tag = 1} -- see [`line`]
+//!                  u8 tag, u8 truncated, [u16 text_len, text UTF-8] iff tag = 1 or (v4) tag = 4}
+//!                  -- see [`line`]
 //! ```
 //!
 //! LINE (kind 6) arrives only on a spool written by a 0.4.0-or-later runtime,
 //! and only under a focus; its version byte is v3 like everything else,
-//! because the record header did not move (design 2026-09-06 §3.4).
+//! because the record header did not move (design 2026-09-06 §3.4). Tag 4
+//! (v4) is the only thing the version byte changes about a LINE payload, and
+//! it changes it ON THE PAYLOAD and not on the record around it.
 
 pub mod line;
 
@@ -60,11 +65,13 @@ pub const KIND_HANDLED: u8 = 5;
 pub const KIND_LINE: u8 = 6;
 pub const KIND_THREAD_END: u8 = 255;
 
-/// The wire versions this converter reads. v2 is rung 2's; v3 is rung 3's
-/// (design R1). Both are read whole -- a v2 spool converts under this reader
-/// exactly as it did under the v2-only one.
+/// The wire versions this converter reads. v2 is rung 2's, v3 is rung 3's
+/// (design R1) and v4 is the secrets slice's (2026-09-14). All three are read
+/// whole -- a v2 spool converts under this reader exactly as it did under the
+/// v2-only one.
 const VERSION_V2: u8 = 2;
 const VERSION_V3: u8 = 3;
+const VERSION_V4: u8 = 4;
 
 /// What an err-flow record says was DONE with the `Err` it saw (design R2),
 /// carried in the record header's `outcome` byte.
@@ -182,10 +189,11 @@ pub struct SpoolFile {
     pub name: String,
     pub records_dropped: u64,
     pub truncated: u64,
-    /// The header's wire version (2 or 3). Carried per FILE, not per process:
-    /// it is what decides whether an `err` RETURN's payload holds the error
-    /// type block, and a reader that guessed it from the process instead would
-    /// misread a directory holding both.
+    /// The header's wire version (2, 3 or 4). Carried per FILE, not per
+    /// process: it is what decides whether an `err` RETURN's payload holds the
+    /// error type block and whether a LINE delta may carry tag 4, and a reader
+    /// that guessed it from the process instead would misread a directory
+    /// holding more than one.
     pub version: u8,
     pub records: Vec<RawRecord>,
 }
@@ -209,9 +217,9 @@ pub fn parse_spool_bytes(label: &str, bytes: &[u8]) -> Result<SpoolFile, String>
         return Err(format!("{label}: bad magic (not a sensorium spool file)"));
     }
     let version = bytes[4];
-    if version != VERSION_V2 && version != VERSION_V3 {
+    if !matches!(version, VERSION_V2 | VERSION_V3 | VERSION_V4) {
         return Err(format!(
-            "{label}: wire format version {version}, this converter reads versions 2 and 3"
+            "{label}: wire format version {version}, this converter reads versions 2, 3 and 4"
         ));
     }
     let name_len = u16::from_le_bytes([bytes[6], bytes[7]]) as usize;

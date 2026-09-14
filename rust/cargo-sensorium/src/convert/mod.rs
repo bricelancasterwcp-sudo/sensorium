@@ -19,12 +19,8 @@ mod frames;
 mod manifest;
 mod merge;
 mod meta;
-mod redaction;
-// Task 2 fills this in; Task 6 wires it into `convert_one`. Module-level so
-// that every item in it -- not just the ones a later task reaches first --
-// stays quiet under `-D warnings` until that wiring lands.
-#[allow(dead_code)]
 mod redact_content;
+mod redaction;
 mod runid;
 mod spool;
 mod sqlite;
@@ -279,6 +275,7 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
             pid: c.pid,
             names: &names,
             versions: &versions,
+            value_rule: redaction::values_rule_runs(c.proc).then_some(c.key),
         },
     )?;
 
@@ -352,7 +349,18 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
         c.all_manifests,
         &c.invocation.workspace_root,
     );
-    let redacted = redaction::apply(c.proc, c.key);
+    // The HIGHEST wire version any of this process's threads wrote. One
+    // process's threads all write one version in practice, and the maximum is
+    // the honest reading of a directory that somehow held two: `by` names the
+    // last hand that applied the rule, and a recorder that redacted values on
+    // ANY of its threads did apply it.
+    // 3 for a process that wrote no spool file at all, which is the default
+    // every other reading of an unknown thread version takes (`frames.rs`,
+    // `errflow.rs`): it says the CONVERTER was the last hand, which is true of
+    // a recording whose values this converter has just walked -- all zero of
+    // them -- and never claims a recorder redacted values it may not have.
+    let wire = versions.values().copied().max().unwrap_or(3);
+    let redacted = redaction::apply(c.proc, c.key, wire, result.values_redacted);
     let meta_input = meta::MetaInput {
         run_id: c.run_id,
         argv: &c.proc.argv,

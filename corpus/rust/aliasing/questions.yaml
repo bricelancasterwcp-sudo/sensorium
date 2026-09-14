@@ -48,13 +48,19 @@ questions:
     # claim. (Re-pinned 2026-09-04, rung 3: 0.1.0 -> 0.3.0 for wire v3 and
     # err_flow, design R13.)
     expect_contains:
+    # Re-pinned 2026-09-14 (secrets redaction PR B, task 6): 0.6.0 -> 0.7.0,
+    # because `sensorium-rt` 0.7.0 writes wire v4 -- a LINE delta whose name
+    # fires rule v1 is written REDACTED, digest and all -- and the driver moved
+    # with it (`cargo-sensorium` 0.8.0, which reads v4). Rust still records no
+    # object identity, under a focus or without one, so the refusal itself is
+    # unchanged; only the recorder's name in the sentence moved.
     # Re-pinned 2026-09-14 (secrets redaction PR A shipped red): 0.5.0 -> 0.6.0,
     # because `sensorium-rt` 0.6.0 redacts its environment in the proc header
     # and the refusal's only moving part is the recorder's own name. The
     # local corpus run that called PR A green recorded through a STALE
     # driver on PATH, which embeds the runtime it was built with; CI builds
     # the driver fresh and read 0.6.0 (run 34840430230).
-      - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.6.0 declares it does not produce (capabilities.object_identity: false); nothing was checked"
+      - "REFUSED: flow --object needs object_identity, which recorder sensorium-rt 0.7.0 declares it does not produce (capabilities.object_identity: false); nothing was checked"
     expect_absent: ["flow of object #", "sightings:"]
   - id: what-can-this-trace-say-instead
     ask: >

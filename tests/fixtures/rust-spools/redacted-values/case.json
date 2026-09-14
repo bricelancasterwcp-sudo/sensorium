@@ -1,0 +1,49 @@
+{
+  "version": 4,
+  "manifests": {
+    "u0": {
+      "crate_name": "demo",
+      "crate_type": "bin",
+      "files": {
+        "src/main.rs": [
+          {"site": 0, "qualname": "demo::run", "kind": "fn", "firstlineno": 10, "ret": "unit"},
+          {"site": 1, "qualname": "demo::get_token", "kind": "fn", "firstlineno": 4, "ret": "value"},
+          {"site": 2, "qualname": "demo::run", "kind": "line", "line": 12}
+        ]
+      },
+      "source_hashes": {"src/main.rs": "eeeeeeeeeeeeeeee"}
+    }
+  },
+  "processes": [
+    {
+      "pid": 5201,
+      "exe": "/w/target/debug/deps/demo-values",
+      "units": {"0": "u0"},
+      "rt_version": "sensorium-rt 0.7.0",
+      "env": {"MY_API_KEY": "<redacted>", "PATH": "/usr/bin"},
+      "env_redaction": {"MY_API_KEY": "aabbccddeeff0011"},
+      "redaction": {
+        "rule": "v1",
+        "mode": "on",
+        "keyed": true,
+        "key_id": "4ca14526",
+        "names": [],
+        "allow": []
+      },
+      "threads": [
+        {"serial": 1, "name": "main", "records": [
+          {"op": "call", "unit": 0, "site": 0, "seq": 0, "ts": 1000},
+          {"op": "call", "unit": 0, "site": 1, "seq": 1, "ts": 1100},
+          {"op": "ret_ok_dbg", "unit": 0, "site": 1, "seq": 2, "ts": 1200,
+           "text": "\"s3cr3t\""},
+          {"op": "line", "unit": 0, "site": 2, "seq": 3, "ts": 1300, "deltas": [
+            {"name": "token", "redacted": "aabbccddeeff0011"},
+            {"name": "cfg", "text": "Cfg { url: \"postgres://u:pw@h/db\" }"}
+          ]},
+          {"op": "ret_none", "unit": 0, "site": 0, "seq": 4, "ts": 1400},
+          {"op": "thread_end", "seq": 5, "ts": 1500}
+        ]}
+      ]
+    }
+  ]
+}
