@@ -218,13 +218,31 @@ def h1_values_table(raw: dict) -> list[str]:
         agg["n"] += 1
         agg["max"] = max(agg["max"], row["occurrences"] or 0)
     if rest:
-        out += ["", "Swept and listed, outside the four readings — the "
-                "disposable copies, the transcripts and the cargo build "
-                "tree (their top directories):", "",
+        out += ["", "Swept and listed, outside the four readings and gated "
+                "by none of them — the disposable copies, the transcripts, "
+                "the cargo build tree (the two Rust spool files §1's "
+                "amendment does not name among them: `<pid>.runner.json` "
+                "and `invocation.json`), the TMPDIR every recording ran "
+                "under and this instrument's own output, by top directory:",
+                "",
                 "| path (under `$E16_DIR`) | files swept | max occurrences |",
                 "|---|---|---|"]
-        out += [f"| `{top}/` | {agg['n']} | {agg['max']} |"
+        # A non-zero out here decides nothing — the gate is §1's four
+        # readings — but a number a reader has to notice for themselves in a
+        # summary row is a number that gets missed. Marked, and named under
+        # the table.
+        out += [f"| `{top}/` | {agg['n']} | {agg['max']}"
+                + ("  ← **not gated, but non-zero**" if agg["max"] else "")
+                + " |"
                 for top, agg in sorted(rest.items())]
+        beyond = [row for row in (sweep.get("other") or [])
+                  if row["occurrences"]]
+        if beyond:
+            out += ["", "Outside the gate and non-zero — named here because "
+                    "§9's locked H1 is a claim about every file, and these "
+                    "are files this run made: "
+                    + ", ".join(f"`{row['path']}` ({row['occurrences']})"
+                                for row in beyond) + "."]
     return out
 
 

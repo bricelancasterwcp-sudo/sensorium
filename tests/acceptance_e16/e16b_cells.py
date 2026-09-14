@@ -197,7 +197,8 @@ H1_ZERO = ("store", "headers", "ts_spools")
 def cell_h1_values(store_files: list[dict] | None,
                    header_files: list[dict] | None,
                    spool_files: list[dict] | None,
-                   ts_spool_files: list[dict] | None) -> dict:
+                   ts_spool_files: list[dict] | None,
+                   other_files: list[dict] | None = None) -> dict:
     """H1 restricted to VALUES: the token's bytes, counted as OCCURRENCES.
 
     Occurrences and not lines (part A's `grep -rc` counted lines): the three
@@ -210,6 +211,15 @@ def cell_h1_values(store_files: list[dict] | None,
     Three of the readings are "every count 0", which is true of nothing at
     all; the fourth is an exact total, which a sweep that found no spool
     would read as 0 and STOP on -- naming the wrong finding.
+
+    `other_files` is everything else the run swept -- the disposable copies,
+    the transcripts, the cargo build tree, the two UNGATED Rust spool files
+    (`<pid>.runner.json`, `invocation.json`), the TMPDIR and the
+    instrument's own output. It changes NO verdict: §1's amendment names
+    four readings and those are the gate. What it does is get SAID -- a
+    non-zero row out there is named in `why`, where a reader meets it beside
+    the word, rather than sitting in a summary table nobody reads twice.
+    `None` means the run handed none, and this cell never drops on it.
     """
     sets = {"store": store_files, "headers": header_files,
             "spools": spool_files, "ts_spools": ts_spool_files}
@@ -242,8 +252,15 @@ def cell_h1_values(store_files: list[dict] | None,
                  and not set(entry["sets"]).isdisjoint(H1_ZERO)]
     total = sum(row["occurrences"] for row in sets["spools"])
     examined = len(by_path)
+    # Ungated, reported. A file that could not be read out there is named
+    # too: "swept and clean" and "swept and unreadable" are not one fact.
+    beyond = [row for row in (other_files or []) if row.get("occurrences")]
+    unread_beyond = [row["path"] for row in (other_files or [])
+                     if row.get("occurrences") is None]
     out = {"word": "PASS", "offenders": offenders,
-           "spool_occurrences": total, "files_examined": examined}
+           "spool_occurrences": total, "files_examined": examined,
+           "beyond_the_readings": beyond,
+           "other_examined": len(other_files or [])}
     why = []
     if offenders:
         why.append(f"the token's bytes appear in {len(offenders)} file(s) "
@@ -262,6 +279,19 @@ def cell_h1_values(store_files: list[dict] | None,
                       f"store, in every proc header and in the TypeScript "
                       f"spool, and exactly {total} occurrence(s) in the Rust "
                       "spools")
+    if other_files is not None:
+        note = (f"; {len(other_files)} further file(s) swept outside the "
+                "four readings (not gated)")
+        if beyond:
+            note += (", " + str(len(beyond)) + " holding the token: "
+                     + ", ".join(f"{row['path']} ({row['occurrences']})"
+                                 for row in beyond))
+        elif unread_beyond:
+            note += ", none holding the token, " + str(len(unread_beyond)) \
+                + " unreadable: " + ", ".join(sorted(unread_beyond))
+        else:
+            note += ", none holding the token"
+        out["why"] += note
     return out
 
 

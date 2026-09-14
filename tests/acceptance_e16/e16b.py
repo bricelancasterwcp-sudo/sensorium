@@ -83,12 +83,17 @@ from e16b_cells import (AMENDMENTS, ARMS, BASELINE,  # noqa: E402,F401
 
 #: The phases that are PRECONDITIONS rather than measurements, and whose
 #: failure therefore ends the run instead of dropping one cell. Part A's two
-#: plus `baseline`: H5's whole claim is a comparison against `7dd25d2`, and
-#: a baseline worktree that half-built would leave the HEAD table reading as
-#: a measurement of nothing in particular.
+#: plus `baseline` and `mint`. H5's whole claim is a comparison against
+#: `7dd25d2`, and a baseline worktree that half-built would leave the HEAD
+#: table reading as a measurement of nothing in particular. And `mint`
+#: (ruling R23): a mint that failed leaves `self.token` the empty string,
+#: every later phase records and greps for nothing at all, and the sweep
+#: reads zero everywhere -- a PASS about no subject. A precondition that
+#: cannot be skipped is cheaper than a STOP that costs the whole of E16 a
+#: re-measurement from zero.
 #: `tests/test_acceptance_e16_phase.py` holds this list against `main`'s own
 #: call sites.
-CRITICAL_PHASES = ("build-driver", "preflight", "baseline")
+CRITICAL_PHASES = ("build-driver", "preflight", "baseline", "mint")
 
 #: §1's amendment's H5 command, verbatim, with the reps the run uses.
 BENCH_CODE = "from corpus._bench import bench; bench.report(reps={reps})"
@@ -303,11 +308,23 @@ class PartB(Part):
         spool_root = self.target / "sensorium" / "spool"
         rust = _files_under(spool_root)
         ts_root = self.store / "spool"
-        counted = set(store) | set(rust)
+        # Only the GATED files are held back from the wider sweep. The
+        # Rust recorder writes FOUR file types per invocation --
+        # `<pid>.<n>.spool`, `<pid>.proc.json`, `<pid>.runner.json` and
+        # `invocation.json` -- and §1's amendment names two of them. Holding
+        # the whole spool tree back left `.runner.json` (which carries a
+        # recorded environment) and `invocation.json` in NO set at all:
+        # ungated, which is right, but also never greped and never printed,
+        # which is not. They land in `other` now, where they are counted and
+        # summarised. §9's locked H1 forbids the token in "any file after
+        # conversion", and a once-only run cannot go back for them.
+        gated_rust = {p for p in rust
+                      if p.name.endswith(".proc.json") or p.suffix == ".spool"}
+        counted = set(store) | gated_rust
         # Wider than the four readings, in the only direction that can find
         # a leak: the three disposable copies, the transcripts, the cargo
-        # build tree, the TMPDIR every recording ran under and this
-        # instrument's own output. Not the baseline worktree and not the
+        # build tree (the two ungated Rust spool files with it), the TMPDIR
+        # every recording ran under and this instrument's own output. Not the baseline worktree and not the
         # bench scratch store -- the token was never in the environment
         # either was run under, which is what the prose says and what makes
         # not sweeping them honest rather than convenient. (The bench
@@ -449,7 +466,7 @@ def main() -> int:
                                          critical=True)
         result["baseline"] = part.phase("baseline", part.build_baseline,
                                         critical=True)
-        result["token"] = part.phase("mint", part.mint)
+        result["token"] = part.phase("mint", part.mint, critical=True)
         result["copies"] = part.phase("copies", part.copies)
         part.phase("record-python", part.record_python)
         part.phase("record-rust", part.record_rust)
@@ -467,7 +484,7 @@ def main() -> int:
         result["h6_values"] = [{"run": r["run"], "arm": r["arm"],
                                 "values": r["values"], "names": r["names"],
                                 "vars": r["vars"]} for r in (info or [])]
-        read = ["store", "headers", "spools", "ts_spools"]
+        read = ["store", "headers", "spools", "ts_spools", "other"]
         cells["H1-values"] = cell_h1_values(
             *[(sweep or {}).get(key) for key in read])
         cells["H6-values"] = cell_h6_values(result["h6_values"])

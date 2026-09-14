@@ -180,7 +180,12 @@ def test_part_bs_phases_are_accounted_for_too():
     """Part B's own list, and the phases §1's amendment gives it: three
     recordings, the census, the sweep and one bench table per tree."""
     calls = _phase_calls("e16b.py")
-    assert e16b.CRITICAL_PHASES == ("build-driver", "preflight", "baseline")
+    # R23 put `mint` among them: a mint that failed leaves the token an
+    # empty string, and every later phase records and greps for nothing at
+    # all -- a sweep that reads zero everywhere about no subject. The
+    # parametrised test above then holds the call site by construction.
+    assert e16b.CRITICAL_PHASES == ("build-driver", "preflight", "baseline",
+                                    "mint")
     for name in ("build-driver", "preflight", "baseline", "mint", "copies",
                  "record-python", "record-rust", "record-typescript",
                  "info", "versions", "grep-values", "bench-baseline",

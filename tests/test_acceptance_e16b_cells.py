@@ -154,6 +154,56 @@ def test_h1_values_counts_the_rust_spools_together():
     assert cell_h1_values(STORE, HEADERS, split, TS_SPOOLS)["word"] == "PASS"
 
 
+#: Everything the run swept outside the four readings -- including the two
+#: Rust spool files §1's amendment does not name.
+OTHER = _rows(("rust-target/sensorium/spool/i/17.runner.json", 0),
+              ("rust-target/sensorium/spool/i/invocation.json", 0),
+              ("ts-project-b/package.json", 0))
+
+
+def test_a_non_zero_reading_outside_the_four_is_named_but_gates_nothing():
+    """The two Rust spool files §1's amendment does not name --
+    `<pid>.runner.json` (which carries a recorded environment) and
+    `invocation.json` -- were in NO grep set at all: ungated, which is
+    right, and never examined, which is not. They are swept now, and a
+    non-zero out there is NAMED beside the word rather than left in a
+    summary table. The word itself is §1's four readings' and does not
+    move."""
+    leak = _rows(("rust-target/sensorium/spool/i/17.runner.json", 2))
+    out = cell_h1_values(STORE, HEADERS, SPOOLS, TS_SPOOLS, OTHER[1:] + leak)
+    assert out["word"] == "PASS"
+    assert "17.runner.json (2)" in out["why"]
+    assert "not gated" in out["why"]
+    assert [row["path"] for row in out["beyond_the_readings"]] == \
+        ["rust-target/sensorium/spool/i/17.runner.json"]
+
+
+def test_a_clean_reading_outside_the_four_says_so_and_counts_itself():
+    out = cell_h1_values(STORE, HEADERS, SPOOLS, TS_SPOOLS, OTHER)
+    assert out["word"] == "PASS"
+    assert "3 further file(s) swept outside the four readings" in out["why"]
+    assert "none holding the token" in out["why"]
+    assert out["other_examined"] == 3
+    assert out["beyond_the_readings"] == []
+
+
+def test_a_file_outside_the_four_that_could_not_be_read_is_named_too():
+    """"Swept and clean" and "swept and unreadable" are not one fact, even
+    where nothing is gated."""
+    out = cell_h1_values(STORE, HEADERS, SPOOLS, TS_SPOOLS,
+                         _rows(("tmp/vitest-x/y.json", None)))
+    assert out["word"] == "PASS"
+    assert "unreadable: tmp/vitest-x/y.json" in out["why"]
+
+
+def test_the_wider_sweep_is_optional_and_never_drops_the_cell():
+    """It is not one of §1's readings, so a run that handed none still
+    decides -- and says nothing about a set it was not given."""
+    out = cell_h1_values(STORE, HEADERS, SPOOLS, TS_SPOOLS)
+    assert out["word"] == "PASS"
+    assert "outside the four readings" not in out["why"]
+
+
 @pytest.mark.parametrize("which", [0, 1, 2, 3])
 def test_h1_values_is_dropped_when_one_of_the_four_sweeps_did_not_run(which):
     sets = [STORE, HEADERS, SPOOLS, TS_SPOOLS]
@@ -645,6 +695,21 @@ def test_the_h5_caption_states_the_reps_the_run_actually_used():
     assert "reps=1" in "\n".join(assemble_e16b.h5_tables(raw))
     raw["bench"]["head"]["reps"] = 5
     assert "reps=1 and 5" in "\n".join(assemble_e16b.h5_tables(raw))
+
+
+def test_the_other_table_marks_a_non_zero_row_and_names_the_file():
+    """A number a reader has to notice for themselves in a summary row is a
+    number that gets missed. Marked in the row, named under the table."""
+    leak = _rows(("rust-target/sensorium/spool/i/17.runner.json", 2))
+    rendered = "\n".join(assemble_e16b.h1_values_table(
+        {"h1_values": {"store": STORE, "headers": HEADERS,
+                       "spools": SPOOLS, "ts_spools": TS_SPOOLS,
+                       "other": OTHER[2:] + leak}}))
+    assert "not gated, but non-zero" in rendered
+    assert "`rust-target/sensorium/spool/i/17.runner.json` (2)" in rendered
+    # The caption names both ungated Rust spool file types by name.
+    assert "`<pid>.runner.json`" in rendered
+    assert "`invocation.json`" in rendered
 
 
 def test_the_h1_values_table_prints_a_file_in_two_readings_once():
