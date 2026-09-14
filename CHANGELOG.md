@@ -1,5 +1,101 @@
 # Changelog
 
+## 0.15.0 — 2026-09-13
+
+**Secrets stop reaching disk in the first place.** Every recorder stored the
+whole process environment in plaintext, at `0644`, so a trace of any program
+launched from a developer's shell held whatever that shell was carrying —
+`GITHUB_TOKEN`, `PGPASSWORD`, `OPENAI_API_KEY`, live. **Rule v1** replaces a
+secret-*named* value with `<redacted>` at the WRITER, before anything reaches
+disk, and keeps an HMAC-SHA256 of the plaintext under a per-store key so
+`refocus` can still say whether it changed without being told what it changed
+to; every file a recorder now creates is `0600` in a `0700` directory. This
+is PART A: the environment and the file modes. Captured argument, local,
+return and output values are still stored as the caps clipped them, and part
+B redacts those. Python **0.15.0**, `sensorium-ts` **0.5.0**, `sensorium-rt`
+**0.6.0**, `cargo-sensorium` **0.7.0**; `sensorium-transform` stays **0.5.0**,
+`TRACE_FORMAT` stays **4**, the Rust spool wire stays **v3** and the
+TypeScript wire **v1** — one optional meta key, no column and no record kind.
+
+- **One rule, three implementations, one fixture.** A name is split on
+  non-alphanumerics and on both camelCase boundaries and fires when any
+  SEGMENT is in a 25-word set — segment-exact, never substring, so
+  `MONKEY_PATCH` and `BYPASS_CACHE` do not fire and the fixture pins both
+  directions. Two amendments came out of a census of 178 real environment
+  names (`tests/fixtures/benign-env-names.txt`): `PWD` fires only inside a
+  longer name (`MYSQL_PWD` yes, `PWD` and `OLDPWD` no) and `PGPASSWORD` fires
+  by whole name, because segment-exact matching cannot see inside a compound
+  word. `docs/trace-format/redaction-v1.json` holds every case and
+  `tests/test_redact.py`, `rust/sensorium-rt/tests/redact.rs` and
+  `typescript/test/redact.test.mjs` all read it: three implementations of one
+  rule agree only on what all three are asked.
+- **Three knobs, recorded in the trace.** `SENSORIUM_NO_REDACT` turns the
+  rule off, `SENSORIUM_REDACT_NAMES` adds names, `SENSORIUM_REDACT_ALLOW`
+  removes them and wins over `NAMES`. None of the three fires the rule — a
+  knob that redacted itself would hide the terms of its own recording — and
+  all three are written into `redaction` so a reader sees what the recording
+  was made under (`tests/test_redact.py::test_env_honours_both_knobs`,
+  `tests/test_record_redaction.py::test_names_and_allow_knobs`).
+- **The key is published by content, never by an empty file** (ruling R15).
+  32 bytes go into a private per-pid temporary, are written whole and
+  fsynced, and only then is the finished file hard-linked at
+  `<store>/redaction.key` at `0600`; a loser of the race reads the WINNER's
+  file, and a filesystem without hard links falls back to an atomic rename.
+  An `O_EXCL` open on the final name would be visible at 0 bytes for as long
+  as the write takes. A store where the key cannot be read or created records
+  `keyed: false` with `null` digests and still redacts — the fallback loses
+  comparability and never loses safety
+  (`tests/test_redact.py::test_a_created_key_is_published_whole_and_leaves_no_tmp`,
+  `::test_a_loser_of_the_creation_race_reads_the_winners_key`,
+  `tests/test_record_redaction.py::test_unreadable_key_records_unkeyed`).
+- **The Rust and TypeScript runtimes never touch a key file.** Creating one
+  means a directory, a temporary, a link and a race, and both are linked into
+  somebody else's program: their DRIVER mints or reads the key and hands the
+  hex over as `SENSORIUM_REDACT_KEY`, which every recorder DELETES from what
+  it records rather than redacting — a digest of the key under the key is a
+  pointless row. `rust/cargo-sensorium/tests/convert_e2e.rs::check_redaction`
+  drives all four modules of that hop with one real invocation.
+- **`info` says what was taken and never what it was.** The `env:` field has
+  three forms — the bare hash, `(120 vars, 0 redacted)` for a MEASURED zero,
+  and `(120 vars, 2 redacted: …)` with names only, first eight then `+N
+  more` — and a new line under `caps:` has four: keyed (with the key's id,
+  and a `key mode 0644 -- expected 0600` note when the store's own key is
+  loose), UNKEYED, OFF, and `none -- recorded before redaction existed;
+  plaintext throughout`, which is the one a reader most needs, because
+  absence of the key is not absence of secrets. Vectors
+  `v42-redaction-render` and `v42b-redaction-none`; `tests/test_info_redaction.py`.
+- **`refocus` compares digests, and a check it cannot run never withholds.**
+  Same key, both sides: the digests. One plaintext side: its HMAC under the
+  store's key. Two keys, or no key: **unverifiable** — named on the env line,
+  stamped in `refocus_licence_unverifiable`, and granted, because a check
+  that could not run is not a finding against the pair (R19). A redacted
+  session or harness variable keeps its exemption, since set membership is a
+  judgement about the NAME (R21), and the `compared` count excludes the
+  uncomparable, since a line that counts a check it did not run is lying by
+  arithmetic (R22). Vector `v43-refocus-redacted-env`;
+  `tests/test_refocus_redaction.py`.
+- **0600 and 0700, at creation and never by a later `chmod`** — a file
+  created `0644` and tightened a moment later is readable for exactly the
+  moment it is being filled with what it holds. The trace, the store root,
+  `traces/`, `redaction.key`, the Rust spool directory and its
+  `<pid>.proc.json` / `.spool` / `<pid>.runner.json`, and the TypeScript
+  spool. The converter's own `traces/` was the last directory still made
+  under the process umask and is now `perms::dir_all` like the rest (R26);
+  `tests/test_record_redaction.py::test_created_files_are_0600_and_dirs_0700`
+  and `convert_e2e.rs::check_modes` assert it, the second over a real
+  invocation. An existing file or directory keeps the permissions its owner
+  chose, and Windows treats every one of these numbers as advisory.
+
+**Documented as it landed, not as it was designed.** `docs/redaction.md` is
+new — the rule, the knobs, the key, what each command prints, and the honest
+limits, including that a digest is an equality identity and not a commitment,
+so a redacted low-entropy value is guessable by anyone holding the key file.
+`README.md`, `docs/TRACE-FORMAT.md` (§2's permissions, §4's shared optional
+set, §5's capture shape), `docs/query.md`, `docs/trace-format/TYPESCRIPT-KEYS.md`,
+`rust/README.md`, `rust/HONESTY.md` and `typescript/README.md` are amended to
+this state. Where the code and the design differ the code is what these
+describe, and the differences are filed in the design's dated amendments.
+
 ## 0.14.0 — 2026-09-13
 
 **`refocus` reads a TypeScript trace.** The command that re-runs a recording
