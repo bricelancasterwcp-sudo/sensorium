@@ -853,5 +853,230 @@ a licence over a rotated token), H6 PASS. Run 2, measured from zero with a
 fresh token after `6a719e4`, `1f60dd6`, `9d8f16a` and `e36d5dd`, read **DONE**
 — H1, H2, H3, H6 all PASS; both readings are in
 `docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §2, run 1
-byte-untouched beneath run 2, with the per-cell statement of which run is the
+byte-untouched above run 2, with the per-cell statement of which run is the
 first PASS.
+
+### 2026-09-14 — PR B shipped: the plan's decisions, the controller's rulings, and where the code differs
+
+PR B (`docs/superpowers/plans/2026-09-14-sensorium-redaction-b.md`, Tasks
+0–12) is the second of the three. Nothing in §§1–12 above is edited; this
+section says what shipped, what was ruled while it shipped, and every place
+the code and the sections above disagree. Where they disagree, **the code as
+landed is what the docs describe**.
+
+#### (a) The plan's decisions B1–B28, as shipped
+
+| # | as shipped |
+|---|---|
+| B1 | Wire v4's REDACTED-BY-NAME LINE tag is `4`, not §5.2's `3` (tag 3 has meant UNBOUND since wire v3, shipped 0.13.0). Shipped as written: `truncated` 0, the text the 16-hex digest or empty when unkeyed, LINE rows only; a v2/v3 reader refuses tag 4 as `not 0..=3`, a v4 reader refuses `5+`. |
+| B2 | `by` reads `recorder` only where the runtime did the value half too (Rust wire ≥ 4 with a `redaction` header whose mode is on; `sensorium-ts` ≥ 0.6.0), `converter` wherever a converter applied a half the runtime should have. Shipped as written — and it is why a re-converted older spool now says `converter` where it said `recorder`. |
+| B3 | `redaction.values` is counted by the trace's WRITER. **Amended by R10**: counted at the WRITE site (`redact_values.count`/`count_capture` over what is handed to `add_event`/`close_frame`; the tee counts a changed chunk; the two converters count as they build), not by the transforms with a roll-back. Absent under `mode: off`. |
+| B4 | The per-kind whole-redaction rule, as written: `str`/`num`/`dbg` → the marker with a digest over the clipped text (`repr(v)` for a `num`); `obj` → the `repr` goes, `type`/`oid` stay; `seq`/`map` → the sample goes, `type`/`len`/`oid` stay, `digest: null`; `none`/`bool`/`unread` untouched. **Extended by R10** (an unrecognised kind is withheld WHOLE) and **carved by R17/R19** (`()`, `undefined`, `null` are never withheld). |
+| B5 | The content rule reaches `str` values, `obj` reprs recursively through `seq`/`map` samples, `exc.msg` and output chunks one `write()` at a time. Shipped as written; the chunk boundary is documented as a limit. |
+| B6 | Python's redaction state is one module-level `State` in `redact_values`, installed from `boot.run_target` after the key loads; `record/capture.py` is not changed. Shipped as written — `capture.py` has no diff on this branch. |
+| B7 | The RETURN name rule reads the callee's LAST qualname segment; `<lambda>`, `<module>`, `<genexpr>`, `<anonymous>` never fire. Shipped as written, in all three hands. |
+| B8 | A `map` sample pair whose KEY is a firing `str` has its VALUE withheld under that key's name — **Python only**. Shipped as written; documented as a limit for Rust and TypeScript, whose captures are rendered text. |
+| B9 | Converters re-apply idempotently, values included: the content rule always runs (a marker is a fixed point, pinned by two fixture no-op rows); the CALL/LINE name rule runs in a converter only for a spool whose runtime did not, and never on a capture already carrying `redacted`; the RETURN name rule always runs in the Rust converter. Shipped as written. |
+| B10 | `watch`: `expr.resolve` returns a `REDACTED` marker, `_name`/`_member`/`_length` raise `NotCaptured(name, REDACTED_REASON)`, `_render` prints `<redacted; no comparable value>`, and a predicate meeting only taken values ends at `NOTHING WAS CHECKED`, exit 3. Shipped with **R13**'s addition: `_guidance` gains a `REDACTED_REASON` arm naming `SENSORIUM_REDACT_ALLOW=<name>` as the re-record remedy. |
+| B11 | `flow`: `flow_values.matches` is False for a name-redacted capture, so `--value` never sights one; `flow_cmd.resolve_object` refuses at `BAD_CALL` (exit 2) with `'{name}' at e{id} is redacted (by name) and has no identity or value to follow`. Shipped as written; **R20** settled which binding the corpus question names (`send:token`). |
+| B12 | `fmt_value`: `<redacted #xxxxxxxx>` for a name-redacted `str`/`num`/`dbg` (or `<redacted>` unkeyed), `type[len]=<redacted>` for a container, `Type#oid` unchanged for an `obj`, a content hit as stored; `fmt_exc` prints the stored message. Shipped as written. |
+| B13 | The five splits land first, in one task, verbatim with re-exports: `refocus_facts.py`, `flow_report.py`, `convert/discover.rs`, `redact_key.py`, `record/boot_io.py`. Shipped, with **R7** (`continuity_line` and `_MAX_NAMED_GAPS` travel with their only caller) and **R8** (`from __future__ import annotations` for `TYPE_CHECKING`-only names). |
+| B14 | E16 part B's three probes live with the instrument at `tests/acceptance_e16/probes/{python,rust,typescript}/`, not §9's `probes/redaction/…`. Shipped as written. |
+| B15 | H6-values' planted counts are derived by hand from the probe sources and pre-registered — Python 5, TypeScript 4, Rust 4, each traced to a named row. Shipped as written; the run read exactly 5, 4 and 4. |
+| B16 | H1-values' Rust reading is exact: the token appears in the `.spool` files exactly **3** times, counted as occurrences. Shipped as written; the run read 3. |
+| B17 | H5 reads `corpus/_bench`'s own statistic — best-of-5, not §9's "two medians" — baseline a worktree at `7dd25d2`, treatment this branch's head, same box, same session. Shipped as written; never gated. |
+| B18 | The content rule's pre-check: one alternation of the literal prefixes every pattern starts with, run before any pattern, with a test pinning that every positive fixture case passes it. Shipped, and **amended by R21**: `_TRIGGER` folds case where the pattern it guards does. |
+| B19 | The three corpus cases plant `SENSORIUM_CORPUS_TOKEN` (no content-rule shape), name every binding so the NAME rule fires, and print nothing; the runner sets the variable from a new top-level `env:` key in `questions.yaml`. Shipped as written. |
+| B20 | The fixture's `content` rows are `{"pattern", "text", "after"}`, a negative row's `after` equal to its `text`, with `<redacted>` and `postgres://u:<redacted>@h/db` as the two no-ops. Shipped as written. |
+| B21 | Exception messages are content-ruled in all three: Python at every `capture_exc(` site, the Rust converter at every `"msg"` it writes, TypeScript in `dbg.mjs::exc`. Shipped, with **R16**'s exception: an `err` RETURN's synthesised exit RAISE is withheld WHOLE under the value's digest, not content-ruled. |
+| B22 | The TypeScript runtime reads its knobs and key once (`redact.current()`, lazily); `dbg.mjs` imports `content`/`current` from `redact.mjs`, which imports `node:crypto` only. Shipped as written. |
+| B23 | `info`'s `values redacted: N` clause rides both the keyed and the UNKEYED `redaction:` line. Shipped as written. |
+| B24 | The Rust runtime's tag-4 digest is over the CAPPED text, and an `unread` delta whose name fires stays tag 2. Shipped as written. |
+| B25 | `docs/TRACE-FORMAT.md` is edited net-zero, its §5 sentence becoming a two-line pointer to `docs/redaction.md`. Shipped as written: 797 lines before, 797 after. |
+| B26 | A `SENSORIUM_NO_REDACT` recording applies no value rule anywhere — recorder, converter or ingest — and its `redaction` stays A's two-key form with no `values`. Shipped as written. |
+| B27 | The census is STATIC and runs at Task 0, over every binding name in `corpus/**`, every `args`/`deltas` key in the vectors and every `a`/`d` key in the ts-spool fixtures, against a committed `tests/fixtures/corpus-firing-names.txt`. Shipped as written — and it is what produced B28. |
+| B28 | `KEY` fires only inside a name of two or more segments, as `PWD` does (a `_SOLO_EXEMPT` set `{PWD, KEY}` in all three rule modules). Added by the controller at Task 0 on the census's evidence (**R6**); rule v1 is AMENDED rather than bumped to v2, because no trace under the earlier spelling exists outside this box and CI. |
+
+#### (b) The controller's rulings R1–R23
+
+Each was ruled during execution and is in the plan's gitignored ledger with
+its evidence. The third column is the cost the ruling was taken at.
+
+| R | the ruling | cost if wrong |
+|---|---|---|
+| R1 | v42's `grep hunter2` question is DROPPED: `expect_absent: ["hunter2"]` rides every question that remains (the runner applies it per question), and a question whose only pin is a no-match line asserts nothing. | `grep`'s rendering of a marker goes unpinned by v42, but `frame`'s is the same `fmt_event` path |
+| R2 | The H5 baseline worktree under `$E16_DIR` is an in-repo, reversible side effect, not a stop condition; it is removed in Task 12's chores. | one worktree to delete by hand |
+| R3 | Every Rust corpus run in this plan uses a driver built from THIS worktree, that `target/release` first on `PATH`, never `~/.cargo/bin`. | a second red `main` |
+| R4 | `main`'s hotfix (PR #41) is cherry-picked onto `feat/redaction-b` right after Task 0, so every task's whole-suite gate is green from there. | a trivial merge conflict on three yaml lines when #41 merges |
+| R5 | An `unbound` row's NAME is never withheld — rule v1 redacts VALUES, and `unbound:key` stays `unbound:key`. | a binding's name in a trace, which the CALL/LINE rows show anyway |
+| R6 | **§2.1 amended (plan decision B28)**: the segment `KEY` fires only in a name of two or more segments, on the census's evidence that 8 of its 17 firing bindings were a bare `key`. | one fixture row per language to revert, and a bare `key` local holding a secret stored as typed until then |
+| R7 | `continuity_line` and `_MAX_NAMED_GAPS` move to `flow_report.py` with the four named functions — the brief's list was an under-count and the ≤720 target was the binding requirement. | none; a re-exported name |
+| R8 | `from __future__ import annotations` in `flow_report.py` for `TYPE_CHECKING`-only names — a lazy import cannot serve an annotation and a module-level one is a hard cycle. | a runtime `NameError` if someone later evaluates those annotations, which the suite would show |
+| R9 | `test_acceptance_e9_read`'s refusal pin reads `RT_VERSION` out of `spool.rs` instead of typing a version by hand. | a regex over one source line |
+| R10 | **Amends B3**: `redaction.values` is counted at the WRITE site, and an unrecognised capture kind is withheld WHOLE (`k` kept, every other field dropped, `digest: None`), pinned by an exhaustiveness test over `capture.py`'s kind literals. | a count that is a pure function of the trace's contents, which is what B3 promised |
+| R11 | **Pre-launch amendment to the pre-registration**, recorded beside the locked §1: the Python probe is recorded with `--focus main:handle`, because a bare `--focus handle` names a MODULE. | two of the five pre-registered rows never recorded, which H6-values would read as STOP |
+| R12 | `corpus/stale_cache`'s `build_key` becomes `memo_id` rather than the expectation moving — the case's truth is a stale cache keyed by a string, and its questions are about the KEY's value. | one corpus program's function renamed |
+| R13 | `watch._guidance` gains a `REDACTED_REASON` arm naming `SENSORIUM_REDACT_ALLOW=<name>`; without it a redacted name falls through to "this is scope, not capture depth", which is false. | one guidance sentence |
+| R14 | v42 declares `object_identity: true` (else `flow --object` refuses at the capability gate, exit 3) and its `flow --value` question expects exit 1, zero sightings being NEGATIVE. | none; they are pins |
+| R15 | `RT_VERSION`/`sensorium-rt` 0.7.0 move in Task 6 with the v4 reader and a driver rebuilt from the tree, not in Task 5; between the two a fresh driver cannot convert what the runtime writes — a SANCTIONED RED for `mechanics.sh` and `cargo-sensorium`'s real-driver e2e tests. | one task with a version number in its brief that lands one task later |
+| R16 | On an `err` RETURN whose site's qualname fires, the synthesised exit RAISE's `exc.msg` is withheld WHOLE under the value's own digest, not content-ruled: an `Err` return IS the return value in Rust. The two are ONE withheld text seen twice, counted ONCE. Python is untouched. | one message's text lost where the content rule would have kept its shape |
+| R17 | A synthesised `()` — and any RETURN text exactly `()` — is never withheld by name, marked or counted; the `unread` carve-out extended. | none; nothing is hidden by `()` |
+| R18 | The TypeScript content rule runs AFTER the name rule, in `redact.mjs` beside it, not inside `dbg()`: the brief's order would have digested the constant `<redacted>` for a text the content rule had already replaced, giving two secrets one identity. | none; it is the brief that was wrong |
+| R19 | A `dbg` text exactly `undefined` or `null` withholds nothing on ANY site (arg, delta, return) in BOTH hands — `redact.mjs::taken()` and `redact_values.named()`, which also exempts `()`. `NaN` and numbers stay under the rule. | none |
+| R20 | The Python corpus case's `flow --object` question resolves `send:token` — `handle()` binds the token as a local, so `handle:token` names nothing; the refusal is the same B11 sentence at the CALL that carries the argument. | none |
+| R21 | **Amends B18**: `_TRIGGER` folds case where the pattern it guards does — it was case-SENSITIVE while `authorization-header` is `(?i)`, so `BEARER <token>` skipped the table and was stored in plaintext. Fixed in all three languages with two uppercase fixture rows. | a leak on an uppercase header |
+| R22 | Part B is measured into the SAME work root the pre-registration names, `store-b` beside `store-a`; the controller deletes `$E16_DIR/rust-target` WHOLE before launching (part A's build cache, which the `other` sweep walks), and everything else of A's stays. | one cold build of the probe crate |
+| R23 | `mint` is a critical phase — an empty token would run every later phase on `""`. | none |
+
+#### (c) Where the shipped code differs from §§1–12
+
+Nineteen, documented at Task 9 and named here so a reader of the sections
+above is not misled by them.
+
+1. **§5.2's LINE tag is `4`, not `3`.** Tag 3 has meant UNBOUND on a LINE
+   row since wire v3 shipped in 0.13.0, one day before this spec was
+   written; §5.2's verbatim block named 3 anyway. Shipped: tag 4, and the
+   block in `spool.rs`'s doc comment and `rust/README.md` is v4's
+   (**B1**). Where: `rust/sensorium-rt/src/line.rs`,
+   `rust/cargo-sensorium/src/convert/spool/line.rs`.
+2. **§4.3's `by` is the last hand that applied the rule; shipped it is the
+   last hand that applied the VALUE half** (**B2**). A Rust v3 spool or a
+   `sensorium-ts` 0.5.0 spool re-converted under this release reads
+   `converter` where it read `recorder` — a visible change to a published
+   key, stated in the CHANGELOG and in `docs/redaction.md`. Where:
+   `convert/redaction.rs`, `src/sensorium/ts/redaction.py`.
+3. **`redaction.values` is counted at the WRITE site, not by the rule's
+   appliers** (**B3**, **R10**). §4.3 calls it "a witness count"; shipped,
+   the witness is the writer — `count(payload)` over what is handed to
+   `add_event`/`close_frame`, so a secret re-captured at every line of a
+   loop counts once and a dropped payload cannot leave a count behind.
+   Where: `src/sensorium/redact_values.py`, `convert/redaction.rs`,
+   `src/sensorium/ts/redaction.py`.
+4. **§4.2's per-kind rule is spelled out, and has two exemptions the spec
+   has not.** §4.2 speaks of `v`/`repr` only; shipped, `seq`/`map` keep
+   `type`/`len`/`oid` with `digest: null` (a container has no stored text
+   to digest), `none`/`bool`/`unread` are untouched, an unrecognised kind
+   is withheld WHOLE, and a value that says the program produced nothing —
+   Rust's `()`, a `dbg` text of `undefined` or `null` — is never withheld
+   on any site in any hand (**B4**, **R10**, **R17**, **R19**). Where:
+   `redact_values.named`, `redact.mjs::taken`, `convert/redaction.rs`.
+5. **§5.1's one `redact.py` is four modules.** The spec put the whole rule
+   in `src/sensorium/redact.py` "under ~250 lines". Shipped:
+   `redact.py` (the name rule, 304), `redact_key.py` (the key),
+   `redact_content.py` (the content rule, 156) and `redact_values.py` (the
+   value half and its module-level `State`, 388). `content(text)` returns
+   `(str, bool)` from `redact_content`, not from `redact`.
+6. **`capture_value` is not changed** (**B6**). §5.1 has it applying the
+   content rule to every `str` and `repr` and the name rule in the map
+   sampler; shipped, `record/capture.py` has no diff on this branch and
+   every operation runs at the WRITE sites through `redact_values`, so a
+   capture stays pure and one install point governs the rule.
+7. **§5.2's `convert/redact.rs` is `convert/redact_content.rs`**, beside
+   the `convert/redaction.rs` PR A already added; the content rule, the
+   RETURN name rule and the `redaction` meta build are split across the
+   two rather than gathered in one new file.
+8. **§5.3's order: name THEN content** (**R18**). The spec puts the content
+   rule "in `dbg.mjs`" and the name rule in `captures`/`ret`, which reads as
+   content-first for a return; shipped, both halves run in `redact.mjs`
+   beside each other, name first, so a text the content rule has already
+   replaced is never digested as if it were the value. Where:
+   `typescript/src/redact.mjs`.
+9. **§5.4 is extended to values, with a never-re-digest rule** (**B9**).
+   The spec's idempotence clause covers the env and says a marker is never
+   re-redacted; shipped, the content rule always re-runs in both converters
+   (a marker and a replaced text are fixed points, pinned by two fixture
+   no-op rows), the CALL/LINE name rule runs in a converter only for a
+   spool whose runtime did not and never on a capture already carrying
+   `redacted`, and the RETURN name rule always runs in the Rust converter.
+10. **§2.1's `KEY` fires only inside a longer name** (**B28**, **R6**) —
+    a second `_SOLO_EXEMPT` member beside A's `PWD`, on the static census's
+    evidence. A bare `key` is a cache key on almost every mapping-iterating
+    function; every compound spelling still fires, and
+    `SENSORIUM_REDACT_NAMES=key` restores it. Rule v1 is amended rather
+    than bumped to v2 because no trace under the earlier spelling exists
+    outside this box and CI; the identity rule in §2 binds from the first
+    published release. Where: the three rule modules,
+    `docs/trace-format/redaction-v1.json`.
+11. **§2.5 said nothing about a content case's shape; shipped it is
+    `{"pattern", "text", "after"}`** (**B20**), a negative row's `after`
+    equal to its `text`. §2.5's `{"name", "value", "expect"}` case was
+    already superseded by PR A's §13(c) item 4; this fills the `content`
+    list A left empty. Where: `docs/trace-format/redaction-v1.json`.
+12. **A pre-check runs in front of the patterns** (**B18**, **R21**). §12
+    names it as a mitigation to apply "if H5 is large"; shipped, it was
+    built in from the first commit of the rule — one alternation of the
+    literal prefixes, case-folded where the pattern it guards is
+    case-insensitive, with a test pinning that every positive fixture case
+    passes it. Where: `redact_content.py`, `redact_content.rs`,
+    `redact.mjs`.
+13. **§6.1's `values redacted:` rides the UNKEYED line too** (**B23**).
+    The spec prints it "only when the key is present"; shipped, values are
+    redacted without digests as well, and a measured count is not
+    conditional on a key. Where: `info_cmd`, vector `v42`.
+14. **§6.3's `flow --value` refusal is the `--object` refusal** (**B11**).
+    `--value` takes a LITERAL, not a binding, so the spec's sentence cannot
+    attach where it says; shipped, `--value` simply never sights a
+    name-redacted capture (a literal matching a marker would report every
+    secret in the run as sightings of one value) and `--object` refuses at
+    exit 2 with `'{name}' at e{id} is redacted (by name) and has no
+    identity or value to follow`. Where: `flow_values.matches`,
+    `flow_cmd.resolve_object`.
+15. **§8's vector questions, as they landed** (**R1**, **R14**): the `grep`
+    question is dropped — `expect_absent: ["hunter2"]` rides each of the six
+    that remain, and a question whose only pin is a no-match line asserts
+    nothing — `v42`
+    declares `object_identity: true` so `flow --object` reaches its
+    refusal rather than the capability gate, and the `flow --value`
+    question expects **exit 1**, zero sightings being a negative answer.
+    Where: `docs/trace-format/vectors/v42-redaction-render.json`.
+16. **§8's census is STATIC** (**B27**). The spec runs rule v1 over the
+    values in the fixture and corpus traces the suite builds; shipped,
+    `tests/test_redact_census.py` scans SOURCE — every binding name in
+    `corpus/**`, every `args`/`deltas` key in the vectors, every `a`/`d`
+    key in the ts-spool fixtures — and asserts the firing set equals a
+    committed `tests/fixtures/corpus-firing-names.txt`. It runs in seconds,
+    it ran at Task 0 before any renderer existed, and it is what produced
+    difference 10.
+17. **§9's probes live with the instrument** (**B14**) at
+    `tests/acceptance_e16/probes/{python,rust,typescript}/`, not at
+    `probes/redaction/…`: `rust/probes` and `typescript/probes` are
+    per-language probe suites with their own tooling, and these three
+    belong to one instrument.
+18. **H5's statistic is best-of-5, not a median** (**B17**). §9 says "the
+    two medians"; `corpus/_bench/bench.py` reports best-of-`reps` and
+    nothing else, so the reading is the two best-of-5 tables and the ratio
+    per workload row. The measurement is `recorded/baseline` at `7dd25d2`
+    against the same at HEAD, same box, back to back, never gated.
+19. **§10's TypeScript HONESTY section is a file, with an index row and no
+    stub.** The spec asks for "one section each … with a pointer"; shipped,
+    the whole section is `typescript/HONESTY-REDACTION.md` and
+    `typescript/HONESTY.md` carries row 13 of its index and nothing else —
+    no `## 13.` heading in the body, which would have cost the four lines
+    that file does not have. `rust/HONESTY.md` §14 is in place as written.
+
+One further limit, not a difference but not stated in §§1–12 either: **a
+spool ingested into a store that did not record it names two keys.** The
+trace's `key_id` is the RECORDER's, while the capture digests the converter
+took are under the INGESTING store's key. In practice the driver mints the
+store key it hands the runtime and the two are one; a spool carried between
+stores is where they part. Documented in `docs/redaction.md`'s honest limits
+and carried in CARRIED-DEBT.
+
+#### (d) E16 part B's outcome
+
+Measured **once**, 2026-09-14, 85.3 s wall clock, under `e16b.sh` after four
+dry runs: **DONE** — H1-values **PASS** (20 gated files: every count 0 under
+the store, in every Rust `<pid>.proc.json` and in the TypeScript spool, and
+the Rust `.spool` files exactly **3** occurrences, the content window §5.2
+names; 762 further files swept beside them, none holding the token),
+H6-values **PASS** (python 5, rust 4, typescript 4, each redacting exactly
+`SENSORIUM_E16_TOKEN`, against §1's amendment's hand-derived 5/4/4), and H5
+**measured and not gated**: `HEAD over 7dd25d2` of 1.05–1.39 across the seven
+workload rows, every ratio above 1. The reading is in
+`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §3, with
+the per-file grep table, both bench tables verbatim, the census, and two
+pre-launch amendments recorded beside §1's locked text (**R11**'s focus
+spelling; the vitest copy's omission of `corpus/typescript/secret_in_env`).
+H5's cost and its two named levers — a per-name memo for `fires()` and a
+cheaper trigger — are a CARRIED-DEBT finding, which is what §9 says an
+outlier is.
