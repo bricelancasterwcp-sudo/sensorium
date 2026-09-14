@@ -75,10 +75,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # verdict word.
 from e16a_cells import (ALLOWLIST, ARMS, DROPPED,  # noqa: E402,F401
                         DRY_BODY, DRY_PREFIX, DRY_TIMERS, EXPECTED, FOCUS,
-                        GATED_ROOTS, PREDICTIONS, RULES, TIMERS, TOKEN_BODY,
+                        PREDICTIONS, RULES, TIMERS, TOKEN_BODY,
                         TOKEN_PREFIX, TOKEN_VAR, _ALPHABET, Refused,
-                        cell_h1, cell_h2, cell_h3, cell_h6, part_word,
-                        read_pair)
+                        cell_h1, cell_h2, cell_h3, cell_h6, gated_roots,
+                        part_word,
+                        read_driver_build, read_pair)
 
 
 # -- running things --------------------------------------------------------
@@ -118,15 +119,21 @@ class Part:
     """One part-A measurement: its locations, its token, its phases."""
 
     def __init__(self, work: Path, out: Path, node_bin: str, driver_dir: str,
-                 dry: bool):
-        self.work, self.out = work, out
+                 dry: bool, label: str):
+        self.work, self.out, self.label = work, out, label
         self.node_bin, self.driver_dir, self.dry = node_bin, driver_dir, dry
         self.timers = DRY_TIMERS if dry else TIMERS
-        self.store = work / "store-a"
+        # Every per-run directory carries the label, so one work root holds
+        # a measurement and a re-measurement without either sweeping the
+        # other's files. The cargo target directory does NOT: R29 pins one
+        # place for the Rust spool, and the launcher refuses a run whose
+        # spool tree an earlier run left behind.
+        self.store = work / f"store-{label}"
         self.target = work / "rust-target"
-        self.transcripts = work / "a-transcripts"
-        self.py_case, self.rust_crate = work / "py-case", work / "rust-crate"
-        self.ts_project = work / "ts-project"
+        self.transcripts = work / f"{label}-transcripts"
+        self.py_case = work / f"py-case-{label}"
+        self.rust_crate = work / f"rust-crate-{label}"
+        self.ts_project = work / f"ts-project-{label}"
         self.python = str(REPO / ".venv" / "bin" / "python")
         self.driver = str(Path(driver_dir) / "cargo-sensorium")
         self.token = self.fresh = ""
@@ -171,7 +178,62 @@ class Part:
                           f"not a measurement")
         return value
 
-    # -- phase 0: what has to be true before anything is recorded ----------
+    # -- phase 0: the driver this run will record with ---------------------
+    def build_driver(self) -> dict:
+        """Rebuild the release `cargo-sensorium` before anything is recorded
+        (ruling R37), and stamp what came out of it.
+
+        A binary is not a source tree and no argument can date one. E16 run
+        1's H2 STOP was real, was fixed in the tree, and a dry run against
+        the unrebuilt binary STILL read the STOP -- a stale driver silently
+        re-measuring old code is the one failure this whole apparatus cannot
+        detect from its own output, because the output looks exactly like a
+        finding. So the build is a phase, its exit status is a refusal, and
+        the binary's path, mtime and size go into the raw record where a
+        reader can compare them against the commit.
+
+        The build's target directory is the one the driver argument sits in
+        -- cargo's own `<target>/release/<bin>` layout -- so no path is
+        written here and the caller cannot point the build at one tree and
+        the recording at another.
+        """
+        # This is the FIRST phase, so the two directories every later phase
+        # takes for granted are made here: cargo needs a TMPDIR that exists,
+        # and `_keep` needs somewhere to put the build's own transcript.
+        (self.work / "tmp").mkdir(parents=True, exist_ok=True)
+        self.transcripts.mkdir(parents=True, exist_ok=True)
+        release = Path(self.driver_dir)
+        if release.name != "release":
+            raise Refused(f"the driver directory is {release.name}, not "
+                          "'release': this phase derives the cargo target "
+                          "directory from it and cannot with another layout")
+        r = _run(["cargo", "build", "--release", "-p", "cargo-sensorium"],
+                 REPO / "rust", {**self.env("build-not-a-token"),
+                                 "CARGO_TARGET_DIR": str(release.parent)},
+                 self.timers["build"])
+        self._keep("build-driver", r)
+        if r["killed"] or r["rc"] != 0:
+            raise Refused("`cargo build --release -p cargo-sensorium` "
+                          f"exited {r['rc']} (killed: {r['killed']}): this "
+                          "run would have recorded with whatever binary was "
+                          "already there")
+        binary = Path(self.driver)
+        stat = binary.stat()
+        # LABELLED, not absolute: the binary lives outside the work root,
+        # `_rel` would hand back a box path, and §2 refuses one anywhere but
+        # its pin table. `$DRIVER_DIR` is the label that table defines and
+        # the committed transcripts already use. The absolute form rides
+        # along for provenance and is scrubbed on the way into the record.
+        return {"built": True, "seconds": r["seconds"],
+                "binary": "$DRIVER_DIR/" + binary.name,
+                "binary_abs": str(binary),
+                "cargo_target": "$DRIVER_DIR/..",
+                "mtime": stat.st_mtime, "size": stat.st_size,
+                "finished_line": next(
+                    (ln.strip() for ln in r["out"].splitlines()
+                     if "Finished" in ln), None)}
+
+    # -- phase 1: what has to be true before anything is recorded ----------
     def preflight(self) -> dict:
         from sensorium import redact
 
@@ -379,6 +441,7 @@ class Part:
         for value in (self.token, self.fresh):
             if value:
                 text = text.replace(value, "<token>")
+        self.transcripts.mkdir(parents=True, exist_ok=True)
         path = self.transcripts / f"{name}.txt"
         path.write_text(f"$ {' '.join(r['argv'])}\n"
                         f"# cwd {r['cwd']}  exit {r['rc']}  "
@@ -519,10 +582,12 @@ def main() -> int:
     out = Path(os.environ["E16_OUT"]).resolve()
     part = Part(work, out, os.environ["E16_NODE_BIN"],
                 os.environ["E16_DRIVER_DIR"],
-                dry=os.environ.get("E16_DRY") == "1")
+                dry=os.environ.get("E16_DRY") == "1",
+                label=os.environ["E16_LABEL"])
     result = {"dry_run": part.dry, "started": time.time(),
               "dry_run_findings": dry_run_findings()}
     try:
+        result["driver_build"] = part.phase("build-driver", part.build_driver)
         result["preflight"] = part.phase("preflight", part.preflight)
         result["token"] = part.phase("mint", part.mint)
         result["copies"] = part.phase("copies", part.copies)
@@ -549,7 +614,8 @@ def main() -> int:
         result["runs"] = part.runs
         result["cells"] = {
             "H1": cell_h1(sweep["files"] if sweep else None),
-            "H2": cell_h2(modes.get("entries"), modes.get("roots")),
+            "H2": cell_h2(modes.get("entries"), modes.get("roots"),
+                          part.label),
             "H3": cell_h3(pairs),
             # `arm` travels with the row: H6 is a claim about all three
             # recorders, and the cell has to be able to see one missing.
@@ -570,6 +636,7 @@ def main() -> int:
     result["phases"] = part.phases
     result["finished"] = time.time()
     result["seconds"] = round(result["finished"] - result["started"], 1)
+    result["label"] = part.label
     result["lens"] = {"work_root": str(work), "store": str(part.store),
                       "transcripts": str(part.transcripts),
                       "rust_crate": str(part.rust_crate),

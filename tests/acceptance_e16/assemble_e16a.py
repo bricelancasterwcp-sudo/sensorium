@@ -3,12 +3,19 @@
 
     .venv/bin/python tests/acceptance_e16/assemble_e16a.py \\
         <results-a.json> <record.md> \\
-        [--write | --artifacts=<dir> [PATH=LABEL]...]
+        [--write | --append | --artifacts=<dir> [PATH=LABEL]...] \\
+        [--suffix=<heading tail>] [--previous=<earlier results.json>]
 
 Prints the section. With `--write` it replaces the record's single
 `Not yet measured.` line under `## 2. Part A` with it, which is the one edit
 `tests/test_acceptance_e16_lock.py::test_part_a_begins_not_yet_measured_or_a_
-measured_heading` allows.
+measured_heading` allows. With `--append` it puts the section at the END of
+§2, beside an earlier run's, which is how a re-measurement after a fix is
+recorded: §2's first non-blank line stays the first run's heading.
+`--suffix` extends the `### measured <date>` heading (`" — run 2, after the
+H2 and H3 fixes"`), and `--previous` names the earlier run's results file so
+the section can say which run is the first PASS for each cell -- read from
+that file rather than retyped.
 
 WHAT IS CHECKED HERE RATHER THAN TRUSTED
 ----------------------------------------
@@ -42,7 +49,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from e16a import (DROPPED, EXPECTED, PREDICTIONS,  # noqa: E402,F401
-                  RULES, TOKEN_VAR)
+                  RULES, TOKEN_VAR, read_driver_build)
 
 
 class Refused(Exception):
@@ -136,6 +143,24 @@ def verdict_table(raw: dict) -> list[str]:
 
 
 def versions_table(raw: dict) -> list[str]:
+    """The versions, under the line that says which BINARY produced them.
+
+    Dropped whole when the R37 rebuild left no stamp: every string below
+    comes from the source tree or from a trace, and none of them can tell a
+    current driver from a stale one -- which is the failure that made the
+    rebuild a phase.
+    """
+    build = read_driver_build(raw.get("driver_build"))
+    if build["word"] != "measured":
+        return [f"**Versions: dropped.** {build['why']}"]
+    b = build["build"]
+    when = _iso(b["mtime"])
+    driver_line = (
+        f"**Driver built by the run (R37):** `cargo build --release -p "
+        f"cargo-sensorium` in {b['seconds']}s before anything was recorded; "
+        f"`{b['binary']}`, {b['size']} bytes, mtime {when}."
+        + (f" cargo said: `{b['finished_line']}`."
+           if b.get("finished_line") else ""))
     versions = raw["versions"]
     rows = [("`sensorium` (installed)", versions["sensorium"],
              EXPECTED["sensorium"])]
@@ -146,9 +171,16 @@ def versions_table(raw: dict) -> list[str]:
         rows.append((f"`driver_version` on the {arm} trace", value, "--"))
     for tool, value in sorted((versions["tools"] or {}).items()):
         rows.append((f"`{tool}` under the scrubbed environment", value, "--"))
-    return (["| version | read | §1 expected |", "|---|---|---|"]
+    return ([driver_line, "",
+             "| version | read | §1 expected |", "|---|---|---|"]
             + [f"| {name} | {got or '(none recorded)'} | {want} |"
                for name, got, want in rows])
+
+
+def _iso(epoch: float) -> str:
+    import datetime as dt
+
+    return dt.datetime.fromtimestamp(epoch).isoformat(timespec="seconds")
 
 
 def _expected_recorder(arm: str) -> str:
@@ -162,15 +194,25 @@ def _expected_recorder(arm: str) -> str:
 #: project copy are hundreds of files that no recorder wrote, and a table
 #: nobody can read is not a table anybody checks. Every count is in
 #: `results-a.json`, committed beside this record.
-NAMED = ("store-a/", "rust-target/sensorium/spool/")
+NAMED = ("store-{label}/", "rust-target/sensorium/spool/")
+
+
+def named_prefixes(raw: dict) -> tuple[str, ...]:
+    """The prefixes §1 names one by one, for THIS run's store. A
+    re-measurement's store carries the run label, and a table keyed on the
+    first run's name would summarise the second run's own artifacts into a
+    count -- the rows §1 asks for by name."""
+    label = raw.get("label", "a")
+    return tuple(p.format(label=label) for p in NAMED)
 
 
 def h1_table(raw: dict) -> list[str]:
     sweep = raw["h1_sweep"]
-    named = [f for f in sweep["files"] if f["path"].startswith(NAMED)]
+    prefixes = named_prefixes(raw)
+    named = [f for f in sweep["files"] if f["path"].startswith(prefixes)]
     rest: dict = {}
     for f in sweep["files"]:
-        if f["path"].startswith(NAMED):
+        if f["path"].startswith(prefixes):
             continue
         top = f["path"].split("/")[0]
         agg = rest.setdefault(top, {"n": 0, "a": 0, "b": 0})
@@ -391,7 +433,7 @@ def artifacts(raw: dict, raw_path: Path, record: Path, dest: Path,
     find out."""
     pairs = scrub_pairs(raw["lens"], extra)
     dest.mkdir(parents=True, exist_ok=True)
-    written = [record.with_suffix(".results-a.json")]
+    written = [record.with_suffix(f".results-{raw.get('label', 'a')}.json")]
     written[0].write_text(scrub(raw_path.read_text(), pairs))
     src = Path(raw["lens"]["transcripts"])
     for name, _predicted in PREDICTIONS:
@@ -404,6 +446,52 @@ def artifacts(raw: dict, raw_path: Path, record: Path, dest: Path,
     if bad:
         raise Refused("a box path survived the scrub: " + "; ".join(bad[:5]))
     return written
+
+
+#: Which commits closed each of run 1's STOPs, as Task 8c's brief states
+#: them. Named in §2 because "run 2 is the first PASS" is only half a fact
+#: without what changed in between -- §9's H1 clause asks the record to say
+#: which run is the first PASS, and ruling R30 extends that to H2 and H3.
+FIX_COMMITS = {
+    "H2": "`6a719e4` (the TypeScript driver's spool, manifests and records, "
+          "and the Rust invocation record, 0700/0600) and `e36d5dd` "
+          "(`db.py`'s traces creator)",
+    "H3": "`1f60dd6` and `9d8f16a` (the refocus branches' recorder keys are "
+          "exact sets of what each driver SETS, not a `SENSORIUM_` prefix)",
+}
+
+
+def first_pass_block(raw: dict, previous: dict | None) -> list[str]:
+    """Per cell, how this run reads against the one before it.
+
+    §9's H1 clause requires the record to say WHICH RUN IS THE FIRST PASS
+    after a fix, and ruling R30 extends that to H2 and H3. The previous
+    run's words are read out of its own committed results file rather than
+    retyped here, so this cannot claim a cell STOPped when the record beside
+    it says otherwise.
+    """
+    if not previous:
+        return []
+    was = {c: r["word"] for c, r in (previous.get("cells") or {}).items()}
+    now = {c: r["word"] for c, r in raw["cells"].items()}
+    rows = []
+    for cell in RULES:
+        before, after = was.get(cell), now.get(cell)
+        if before == "PASS":
+            rows.append(f"- **{CELL_TITLES[cell]}** passed in run 1 and "
+                        f"reads **{after}** here.")
+        elif after == "PASS":
+            rows.append(
+                f"- **{CELL_TITLES[cell]} — run 2 is the first PASS.** Run 1 "
+                f"read {before}: {previous['cells'][cell]['why']} Fixed by "
+                f"{FIX_COMMITS.get(cell, 'the branch')}; run 2 reads "
+                f"{raw['cells'][cell]['why']}")
+        else:
+            rows.append(
+                f"- **{CELL_TITLES[cell]} — still {after}, no first PASS "
+                f"yet.** Run 1 read {before}: {previous['cells'][cell]['why']}"
+                f" Run 2 reads: {raw['cells'][cell]['why']}")
+    return ["", "#### Against run 1 — which run is the first PASS", ""] + rows
 
 
 def dry_run_block(raw: dict) -> list[str]:
@@ -428,7 +516,8 @@ def dry_run_block(raw: dict) -> list[str]:
             + [f"- {line}" for line in findings])
 
 
-def render(raw: dict, date: str) -> str:
+def render(raw: dict, date: str, suffix: str = "",
+           previous: dict | None = None) -> str:
     refuse_dry_run(raw)
     if raw.get("status") != "complete":
         raise Refused("this results file is not a completed run "
@@ -437,7 +526,7 @@ def render(raw: dict, date: str) -> str:
     cells = raw["cells"]
     words = "  ".join(f"{c} {r['word']}" for c, r in cells.items())
     body = [
-        f"### measured {date}",
+        f"### measured {date}{suffix}",
         "",
         f"Measured once, on this box, under `e16a.sh`. **Part A: "
         f"{raw['part']}** — {words}. The token was `sk-e16-` plus 33 "
@@ -456,6 +545,7 @@ def render(raw: dict, date: str) -> str:
     ]
     body = body[:-1] + verdict_table(raw) + ["", "#### Pins", ""]
     body += pin_table(raw["lens"])
+    body += first_pass_block(raw, previous)
     body += dry_run_block(raw)
     body += stop_notes(raw) + ["", "#### Amendments, beside §1", ""]
     body += amendments(raw) + ["", "#### Versions", ""]
@@ -486,6 +576,27 @@ def write_into(record: Path, section: str) -> None:
     record.write_text(text.replace(NOT_YET, section.rstrip("\n"), 1))
 
 
+def append_into(record: Path, section: str) -> None:
+    """A re-measurement's section, BESIDE the one before it.
+
+    §2's first non-blank line has to stay the first run's heading -- that is
+    what `tests/test_acceptance_e16_lock.py` accepts and what keeps a later
+    run from reading as the only one -- so a re-measurement is appended at
+    the end and never spliced above. Refused if §2 was never written, and
+    refused if this exact heading is already there: an assembler run twice
+    would otherwise leave two copies of one measurement in a document whose
+    whole claim is that each was made once.
+    """
+    text = record.read_text()
+    if NOT_YET in text:
+        raise Refused(f"{record} still says {NOT_YET!r}: there is no earlier "
+                      "run for this one to be appended beside")
+    heading = section.splitlines()[0]
+    if heading in text:
+        raise Refused(f"{record} already carries {heading!r}")
+    record.write_text(text.rstrip("\n") + "\n\n" + section.rstrip("\n") + "\n")
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
         print(__doc__.splitlines()[2], file=sys.stderr)
@@ -494,6 +605,9 @@ def main(argv: list[str]) -> int:
     record = Path(argv[1])
     date = __import__("datetime").date.today().isoformat()
     rest = argv[2:]
+    # Trailing `PATH=LABEL` pairs only -- anything starting with `--` is a
+    # flag, and a flag read as a scrub pair would rewrite the section with
+    # its own name.
     extra = tuple(tuple(a.split("=", 1)) for a in rest if "=" in a
                   and not a.startswith("--"))
     if any(a.startswith("--artifacts=") for a in rest):
@@ -504,13 +618,23 @@ def main(argv: list[str]) -> int:
                               extra):
             print(f"wrote {path}")
         return 0
-    section = render(raw, date)
-    if "--write" in rest:
+    suffix = _opt(rest, "--suffix=") or ""
+    prev_path = _opt(rest, "--previous=")
+    previous = json.loads(Path(prev_path).read_text()) if prev_path else None
+    section = render(raw, date, suffix, previous)
+    if "--append" in rest:
+        append_into(record, section)
+        print(f"appended to {record}")
+    elif "--write" in rest:
         write_into(record, section)
         print(f"written into {record}")
     else:
         sys.stdout.write(section)
     return 0
+
+
+def _opt(rest: list[str], flag: str) -> str | None:
+    return next((a.split("=", 1)[1] for a in rest if a.startswith(flag)), None)
 
 
 if __name__ == "__main__":

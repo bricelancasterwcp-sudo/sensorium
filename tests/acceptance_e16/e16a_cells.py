@@ -90,11 +90,17 @@ PREDICTIONS = (("python-unchanged", "granted"), ("rust-unchanged", "granted"),
 #: the other two as the whole answer.
 ARMS = ("python", "rust", "typescript")
 
-#: The two trees H2 gates, named as `Part.modes` names them (relative to the
-#: work root). Both have to EXIST and be readable: `find` over a missing
-#: root prints nothing, and a cell handed nothing about the Rust spool would
-#: PASS on the store alone -- the same short-input hole H3 and H6 had.
-GATED_ROOTS = ("store-a", "rust-target/sensorium/spool")
+#: The two trees H2 gates, as `Part.modes` names them (relative to the work
+#: root). Both have to EXIST and be readable: `find` over a missing root
+#: prints nothing, and a cell handed nothing about the Rust spool would PASS
+#: on the store alone -- the same short-input hole H3 and H6 had. The store
+#: carries the RUN LABEL, so a re-measurement beside an earlier run gates on
+#: its own store and not on the one before it.
+GATED_ROOT_TEMPLATES = ("store-{label}", "rust-target/sensorium/spool")
+
+
+def gated_roots(label: str) -> tuple[str, ...]:
+    return tuple(name.format(label=label) for name in GATED_ROOT_TEMPLATES)
 
 #: The focused function, in both arms. R27: §1 guessed `compute` for Rust
 #: and `main` for Python; `derive_sandbox` is the aliasing case's own
@@ -147,7 +153,8 @@ def cell_h1(files: list[dict] | None) -> dict:
     return out
 
 
-def cell_h2(entries: list[dict] | None, roots: list[dict] | None) -> dict:
+def cell_h2(entries: list[dict] | None, roots: list[dict] | None,
+            label: str) -> dict:
     """H2: 0600 on every file and 0700 on every directory a recorder made.
 
     A row's `scope` decides whether it is gated. `out` rows -- the
@@ -155,7 +162,8 @@ def cell_h2(entries: list[dict] | None, roots: list[dict] | None) -> dict:
     reader can see they were looked at and are answered for by nobody here;
     gating them would make this cell a statement about `cargo build`.
 
-    `roots` is one status per tree in `GATED_ROOTS`, and it is a REQUIRED
+    `roots` is one status per tree in `gated_roots(label)`, and it is a
+    REQUIRED
     argument rather than one with a default: `find` over a root that is not
     there prints nothing and exits non-zero, so without it a run whose Rust
     arm never recorded would sweep the store, find every mode right, and
@@ -164,7 +172,7 @@ def cell_h2(entries: list[dict] | None, roots: list[dict] | None) -> dict:
     """
     if entries is None or roots is None:
         return _dropped("the mode sweep did not run")
-    missing = [r for r in GATED_ROOTS
+    missing = [r for r in gated_roots(label)
                if r not in {row["root"] for row in roots}]
     if missing:
         return _dropped("no sweep status for: " + ", ".join(missing))
@@ -306,6 +314,29 @@ def cell_h6(traces: list[dict] | None) -> dict:
                               if t["run"] in bad)) if bad else (
         f"{len(traces)} trace(s), each redacting exactly {TOKEN_VAR}")
     return out
+
+
+def read_driver_build(build: dict | None) -> dict:
+    """What the R37 rebuild phase left, or why the versions cannot be read.
+
+    A `versions` block whose driver was not rebuilt is a block that cannot
+    say which code the run recorded with: E16 run 1's H2 STOP was fixed in
+    the tree, and a dry run against the unrebuilt binary still read the
+    STOP. So a missing or unsuccessful stamp DROPS the versions rather than
+    letting the four version strings -- all of which come from the SOURCE
+    tree or from a trace the stale binary wrote -- read as a statement about
+    the binary. `dropped`, never a guess and never silence.
+    """
+    if not build:
+        return _dropped("the instrument did not stamp a driver build: this "
+                        "run may have recorded with a stale binary")
+    for field in ("built", "binary", "mtime", "size"):
+        if build.get(field) in (None, ""):
+            return _dropped(f"the driver build stamp has no {field}")
+    if build["built"] is not True:
+        return _dropped(f"the driver build did not succeed: {build}")
+    return {"word": "measured", "why": "the release driver was rebuilt "
+            "before anything was recorded", "build": build}
 
 
 def part_word(cells: dict) -> str:

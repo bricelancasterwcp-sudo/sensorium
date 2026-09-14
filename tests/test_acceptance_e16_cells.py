@@ -52,9 +52,9 @@ sys.path.insert(0, str(REPO / "rust" / "tests"))
 
 import assemble_e16a                                              # noqa: E402
 import e16a                                                       # noqa: E402
-from e16a import (ARMS, GATED_ROOTS, PREDICTIONS, RULES,        # noqa: E402
-                  TOKEN_VAR, cell_h1, cell_h2, cell_h3, cell_h6, part_word,
-                  read_pair)
+from e16a import (ARMS, PREDICTIONS, RULES, TOKEN_VAR,          # noqa: E402
+                  cell_h1, cell_h2, cell_h3, cell_h6, gated_roots,
+                  part_word, read_pair)
 
 DOC = (REPO / "docs" / "superpowers" / "acceptance"
        / "2026-09-13-sensorium-e16-redaction.md")
@@ -108,17 +108,24 @@ def _modes(*rows):
             for p, m, k, s in rows]
 
 
+#: The run label every H2 case below is written against. One place, because
+#: `gated_roots` derives the store's name from it and a test that spelled
+#: the store by hand would stop tracking that.
+LABEL = "a"
+
+
 def _roots(*names, ok=True, why=""):
     """One status per gated tree. The default is every tree read; a test
     that wants a short sweep names fewer, or flips `ok`."""
     return [{"root": r, "ok": ok, "why": why}
-            for r in (names or GATED_ROOTS)]
+            for r in (names or gated_roots(LABEL))]
 
 
 def test_h2_passes_when_every_in_scope_file_is_600_and_directory_700():
     out = cell_h2(_modes(("store-a", "700", "dir", "in"),
                          ("store-a/traces/r.db", "600", "file", "in"),
-                         ("rust-target", "775", "dir", "out")), _roots())
+                         ("rust-target", "775", "dir", "out")),
+                  _roots(), LABEL)
     assert out["word"] == "PASS"
     assert out["out_of_scope"] == 1
 
@@ -126,7 +133,7 @@ def test_h2_passes_when_every_in_scope_file_is_600_and_directory_700():
 def test_h2_stops_on_one_file_at_644_and_names_it():
     out = cell_h2(_modes(("store-a", "700", "dir", "in"),
                          ("store-a/spool/i/invocation.json", "644",
-                          "file", "in")), _roots())
+                          "file", "in")), _roots(), LABEL)
     assert out["word"] == "STOP"
     assert out["offenders"] == [
         {"path": "store-a/spool/i/invocation.json", "mode": "644",
@@ -135,7 +142,8 @@ def test_h2_stops_on_one_file_at_644_and_names_it():
 
 
 def test_h2_stops_on_a_directory_that_is_not_700():
-    out = cell_h2(_modes(("store-a/spool", "775", "dir", "in")), _roots())
+    out = cell_h2(_modes(("store-a/spool", "775", "dir", "in")),
+                  _roots(), LABEL)
     assert out["word"] == "STOP"
     assert out["offenders"][0]["want"] == "700"
 
@@ -145,21 +153,21 @@ def test_h2_ignores_the_mode_of_anything_marked_out_of_scope():
     a reader can see they were looked at, and are not the recorders' to
     answer for. Listed, never gated -- the distinction the cell keeps."""
     out = cell_h2(_modes(("rust-target/debug/aliasing", "775", "file", "out"),
-                         ("store-a", "700", "dir", "in")), _roots())
+                         ("store-a", "700", "dir", "in")), _roots(), LABEL)
     assert out["word"] == "PASS"
 
 
 def test_h2_is_dropped_when_a_mode_could_not_be_read():
     out = cell_h2(_modes(("store-a/traces/r.db", None, "file", "in")),
-                  _roots())
+                  _roots(), LABEL)
     assert out["word"] == "dropped"
 
 
 def test_h2_is_dropped_when_the_sweep_did_not_run():
-    assert cell_h2(None, _roots())["word"] == "dropped"
-    assert cell_h2([], _roots())["word"] == "dropped"
+    assert cell_h2(None, _roots(), LABEL)["word"] == "dropped"
+    assert cell_h2([], _roots(), LABEL)["word"] == "dropped"
     assert cell_h2(_modes(("store-a", "700", "dir", "in")),
-                   None)["word"] == "dropped"
+                   None, LABEL)["word"] == "dropped"
 
 
 def test_h2_is_dropped_when_a_gated_root_was_never_swept():
@@ -170,14 +178,14 @@ def test_h2_is_dropped_when_a_gated_root_was_never_swept():
     PASS while claiming both trees. The root's own status is what the cell
     drops on, and the reason names the root."""
     out = cell_h2(_modes(("store-a", "700", "dir", "in")),
-                  _roots("store-a"))
+                  _roots("store-a"), LABEL)
     assert out["word"] == "dropped"
     assert "rust-target/sensorium/spool" in out["why"]
 
 
 def test_h2_is_dropped_when_find_could_not_read_a_gated_root():
     out = cell_h2(_modes(("store-a", "700", "dir", "in")),
-                  _roots(ok=False, why="no such directory"))
+                  _roots(ok=False, why="no such directory"), LABEL)
     assert out["word"] == "dropped"
     assert "no such directory" in out["why"]
 
@@ -505,3 +513,105 @@ def test_the_dry_run_block_is_empty_when_the_instrument_carried_nothing():
     contradict the record it was appended to."""
     assert assemble_e16a.dry_run_block({}) == []
     assert assemble_e16a.dry_run_block({"dry_run_findings": []}) == []
+
+
+# -- R37: the driver the run recorded with ---------------------------------
+GOOD_BUILD = {"built": True, "seconds": 2.2, "binary": "…/cargo-sensorium",
+              "cargo_target": "…", "mtime": 1789000000.0, "size": 7219088,
+              "finished_line": "Finished `release` profile in 2.16s"}
+
+
+def test_a_stamped_driver_build_reads_as_measured():
+    out = e16a.read_driver_build(GOOD_BUILD)
+    assert out["word"] == "measured"
+    assert out["build"] is GOOD_BUILD
+
+
+def test_the_versions_are_dropped_when_no_driver_build_was_stamped():
+    """The failure this stamp exists for: run 1's H2 STOP was fixed in the
+    tree, and a dry run against the unrebuilt binary still read the STOP. No
+    version string in the block can tell a current driver from a stale one
+    -- they come from the source tree or from a trace the stale binary
+    wrote -- so an unstamped run drops the whole block rather than letting
+    them read as a statement about the binary."""
+    assert e16a.read_driver_build(None)["word"] == "dropped"
+    assert e16a.read_driver_build({})["word"] == "dropped"
+    rendered = assemble_e16a.versions_table({"versions": {}})
+    assert len(rendered) == 1 and rendered[0].startswith("**Versions: dropped")
+    assert "stale binary" in rendered[0]
+
+
+def test_a_driver_build_missing_a_field_is_dropped_not_half_read():
+    for field in ("built", "binary", "mtime", "size"):
+        short = {k: v for k, v in GOOD_BUILD.items() if k != field}
+        out = e16a.read_driver_build(short)
+        assert out["word"] == "dropped", field
+        assert field in out["why"], field
+
+
+def test_a_driver_build_that_did_not_succeed_is_dropped():
+    out = e16a.read_driver_build({**GOOD_BUILD, "built": False})
+    assert out["word"] == "dropped"
+
+
+def test_the_versions_table_names_the_binary_it_was_built_into():
+    rendered = assemble_e16a.versions_table(
+        {"driver_build": GOOD_BUILD,
+         "versions": {"sensorium": "0.15.0", "recorder": {}, "tools": {},
+                      "driver_version": {}}})
+    assert rendered[0].startswith("**Driver built by the run (R37):**")
+    assert "7219088 bytes" in rendered[0]
+    assert "Finished `release` profile in 2.16s" in rendered[0]
+
+
+# -- a re-measurement, beside the run before it ----------------------------
+def _cells(**words):
+    return {"cells": {c: {"word": w, "why": f"{c} why."}
+                      for c, w in words.items()}}
+
+
+def test_the_first_pass_line_names_the_run_that_first_passed():
+    """§9's H1 clause asks the record to say which run is the first PASS
+    after a fix; R30 extends that to H2 and H3. The earlier run's words are
+    read out of its own results file, so this cannot claim a cell STOPped
+    when the record beside it says otherwise."""
+    now = _cells(H1="PASS", H2="PASS", H3="PASS", H6="PASS")
+    was = _cells(H1="PASS", H2="STOP", H3="STOP", H6="PASS")
+    out = "\n".join(assemble_e16a.first_pass_block(now, was))
+    assert "H2 — run 2 is the first PASS" in out
+    assert "H3 — run 2 is the first PASS" in out
+    assert "passed in run 1 and reads **PASS** here" in out
+    assert assemble_e16a.FIX_COMMITS["H2"] in out
+
+
+def test_a_cell_that_stops_twice_is_told_it_has_no_first_pass_yet():
+    now = _cells(H1="PASS", H2="STOP", H3="PASS", H6="PASS")
+    was = _cells(H1="PASS", H2="STOP", H3="STOP", H6="PASS")
+    out = "\n".join(assemble_e16a.first_pass_block(now, was))
+    assert "H2 — still STOP, no first PASS yet" in out
+    assert "H3 — run 2 is the first PASS" in out
+
+
+def test_there_is_no_first_pass_block_for_a_first_run():
+    assert assemble_e16a.first_pass_block(_cells(H1="PASS"), None) == []
+
+
+def test_appending_refuses_a_record_that_was_never_measured(tmp_path):
+    doc = tmp_path / "rec.md"
+    doc.write_text("## 2. Part A\n\nNot yet measured.\n")
+    with pytest.raises(assemble_e16a.Refused):
+        assemble_e16a.append_into(doc, "### measured 2026-01-01 — run 2\n")
+
+
+def test_appending_the_same_section_twice_is_refused(tmp_path):
+    """An assembler run twice would otherwise leave two copies of one
+    measurement in a document whose whole claim is that each was made
+    once."""
+    doc = tmp_path / "rec.md"
+    doc.write_text("## 2. Part A\n\n### measured 2026-01-01\n\nrun 1.\n")
+    section = "### measured 2026-01-02 — run 2\n\nrun 2.\n"
+    assemble_e16a.append_into(doc, section)
+    body = doc.read_text()
+    assert body.index("### measured 2026-01-01") < body.index("run 2.")
+    with pytest.raises(assemble_e16a.Refused):
+        assemble_e16a.append_into(doc, section)
