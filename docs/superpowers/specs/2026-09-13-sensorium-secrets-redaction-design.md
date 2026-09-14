@@ -699,3 +699,148 @@ Amendments are footnoted here with the date, the old wording kept visible.
   on the cells that PR delivers*: A = H1-env, H2, H3, H6-env; B = H1-values,
   H5, H6-values; C = H4. One record file, three dated sections, each
   byte-locked when written. The old sentence stands above, unedited.
+
+### 2026-09-14 — PR A shipped: the plan's decisions, the controller's rulings, and where the code differs
+
+PR A (`docs/superpowers/plans/2026-09-13-sensorium-redaction-a.md`, Tasks
+0–9) is the first of the three. Nothing in §§1–12 above is edited; this
+section says what shipped, what was ruled while it shipped, and every place
+the code and the sections above disagree. Where they disagree, **the code as
+landed is what the docs describe**.
+
+#### (a) The plan's decisions A1–A11, as shipped
+
+| # | as shipped |
+|---|---|
+| A1 | E16 is measured in three parts, one per PR, each once — A = H1-env, H2, H3, H6-env; B = H1-values, H5, H6-values; C = H4. One record file, dated sections, each byte-locked when written. Part A shipped two sections (**R30**), run 1 and run 2. |
+| A2 | `_env_diff(was, now, redaction=None)` returns a six-tuple with `uncomparable` last; `_env_state(meta, env, now_meta=None)` builds the `RedactionPair` from both metas and `Key.load(paths.trace_root())`; the five existing unpack sites take the sixth name. **Amended by R21**: a redacted name whose digests differ IS partitioned by name (session/harness), only RELOCATION is skipped. |
+| A3 | `UNVERIFIABLE_ENV = "env: unverifiable in part (redacted variables not comparable)"`, short form `env (redacted, not comparable)`, computed from the two metas through `redact.uncomparable`; the names ride the env line, not the marker. Shipped as written. |
+| A4 | `convert_dir(spool_dir, key: &Key)`; the driver passes the key it created, standalone `cargo sensorium convert` builds one with `Key::load(&store_root()?)` and never creates. Shipped as written; **R25** made the unkeyed WARN line the driver's only. |
+| A5 | Key creation lives in the drivers and the Python recorder, never in a runtime; `cargo-sensorium/src/redaction_key.rs` reads 32 bytes from `/dev/urandom` (std only). Shipped as written; **R15** changed HOW it is published, not where. |
+| A6 | The census input is the committed `tests/fixtures/benign-env-names.txt` (this box's shell names plus 40 common CI names, expected firing subset at its top); the corpus runner's own environment is not a census input in PR A. Shipped as written — and it is what found the **R10** gap. |
+| A7 | `info`'s `env:` field. Shipped with **three** forms, not one: the bare hash, `(N vars, 0 redacted)`, and `(N vars, k redacted: …)` capped at eight names. |
+| A8 | The `redaction:` line goes directly after `caps:`, four forms. Shipped as written; `values redacted: N` is absent because PR A redacts no values. |
+| A9 | Versions and the changelog land in Task 7, one commit, `## 0.15.0` dated. Shipped at `fbd1a03` (Python 0.15.0, sensorium-rt 0.6.0, cargo-sensorium 0.7.0, sensorium-ts 0.5.0). |
+| A10 | E16 part A records existing programs, no new probes, each with `SENSORIUM_E16_TOKEN` exported. **Amended by R27**: `corpus/typescript/aliasing` does not exist; the TypeScript arm records `corpus/typescript/async_interleaved` and the Rust arm's `--focus` names a function that exists in `corpus/rust/aliasing`. |
+| A11 | The fixture's schema is fixed now, `docs/trace-format/redaction-v1.json`; PR B fills `content`. Shipped as written, `content` empty, read by all three languages' suites. |
+
+#### (b) The controller's rulings R1–R38
+
+Each was ruled during execution and is in the plan's gitignored ledger with
+its evidence. The third column is the cost the ruling was taken at.
+
+| R | the ruling | cost if wrong |
+|---|---|---|
+| R1 | §6.2's per-name comparison lives ONCE, in `redact.compare(before, after, was, now, key)`; `uncomparable()` and `RedactionPair.compare` both delegate. | one extra small type in T1 |
+| R2 | When `mode == "off"` every writer and converter emits exactly `{"rule": "v1", "mode": "off"}` and nothing else. | a converter that adds `by` on an off trace is a one-line fix |
+| R3 | Task 5 owns both `is_recorder_key` edits; Task 6 does not touch them. | none, T6's reviewer would see a no-op diff |
+| R4 | `paths.traces_dir()` creates the trace root 0700 FIRST, then `traces` 0700 — `mkdir(parents=True)` gives parents default perms. | H2 STOPs on the root dir |
+| R5 | `redact.Key` is a frozen dataclass of `path` and `material`; `keyed`/`key_id` are properties. | none |
+| R6 | Model assignment per task (opus for the multi-file and prose-driven tasks, sonnet for the rest), reviewers likewise. | *(process; no cost recorded)* |
+| R7 | Every digest hashes `text.encode("utf-8", "surrogateescape")` — env values arrive surrogateescaped. | none, ASCII values are unaffected |
+| R8 | `redact.Key` carries `problem: str \| None` naming why it is unkeyed, for `info`'s UNKEYED line. | an unused field |
+| R9 | `redact.compare` is called only for a name in at least one side's `redaction.env`; names in neither keep plain equality. | a redacted name compared as plaintext, which T6's tests would catch |
+| R10 | **§2.1 amended**: `PWD` joins SEGMENTS but fires only in a name of two or more segments; an EXACT set `{PGPASSWORD}` fires regardless of segments. | two fixture rows to revert |
+| R11 | E16 runs the three recordings under `env -i` with an explicit allowlist, and preflight refuses if any allowlisted name fires. | a scrubbed env that breaks cargo/vitest shows up in the dry run |
+| R12 | `mode_note` prints `0644`-style (`{mode:04o}`), the spec's spelling. | one f-string |
+| R13 | The `redaction.env` table is emitted with SORTED keys by every writer. | none |
+| R14 | `digest()` falls back to `("utf-8", "replace")` if surrogateescape raises, and never raises. | a digest mismatch on a value no recorder produces today |
+| R15 | **§3 amended**: key publication is atomic-by-content — `redaction.key.<pid>.tmp` (0600, fsynced) hard-linked at the name, `FileExistsError` → read the winner; `os.replace` + re-read where `link` is refused. | one more branch in a 30-line function |
+| R16 | `db.create_trace` pre-creates with `O_WRONLY\|O_CREAT` at 0600 and `fchmod`s, WITHOUT `O_EXCL`, because `ts/ingest.py` hands it a file it already reserved. | a pre-existing non-empty file at that path would be opened by sqlite as a database, which is exactly what happened before this change |
+| R17 | Task 6 runs before Tasks 3/4/5, because the Python recorder redacts while the live re-run side is plaintext. | none; the order is the plan's argument, not the spec's |
+| R18 | `invocations.record`'s parent `mkdir` gains `mode=0o700` — the third creator of the store root. | one line |
+| R19 | The Python `refocus` branch relicenses and prints its unverifiable checks exactly as the Rust and TypeScript branches do, so `UNVERIFIABLE_ENV` never withholds a Python pair. | a Python licence granted with the marker printed beside it, which is what the other two branches already do |
+| R20 | `refocus_cmd.py` pops `redact.KEY_VAR` from the live environment snapshot; it is NOT added to `_UNCOMPARED_ENV`, whose printed list is pinned byte-for-byte. | none |
+| R21 | **Amends plan A2**: a redacted name whose `compare` is False is partitioned by NAME (`session`, `harness`, else `changed`); only RELOCATION is skipped. | a redacted session variable's change is exempted exactly as its plaintext change was |
+| R22 | The `compared` count and the "compared and unchanged" fact exclude the uncomparable names. | none |
+| R23 | The runtime keeps its 0700 spool `DirBuilder`; Task 4 gives the DRIVER's two creators 0700 and adds an end-to-end mode assertion. | a listable spool dir under the driver until T4 lands, which is today's state |
+| R24 | `Knobs` matching uses a linear scan, never `binary_search` over pub fields a foreign constructor may leave unsorted. | nothing at these sizes |
+| R25 | The unkeyed WARN line prints from `load_or_create` (the driver) only; the read-only `load` (standalone `convert`) is silent. | a silent unkeyed standalone conversion of an OLD spool; `info` still says UNKEYED on the trace |
+| R26 | The Rust converter's two remaining `create_dir_all`s (`convert/sqlite.rs`, `convert/runid.rs`) become 0700, with a test. | two lines |
+| R27 | **Pre-launch amendment to the pre-registration**, recorded beside the locked §1: the TypeScript arm records `corpus/typescript/async_interleaved`, and the Rust arm's `--focus` names a function that exists. | none; the cells are unchanged |
+| R28 | The docs say: a store whose key cannot be created or read records unkeyed and says so once, before the build; a store root that resolves to nothing produces no trace and the converter's own error names it. | two sentences |
+| R29 | E16 part A's Rust arm records under a dedicated `CARGO_TARGET_DIR` inside the work root, so H1's grep and H2's sweep reach the spool. | one cold build of the aliasing crate and the runtime (minutes) |
+| R30 | §9's H1 re-measure clause covers H2 and H3 too: run 1 stays verbatim, run 2 is appended beside it, dated, and the record says which run is the first PASS. | a second 25 MB run and one more section |
+| R31 | `refocus_rust._is_recorder_key` becomes an EXACT set of the names the three driver sources SET, pinned by a structural grep; the three user knobs are COMPARED. | a new driver variable added without the list fails the structural test loudly |
+| R32 | Task 8's fix round folds four minors because run 2 reuses that instrument and record. | a slightly larger fix diff |
+| R33 | Extends R31 to TypeScript: `refocus_typescript.is_recorder_key` is the exact set `ts/driver.py::_env` sets, pinned structurally. | a new driver variable fails the structural test loudly |
+| R34 | **Amends R31**: `SENSORIUM_INNER_RUNNER` leaves the exclusion set (a changed runner chain is a world change) and the structural pin greps SET-sites only. | a user who chains a runner sees one more compared variable, which is the truth |
+| R35 | `store/db.py:117`'s parent `mkdir` — the last default-mode creator inside the store — goes through the two-level 0700 idiom; the changelog says an existing store keeps the modes it was created with. | two lines |
+| R36 | `CHANGELOG.md`'s `## 0.8.7` entry moves verbatim to `CHANGELOG-ARCHIVE-2.md` under a dated cut note, to stay under the 800-line gate. | none; entries move verbatim |
+| R37 | `e16a.sh` rebuilds the release driver as its first phase and stamps the outcome and the binary's mtime into the raw record — a warning comment is not a check. | seconds when the build is fresh |
+| R38 | Task 9's push and PR move AFTER the final whole-branch review, so the PR carries the reviewed branch; Task 9 does the debt section, these amendments and the green run. | none; the PR is Brice's to merge either way |
+
+#### (c) Where the shipped code differs from §§1–12
+
+Fourteen, documented at Task 7 and named here so a reader of the sections
+above is not misled by them.
+
+1. **§2.1's segment set.** Spec said 24 segment words with `PWD`/`OLDPWD` as
+   non-firing examples; shipped 25 including `PWD`, gated on two or more
+   segments, so both examples stay true by a different mechanism (**R10**).
+   Where: `src/sensorium/redact.py`, and its Rust and TypeScript twins.
+2. **An `EXACT` set exists.** Spec had no counterpart; shipped
+   `{PGPASSWORD}`, firing regardless of segments, because segment-exact
+   matching cannot see inside a compound word (**R10**). Where: the same
+   three modules and `docs/trace-format/redaction-v1.json`.
+3. **Key publication.** §3 said `O_CREAT|O_EXCL` at 0600 on the final name;
+   shipped a per-pid temporary written whole, fsynced and hard-linked at the
+   name, with an `os.replace` fallback and a re-read either way (**R15**).
+   Where: `redact.Key.load_or_create`, `cargo-sensorium/src/redaction_key.rs`.
+4. **The fixture's shape.** §2.5 said cases of `{"name", "value", "expect"}`
+   plus a `"split"` list; shipped `{"split": [...], "names": [{"name",
+   "fires", "knobs"?}], "content": []}` — no `value`/`expect`, and `content`
+   empty because the content rule is PR B's. Where:
+   `docs/trace-format/redaction-v1.json`.
+5. **Who reads the fixture.** §2.5 said `cargo-sensorium`'s tests read it for
+   the content rule; shipped readers are `tests/test_redact.py`,
+   `rust/sensorium-rt/tests/redact.rs` and `typescript/test/redact.test.mjs`,
+   and there is no content rule to test.
+6. **No `redacted` object on a capture, and no `values` key.** §4.2 and
+   §6.1's first example describe both; PR A redacts no captured values,
+   `redaction.values` is absent from every trace and `info` prints no
+   `values redacted:` clause. Where: pinned by `v42`'s `expect_absent`.
+7. **`info`'s `env:` field has three forms, not one.** §6.1 showed only
+   `(120 vars, 2 redacted: …)`; shipped the bare hash (no `redaction` key, or
+   `mode: off`), `(N vars, 0 redacted)` for a measured zero, and the named
+   form. Where: `refocus_world.env_of` / `info_cmd`.
+8. **The keyed `redaction:` line can carry a mode note.** §3 says the
+   loose-key note goes on that line, §6.1's block does not show it; shipped
+   `(key mode 0644 -- expected 0600)` appended only when the store's key is
+   loose AND is the key that took these digests. Where: `info_cmd`.
+9. **The cap helper's name.** §6.1 names `_shown`; shipped
+   `refocus_world._capped`.
+10. **§6.2's table gains three rulings.** **R21** (a redacted session or
+    harness variable keeps its set exemption) and **R22** (the `compared`
+    count excludes the uncomparable) are not in the spec; **R19** (an
+    uncomparable name never withholds) the spec does state. Where:
+    `refocus_world._env_diff`, `refocus_env.RedactionPair`.
+11. **The digest's input bytes differ per language.** §3 said "UTF-8 of the
+    string as the recorder holds it"; shipped, Python hashes the
+    surrogateescaped byte `os.environ` handed it (with a `replace` fallback,
+    **R14**) while Rust and TypeScript hash the U+FFFD they stored in its
+    place (`spool::sorted_env` is `to_string_lossy`) — so a non-UTF-8
+    environment value digests differently across languages. Documented as an
+    honest limit on the same per-recorder terms `env_hash` already carries.
+12. **The header carries TWO siblings.** §4.3 describes one `redaction` key;
+    shipped, the Rust proc header and the TypeScript BOOT write
+    `env_redaction`/`envRedaction` beside it and the converter folds them.
+    Where: `TYPESCRIPT-KEYS.md`, `rust/README.md`.
+13. **Key order is not a wire promise.** Not stated in the spec; the Rust
+    converter's `serde_json::Map` is a `BTreeMap`, so it alphabetises the
+    `redaction` object while **R2**'s order is source-level. Documented in
+    `docs/redaction.md`.
+14. **§5.5's mode table missed the converter's own `traces/`.** Shipped 0700
+    via `perms::dir_all` with a test (**R26**). Where: `convert/sqlite.rs`,
+    `convert/runid.rs`.
+
+#### (d) E16 part A's outcome
+
+Run 1 (2026-09-14) read **DONE-WITH-STOP** — H1 PASS, H2 STOP (ten paths at
+0664/0775), H3 STOP (the Rust branch's `SENSORIUM_`-prefix exclusion granted
+a licence over a rotated token), H6 PASS. Run 2, measured from zero with a
+fresh token after `6a719e4`, `1f60dd6`, `9d8f16a` and `e36d5dd`, read **DONE**
+— H1, H2, H3, H6 all PASS; both readings are in
+`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §2, run 1
+byte-untouched beneath run 2, with the per-cell statement of which run is the
+first PASS.
