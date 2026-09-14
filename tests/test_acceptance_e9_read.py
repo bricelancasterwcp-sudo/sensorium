@@ -18,6 +18,7 @@ are in the task report.
 from __future__ import annotations
 
 import sqlite3
+import re
 import sys
 from pathlib import Path
 
@@ -218,7 +219,22 @@ def test_the_refusal_sentence_is_the_one_the_corpus_already_pins():
     pin = (REPO / "corpus" / "rust" / "focus_unfocused_refuses"
            / "questions.yaml")
     text = pin.read_text()
-    assert rd.refusal_sentence("sensorium-rt 0.5.0") in text
+    assert rd.refusal_sentence(_current_rt_version()) in text
+
+
+def _current_rt_version() -> str:
+    """`spool.RT_VERSION` as the runtime's source declares it today.
+
+    Read from the source and never typed here: this test said `0.5.0` in
+    its body while its docstring promised to move with the runtime, and the
+    two stale pins -- this one and the corpus's -- agreed with each other
+    through a whole release (PR A shipped `sensorium-rt` 0.6.0; the `rust`
+    job on `main` 3e4e6b5 read the corpus red while this test stayed green).
+    """
+    src = (REPO / "rust" / "sensorium-rt" / "src" / "spool.rs").read_text()
+    m = re.search(r'RT_VERSION: &str = "(sensorium-rt \d+\.\d+\.\d+)"', src)
+    assert m, "spool.rs no longer declares RT_VERSION in the shape this reads"
+    return m.group(1)
 
 
 # -- `flow` ----------------------------------------------------------------
