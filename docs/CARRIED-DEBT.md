@@ -123,357 +123,15 @@ lines against a live file of **489**, which would have taken it to **836**, so
 the oldest section was cut rather than the ceiling discovered. This file keeps
 the newest section, and the next slice's section is appended here.
 
-## 2026-09-13 — S5, refocus for TypeScript (Python 0.14.0 / sensorium-ts 0.4.0)
-
-The slice that gives `refocus` its third language. A vitest invocation is a
-POOL, so the whole recorded invocation is re-run as typed and the reader is
-told which of the traces that came back is the PAIR and what is being claimed
-about the rest. Ten plan decisions (**A1–A10**) and twenty-three controller
-rulings (**P0–P22**); every one that changed a sentence of the design is in
-its §9, and the ones that changed none are listed there too rather than left
-to be noticed. **The slice ships `DONE-WITH-STOP`** — twelve E15 cells read
-once each, nine PASS, one *reported*, three STOP. Two of the three STOPs are
-this record's own pre-registration, pinned by a dated §1 amendment with
-corrected clauses beside them **before the instrument was launched once**; the
-third is the survey's premise about which functions bear captures at the
-`call` tier. None of the three is about the tool, and the record says so
-(`docs/superpowers/acceptance/2026-09-13-sensorium-e15-refocus-typescript.md`
-§3–§5).
-
-### Settled — closed here
-
-- **`refocus` is no longer TypeScript's "not yet".** Rung 4 named it the
-  non-goal ("next slice, on these rows"); `typescript/README.md`'s *Not yet*
-  list loses it, `typescript/HONESTY.md` §5.2 and index row 7 stop calling
-  `refocus: false` a flat declaration (ruling **P9**, a dated in-place
-  parenthesis on the `err_flow` 2026-09-10 precedent), and
-  `capabilities.refocus` is **true** on every trace this driver converts —
-  whether one particular trace can be refocused is a refusal, not a
-  capability (R10). Measured, not asserted: E15's **H1 0 of 31** pre-rerun
-  refusals over real members of somebody else's suite.
-- **Two vocabulary lines retired, both of which had gone false.**
-  `no_rerun_note`'s *"refocus is not yet this recorder's"* becomes the Python
-  and Rust shape, naming `sensorium ts run --focus <file>:<qualname> --
-  <harness command>`; and *"arguments are not read in this version"* is gone
-  from the blind-spot block — rung 4 gave a focused site its arguments and a
-  refocus always deepens the focus, so the line had been false on every trace
-  a refocus produces. Its absence is pinned over a transcript by
-  `tests/test_refocus_typescript_licence.py`.
-- **`js_inspect._MORE`** — the §2026-09-12 item that scheduled its own
-  removal "at the next Python minor" — is removed, and that item is **struck
-  where it stands** (ruling **S2**), which is now
-  [`CARRIED-DEBT-ARCHIVE-11.md`](CARRIED-DEBT-ARCHIVE-11.md), this file's
-  ceiling having cut that section there before this one was appended; the
-  strike carries a dated pointer back here. Zero consumers before and after;
-  `tests/test_js_inspect.py` asserts the name is gone and that `INSPECT_MORE`
-  is the public one — and its docstring's "CARRIED-DEBT §2026-09-12" citation
-  now names a volume rather than the live file, which the final fix wave
-  takes.
-
-### The gaps E15 found (record §5)
-
-1. **H7 and H8 STOP on clauses this record wrote wrong** (§5.1). H7 asked for
-   a `licence: WITHHELD` line "whatever the verdict" where `refocus_report.py`
-   prints one only on a MATCH; H8 spelled `refocus <run> --window 1` without
-   the `--focus` that `refocus_cmd.py:186` marks `required=True`, so argparse
-   answered before design §2.3 could. Both were found while the instrument was
-   being read against the code it judges and **before `e15.sh` ran once**, and
-   both were pinned by amendment rather than edited away (ruling **P16**).
-   *Closed by* the corrected clauses already measured beside them — **H7′ 1 of
-   1**, **H8′ 1 of 1**; nothing is left open but the discipline. *Cost if
-   wrong:* two STOPs in a table of PASSes that a hurried reader mistakes for
-   two defects in the tool.
-2. **P20 — the container-ending clause withheld two MATCHed licences for a
-   scheduler's coin flip** (§5.2). Rows 5 and 22 are MATCHes whose licences
-   were WITHHELD on one reason each — `SIGTERM originally, exit 0 on the
-   rerun` and its exact reverse — which is how vitest's pool ended the worker
-   fork, not a fact about the world the program ran in: the same class as
-   `VITEST_POOL_ID`/`VITEST_WORKER_ID`, which harness set 1 already names and
-   never withholds on. **Proposed closure, NOT APPLIED:** count a
-   container-ending disagreement the way harness set 1 is counted — printed,
-   named, never a reason to withhold — leaving the withholding for endings
-   that are the program's. *Cost if wrong:* two licences a later slice grants
-   that this one withheld; the cost of leaving it is that every vitest row
-   whose worker the pool happens to kill loses a licence it earned.
-3. **The survey's class rule is a rule about a HAZARD, and its capture model
-   was wrong** (§5.3). Six of the seven rows classed nondeterministic MATCHed
-   and one (row 8) diverged, on a CALL recorded as `DescribeCharacter`
-   originally and `DescribeCharacter.<anonymous>` in the re-run — so the
-   mechanism the survey named may not be the one that fired. Separately, H6's
-   `flow --value 0.4` prediction rested on "the only capture-bearing function
-   in that trace is `loadVolumes`"; the read found `0.4` **115** times as the
-   RETURN value of `getStoredVolume`, which the focus spec does not name. **H6
-   is a STOP and was not re-rolled** (ruling **P21**): the read was not
-   repeated and the clause was not widened to admit FOUND. *Closed by* a
-   future survey that classes a row by whether the hazard can reach the
-   compared multiset, and derives a `flow` prediction from the TIER rather
-   than from the focus. *Cost if wrong:* a survey that keeps predicting reads
-   in the wrong vocabulary, which is one STOP per slice that teaches nothing
-   new.
-4. **P5 — H6's closed loop rests on ONE row** (§5.4). Its four reads sit on
-   survey rows 1, 16 and 31, and rows 1 and 16 are classed nondeterministic.
-   H6 is readable on all four — its endpoint is the READ's verdict class and
-   exit, not the pair's — but *the loop closes under a GRANTED licence* rests
-   on **row 31** alone; rows 1 and 16 were granted on rows whose verdict was
-   itself a reading. *Closed by* a later loop whose reads sit on deterministic
-   rows by construction. *Cost if wrong:* the demonstration is narrower than
-   the sentence describing it, which is why the sentence says so.
-5. **The three load-time failures were never tried on the plain lens**
-   (§5.5). `src/lib/aoe/aoe.vectors.test.ts`,
-   `src/lib/distance/distance.vectors.test.ts` and
-   `src/lib/builder/emit/pf2eSheet.test.ts` fail at load under the recording,
-   looking for a data file above the frontend directory; whether they fail the
-   same way with no `sensorium` in the picture was **NOT MEASURED** — running
-   the plain suite is not one of §1's endpoints. *Closed by* one plain `npx
-   vitest run` on the lens, outside a measured run. *Cost if wrong:* a
-   circumstantial exoneration (ENOENT shapes, a cwd-relative path with no
-   parent repo, and H2 reading the same `1 (waited)` on the unfocused original
-   and all 31 focused re-runs) stands where a one-command fact would do.
-6. **The reused-worker mechanism was not exercised by E15** (§5.6). Every row
-   ran vitest's default isolated forks, one file per container; nothing in
-   E15 passes `--no-isolate` or `--maxWorkers 1`. The corpus case is that
-   claim's only evidence, and it pins **condition (b) only** — the derived
-   task-ROOT-frame count — because under `--no-isolate` the converter records
-   `test_file` singular and never the plural key (ruling **P3**). Condition
-   (a), the `meta.test_files` count, is pinned by fixture traces alone
-   (`tests/test_refocus_typescript.py`), since no converter writes the key
-   today. *Closed by* a later measurement that records a reused worker for
-   real, or by a converter that writes the plural key. *Cost if wrong:* a
-   refusal half of whose condition has never seen a real recording.
-7. **What the record does NOT license** (§5.7), restated because it is the
-   half a reader skips: the **371 siblings** are a statement about the
-   LOOKUP, not about their own pairs; a MATCH is an order-independent
-   multiset of CALL/RETURN/RAISE/HANDLED per task and not an equality of
-   VALUES; the second file of a reused worker is refused outright and the
-   second file of a container whose extra test rooted in a helper is
-   invisible to the derived check (blind spot 42); output, children and
-   threads were UNVERIFIABLE on all 31 rows and are evidence of nothing in
-   either direction; and every recording here is `SENSORIUM_TIER=call`.
-8. **The disk** (§5.8). The 33 whole-suite invocations left **14 038 077 489**
-   bytes (14.0 GB) of spool, which were freed after §3 was written exactly as
-   §1 said they would be. The **22 675 054 592** bytes (22.7 GB) of traces —
-   **12 276** of them — are KEPT on the work filesystem until this branch
-   merges, because every trace id the record cites is in them: **freeing them
-   is a post-merge chore**, and the PR body carries it. Two extra evidence
-   files, `originals.txt` and `e-fences.txt`, are committed under the
-   transcripts directory beside the 38 transcripts; §5.8's
-   `68 290 424 832` free bytes is labelled in the record as a hand `df`
-   reading present in neither the raw nor the results file (ruling **P22**).
-9. **The lens's manifest check did not run, and the lens was not read-only**
-   (§5.9). §1's preamble says the lens "is verified against rung 1's
-   748-entry manifest before and after"; `e15.py` has no such check. The
-   full-depth sweep found three paths newer than the launch, all under
-   `node_modules` and none a source file — the directory itself, an empty
-   `.vite-temp`, and vitest's per-file results cache
-   (`node_modules/.vite/vitest/<sha>/results.json`, 39 667 bytes). Because
-   `copy_lens.sh` **symlinks** `node_modules`, there was ONE of that file,
-   inside the lens, shared and rewritten by all 33 invocations: "the lens is
-   READ-ONLY" was not literally true, and the 33 invocations were not
-   independent of each other the way a fresh copy per invocation would make
-   them. *Closure, for the runner that comes next:* (a) `copy_lens.sh` copies
-   or read-only-binds `node_modules` instead of symlinking it, so a harness
-   writing its own caches writes them inside the throwaway copy; (b) `e15.py`
-   verifies the manifest at preflight AND at cleanup, so a claim §1's preamble
-   makes is one the instrument holds — the E12 instruments had such a hash and
-   E15's does not. *Cost if wrong:* a record whose isolation claim rests on
-   prose, and a shared mutable file whose harmlessness this run can assert but
-   not demonstrate. Neither is applied here: the instrument is not edited
-   after a number is read.
-
-### Deferred by ruling
-
-Each was ruled at execution, is in the design's §9 or this slice's ledger, and
-leaves something a later slice may want.
-
-- **The two drops are RULINGS, not debts** (**S1**, Brice, 2026-09-13). The
-  **C conversation** — the 44 design-level rows of the rung-4 debts design's
-  §9 — is **dropped, not on hold**. The **token-cost measurement** is dropped
-  with it: its branch `feat/token-cost-measure` is kept LOCAL at `7c0009b`
-  (21 commits, never pushed) as a record, and nothing on `main` names either.
-  They are written here because this ledger is the only place that says what
-  happened to them. *Cost if wrong:* two bodies of work whose disposition
-  lives in one paragraph — which is the reason the paragraph exists.
-- **Refocus by invocation id** (design §7): every pair compared, a roll-up
-  verdict and an exit for a mixed result. A different report shape and its own
-  brainstorm, and the natural next step now that the pair rule has been
-  measured. *Cost if wrong:* a reader with 372 containers asks 372 questions.
-- **A narrowing spelling** (`--only-this-file`, design §7): rejected by **R1**
-  for this slice, because a narrowed command is a command the reader never
-  typed and a re-run that quietly runs something else is not evidence about
-  the run in hand. Blind spot **43** declares the cost instead of hiding it
-  behind a default. *Cost if wrong:* every question costs the whole suite,
-  which is exactly what the blind spot says.
-- **Blind spot 42's real closure is a runtime change, not a reader one**
-  (**R11**, **P3**). The derived check reads the trace's own task ROOT frames;
-  a second test file whose callbacks all root in a non-test helper is
-  invisible to it, and the container pairs by its first file — DIVERGED or
-  MATCH on the container's shape, never a guess. Closing it needs the setup
-  file to mark every file start under a shared module cache, which is the
-  recorder's business. *Cost if wrong:* a pair that is honestly named and
-  honestly compared, over a container that ran more than the reader thinks.
-- **P20's proposed closure** and **§5.9's two closures** are written above
-  with their costs and are NOT applied: this record is measured once and
-  neither a number nor its instrument moves after a reading.
-- **`refocus_typescript.py` is one module for seven refusals, the re-run, the
-  pair and the licence bridge**, at 705 lines. The linked scan inside it is a
-  ~20-line copy of `refocus_rust.find_pair`'s (plan-mandated shape); a shared
-  `_linked_traces` in `refocus_licence.py` is the tidy, and the next edit to
-  either is where it pays for itself. *Cost if wrong:* two scans to keep in
-  step.
-
-### Files near the ceiling
-
-The 800-line gate (`tests/test_ceiling.py`) covers every tracked `.py`,
-`.rs`, `.sh`, `.md`, `.mjs`, `.ts` and `.tsx`. These are the ones this slice
-wrote in, measured at its last commit, whose next edit must take a seam
-rather than a paragraph (ruling **P14**: the gate binds, not a plan's size
-estimate):
-
-- **`rust/HONESTY-BLIND-SPOTS.md` 800** — at the gate exactly, untouched by
-  this slice; §2026-09-12's **P15** note stands, and its next entry opens a
-  volume.
-- **`README.md` 799** — took this slice's refocus sentence **net-zero**,
-  trimming the same section; the seam is the TypeScript section itself.
-- **`docs/query.md` 797** — the seam is **`docs/query-typescript.md`**, on
-  the `HONESTY-REFOCUS.md` precedent that this slice already used once.
-- **`typescript/HONESTY.md` 795** — the seam is the one this slice took: the
-  next section opens in its own file, as §12 *Refocus* did.
-- **`tests/test_ts_ingest_meta.py` 789** and
-  **`tests/test_refocus_typescript.py` 783** — the refocus tests already live
-  in two files (`tests/test_refocus_typescript_licence.py` 361 is the second);
-  the ingest tests' seam is `tests/test_ts_ingest_refocus.py` 95, which this
-  slice opened.
-- **`src/sensorium/query/refocus_world.py` 710** and
-  **`refocus_typescript.py` 705** — `refocus_licence.py` (133) was opened at
-  Task 1 precisely because `refocus_world.py` would otherwise have stood at
-  792, and it is where the next shared helper goes.
-- **`CHANGELOG.md` 689** after the 0.14.0 entry — `CHANGELOG-ARCHIVE-2.md`
-  opened at 0.13.0 and takes the next cut.
-- **This file** — the section above was drafted and measured before it was
-  written, the way the rule at the top asks.
-- Other tracked files sit between 770 and 800 and are not listed: a hand-kept
-  list of the files somebody remembered is the thing `test_ceiling.py`'s
-  pattern scope replaced.
-
-### Deferred minors, per task
-
-Small, named, none measured away; the ledger holds every one and this is the
-roll-up. The items already stated above — `_MORE`, blind spot 42's closure,
-the linked-scan copy, P20 and §5.9's closures — are not repeated.
-
-- **Task 0 (pre-registration and the RED cases):** the reused-worker truth
-  named `test_files` as the mechanism (reworded at Task 5 under P3,
-  expectation unchanged); the lock test carries duplicate
-  `working_tree_sha256`/`section1_sha256` keys, and the survey's mutation
-  test writes a temporary file only to hash it.
-- **Task 1 (the shared world):** an 88-char docstring line in
-  `tests/test_acceptance_e4p_read.py`; `tests/test_refocus_world_threads.py`
-  pins `callable` where identity (`refocus_world.env_of is
-  refocus_licence.env_of`) is the claim; the task report said
-  `refocus_world.py` 693 where `wc` said 692.
-- **Task 2 (driver, converter, vector):** `driver.py`'s `paths.traces_dir()`
-  mkdirs the store's `traces/` on a refused link (harmless — `runs` creates it
-  too, and the README's promise is about the SPOOL directory);
-  `info_typescript.py`'s truthiness guard where "key present" is the rule
-  (equivalent on every real trace); `_record(..., link=None)`'s default has
-  one caller.
-- **Task 3 (the branch):** three meta reads per trace in the linked scan
-  (`all_meta` once would do); the >1-candidate sentence says "claiming one
-  test file" on an argv key; `_drive(program=)` is a dead parameter; the
-  every-refusal-carries-the-note test covers 5 of 7 (3 and 4 skipped);
-  `import sys`/`import os` inside five test bodies; a test named
-  `…printed_after_the_verdict` asserts presence only; `_key_text` renders a
-  `("test_files", …)` key as `argv …` (reachable only for a length-1
-  `test_files` original, which no converter writes); and
-  `tests/refocus_ts_fixtures.py`'s local `paths` shadows the module import.
-- **Task 4 (the licence):** the env-line assertions are substrings rather
-  than one whole-line pin; three spellings of a harness ending
-  (`_harness_exit`, `_harness_side`, `_agreed_harness`) where one
-  `_harness_core` would do; `_agreed_harness` is typed `dict` but fed
-  `dict | None` (safe by call order); the new test file overlaps the other's
-  refusal, exit and blind-spot tests; a docstring-asserting test, with
-  `SENSORIUM_MANIFEST_DIR` missing from the behavioural parametrize; four
-  unreached guard branches untested; the withheld end-to-end test does not
-  pin its `exit:` line; and a 94-char docstring line at
-  `refocus_typescript.py:71`.
-- **Task 5 (the corpus):** a grep false-positive on the word "command's";
-  `corpus/typescript/README.md`'s focus table is stale (pre-existing).
-- **Task 6 (the docs):** `README.md`'s refocus clause sits semicolon-joined
-  to `ts run`'s refusal list (pre-existing ambiguity); `typescript/HONESTY.md`
-  §10's range row lost entry 39's date, and says "under 800" where the gate is
-  `<= 800`; `HONESTY-REFOCUS.md` restates `docs/query.md`'s exit paragraph
-  (the house pattern); `is_recorder_key`'s docstring still says **FOUR**
-  `SENSORIUM_*` variables differ by construction where the docs now say three
-  plus `SENSORIUM_FOCUS` when the call deepens; and a fix report cited two
-  README lines as 83-column precedents that are 81 characters and 83 bytes
-  (the em dash).
-- **Task 7 (the instrument):** the box-path grep's three hits are the rule's
-  own needles in tests; H5's docstring says seven clauses where the table has
-  eight; `needle()` counts a file before reading it and continues on OSError;
-  `sha256_file`'s `None == None` reads as restored; `wait_for_load`'s message
-  says `preflight: load` inside the loop; the `DURATION` regex is duplicated
-  in `e15_read` and `e15_phases`; H10 does not check the three new corpus
-  cases beyond the corpus exit; `tests/test_acceptance_e15_assemble.py`'s
-  `INSTRUMENT` list was not extended for `e15_cells_controls.py` (a hole in
-  the box-path guard, over a file that is clean); `e15_report.py`'s
-  `LOOP_GATED` is dead and the gate hand-repeated in five cells;
-  `exit_code_of(SystemExit(0))` could write `.DONE` over an error (latent,
-  unreachable today); `fence_commands()` mkdirs as a side effect of building
-  a list; the raw-shape docstring lacks `traces_between`/`as_written`;
-  `env_paths()` refuses without a marker when a variable is unset
-  (unreachable via `e15.sh`); a comment's literal `lens` clears the E-branch
-  fence by one space; and the task report's `e15.py` line count 487 against
-  494.
-- **Task 8 (the measurement):** §4's "rule, as the cell states it" column
-  truncates H7, H7′ and H9; §5 uses bold `**5.x**` paragraphs where the
-  precedents use `### 5.x`; and §3's H9 says "about 3 s slower" where the
-  arithmetic is 3.5 s (41.77 against 38.289).
-
-### Process lessons
-
-- **An always-word must be re-derived from the code, not carried.** The
-  design said four `SENSORIUM_*` variables "fire on every refocus by
-  construction"; three do, and `SENSORIUM_FOCUS` joins them only when the call
-  deepens the focus. The claim was true of the Rust sentence it was adapted
-  from and nobody re-read it against the branch it now described. A sentence
-  containing *every*, *always* or *by construction* is a claim with a
-  derivation, and the derivation is the part that has to be redone.
-- **A pre-registered READ must be derived from the recorder's own tier rule.**
-  H6's `flow --value` prediction was written in `--focus`'s vocabulary — only
-  the focused function bears captures — where the trace's tier is what decides:
-  at `call` a RETURN value is recorded for the file's traced functions and
-  `--focus` only adds the LINE-level local deltas for the one it names. This
-  is the S5 rung-4 lesson (a pre-registration written in the wrong command's
-  vocabulary) **one command over**, which is what makes it a rule rather than
-  an anecdote.
-- **A "read-only" claim about a directory needs a full-depth sweep and a
-  manifest, not a depth-1 listing.** The lens was called read-only on the
-  strength of a shallow check; a full-depth mtime sweep found a file the run
-  had rewritten 33 times through a symlink the copy owns (§5.9). A claim of
-  the form *nothing moved* is only as strong as the sweep that looked, and a
-  manifest hash before and after is the version of it an instrument can hold.
-- **A refusal keyed on a key nobody writes is dead on arrival — read the
-  trace instead.** Design §2.3 row 7 fired on `meta.test_files`, which the
-  converter never writes under `--no-isolate` because the driver's setup file
-  runs its top-level `fileStart` once under a shared module cache. Widening
-  the CONDITION on the reader side (the trace's own task ROOT frames, counted
-  as `max(declared, derived)` under **P11**) kept the sentence, the exit and
-  the locked corpus expectation unchanged and cost no recorder change.
-- **A brief's guessed count is not the tree's.** The corpus README's numbers
-  were briefed as "forty-five cases / thirteen focus cases" and the tree said
-  forty-seven and twelve — none of the three new cases records under a
-  `record: {focus}`. A count in a brief is a guess about the tree at dispatch
-  time; the command that recomputes it is the durable half. (The companion
-  rule from §2026-09-12 still holds: a plan's line-count estimate is not a
-  gate — the ceiling is, which is ruling **P14** in one line.)
-- **Two pre-registration errors found before a launch are worth more than a
-  clean table.** H7's and H8's clauses were wrong, were caught while the
-  instrument was read against the code it judges, and were pinned by
-  amendment with corrected clauses beside them rather than edited. Editing
-  either would have converted a prediction into a description and left no
-  trace that anyone had been wrong; what it cost is two STOPs in a table of
-  PASSes, and what it bought is two cells that ask the question the first
-  ones meant.
+**The S5 refocus section moved 2026-09-14** — `refocus`'s third language is
+[`docs/CARRIED-DEBT-ARCHIVE-12.md`](CARRIED-DEBT-ARCHIVE-12.md), wording,
+order and strikes unchanged, so a deferred item there is still open unless it
+is struck; PR B closed nothing it carried, so every item travels open.
+Measured before it was made, the way the rule asks: PR B's section below was
+drafted at **414** lines against a live file of **722**, which would have
+taken it to **1,136**, so the oldest section was cut rather than the ceiling
+discovered. This file keeps the newest sections, and the next slice's section
+is appended here.
 
 ## 2026-09-14 — secrets redaction, PR A (rule v1, the store key, env redaction, 0600 files)
 
@@ -720,3 +378,418 @@ paragraph:
   pinned by a dated amendment with the corrected clause beside the locked
   one. This is the S5 slice's **P16** applied a second time, which is what
   makes it the repo's rule rather than that slice's anecdote.
+
+## 2026-09-14 — secrets redaction, PR B (captured values, the content rule, wire v4, the readers)
+
+The second of the design's three PRs
+(`docs/superpowers/specs/2026-09-13-sensorium-secrets-redaction-design.md`):
+part A took the environment, this takes everything a recording CAPTURES —
+arguments, locals, returns, exception messages, output chunks, and any
+secret-shaped SPAN inside any text a recorder stores. Twenty-eight plan
+decisions (**B1–B28**) and twenty-three rulings (**R1–R23**) are in the
+design's **§13** with what each costs if wrong, beside the nineteen places
+the shipped code differs from the spec. **DONE** — E16 part B was measured
+**once**, on 2026-09-14
+(`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §3):
+H1-values **PASS**, H6-values **PASS**, H5 **measured and not gated**. The
+retrofit of every trace already on disk is PR C's.
+
+### Settled — closed here
+
+- **Every captured value is judged at the WRITER, in all three recorders.**
+  A value whose NAME fires rule v1 is stored as `<redacted>` with an HMAC of
+  the text the trace would otherwise have held; a secret-shaped span inside
+  any stored text is replaced where it stands, sentence intact. Python
+  `2e92eaa`/`b246075`, the Rust runtime `422874d` and its converter
+  `d47d371`/`7bbe6cc`, the TypeScript runtime and its ingest
+  `f0df6cc`/`a5f4b50`. Measured: E16 **H1-values PASS** over 20 gated files
+  — every count 0 under the store, in every Rust `<pid>.proc.json` and in
+  the TypeScript spool, and the Rust `.spool` files exactly **3**
+  occurrences, the content window §5.2 names — with **762** further files
+  swept beside them (the build tree, the disposable copies, the transcripts,
+  `TMPDIR`), none holding the token.
+- **The content rule: nineteen patterns, three implementations, one
+  fixture.** `src/sensorium/redact_content.py`,
+  `rust/cargo-sensorium/src/convert/redact_content.rs` and
+  `typescript/src/redact.mjs` all read
+  `docs/trace-format/redaction-v1.json`'s `content` rows (**B20**:
+  `{"pattern", "text", "after"}`, a negative row's `after` equal to its
+  `text`). A **hit** means the text CHANGED, never that a pattern matched —
+  the userinfo pattern matches the marker it put there itself, which is what
+  makes re-conversion a fixed point and the `values` count honest.
+  `06d325f`.
+- **The Rust wire is v4, and the tag is `4`** (**B1**). On a LINE row tag 3
+  has meant UNBOUND since wire v3, shipped in 0.13.0; §5.2 named 3 anyway,
+  having been written a day after `line.rs` changed. Tag 4 carries the
+  16-hex digest (empty when unkeyed), `truncated` 0, LINE rows only, over
+  the CAPPED text (**B24**); a v2/v3 reader still refuses it as `not
+  0..=3`. `422874d`, read by the converter at `d47d371`
+  (`rust/sensorium-rt/tests/redact/line.rs`,
+  `rust/cargo-sensorium/src/convert/spool/tests/line.rs`).
+- **The readers name what they cannot do** (`01e4dac`, `1431a50`).
+  `frame`/`tree`/`grep` print `token=<redacted #01234567>`,
+  `dict[3]=<redacted>` for a container and `Cfg#7` unchanged for an object;
+  a content hit prints as stored. `watch` renders
+  `<redacted; no comparable value>`, ends a predicate that met only taken
+  values at `NOTHING WAS CHECKED` and exit 3, and names the remedy
+  (`SENSORIUM_REDACT_ALLOW=<name>`, **R13**) rather than only the diagnosis.
+  `flow --object` refuses at exit 2 — the address is real and its occupant
+  was never recorded (**B11**) — and `flow --value` never sights a marker,
+  which would otherwise report every secret in the run as sightings of one
+  value. Vector `v42-redaction-render`.
+- **`redaction.values` is counted at the WRITE site** (**R10**, amending
+  **B3**): `redact_values.count`/`count_capture` walk what is handed to
+  `add_event`/`close_frame`, the tee counts a chunk whose text changed, and
+  the two converters count as they build — so the number is a pure function
+  of the trace's contents. A secret local re-captured at every line of a
+  loop counts ONCE; one text written into two rows counts once (an `Err`
+  return and the exit RAISE synthesised in front of it, under one digest,
+  **R16**). A kind this rule has never heard of is withheld WHOLE with
+  `digest: null`, pinned by an exhaustiveness test over `capture.py`'s kind
+  literals: the failure direction of this control is a lost fact, never a
+  kept secret. `b246075`.
+- **`by` changes meaning, visibly** (**B2**). It reads `recorder` only where
+  the RUNTIME did the value half too — Rust wire v4 or better with a
+  `redaction` header whose mode is on, `sensorium-ts` 0.6.0 or better — and
+  `converter` wherever a converter applied a half the runtime should have.
+  `rust/cargo-sensorium/src/convert/redaction.rs`,
+  `src/sensorium/ts/redaction.py`.
+- **`KEY` fires only inside a longer name, as `PWD` does** (**B28**,
+  **R6**), on the census's own evidence: **8 of the 17 firing bindings**
+  Task 0's static census found across `corpus/**`, the vectors and the
+  ts-spool fixtures were a bare `key` — a cache key, a dict key, a lookup
+  key (`stale_cache` in two languages, Rust's `focus_unfocused_refuses`,
+  TypeScript's `focus_async` and `focus_catch_binding`, vector `v36`) — so
+  rule v1 as first written would have answered `NOTHING WAS CHECKED` to
+  `watch --expr key == …` on every mapping-iterating function in the
+  language, the §12 false-positive cost paid on the commonest local
+  there is. Every compound spelling still fires (`api_key`, `apiKey`,
+  `secret_key`, `build_key`, `KEY_FILE`), and `SENSORIUM_REDACT_NAMES=key`
+  restores it per run. **Amended into v1 rather than minted as v2**: no
+  trace under the earlier spelling exists outside this box and CI, and the
+  identity rule binds from the first published release — §13 records the
+  narrowing, which is security-relevant and was taken on design authority.
+  `f7e0ef8`.
+- **The content rule's pre-check folds case where its patterns do**
+  (**R21**) — a LEAK found in prose, not in a test. **B18** put one
+  alternation of literal prefixes in front of the twenty regexes so H5 would
+  not measure them all on every string; `_TRIGGER` was case-SENSITIVE while
+  `authorization-header` is `(?i)`, so `BEARER <token>` skipped the table
+  and was stored in plaintext. Fixed in all three languages with two
+  uppercase fixture rows pinning `test_every_positive_passes_the_trigger`.
+  `ddb384e`.
+- **Two values are never taken, under any name** (**R17**, **R19**): Rust's
+  synthesised unit return `()` and a `dbg` text that is exactly `undefined`
+  or `null`, on ANY site and in both hands. They say the program produced no
+  value; a marker there would cost a reader that fact, hide no secret and
+  publish a digest of a constant. Whole texts and nothing near them — a
+  `NaN` is a value the program had. `7bbe6cc`, `a5f4b50`.
+- **E16 part B, measured once, 85.3 s wall clock.** H1-values PASS and
+  H6-values PASS (python **5**, rust **4**, typescript **4** — each trace
+  redacting exactly `SENSORIUM_E16_TOKEN`, the counts derived by hand from
+  the probe sources at **B15** and pre-registered). H5 measured and never
+  gated (§9, `rust/HONESTY.md` §10), `recorded/baseline` at `7dd25d2`
+  against HEAD, best-of-5 (**B17**):
+
+  | workload | tier | at `7dd25d2` | at HEAD | HEAD over `7dd25d2` |
+  |---|---|---|---|---|
+  | async_call_dense | default | 14.88 | 17.31 | **1.16** |
+  | await_dense | default | 6.89 | 7.26 | **1.05** |
+  | await_dense | focused | 10.45 | 12.35 | **1.18** |
+  | call_dense | default | 169.05 | 196.64 | **1.16** |
+  | call_dense | focused | 238.67 | 286.91 | **1.20** |
+  | work_between_calls | default | 2.83 | 3.36 | **1.19** |
+  | work_between_calls | focused | 3.96 | 5.52 | **1.39** |
+
+### Deferred by ruling
+
+- **The H5 cost is real, and its levers are named, not taken.** Every one of
+  the seven ratios is above 1: redaction costs 5–39% on top of the
+  recorder's own overhead, worst where the recorder is cheapest
+  (`work_between_calls focused`, 1.39) and mildest where it is dearest. The
+  two costs are the content regex over every stored text and
+  `redact.fires()` called **per local per line** from `redact_values`;
+  **B18**'s pre-check is the mitigation already built, and the two levers
+  left are a per-name memo for `fires()` (the names are `co_varnames`
+  strings, interned and handed back on every call, so a memo keyed on the
+  name pays once per name per process) and a cheaper trigger than one
+  alternation.
+  §9 says an outlier is a CARRIED-DEBT finding and never a stop, so it is
+  recorded here rather than chased. *Cost if wrong:* a recording 20% slower
+  than it needs to be, on a number that is reported and never gated.
+- **PR C — the retrofit.** `sensorium redact [--all] [--dry-run]`, and H4
+  with it: every trace already on disk still holds plaintext values, and
+  nothing in this PR reaches one. One hazard still travels from A — a stale
+  `redaction.key.<pid>.tmp` from a killed writer is left on disk by **R15**'s
+  publication and nothing sweeps it. *Cost if wrong:* every trace recorded
+  before 0.15.0/0.16.0 stays as it is, which is what part C exists for.
+- **`argv` is stored in plaintext.** Rule v1 reaches the environment and
+  captured values; a token passed as a command-line argument is in
+  `invocations.jsonl` and in the trace's own argv, untouched, and the name
+  rule has no name to judge it by. Named in `docs/redaction.md`'s honest
+  limits. *Cost if wrong:* a secret on a command line, which `ps` already
+  publishes to every process on the box.
+- **The output-chunk boundary.** The tee scans one `write()` at a time
+  (**B5**): a token split across two writes is seen by neither scan and
+  reaches the trace whole. Buffering one chunk to look across the seam would
+  hold output back from a recording that may never finish. *Cost if wrong:*
+  an unlucky `print` of a long secret, split by the interpreter's own
+  buffering.
+- **A Rust `?`-hop RAISE's message is content-ruled, not name-ruled**
+  (Task 6's open edge, not ruled). The message on a `?`-hop is the probe's
+  own read of the `Err`, not the RETURN text that **R16** withholds whole
+  under a firing qualname, so it takes the content rule like any other text.
+  Whether a hop through a firing function should withhold its message whole
+  is the question **R16** answered for the exit RAISE and not for this one.
+  *Cost if wrong:* a secret-shaped `Err` no content pattern knows, visible
+  in one synthesised row.
+- **The Rust spool holds content-plaintext under `<target>/sensorium/`
+  between the runtime and the converter.** The runtime does the name half
+  (it needs no regex, and the crate stays dependency-free); everything else
+  is the converter's, so a token inside a `Debug` rendering or
+  `get_token()`'s return is in the `.spool` file at 0600 until conversion —
+  exactly the 3 occurrences H1 counted. Taken by `cargo clean`, named in
+  `rust/README.md` and `rust/HONESTY.md` §14 rather than left to be
+  discovered. Closing it puts a regex dependency in a dependency-free
+  runtime, which §11 declined. *Cost if wrong:* a readable secret in a build
+  tree that outlives the recording.
+- **A spool ingested into a store that did not record it names two keys.**
+  `key_id` on the trace is the RECORDER's, while the capture digests the
+  converter took are under the INGESTING store's key. In practice the driver
+  mints the store key it hands the runtime, so the two are one; a spool
+  carried between stores is where they part. Documented as a limit.
+  *Cost if wrong:* a digest nobody can reproduce from the `key_id` printed
+  beside it.
+- **`exceptions` groups on the message text, so two identically redacted
+  messages are one group.** A content-rule consequence: two different
+  secrets whose messages redact to the same text merge into one row with a
+  count of 2. The grouping key would have to be the pre-redaction digest,
+  which the trace does not hold for a content hit (§2.3: a partial cannot
+  honestly carry a digest of the whole). *Cost if wrong:* an exception
+  census that under-reports distinct failures by one row.
+- **B8's map-key rule is Python-only.** A `map` sample pair whose KEY is a
+  firing `str` has its VALUE withheld — which is what reaches a headers
+  dict's `authorization` entry — in the Python recorder alone. Rust and
+  TypeScript store a RENDERING of a struct or object rather than a
+  decomposed map, so the content rule is their only reach into one, and
+  E16's Rust and TypeScript header rows were counted as content hits for
+  that reason. *Cost if wrong:* a headers dict whose value is on none of the
+  nineteen patterns, plaintext in two of three languages.
+- **Every older spool re-converted under this release now says
+  `by: "converter"` where it said `recorder`** — a visible change to a
+  published key (**B2**). `tests/fixtures/rust-spools/redacted-env/` is the
+  in-tree instance, re-pinned at Task 6. It is the truth about whose hand
+  took the capture digests, and the CHANGELOG says so, but a reader diffing
+  two conversions of one spool across releases sees a meta key change with
+  no wire change under it. *Cost if wrong:* one confused reader per
+  re-conversion.
+- **Outside this PR's promise, carried from A and still at default modes:**
+  `<target>/sensorium/{manifests,mirror,cache,rt}` — the **mirror holds a
+  copy of the user's source** — and `ts/wrapper.py`'s files inside the
+  user's `node_modules`. PR B added no writer outside the store and the
+  spools, and moved none of these. *Cost if wrong:* a world-readable copy of
+  somebody's source under `target/`, unchanged from A.
+- **Named as later slices by the design's §11, untouched:** `seal` mode, the
+  MCP policy layer, scanner parity, allow-globs and Windows ACLs.
+
+### Files near the ceiling
+
+Measured at this slice's last commit against the 800-line gate
+(`tests/test_ceiling.py`, `LIMIT = 800`, tracked `*.py *.rs *.sh *.md *.mjs
+*.ts *.tsx` outside the three record directories); the next edit to each
+takes a seam, not a paragraph:
+
+- **`rust/HONESTY-BLIND-SPOTS.md` 800** — AT the gate, zero headroom. The
+  next blind spot needs the file cut first, on the pattern `HONESTY.md`
+  itself already took three times (`HONESTY-ERR-FLOW.md`,
+  `HONESTY-OUTCOMES.md`, `HONESTY-REFOCUS.md`).
+- **`CHANGELOG.md` 797** after 0.16.0 — the **next** entry must move the
+  oldest one to `CHANGELOG-ARCHIVE-2.md` (479) under a dated cut note
+  BEFORE it is written, which is **R36**'s rule from A applied in advance
+  rather than discovered.
+- **`docs/query.md` 798**, **`docs/TRACE-FORMAT.md` 797**, **`README.md`
+  796**, **`typescript/HONESTY.md` 796** — four documents with nine lines
+  between them. **B25** is the pattern that kept TRACE-FORMAT net-zero this
+  slice: the contract names the key, the reading lives one file away
+  (`docs/redaction.md`). `docs/query-typescript.md` is query.md's named
+  seam; `typescript/HONESTY-REDACTION.md` is the split
+  `typescript/HONESTY.md` already took.
+- **`rust/HONESTY.md` 780** after §14 — 20 lines; the index
+  (`rust/HONESTY-INDEX.md`) is where a new row goes cheaply.
+- **`typescript/src/rt.mjs` 788** — **B13**'s five splits cleared A's named
+  seams (`redact_key.py`, `refocus_facts.py`, `flow_report.py`,
+  `record/boot_io.py`, `convert/discover.rs`, `3af7850`…`c94157e`), and
+  `typescript/src/capabilities.mjs` took rt.mjs's declaration block on top
+  of them; what is left in rt.mjs is the recorder itself.
+- **`src/sensorium/ts/build.py` 773**, **`rust/tests/mechanics.sh` 795**,
+  **`rust/cargo-sensorium/src/convert/redaction.rs` 763** and
+  **`convert/frames.rs` 737** — the four the value half grew most. The
+  converter pair is the one to watch: `redaction.rs` gained the content and
+  RETURN halves this slice.
+- **`typescript/src/redact.mjs` 711**, **`src/sensorium/query/flow_cmd.py`
+  724**, **`src/sensorium/record/boot.py` 698** and **`record/tracer.py`
+  698** — the write sites, with room.
+- Clear after the splits, and named here so nobody re-splits them:
+  `refocus_world.py` **657** (was 788), `redact.py` **304** (was 520).
+- **This file 795** after the cut to
+  [`docs/CARRIED-DEBT-ARCHIVE-12.md`](CARRIED-DEBT-ARCHIVE-12.md) — five
+  lines of headroom, measured before the move was made rather than after,
+  the way the rule at the top asks. The NEXT slice cuts the oldest section
+  before it drafts, not when the gate names the file.
+- **What this list does NOT cover.** **Twelve** more tracked files sit
+  between 770 and 800 and are not named above, because this slice touched
+  none of them and none is its seam: `tests/test_flow_identity.py` 797,
+  `tests/test_refocus_typescript.py` 794, `tests/test_runs_info.py` 790,
+  `tests/test_ts_ingest_meta.py` 789, `rust/tests/acceptance_e9_phases.py`
+  788, `rust/sensorium-transform/tests/golden.rs` 788, that crate's
+  `tests/edges.rs` 784 and `src/lines/facts.rs` 778,
+  `tests/test_refocus_licence.py` 772, `typescript/src/transform.mjs` 771,
+  `typescript/probes/check.mjs` 770 and
+  `src/sensorium/query/exceptions_cmd.py` 770. A hand-kept list is the thing
+  `tests/test_ceiling.py`'s by-pattern enumeration exists to replace: the
+  gate is the list, and this section is only what the next editor of these
+  particular files needs to know before adding a paragraph.
+
+### Deferred minors, per task
+
+- **T0 (census, pre-registration, lock):** the census's parameter regexes
+  use `[^()]*`, so a nested paren in a default value or a fn-pointer type
+  drops that parameter list silently (an under-report); the Rust
+  `Some|Ok|Err(name)` pattern misses tuple patterns; the census does not
+  cover `tests/` fixtures beyond `ts-spools`; `corpus/cases.py: key` is
+  harness code the module docstring overclaims as "rendered";
+  `test_the_record_carries_both_headings_inside_section_one` iterates three
+  rows and still says "both".
+- **T1 (the five splits):** six private helpers (`_write_key`, `_unlink`,
+  `_NO_LINK`, `_ROOT_MODE`, `_MARK_ON_CALL`, `_MARK_ON_ACCESS`) are not
+  re-exported by their old modules — no importer anywhere, so the
+  constraint's purpose holds and its letter does not.
+- **T2 (the content rule):** `Cargo.toml`'s `regex` comment is 3 lines, not
+  the 1 the brief budgeted; no fixture row mixes two patterns in one text,
+  and none exercises lowercase `bearer`; the `gh` trigger literal is broad
+  (spec-shaped, noted at **B18**).
+- **T3 (the Python recorder):** **R5** (an `unbound` row's NAME is never
+  withheld) is asserted by no test since `test_flow.py`'s fixture rename; a
+  map-key capture with `trunc` fires on the CLIPPED text; nested-container
+  recursion is unpinned past one level;
+  `test_an_exc_message_with_nothing_in_it_is_left_alone` uses a shape
+  `capture_exc` never writes; `run_target` installs the redaction state
+  without a matching `reset()`; a payload dropped by `w.seal()` is counted
+  though the trace does not hold it (`late_writes` already reports such a
+  run).
+- **T4 (the readers):** the name-redaction predicate is spelled four times
+  (`fmt`, `expr`, `flow_values`, `flow_cmd`) rather than once as
+  `is_name_redacted`; `digest[:8]` on a non-string digest raises; a taken
+  container loses `unread_marker`; `_key_step` on a name-redacted map key is
+  untested; `flow --value`'s footer counts taken captures as searched with
+  no note; a lineage over an object later bound to a firing name silently
+  loses that sighting.
+- **T5 (the Rust runtime):** no redacted MULTIBYTE text case (both 300-byte
+  cases are ASCII); empty-string and CAP-exact texts under a firing name are
+  untested; `use std::borrow::Cow` sits outside the std import group;
+  `LINE_PAYLOAD_MAX`'s "eight capped deltas" doc is now a floor.
+- **T6 (the Rust converter):** the Rust fixture suite no longer exercises an
+  unkeyed converter end to end (unit tests do); **B3**'s rule is stated in
+  two comments; `tests/test_rust_convert.py` mints a fixed 0600 store key
+  per fixture case (a harness change the reviewer accepted).
+- **T7 (TypeScript):** a stale comment at `redact.test.mjs:416` still calls
+  `dbg()`/`exc()` "the CONTENT half"; no structural guard that `rt.mjs` has
+  no bare `dbg(` outside captures/ret/pend (a `graph.test.mjs` source
+  assertion would close it); `_values`'s docstring overstates **B9** (a
+  previously content-marked text is never re-scanned).
+- **T8 (the corpus cases):** the env-value refusal test does not assert the
+  case is named; there is no test for a non-mapping `env:`; a case's `env:`
+  could clobber `SENSORIUM_DIR` or `PYTHONDONTWRITEBYTECODE` — no
+  reserved-key guard.
+- **T9 (docs, versions):** `rust/HONESTY-INDEX.md` row 5's falsifier is
+  prose pointing at prose (`check_modes` falsifies only the 0600 clause);
+  `typescript/HONESTY.md` has no `## 13.` stub, an index row only, as
+  briefed.
+- **T10 (the instrument):** no test pins the phase ORDER (grep before
+  info); `e16b.sh` hard-codes `baseline-7dd25d2` instead of reading
+  `BASELINE`; the baseline tree's own sensorium version is absent from §3's
+  versions table (only the uv transcript shows 0.14.0); A's inherited
+  preflight refusal still says "part A"; stale `bench-<label>` and copy
+  directories are not refused by the launcher; an unreadable `other` file is
+  not named in `why` when a non-zero one co-occurs, and the assembler
+  coerces a `None` occurrence to 0, so an unreadable file renders as clean
+  — neither moves the gate.
+- **T11 (the measurement):** **Brice owed** — free `$E16_DIR` (part A's two
+  runs and part B's `store-b`, the baseline worktree, the disposable copies
+  and a 0600 plaintext token), and `git worktree remove` the
+  `baseline-7dd25d2` tree (**R2**).
+
+### Process lessons
+
+- **A spec written a day after the wire it describes will name a number
+  that is already taken.** §5.2 called the redacted-by-name LINE tag `3`;
+  tag 3 had meant UNBOUND since wire v3 shipped in 0.13.0, one design
+  document and one day earlier. Nothing in the spec's own review caught it,
+  because a reviewer reads the spec against the spec. **B1** caught it by
+  reading `line.rs` — the writer, not the document — before the first line
+  of v4 was written. *A wire number is not a spec's to choose; it is the
+  writer's to report.*
+- **A rule nobody has run over a named list is a rule nobody has read**,
+  again, and the second run of A's lesson found more than the first.
+  **B27** made the census STATIC — every binding name in `corpus/**`, every
+  `args`/`deltas` key in the vectors, every `a`/`d` key in the ts-spool
+  fixtures, against a committed
+  `tests/fixtures/corpus-firing-names.txt` — and it ran at Task 0, before
+  any renderer existed. What it found was **B28**: half its firing bindings
+  were a bare `key`, and rule v1 as written would have blinded `watch` on
+  the commonest local in the language. The list is the finding, and a census
+  that runs in seconds before the expensive thing is rigorous-experiments §1
+  paying for itself twice in two PRs.
+- **A stale binary on PATH called PR A's corpus green.** CI on `main` at
+  `3e4e6b5` was RED on the `rust` job the moment this branch started: three
+  corpus questions pin a refusal sentence carrying `sensorium-rt 0.5.0`, and
+  a driver built from that tree prints 0.6.0. A's Task 9 corpus run had gone
+  through the `~/.cargo/bin` `cargo-sensorium`, which embeds the runtime it
+  was BUILT with — so the gate answered about a binary nobody had rebuilt.
+  **R3** now makes every Rust corpus run in a plan use a driver built from
+  that worktree, first on `PATH`; PR #41 fixed `main`, **R4** cherry-picked
+  it here, and **R9** made the one hand-typed pin
+  (`test_acceptance_e9_read`) read `RT_VERSION` out of `spool.rs` instead.
+  *A version pinned in two places is pinned in neither.*
+- **A pre-registration error found before launch is amended beside the
+  locked text, never edited** — **R11**, and this is the S5 slice's **P16**
+  applied a THIRD time, which is what makes it the repo's rule. §1's Python
+  probe command read `sensorium run --focus handle -- main.py`; a bare
+  `--focus handle` names a MODULE, so the recording would have carried no
+  LINE deltas at all and three of the five rows H6 counts would never have
+  existed. The corrected clause (`--focus main:handle`, the spelling the
+  corpus's own case uses) sits beside the locked one with its date. The
+  vitest copy's omission of `corpus/typescript/secret_in_env` is the second
+  amendment, for the same reason: `vitest run secret` is a SUBSTRING filter
+  and would have recorded two cases into one trace.
+- **A count is a pure function of the trace's contents, or it is a guess.**
+  The plan had `redaction.values` counted by the transforms as they applied
+  the rule, with a roll-back when a payload was dropped. **R10** moved it to
+  the WRITE site — `count(payload)` over what is handed to `add_event` — so
+  the number witnesses the trace and not the attempt. The roll-back
+  disappeared with it, and the one residual case (a payload dropped by
+  `w.seal()`) is a known minor rather than a wrong number in a
+  documented key.
+- **A leak can be found through prose.** Task 9's reviewer read the
+  pre-check's completeness claim — *every positive case carries a trigger*
+  — against the code that implements it and found `_TRIGGER` case-sensitive
+  where `authorization-header` is `(?i)`: `BEARER <token>` skipped the whole
+  table and was stored in plaintext (**R21**). No test failed, because every
+  fixture positive was lowercase. *Documentation review is security review
+  when the document publishes a completeness claim.*
+- **A sweep hole is found by review, before a once-only run.** Task 10's
+  own review caught the instrument holding back the WHOLE Rust spool tree
+  from the `rust-target/` sweep, so `<pid>.runner.json` and
+  `invocation.json` were in no grep set at all — two files H1 would have
+  reported on and did not look at. Only the gated `.proc.json` and `.spool`
+  files are held back now. A fourth dry run confirmed it, and `mint` became
+  a precondition (**R23**) in the same round. An instrument measured once
+  has exactly one chance to be right about what it did not look at.
+- **Two reviewers on two languages found the same carve-out.** **R17**
+  (Rust's synthesised `()`) and **R19** (a `dbg` text of `undefined` or
+  `null`) were raised independently, in Tasks 6 and 7, by reviewers who had
+  not read each other's rounds; **R19 refined** made the rule symmetric
+  across both hands and all three sites. The rule they share — *a value that
+  says the program produced nothing hides nothing* — was in neither the spec
+  nor the plan. Convergent findings from independent reviewers are the
+  cheapest evidence a rule is missing, not a duplicate to close.
