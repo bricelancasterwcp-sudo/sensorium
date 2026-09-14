@@ -18,7 +18,8 @@ the Rust half of them means.
 The rest of *What the answers claim* — `diff`, `refocus`'s general shape,
 `tree`, `info` and `runs` — is still in [`../README.md`](../README.md), and so
 is everything about what a trace file holds and what sensorium sees at all.
-Read those first: they are what the commands below answer from.
+Read those first: they are what the commands below answer from. What rule v1
+withholds from a recording is [`redaction.md`](redaction.md).
 
 ### `exceptions` — five dispositions, and a real refusal
 
