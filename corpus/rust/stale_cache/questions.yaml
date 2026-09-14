@@ -52,7 +52,7 @@ questions:
       The record's tier changed between the two lookups. Did the cache key
       change with it?
     truth: >
-      No. build_key ran twice and returned "A1" both times, because it reads
+      No. memo_id ran twice and returned "A1" both times, because it reads
       only the sku, while upgrade returned "pro" in between -- so the second
       price_of hit the memo entry inserted for the basic tier and returned
       10.0 for a record that is no longer basic. Two identical keys spanning
@@ -67,6 +67,6 @@ questions:
       RUST_BACKTRACE never prints.
     command: ["grep", "$RUN", "--kind", "RETURN", "\""]
     expect_contains: ["matches: 3"]
-    expect_count: {"build_key -> \"A1\"": 2}
+    expect_count: {"memo_id -> \"A1\"": 2}
     expect_line:
       - ["RETURN", "upgrade -> \"pro\""]

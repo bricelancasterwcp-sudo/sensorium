@@ -1,8 +1,6 @@
 # Every binding name in corpus/, docs/trace-format/vectors/ and tests/fixtures/ts-spools/
 # that rule v1's NAME rule fires on -- so PR B's renderers meet a list, not a surprise.
 # Harvested by: python tests/test_redact_census.py > tests/fixtures/corpus-firing-names.txt
-corpus/rust/focus_unfocused_refuses/src/main.rs: build_key
-corpus/rust/stale_cache/src/main.rs: build_key
 corpus/typescript/callback_handled/token.ts: refreshToken
 corpus/typescript/callback_handled/token.ts: tokenAge
 corpus/typescript/focus_catch_binding/retry.ts: parseKey
