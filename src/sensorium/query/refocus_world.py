@@ -36,7 +36,8 @@ from sensorium.query.refocus_env import (HARNESS_DIFFER, HARNESS_SET,
 # a third recorder needed it and split out at this file's 800-line ceiling.
 # Re-exported on the same pattern and for the same reason as the block below.
 from sensorium.query.refocus_licence import (  # noqa: F401
-    UNVERIFIABLE_KEY, env_of, relicense, stamp_unverifiable)
+    UNVERIFIABLE_KEY, env_of, print_unverifiable, relicense,
+    stamp_unverifiable)
 # The thread bookkeeping, split out at this file's 800-line ceiling.
 # Re-exported so `refocus_world.<name>` keeps resolving: these are one
 # command's internals across its files, not separate modules with surfaces
@@ -285,6 +286,24 @@ def _capped(names: list[str]) -> str:
     return shown + (f", +{len(names) - 8} more" if len(names) > 8 else "")
 
 
+def _by_name(key: str, session: list, harness: list, changed: list) -> None:
+    """Where a DIFFERENCE goes once relocation has been ruled out.
+
+    Session first, then harness, then the changed list that withholds. Both
+    sets are judgements about the NAME -- which shell a process was launched
+    from, which worker of a pool ran it -- so they hold for a value nobody
+    can read exactly as they hold for one anybody can (ruling R21). Written
+    once because the redacted branch and the plaintext branch must not be
+    able to answer this differently: `SSH_AUTH_SOCK` is in session set 1 AND
+    fires rule v1, so the two branches disagreeing would mean a re-run from
+    another terminal withholding on a trace made after the rule and granting
+    on one made before it. The two sets are disjoint, so their order between
+    themselves is documentation and decides nothing.
+    """
+    (session if is_session_key(key)
+     else harness if is_harness_key(key) else changed).append(key)
+
+
 def _env_diff(was: dict, now: dict, redaction: RedactionPair | None = None
               ) -> tuple[list[str], list[str], list[str], list[str],
                          list[str], list[str]]:
@@ -315,9 +334,7 @@ def _env_diff(was: dict, now: dict, redaction: RedactionPair | None = None
 
     Order per key: the fragment goes first, because what is compared is
     what the world put there; then equality; then the relocation rule over
-    the REMAINDERS; then session membership, then harness membership --
-    the two sets are disjoint, so their order between themselves decides
-    nothing and is the order they were added in. A key can be stripped and
+    the REMAINDERS; then `_by_name`. A key can be stripped and
     unchanged, stripped and relocated, or stripped and changed -- the strip
     is a statement about what was removed, never a verdict. A key present
     on ONE side only is a difference, as it always was, and is then
@@ -336,13 +353,16 @@ def _env_diff(was: dict, now: dict, redaction: RedactionPair | None = None
         # fragment to strip from it, no root to reroot it at, and a set's
         # membership says nothing about a value nobody can read. It differs
         # or it does not or it cannot be told, and only the middle answer
-        # is silence.
+        # is silence. A difference is then partitioned BY NAME like any
+        # other (R21): the two sets are judgements about the name, and only
+        # relocation -- which has to rewrite a path to test itself -- needs
+        # a value to look at.
         if redaction is not None and redaction.covers(key):
             verdict = redaction.compare(key, before, after)
             if verdict is None:
                 uncomparable.append(key)
             elif not verdict:
-                changed.append(key)
+                _by_name(key, session, harness, changed)
             continue
         removed = 0
         if isinstance(before, str):
@@ -361,12 +381,8 @@ def _env_diff(was: dict, now: dict, redaction: RedactionPair | None = None
         if (move and isinstance(before, str) and isinstance(after, str)
                 and differs_only_by_root(before, after, *move)):
             relocated.append(key)
-        elif is_session_key(key):
-            session.append(key)
-        elif is_harness_key(key):
-            harness.append(key)
         else:
-            changed.append(key)
+            _by_name(key, session, harness, changed)
     return changed, relocated, stripped, session, harness, uncomparable
 
 
@@ -451,7 +467,12 @@ def _env_state(meta: dict, env: dict,
     tail = f"; {tail}" if tail else ""
     on_line = (f"  {clause}" if clause else "") + tail
     on_fact = (f"; {clause}" if clause else "") + tail
-    compared = len((set(was) | set(env)) - _UNCOMPARED_ENV)
+    # MINUS the uncomparable (R22): a line that says "12 variables compared"
+    # and then names one of them as not comparable has counted a check it
+    # did not run. Every uncomparable name came out of the same key set, so
+    # the subtraction cannot go negative, and it is a no-op on every pair
+    # recorded before rule v1 -- there the list is always empty.
+    compared = len((set(was) | set(env)) - _UNCOMPARED_ENV) - len(unsure)
     ignored = ", ".join(sorted(_UNCOMPARED_ENV))
     # Neither set withholds, so each is counted and named instead -- and the
     # `outside ...` phrase says which of them the "unchanged" is qualified

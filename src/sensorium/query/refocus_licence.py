@@ -90,6 +90,29 @@ def stamp_unverifiable(path: Path, checks: list[str]) -> None:
         conn.close()
 
 
+def print_unverifiable(checks: list[str]) -> None:
+    """The unrun checks, on the terminal, under everything the report said.
+
+    Beside `stamp_unverifiable` and for its reason: what a pair could not
+    check is one sentence, and a branch spelling it for itself is how two
+    branches come to report the same fact differently. It was
+    `refocus_rust._print_unverifiable` while two branches used it; the
+    Python branch is the third (ruling R19), and a generic branch reaching
+    into the Rust one for a licence sentence is the dependency this module
+    exists to prevent.
+
+    Silent on an empty list: the block announces checks, and a heading over
+    nothing reads as a finding.
+    """
+    if not checks:
+        return
+    print("checks that could not run on this pair -- the recorder declares "
+          "it does not produce them, so nothing here is evidence either "
+          "way:")
+    for check in checks:
+        print(f"  - {check}")
+
+
 def env_of(meta: dict, new: Trace,
            is_recorder_key) -> tuple[str, str | None, str | None]:
     """(status line, caveat, fact) for the environment, from BOTH traces.

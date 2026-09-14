@@ -163,8 +163,8 @@ from sensorium.query.diff_cmd import compare
 from sensorium.query.refocus_world import (  # noqa: F401
     _UNCOMPARED_ENV, _clip, _env_diff, _env_state, _licence_caveats,
     _output_difference, _output_text, _source_state, _spawn_witnessed,
-    _verified_facts, harness_note, relicense, stamp_unverifiable,
-    uncompared_threads, unverifiable_checks)
+    _verified_facts, harness_note, print_unverifiable, relicense,
+    stamp_unverifiable, uncompared_threads, unverifiable_checks)
 # The reporting layer, split out at this file's 800-line ceiling. Re-exported
 # so `refocus_cmd.<name>` keeps resolving: these are one command's internals
 # across its files, not separate modules with surfaces of their own.
@@ -574,7 +574,13 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     print(f"run: {new_id}")
     print(f"trace: {new_path}")
     print(f"exit: rerun {status}   original {meta.get('exit_status', '?')}")
-    return report(orig, new, res, orig_name, new_id, a)
+    # `report` prints the blind-spot block; what follows it is this pair's
+    # own unrun checks, printed where the other two branches print them so
+    # that a reader of a Python re-run is told what a reader of a Rust one
+    # is told (R19). Stamped as well as printed, above.
+    code = report(orig, new, res, orig_name, new_id, a)
+    print_unverifiable(checks)
+    return code
 
 
 def run(args) -> int:

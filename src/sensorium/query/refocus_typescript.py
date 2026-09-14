@@ -106,13 +106,13 @@ from sensorium import paths
 # code, and "these checks could not run" is one finding about a pair --
 # and two spellings of one sentence is how two branches come to report the
 # same fact differently (ruling P2, 2026-09-13).
-from sensorium.query.refocus_rust import (_print_unverifiable,
-                                          _refused_after_rerun)
+from sensorium.query.refocus_rust import _refused_after_rerun
 # The licence and world code at its shared home. `env_of` takes this
 # branch's own `is_recorder_key` because which variables are the recorder's
 # bookkeeping is the one part of the environment rule that is per-language;
 # everything done with the answer is shared.
-from sensorium.query.refocus_world import (_source_state, env_of, relicense,
+from sensorium.query.refocus_world import (_source_state, env_of,
+                                           print_unverifiable, relicense,
                                            stamp_unverifiable,
                                            unverifiable_checks)
 from sensorium.store import db
@@ -639,7 +639,7 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
     # unrun checks, which are findings about THIS pair rather than about the
     # recorder, and are stamped as well as printed.
     code = report(orig, new, res, orig_name, new_id, a)
-    _print_unverifiable(checks)
+    print_unverifiable(checks)
     return code
 
 

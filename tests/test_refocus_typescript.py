@@ -760,11 +760,21 @@ def test_a_typescript_trace_reaches_this_branch_and_not_pythons(
 def test_the_refusal_after_a_re_run_is_the_one_the_rust_branch_prints():
     """Imported, never copied: "the re-run happened and produced no
     comparable pair" is one verdict with one exit code, and two spellings of
-    it would be two verdicts."""
+    it would be two verdicts.
+
+    `print_unverifiable` moved to the licence's shared home when the PYTHON
+    branch became its third caller (ruling R19) -- a generic branch reaching
+    into the Rust one for a licence sentence is the dependency that module
+    exists to prevent. All three still hold ONE object, which is what this
+    pins; where it is defined is the second assertion's business."""
+    from sensorium.query import refocus_licence
+
     assert (refocus_typescript._refused_after_rerun
             is refocus_rust._refused_after_rerun)
-    assert (refocus_typescript._print_unverifiable
-            is refocus_rust._print_unverifiable)
+    assert (refocus_typescript.print_unverifiable
+            is refocus_rust._print_unverifiable
+            is refocus_cmd.print_unverifiable
+            is refocus_licence.print_unverifiable)
 
 
 @pytest.mark.parametrize("name", [

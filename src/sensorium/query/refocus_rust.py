@@ -95,6 +95,8 @@ from sensorium.exit import UNSETTLED
 # check that is this language's.
 from sensorium.query.refocus_world import (UNVERIFIABLE_KEY, _source_state,
                                            env_of,
+                                           print_unverifiable as
+                                           _print_unverifiable,
                                            relicense as _relicense,
                                            stamp_unverifiable as
                                            _stamp_unverifiable,
@@ -301,16 +303,6 @@ def _launch(argv: list[str], root: str, store: Path) -> tuple[float, object]:
 
 
 # -- the assessment, with the checks that could not run --------------------
-def _print_unverifiable(checks: list[str]) -> None:
-    if not checks:
-        return
-    print("checks that could not run on this pair -- the recorder declares "
-          "it does not produce them, so nothing here is evidence either "
-          "way:")
-    for check in checks:
-        print(f"  - {check}")
-
-
 def _stamp_children(path: Path, children: list[str]) -> None:
     """Write this re-run's own child runs into the pair's trace.
 

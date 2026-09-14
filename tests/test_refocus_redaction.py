@@ -47,6 +47,15 @@ from tests.refocus_programs import LOOP, new_run
 #: both halves: what the table decided AND that everything else still takes
 #: the plain-equality path it always took.
 NAME, PLAIN = "MY_API_KEY", "PATH"
+#: A session-set name that ALSO fires rule v1 (`AUTH` is one of its
+#: segments), which is what makes ruling R21 a real case and not a
+#: hypothetical: every shell on this box carries it.
+SESSION = "SSH_AUTH_SOCK"
+#: A harness-set name. NOTHING in harness set 1 fires the name rule by
+#: itself -- `VITEST`, `POOL`, `WORKER`, `ID` are in no segment set -- so a
+#: redacted one arrives only through `SENSORIUM_REDACT_NAMES`, and the meta
+#: below records that knob the way the recorder stamps it.
+HARNESS = "VITEST_POOL_ID"
 SECRET = "s3cret"
 OTHER = "0" * 16
 KEY_ID = "0a1b2c3d"
@@ -67,13 +76,19 @@ def store(tmp_path, monkeypatch):
     return sdir
 
 
-def _meta(table, key_id=KEY_ID, *, keyed=True, env=None) -> dict:
-    """One side's meta: the stored environment and the rule that made it."""
+def _meta(table, key_id=KEY_ID, *, keyed=True, env=None, names=()) -> dict:
+    """One side's meta: the stored environment and the rule that made it.
+
+    `names` is `SENSORIUM_REDACT_NAMES` as the recorder stamped it --
+    normalised, sorted -- which is the only way a name the rule does not
+    fire on by itself comes to be redacted at all.
+    """
     return {"env": {NAME: redact.REDACTED, PLAIN: "/usr/bin"}
                    if env is None else env,
             "redaction": {"rule": "v1", "mode": "on", "keyed": keyed,
                           "key_id": key_id, "env": table,
-                          "names": [], "allow": [], "by": "recorder"}}
+                          "names": sorted(names), "allow": [],
+                          "by": "recorder"}}
 
 
 def _diff(was_meta, now_env, now_meta=None):
@@ -302,26 +317,31 @@ def _env_line(out: str) -> str:
     return next(ln for ln in out.splitlines() if ln.startswith("env: "))
 
 
-def test_a_pair_whose_digests_cannot_be_compared_is_still_granted(tmp_path):
-    """R19. The Python branch performs its own re-run and used to keep the
-    unverifiable markers in the WITHHOLDING decision, because it never
-    called `relicense` -- so a store whose key was gone when the original
-    was recorded withheld the licence over a check that could not run,
-    which is the one thing §6.2 says the marker must not do.
+def _unkeyed_original(tmp_path):
+    """A pair whose two sides can never be compared, re-run for real.
 
     The store's key is a ZERO-BYTE file when the original is recorded (the
     shape `Key.load_or_create` refuses to write over: it is the user's
     file), so that recording is unkeyed and its digests are `null`. The key
     is then removed, and the re-run mints a real one -- two sides that can
-    never be compared, over a variable that in fact never changed.
+    never be compared, over variables that in fact never changed.
     """
     sdir = tmp_path / "sdir"
     (sdir / "traces").mkdir(parents=True)
     (sdir / redact.KEY_FILE).write_bytes(b"")
     run_id, _ = _record(tmp_path)
     (sdir / redact.KEY_FILE).unlink()
+    return (*_refocus(tmp_path, sdir, run_id), sdir)
 
-    r, meta = _refocus(tmp_path, sdir, run_id)
+
+def test_a_pair_whose_digests_cannot_be_compared_is_still_granted(tmp_path):
+    """R19. The Python branch performs its own re-run and used to keep the
+    unverifiable markers in the WITHHOLDING decision, because it never
+    called `relicense` -- so a store whose key was gone when the original
+    was recorded withheld the licence over a check that could not run,
+    which is the one thing §6.2 says the marker must not do.
+    """
+    r, meta, _sdir = _unkeyed_original(tmp_path)
     line = _env_line(r.stdout)
     assert line.startswith("env: unchanged (")
     assert "redacted variable(s) not comparable (unkeyed): " in line
@@ -336,12 +356,7 @@ def test_info_replays_the_python_pair_s_unverifiable_check(tmp_path):
     `info` on the re-run says which check the granted licence does not rest
     on. Without the stamp a reader of the trace was told the licence was
     granted and never told what went unchecked."""
-    sdir = tmp_path / "sdir"
-    (sdir / "traces").mkdir(parents=True)
-    (sdir / redact.KEY_FILE).write_bytes(b"")
-    run_id, _ = _record(tmp_path)
-    (sdir / redact.KEY_FILE).unlink()
-    r, meta = _refocus(tmp_path, sdir, run_id)
+    _r, meta, sdir = _unkeyed_original(tmp_path)
 
     out = run_cli(["info", meta["run_id"]], cwd=tmp_path, sensorium_dir=sdir)
     assert out.returncode == 0, out.stdout + out.stderr
@@ -379,3 +394,74 @@ def test_the_key_variable_is_not_compared_on_the_live_side(tmp_path):
     assert _env_line(r.stdout).startswith("env: unchanged (")
     assert redact.KEY_VAR not in r.stdout
     assert meta["refocus_licence"] == "granted"
+
+
+# -- R21: the two sets are judgements about the NAME -----------------------
+def test_a_redacted_session_variable_keeps_its_exemption(store):
+    """`SSH_AUTH_SOCK` is in session set 1 AND fires rule v1. Read as a
+    plain change, a re-run from another terminal would withhold on every
+    trace recorded after the rule and grant on every one recorded before
+    it -- the same pair, two answers, decided by whether the value was
+    stored or digested. Set membership is a judgement about the name, so a
+    differing digest is partitioned exactly as a differing value is."""
+    env = {SESSION: redact.REDACTED, PLAIN: "/usr/bin"}
+    was = _meta({SESSION: OTHER}, env=env)
+    now = _meta({SESSION: "f" * 16}, env=env)
+    changed, _rel, _str, session, harness, unsure = _diff(
+        was, now["env"], now)
+    assert session == [SESSION] and changed == [] and unsure == []
+    assert harness == []
+
+    line, caveat, fact = _env_state(was, now["env"], now_meta=now)
+    assert line.startswith("env: unchanged outside session set 1 (")
+    assert f"1 session variable(s) differ: {SESSION}" in line
+    assert f"1 session variable(s) differ: {SESSION}" in fact
+    assert caveat is None
+
+
+def test_a_redacted_harness_variable_keeps_its_exemption(store):
+    """The same rule for the other set. No name in harness set 1 fires rule
+    v1 on its own, so this case reaches a real store only through
+    `SENSORIUM_REDACT_NAMES` -- recorded in `redaction.names`, which is why
+    the knob is stamped at all: a reader has to be able to see why a name
+    nobody would call secret was digested."""
+    env = {HARNESS: redact.REDACTED, PLAIN: "/usr/bin"}
+    knob = [redact.normalise(HARNESS)]
+    was = _meta({HARNESS: OTHER}, env=env, names=knob)
+    now = _meta({HARNESS: "f" * 16}, env=env, names=knob)
+    changed, _rel, _str, session, harness, unsure = _diff(
+        was, now["env"], now)
+    assert harness == [HARNESS] and changed == [] and unsure == []
+    assert session == []
+
+    line, caveat, _fact = _env_state(was, now["env"], now_meta=now)
+    assert line.startswith("env: unchanged outside harness set 1 (")
+    assert f"1 harness variable(s) differ: {HARNESS}" in line
+    assert caveat is None
+
+
+# -- R22: the count says how many were actually compared -------------------
+def test_the_compared_count_excludes_the_uncomparable(store):
+    """A line that says "2 variables compared" and then names one of the
+    two as not comparable has counted a check it did not run. The count is
+    the plain one MINUS the uncomparable names, on the line and in the
+    stamped fact alike -- two channels carrying one number."""
+    was = _meta({NAME: OTHER}, "aaaaaaaa")
+    now = _meta({NAME: "f" * 16}, "bbbbbbbb")
+    line, _caveat, fact = _env_state(was, now["env"], now_meta=now)
+
+    compared = len(set(was["env"]) | set(now["env"])) - len([NAME])
+    assert compared == 1
+    assert line.startswith(f"env: unchanged ({compared} variables compared;")
+    assert fact.startswith(f"{compared} environment variable(s) compared "
+                           "and unchanged")
+
+
+# -- R19 parity: the terminal is told what the trace was stamped with ------
+def test_the_python_branch_prints_the_checks_that_could_not_run(tmp_path):
+    """Stamped AND printed, where the other two branches print it. A reader
+    watching the run was told the licence held and never told which check
+    the verdict does not rest on; the trace said more than the screen."""
+    r, _meta, _sdir = _unkeyed_original(tmp_path)
+    assert "checks that could not run on this pair" in r.stdout
+    assert f"  - {UNVERIFIABLE_ENV}" in r.stdout
