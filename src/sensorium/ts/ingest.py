@@ -165,7 +165,7 @@ def _reserve(traces: Path, start_ts: float) -> tuple[str, Path]:
         if (traces / f"{run_id}.db").exists():
             continue
         try:
-            os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+            os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
         except FileExistsError:
             continue
         return run_id, tmp

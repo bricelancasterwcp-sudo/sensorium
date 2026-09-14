@@ -1,6 +1,7 @@
 """Trace file creation, opening, and run-metadata access."""
 import importlib.metadata
 import json
+import os
 import sqlite3
 from pathlib import Path
 
@@ -114,6 +115,26 @@ CREATE INDEX idx_frames_code ON frames(code_id);
 def create_trace(path: Path) -> sqlite3.Connection:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # The trace exists at 0600 from its first instant. sqlite would create
+    # it 0666-under-the-umask -- 0644 on most boxes -- and a trace holds the
+    # whole recorded environment, so the window between "file appears" and
+    # "we chmod it" is the window the spec closes (design §5.5).
+    #
+    # No `O_EXCL`: `ts/ingest.py` reserves a run id by creating the file
+    # itself, `O_EXCL`, and hands TraceWriter the zero-byte result, which
+    # sqlite opens as a new database exactly as it would its own. The guard
+    # against an explicit `--run-id` colliding with a real trace stays where
+    # it was, in `boot.run_target`'s `trace_path.exists()` refusal.
+    #
+    # `fchmod` behind the open because `O_CREAT`'s mode applies only when
+    # the open CREATES the file: on ingest's reserved file it is ignored,
+    # and that file was made 0600 by its own creator -- fchmod is what makes
+    # this function's promise hold whichever of the two paths arrived.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
     # The tracer flushes on whichever thread fills the batch, so the write
     # connection outlives its creating thread. TraceWriter serialises every
     # access under its own lock, which is the invariant check_same_thread

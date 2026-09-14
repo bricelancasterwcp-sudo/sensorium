@@ -89,14 +89,21 @@ def run_cli(args, cwd, sensorium_dir, stdin_text=None, env_extra=None):
 
 
 def record_script(tmp_path, source, extra=(), name="prog.py", argv=(),
-                  stdin_text=None):
-    """Record `source` via `sensorium run`; returns (run_id, trace, result)."""
+                  stdin_text=None, env_extra=None):
+    """Record `source` via `sensorium run`; returns (run_id, trace, result).
+
+    `env_extra` reaches the recorded process's own environment (see
+    `run_cli`), which is the only way to plant a variable the RECORDER
+    reads: it runs in a subprocess, where this process's monkeypatches are
+    not.
+    """
     tmp_path = Path(tmp_path)
     tmp_path.mkdir(parents=True, exist_ok=True)   # tests pass tmp_path / "b"
     (tmp_path / name).write_text(source)
     sdir = tmp_path / "sdir"
     r = run_cli(["run", *extra, "--", name, *argv], cwd=tmp_path,
-                sensorium_dir=sdir, stdin_text=stdin_text)
+                sensorium_dir=sdir, stdin_text=stdin_text,
+                env_extra=env_extra)
     m = re.search(r"^run: (\S+)$", r.stdout, re.M)
     run_id = m.group(1) if m else None
     trace = sdir / "traces" / f"{run_id}.db" if run_id else None

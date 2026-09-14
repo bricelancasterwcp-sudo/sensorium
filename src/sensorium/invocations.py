@@ -60,7 +60,13 @@ def record(argv: list[str], exit_status: int, error: str | None) -> None:
     try:
         p = path()
         p.parent.mkdir(parents=True, exist_ok=True)
-        with p.open("a", encoding="utf-8") as f:
+        # 0600 on creation, not afterwards: the log names every sensorium
+        # invocation and its argv, and `p.open("a")` would create it
+        # 0666-under-the-umask. The mode is ignored when the file is already
+        # there, which is the intent -- an existing log keeps whatever the
+        # user gave it.
+        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as f:
             f.write(json.dumps(line) + "\n")
     except (OSError, RuntimeError) as e:
         # OSError: the usual "can't write there" (missing/uncreatable
