@@ -1,0 +1,56 @@
+{
+  "id": "v42-redaction-render",
+  "asserts": "A trace recorded under rule v1 says so in two fields, and neither of them carries what the rule took. The `env:` field counts the environment the trace HOLDS and names the variables that were redacted out of it (`(2 vars, 1 redacted: SECRET_TOKEN)`) -- names only, because a digest printed beside the name it belongs to is an offline guessing target for any short value, and the digest `0123456789abcdef` this trace carries must appear nowhere in the output. The `redaction:` line, directly under `caps:`, states the parameters of the recording: which rule, that the store could key it and which key, and whose hand last applied it. A reader who cannot see those two fields cannot tell a trace whose secrets were taken out from one whose secrets are still in it.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog.py"],
+    "cwd": "/w",
+    "env": {"SECRET_TOKEN": "<redacted>", "HOME": "/h"},
+    "env_hash": "0000000000000000",
+    "redaction": {"rule": "v1", "mode": "on", "keyed": true,
+                  "key_id": "0a1b2c3d",
+                  "env": {"SECRET_TOKEN": "0123456789abcdef"},
+                  "names": [], "allow": [], "by": "recorder"},
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "python",
+    "capabilities": {"line": true, "locals": true, "threads": false,
+                     "children": false, "stdin": false},
+    "incomplete": false
+  },
+  "codes": [["/w/app.py", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null, "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-names-what-was-redacted-and-under-which-rule",
+      "ask": "Which variables did the rule take out of this recording's environment, and what rule was the recording made under?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "env:0000000000000000 (2 vars, 1 redacted: SECRET_TOKEN)",
+        "redaction: rule v1, keyed (key 0a1b2c3d), by recorder"],
+      "expect_absent": [
+        "0123456789abcdef",
+        "hunter2",
+        "redaction: none",
+        "values redacted:"]
+    }
+  ]
+}

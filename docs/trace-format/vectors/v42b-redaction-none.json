@@ -1,0 +1,53 @@
+{
+  "id": "v42b-redaction-none",
+  "asserts": "A trace with NO `redaction` key was recorded before the rule existed and holds the launching shell's environment exactly as it was, tokens and all -- so `info` says `redaction: none -- recorded before redaction existed; plaintext throughout` rather than printing nothing, because absence of the key is not absence of secrets and a silent reader would let a plaintext store read as a redacted one. That line is the ONLY thing such a trace prints differently: the `env:` field is the bare hash it always was, with no count and no parenthesis, because a trace that never ran the rule has no measured zero to report. A second vector rather than a second question on v42: one vector builds one meta, and the two facts here are two metas.",
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog.py"],
+    "cwd": "/w",
+    "env": {"HOME": "/h", "MY_API_KEY": "still-in-plaintext"},
+    "env_hash": "0000000000000000",
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "python",
+    "capabilities": {"line": true, "locals": true, "threads": false,
+                     "children": false, "stdin": false},
+    "incomplete": false
+  },
+  "codes": [["/w/app.py", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null, "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "info-says-which-silence-this-is",
+      "ask": "What does `info` say about a trace that carries no redaction record at all -- and does it still print the plain `env:` field it always printed?",
+      "command": ["info", "$RUN"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "redaction: none -- recorded before redaction existed; plaintext throughout",
+        "env:0000000000000000  exit: 0"],
+      "expect_count": {"redaction:": 1},
+      "expect_absent": [
+        "vars,",
+        "redacted",
+        "still-in-plaintext",
+        "rule v1"]
+    }
+  ]
+}
