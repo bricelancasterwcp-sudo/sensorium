@@ -377,7 +377,7 @@ fn env_hash_is_sha256_of_key_equals_value_newline_joined() {
 fn redact_env_replaces_the_value_tables_the_digest_and_deletes_the_key() {
     let key = Key::from_hex(Some(HEX_KEY));
     let env = owned(&[
-        ("HOME", "/home/someone"),
+        ("HOME", "/srv/someone"),
         ("MY_API_KEY", "abc"),
         (KEY_VAR, HEX_KEY),
         ("PATH", "/usr/bin"),
@@ -387,7 +387,7 @@ fn redact_env_replaces_the_value_tables_the_digest_and_deletes_the_key() {
     assert_eq!(
         seen(&stored),
         vec![
-            ("HOME", "/home/someone"),
+            ("HOME", "/srv/someone"),
             ("MY_API_KEY", REDACTED),
             ("PATH", "/usr/bin"),
             ("Z_TOKEN", REDACTED),
