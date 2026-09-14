@@ -236,15 +236,38 @@ wants a run of one binary.
 `$SENSORIUM_DIR/traces/`, default `~/.sensorium/traces` — the same place the
 Python and TypeScript recorders write, so one `sensorium runs` lists all three. A trace holds the
 recorded process's environment, command line, source digests and captured
-values in plaintext; treat one the way you would treat a core dump.
+values; treat one the way you would treat a core dump.
 
 The same goes for the spool directory the recording itself writes,
 `<target>/sensorium/spool/<invocation>/`: each `<pid>.proc.json` there carries
-the **full process environment** in plaintext, at whatever your umask gives it,
-and the `.spool` files beside it hold the captured return values. Conversion
-does not remove them. Treat that directory as a core dump too — it is inside
-`target/`, so a `cargo clean` takes it, and it should not be uploaded as a
-build artifact.
+the **process environment** and the `.spool` files beside it hold the captured
+return values. Conversion does not remove them. Treat that directory as a core
+dump too — it is inside `target/`, so a `cargo clean` takes it, and it should
+not be uploaded as a build artifact.
+
+From `sensorium-rt 0.6.0` / `cargo-sensorium 0.7.0` two things are different.
+**Rule v1** runs at the runtime's own writer, before the environment reaches a
+string: a secret-*named* variable is stored as `<redacted>` and the proc header
+carries two siblings after `env_hash` — `env_redaction`, the name → digest
+table, and `redaction`, the rule, the mode, the key and the two knobs, which
+the converter folds into the trace's one `redaction` key. **The driver mints
+the store's `redaction.key`** (0600, beside `traces/`) and hands the hex to the
+recorded process as `SENSORIUM_REDACT_KEY`, which the runtime deletes from what
+it records. A store whose key cannot be created or read records unkeyed and
+says so on stderr once, **before** the build — `sensorium: no redaction key at
+<path> (<reason>); digests will be absent`. A store root that resolves to
+nothing — neither `SENSORIUM_DIR` nor `HOME` set — produces no trace at all:
+cargo runs, and the converter's own error afterwards names the missing store.
+And every file either of them creates **under the store and the spool
+directories** is **0600** in a **0700** directory — the spool, the proc header,
+the runner record, the trace and `traces/` — by explicit mode at creation,
+never a later `chmod`. The build tree under `<target>/sensorium/` (the mirror,
+which holds a copy of your source) is not covered and stays at the platform
+default. `tests/convert_e2e.rs` (`check_modes`, `check_redaction`) asserts
+those over a real invocation, and
+`redaction_key.rs::load_or_create_mints_a_32_byte_key_at_0600_under_a_0700_root`
+pins the store root the key is minted under;
+[`docs/redaction.md`](../docs/redaction.md) is the rule and its limits.
 
 ## Ask
 

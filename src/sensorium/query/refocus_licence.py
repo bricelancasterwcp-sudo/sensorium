@@ -48,7 +48,7 @@ def relicense(a: dict, orig: Trace, new: Trace, world_verified) -> dict:
     told which checks did not run. But a caveat withholds the licence, and
     withholding it here would say the recorder's declared absence of output
     capture is a finding AGAINST this pair -- it is not a finding at all.
-    The markers are printed and stamped separately (`_print_unverifiable`,
+    The markers are printed and stamped separately (`print_unverifiable`,
     `UNVERIFIABLE_KEY`), so nothing is hidden by the removal; what is
     removed is only their vote.
 
@@ -90,6 +90,54 @@ def stamp_unverifiable(path: Path, checks: list[str]) -> None:
         conn.close()
 
 
+def print_unverifiable(checks: list[str]) -> None:
+    """The unrun checks, on the terminal, under everything the report said.
+
+    Beside `stamp_unverifiable` and for its reason: what a pair could not
+    check is one sentence, and a branch spelling it for itself is how two
+    branches come to report the same fact differently. It was
+    `refocus_rust._print_unverifiable` while two branches used it; the
+    Python branch is the third (ruling R19), and a generic branch reaching
+    into the Rust one for a licence sentence is the dependency this module
+    exists to prevent.
+
+    Silent on an empty list: the block announces checks, and a heading over
+    nothing reads as a finding.
+
+    THE PREAMBLE IS EXACT FOR THREE OF THE FOUR MARKERS AND FALSE FOR THE
+    FOURTH. Output, children and threads are checks the recorder declares it
+    does not produce -- there is no record, and nothing a reader can do about
+    it. `UNVERIFIABLE_ENV` is the other shape: the recorder redacted the
+    variable exactly as asked, and what is missing is a KEY -- either none
+    took the digests (`unkeyed`, and they are null) or the one that took
+    them belongs to another store (`different keys`). Same word, opposite
+    repairs -- and the two reasons have different repairs from EACH OTHER,
+    which is why the line points at the env line (which carries the reason
+    word) rather than naming one. `redact.uncomparable` is where those two
+    words come from.
+
+    The preamble stays byte for byte what it was -- three acceptance readers
+    parse it, and every pair that carries no redaction marker still reads
+    exactly as it did -- and the one extra line goes UNDER the list, printed
+    only for the marker it is about.
+    """
+    from sensorium.query.refocus_world import UNVERIFIABLE_ENV
+
+    if not checks:
+        return
+    print("checks that could not run on this pair -- the recorder declares "
+          "it does not produce them, so nothing here is evidence either "
+          "way:")
+    for check in checks:
+        print(f"  - {check}")
+    if UNVERIFIABLE_ENV in checks:
+        print("  the env one does not fit the heading above: those "
+              "variables WERE redacted, and what is missing is the key that "
+              "decides them -- the env line names them and says which repair "
+              "it is (`unkeyed`: record again under a key; `different keys`:"
+              " find the other store's redaction.key).")
+
+
 def env_of(meta: dict, new: Trace,
            is_recorder_key) -> tuple[str, str | None, str | None]:
     """(status line, caveat, fact) for the environment, from BOTH traces.
@@ -121,11 +169,17 @@ def env_of(meta: dict, new: Trace,
     # them twice would read as two separate holes in one check.
     mine = sorted({k for k in ((was if isinstance(was, dict) else {}) | now)
                    if is_recorder_key(k) and k not in _UNCOMPARED_ENV})
+    # `new.meta` whole, beside the FILTERED environment: the recorder's own
+    # keys are taken out of the compare, but the re-run's `redaction` table
+    # is how a redacted variable is compared at all, and a side handed no
+    # meta would be read as the live plaintext one -- which a driver
+    # language's re-run never is.
     line, caveat, fact = _env_state(
         {**meta, "env": {k: v for k, v in was.items()
                          if not is_recorder_key(k)}}
         if isinstance(was, dict) else meta,
-        {k: v for k, v in now.items() if not is_recorder_key(k)})
+        {k: v for k, v in now.items() if not is_recorder_key(k)},
+        now_meta=new.meta)
     if mine:
         named = f"; the recorder's own, also not compared: {', '.join(mine)}"
         line += f"  {named[2:]}"

@@ -1,0 +1,67 @@
+{
+  "id": "v43-refocus-redacted-env",
+  "asserts": "A re-run whose environment holds a variable rule v1 redacted, and whose digest could not be compared -- the two recordings were keyed by two different stores -- is GRANTED its licence and told exactly what was not checked. A check that could not run is not a finding against the pair (the rule `refocus_licence` already applies to a recorder that declares it captures no output), so the marker rides `refocus_licence_unverifiable` and `info` replays it in short form, `licence unverifiable: env (redacted, not comparable)`, while the NAMES ride the verified fact -- `1 redacted variable(s) not comparable (different keys): SECRET_TOKEN` -- because a variable the tool stopped checking is one a reader is owed the name of. The marker is fixed text carrying no names on purpose: `relicense` filters caveats by exact string, and a marker carrying names would never match itself. A digest that DIFFERS is a different outcome and withholds exactly as a changed variable does; this vector pins the third case, which is the one that must not be mistaken for either of the other two.",
+  "copies": 2,
+  "meta": {
+    "trace_format": 4,
+    "run_id": "$RUN",
+    "argv": ["prog.py"],
+    "cwd": "/w",
+    "env": {"SECRET_TOKEN": "<redacted>", "HOME": "/h"},
+    "env_hash": "0000000000000000",
+    "redaction": {"rule": "v1", "mode": "on", "keyed": true,
+                  "key_id": "bbbbbbbb",
+                  "env": {"SECRET_TOKEN": "0123456789abcdef"},
+                  "names": [], "allow": [], "by": "recorder"},
+    "start_ts": 0.0,
+    "end_ts": 1.0,
+    "exit_status": 0,
+    "main_thread_ident": 1,
+    "fingerprint_basis": "per-task",
+    "truncated_count": 0,
+    "source_hashes": {},
+    "recorder": "vector 1.0",
+    "lang": "python",
+    "capabilities": {"line": true, "locals": true, "threads": false,
+                     "children": false, "stdin": false},
+    "refocus_of": "$RUN",
+    "refocus_verdict": "MATCH",
+    "refocus_licence": "granted",
+    "refocus_licence_verified": [
+      "identical call shape across 1 compared fingerprint(s), holding 2 causal event(s)",
+      "2 environment variable(s) compared and unchanged in the environment the rerun executed under; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; 1 redacted variable(s) not comparable (different keys): SECRET_TOKEN"],
+    "refocus_licence_unverifiable": [
+      "env: unverifiable in part (redacted variables not comparable)"],
+    "incomplete": false
+  },
+  "codes": [["/w/app.py", "main", 1]],
+  "frames": [
+    {"parent": null, "code": 1, "call": 1, "return": 2, "depth": 0,
+     "thread": 1, "closed_by": "return", "kind": "function"}
+  ],
+  "events": [
+    {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 1,
+     "payload": {"args": {}}, "task": null},
+    {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1, "code": 1,
+     "line": null, "payload": {"value": {"k": "none"}}, "task": null}
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "the-redacted-variable-is-named-and-does-not-withhold",
+      "ask": "A re-run holds a redacted variable whose digest cannot be compared: does the licence still stand, is the reader told which check did not run, and is the variable named?",
+      "command": ["info", "$RUN2"],
+      "expect_exit": 0,
+      "expect_contains": [
+        "licence unverifiable: env (redacted, not comparable)",
+        "1 redacted variable(s) not comparable (different keys): SECRET_TOKEN"],
+      "expect_line": [
+        ["refocus-of: ", "verdict: MATCH  licence: granted"]],
+      "expect_absent": [
+        "licence: withheld",
+        "licence withheld:",
+        "0123456789abcdef",
+        "env: unverifiable in part"]
+    }
+  ]
+}

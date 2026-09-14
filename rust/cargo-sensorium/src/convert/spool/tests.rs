@@ -102,6 +102,8 @@ fn units_in_order_sorts_by_numeric_id_not_by_string() {
         start_realtime_ns: 0,
         env: BTreeMap::new(),
         env_hash: String::new(),
+        env_redaction: BTreeMap::new(),
+        redaction: None,
         units,
         refused: None,
         rt_version: String::new(),
@@ -110,6 +112,47 @@ fn units_in_order_sorts_by_numeric_id_not_by_string() {
     assert_eq!(
         header.units_in_order(),
         vec!["two".to_owned(), "ten".to_owned()]
+    );
+}
+
+/// A proc header as `sensorium-rt 0.5.0` wrote one: no `redaction`, no
+/// `env_redaction`, and the launching shell's environment in plaintext.
+const OLD_HEADER: &str = r#"{"pid":1,"ppid":0,"exe":"/w/t/x","argv":["x"],
+    "cwd":"/w","start_ns":1,"start_realtime_ns":2,
+    "env":{"MY_API_KEY":"s3cret"},"env_hash":"0123456789abcdef",
+    "units":{},"refused":null,"rt_version":"sensorium-rt 0.5.0"}"#;
+
+/// A header written by `sensorium-rt 0.5.0` or earlier carries neither
+/// redaction key, and reads as "the recorder applied nothing" -- not as an
+/// unreadable header. The converter's own retrofit is what then runs
+/// (`convert::redaction`), and it can only run if this deserialises.
+#[test]
+fn a_header_from_before_the_rule_reads_as_no_redaction_and_an_empty_table() {
+    let h: ProcHeader = serde_json::from_str(OLD_HEADER).unwrap();
+    assert!(h.redaction.is_none());
+    assert!(h.env_redaction.is_empty());
+    assert_eq!(h.env["MY_API_KEY"], "s3cret");
+}
+
+/// And a header that carries both siblings reads both. The table's values are
+/// `Option`, because an UNKEYED recording redacts the name and has no digest
+/// to put beside it -- `null` there is a recorded fact, not a missing field.
+#[test]
+fn a_header_carrying_the_two_redaction_siblings_reads_them_both() {
+    let json = OLD_HEADER.trim_end_matches('}').to_owned()
+        + r#","env_redaction":{"MY_API_KEY":"aabbccddeeff0011","B":null},
+             "redaction":{"rule":"v1","mode":"off"}}"#;
+    let h: ProcHeader = serde_json::from_str(&json).unwrap_or_else(|e| panic!("{e}: {json}"));
+    assert_eq!(
+        h.env_redaction,
+        BTreeMap::from([
+            ("MY_API_KEY".to_owned(), Some("aabbccddeeff0011".to_owned())),
+            ("B".to_owned(), None),
+        ])
+    );
+    assert_eq!(
+        h.redaction,
+        Some(serde_json::json!({"rule": "v1", "mode": "off"}))
     );
 }
 

@@ -153,7 +153,7 @@ META_CONTRACT = {
     "git_dirty_hash", "focus", "include", "exclude", "window", "caps",
     "start_ts", "end_ts", "exit_status", "uncaught", "stdin_consumed",
     "children", "truncated_count", "incomplete", "late_writes",
-    "main_thread_ident",
+    "main_thread_ident", "redaction",
 }
 
 

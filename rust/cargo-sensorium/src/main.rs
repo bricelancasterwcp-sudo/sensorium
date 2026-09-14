@@ -26,6 +26,8 @@ mod invocation;
 mod launch;
 mod mirror;
 mod modtree;
+mod perms;
+mod redaction_key;
 mod refocus_of;
 mod resolve;
 mod rt_build;

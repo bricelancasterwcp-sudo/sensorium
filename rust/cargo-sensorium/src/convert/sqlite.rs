@@ -91,11 +91,22 @@ impl TraceWriter {
     /// Any SQLite failure opening or initialising the file.
     pub fn create(tmp_path: &Path) -> Result<TraceWriter, String> {
         if let Some(dir) = tmp_path.parent() {
-            std::fs::create_dir_all(dir)
+            // 0700, like every other directory this driver makes (R26): the
+            // trace it is about to create is 0600, and a 0755 parent lists
+            // every run recorded on the box to every account on it.
+            crate::perms::dir_all(dir)
                 .map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
         }
         // A stale `.tmp` from a killed prior run must not resurrect old rows.
         let _ = std::fs::remove_file(tmp_path);
+        // The file is CREATED here, at 0600, and only then opened as a
+        // database: a trace holds the recorded process's whole environment
+        // and every value it captured, and SQLite would create it at 0644.
+        // `finish` renames this file into place and a rename carries the
+        // mode, so the number set here is the number the finished trace has
+        // -- with no window in which it is both readable and being filled.
+        crate::perms::create_new(tmp_path)
+            .map_err(|e| format!("cannot create trace {}: {e}", tmp_path.display()))?;
         let conn = Connection::open(tmp_path)
             .map_err(|e| format!("cannot create trace {}: {e}", tmp_path.display()))?;
         conn.pragma_update(None, "journal_mode", "WAL")

@@ -337,19 +337,21 @@ CPython recycles addresses.
 ## What a trace file holds
 
 A trace is one SQLite file under `$SENSORIUM_DIR/traces` (default
-`~/.sensorium/traces`), created with your umask — `0644` on a default Linux
-setup, so readable by every account on the machine. In plaintext it holds:
+`~/.sensorium/traces`), created **`0600` in a `0700` directory** from 0.15.0
+on — `0644` under your umask before that. It holds:
 
-- **the entire process environment** as it stood at record time, variable by
-  variable — every variable the launching shell exported, 78 of them for the
-  run that produced this paragraph — including any token, key or password
-  among them;
+- **the process environment** at record time, variable by variable, minus
+  what **rule v1** withheld: a secret-*named* variable is stored as
+  `<redacted>` beside an HMAC of its value under a key that never leaves the
+  store, so `refocus` can still say whether it changed
+  ([`docs/redaction.md`](docs/redaction.md); `info` names what it took);
 - **everything the program wrote** to stdout and stderr, interleaved with the
   events it wrote them between;
 - the command line, the working directory, the git commit, and content
   digests of every source file the run traced;
 - captured argument, return and local values, clipped to the caps `info`
-  prints but not filtered for what they contain;
+  prints and **not** filtered for what they contain — rule v1 reaches the
+  environment and nothing else yet;
 - which asyncio task each event ran in, and the tasks' names;
 - one causal fingerprint per thread (events outside any task) and per
   asyncio task.
@@ -359,16 +361,14 @@ with conformance vectors under `docs/trace-format/vectors/`. A Rust trace
 holds the environment, command line, source digests and captured `Debug`
 values the same way; its tasks are libtest tests and spawned threads rather
 than asyncio tasks, program output under libtest is declared absent rather
-than stored, and the spool directory a recording leaves under `target/`
-holds the same plaintext before conversion (`rust/README.md`, "Where traces
-go").
+than stored, and the spool directory under `target/` holds the same before
+conversion (`rust/README.md`, "Where traces go").
 
 `info` refuses to print the environment and `refocus` refuses to print the
 variables it compared — both carry secrets, and both say so in their own
-source. Nothing refuses to *store* it, and there is no redaction pass. Treat
-a trace the way you would treat a core dump or a `.env`: sharing one shares
-all of the above, and `SENSORIUM_DIR` is the only control over where it
-lands.
+source. What rule v1 does not name is stored as it was. Treat a trace as you
+would a core dump or a `.env`: sharing one shares all of the above, and
+`SENSORIUM_DIR` is the only control over where it lands.
 
 ## What sensorium sees at all
 
@@ -688,7 +688,7 @@ states one as a translation of the other. The driver's own fixed cost is
 `sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite the
 way `cargo sensorium test` records a Rust workspace: one trace per test-file
 process, trace format 4, read by the same `sensorium` command line. `typescript/`
-ships **`sensorium-ts 0.4.0`** — a transform whose edits never contain a newline,
+ships **`sensorium-ts 0.5.0`** — a transform whose edits never contain a newline,
 a runtime on `AsyncLocalStorage`, a vitest plugin, a `node --test` hook — with
 driver and converter in Python, so reading a trace needs no Node. What it sees and
 does not is [`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot

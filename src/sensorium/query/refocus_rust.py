@@ -84,7 +84,7 @@ import sys
 import time
 from pathlib import Path
 
-from sensorium import paths
+from sensorium import paths, redact
 from sensorium.driver import cargo_sensorium
 from sensorium.exit import UNSETTLED
 # The licence code this file used to own, at its shared home now that a
@@ -95,6 +95,8 @@ from sensorium.exit import UNSETTLED
 # check that is this language's.
 from sensorium.query.refocus_world import (UNVERIFIABLE_KEY, _source_state,
                                            env_of,
+                                           print_unverifiable as
+                                           _print_unverifiable,
                                            relicense as _relicense,
                                            stamp_unverifiable as
                                            _stamp_unverifiable,
@@ -301,16 +303,6 @@ def _launch(argv: list[str], root: str, store: Path) -> tuple[float, object]:
 
 
 # -- the assessment, with the checks that could not run --------------------
-def _print_unverifiable(checks: list[str]) -> None:
-    if not checks:
-        return
-    print("checks that could not run on this pair -- the recorder declares "
-          "it does not produce them, so nothing here is evidence either "
-          "way:")
-    for check in checks:
-        print(f"  - {check}")
-
-
 def _stamp_children(path: Path, children: list[str]) -> None:
     """Write this re-run's own child runs into the pair's trace.
 
@@ -347,6 +339,36 @@ def _refused_after_rerun(orig: Trace, reason: str) -> int:
     return UNSETTLED
 
 
+#: Every `SENSORIUM_` name `cargo-sensorium` itself puts into the recorded
+#: process's environment, and no other. Read off the SET sites --
+#: `launch.rs`'s eight `.env("SENSORIUM_…", …)` calls, plus the ninth it sets
+#: through a constant, `.env(sensorium_rt::redact::KEY_VAR, hex)`.
+#: `tests/test_refocus_rust_recorder_keys.py` greps `launch.rs`, `runner.rs`
+#: and `driver.rs` for that call shape and holds this set equal to what it
+#: finds, in both directions: a variable the driver starts setting without a
+#: line here would be compared on every focused re-run and withhold every
+#: licence, and a name left here after the driver stopped setting it would
+#: keep a variable of the PROGRAM out of the comparison.
+#:
+#: SET, never merely READ (R34, 2026-09-14). `SENSORIUM_INNER_RUNNER` was in
+#: this set for a day because the first pin matched bare literals and
+#: `runner.rs` reads one. Nothing here sets it: it names the runner program
+#: the USER configured, which the runner chains by running it as the
+#: executable, so a re-run under a different one ran the binary under a
+#: different program. Reading a variable is the opposite of owning it.
+RECORDER_KEYS = frozenset({
+    "SENSORIUM_FOCUS",
+    "SENSORIUM_INVOCATION",
+    "SENSORIUM_RT_DIR",
+    "SENSORIUM_SPOOL",
+    "SENSORIUM_TARGET",
+    "SENSORIUM_TIER",
+    "SENSORIUM_TOOL_HASH",
+    "SENSORIUM_WS",
+    redact.KEY_VAR,
+})
+
+
 def _is_recorder_key(name: str) -> bool:
     """Whether this variable is the RECORDER's own bookkeeping.
 
@@ -356,15 +378,51 @@ def _is_recorder_key(name: str) -> bool:
     a focused re-run changes `SENSORIUM_FOCUS` by definition, mints a new
     `SENSORIUM_INVOCATION` and `SENSORIUM_SPOOL`, and -- because `--focus`
     keys a fresh shim -- hands cargo different `RUSTC_WORKSPACE_WRAPPER`
-    and `CARGO_TARGET_<TRIPLE>_RUNNER` values. Compared, those six fire on
+    and `CARGO_TARGET_<TRIPLE>_RUNNER` values. Compared, those fire on
     EVERY Rust refocus, and a check that always fires says nothing.
+
+    A LIST AND NOT A PREFIX (E16 part A, H3, 2026-09-14)
+    ---------------------------------------------------
+    This was `name.startswith("SENSORIUM_")`, and the measurement is what
+    that cost. E16 planted `SENSORIUM_E16_TOKEN` in the recorded program's
+    environment and re-exported it to a fresh value between the recording
+    and the re-run. The Python pair reported the difference and WITHHELD
+    the licence, as pre-registered; the Rust pair granted it -- twice, in
+    both arms -- because the prefix had removed the name before `env_of`
+    compared anything. A rotated secret the licence could not see.
+
+    A prefix is a promise about names nobody has written yet, and the
+    namespace it claims is not the recorder's to claim: a user's program
+    reads whatever variables it likes, and several of ours invite the
+    shape (`SENSORIUM_E16_TOKEN` was pre-registered by this project's own
+    instrument and no reviewer noticed). So the driver's own variables are
+    a LIST, pinned to the sites that SET them, and everything else --
+    `SENSORIUM_NO_REDACT`, `SENSORIUM_REDACT_NAMES`,
+    `SENSORIUM_REDACT_ALLOW`, `SENSORIUM_CARGO_SENSORIUM`,
+    `SENSORIUM_INNER_RUNNER`, and any `SENSORIUM_`-shaped name a person
+    exports -- is the user's and is compared like any other variable. The
+    last two are variables this tool READS, which is not the same as owning
+    them: one names the driver binary a re-run uses and the other the runner
+    program the test binary is launched under, and a pair that differs in
+    either is a pair of two different tools.
+
+    `SENSORIUM_REDACT_KEY` is the one member of the set no Rust source
+    sets, and it stays: every recorder DELETES it from what it records
+    (`redact.env`), so a pair of current traces never holds it -- but a
+    trace converted before rule v1 existed does, and comparing it against a
+    re-run that does not would report the tool's own key as a change the
+    world made.
+
+    The two cargo-derived names are still SHAPES rather than list members:
+    `CARGO_TARGET_<TRIPLE>_RUNNER` carries the host triple, which is the
+    box's and not something a source file can be grepped for.
 
     Not applied to the Python branch, and not added to `_UNCOMPARED_ENV`:
     these are variables of a recorder Python's traces never carry. The
     names are printed beside the count rather than hidden behind it, which
     is the rule the shell list follows too.
     """
-    return (name.startswith("SENSORIUM_")
+    return (name in RECORDER_KEYS
             or name == "RUSTC_WORKSPACE_WRAPPER"
             or (name.startswith("CARGO_TARGET_")
                 and name.endswith("_RUNNER")))

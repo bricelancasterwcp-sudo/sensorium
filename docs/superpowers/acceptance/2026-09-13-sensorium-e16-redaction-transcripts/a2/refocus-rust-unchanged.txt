@@ -1,0 +1,58 @@
+$ $REPO/.venv/bin/python -m sensorium refocus 20260914-013409-b4033a --focus derive_sandbox
+# cwd $E16_DIR/rust-crate-a2  exit 0  0.182s
+focus: derive_sandbox
+   Compiling corpus_aliasing v0.1.0 ($E16_DIR/rust-crate-a2)
+warning: field `retries` is never read
+  --> src/main.rs:14:5
+   |
+13 | struct Config {
+   |        ------ field in this struct
+14 |     retries: u32,
+   |     ^^^^^^^
+   |
+   = note: `Config` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `corpus_aliasing` (bin "aliasing") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running `$E16_DIR/rust-target/sensorium/shim/9ca44c8eb0e8ab7c-c412bbb6317c7fad/cargo-sensorium --runner $E16_DIR/rust-target/debug/aliasing`
+spool: $E16_DIR/rust-target/sensorium/spool/20260914-013410-07f558
+cargo exit: 0
+refocus-of: 20260914-013409-b4033a   cmd: $DRIVER_DIR/cargo-sensorium --refocus-of 20260914-013409-b4033a --tier call --focus derive_sandbox run
+cwd: $E16_DIR/rust-crate-a2
+focus: derive_sandbox   window: -
+source: unchanged (1 file(s) compared by content; data files, untraced code and installed dependencies are NOT covered -- see blind spots below)
+--- rerunning (the driver's build output is above and below; the lines below are its own) ---
+prod timeout: 1 sandbox timeout: 1
+run: 20260914-013410-6dca36  pid: 1725732  exe: aliasing  events: 13  threads: 1  exit: 0
+driver reported: run: 20260914-013410-6dca36  pid: 1725732  exe: aliasing  events: 13  threads: 1  exit: 0
+--- verdict ---
+run: 20260914-013410-6dca36
+trace: $E16_DIR/store-a2/traces/20260914-013410-6dca36.db
+env: unchanged (33 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
+exit: rerun 0   original 0
+A 20260914-013409-b4033a: threads 1  compared: t1 [recorded main thread]  fp 2ca04fe4ca037f0700552e2541ed4ed0
+B 20260914-013410-6dca36: threads 1  compared: t1 [recorded main thread]  fp 2ca04fe4ca037f0700552e2541ed4ed0
+verdict: MATCH -- identical causal streams (10 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared
+threads: 1 recorded fingerprint(s) compared, all matching
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence
+licence: verified against 20260914-013409-b4033a on exactly these points, and no others:
+  - identical call shape across 1 compared fingerprint(s), holding 10 causal event(s)
+  - 1 source file(s) unchanged by content
+  - 33 environment variable(s) compared and unchanged in the environment the rerun executed under; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _; the recorder's own fragment stripped before comparing: RUSTDOCFLAGS; the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
+  - no thread started besides the main one as OS threads (libtest's per-test threads and threads spawned by workspace code), and none left running when recording stopped
+what sensorium sees at all: Rust code in the workspace units cargo rebuilt through this recorder's wrapper. Nothing else. No verdict here -- MATCH, DIVERGED or REFUSED -- says anything about:
+  - any child process, by any mechanism. Some are noticed and listed above; an empty list is NOT evidence that none ran
+  - any thread whose body ran no instrumented code: it leaves no fingerprint, so it is not among the compared
+  - any file the program read or wrote. Only SOURCE files are hashed, so config, fixtures, databases and inputs move unseen
+  - any code outside the instrumented units: dependency crates, the standard library, build scripts and proc macros, and every unit that fell back uninstrumented
+  - any environment variable this run did not compare; the ones it skipped are named above
+  - the clock, the network, and everything else the machine did
+  - argument and return values, per-line state, timing, the order threads ran in relative to one another, and the order libtest's per-test threads and spawned threads interleaved in: recorded, never compared
+  - the recorder's own footprint: capturing values runs the program's own Debug impls inside the probe, so an instrument that changes the program leaves no mark on the fingerprint
+  - output not recorded (capabilities.output: false)
+  - threads from dependency code are unnamed
+  - the re-run's rebuild is its own cost: --focus keys a fresh shim and a rebuild of the matched units
+checks that could not run on this pair -- the recorder declares it does not produce them, so nothing here is evidence either way:
+  - output: unverifiable (not recorded)
+  - children: unverifiable (not witnessed)

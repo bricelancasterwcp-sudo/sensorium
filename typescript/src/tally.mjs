@@ -29,6 +29,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// 0700 and 0600, at creation — spec §5.5, and `rt.mjs`'s spelling for the
+// spool beside this directory. A manifest names every function in a file of
+// somebody's project and the absolute path it lives at; `_tally.json` names
+// how much of their suite this recorder instrumented. Both were written with
+// no mode at all until E16 part A measured them at 0775/0664 (H2).
+//
+// `mode` on `mkdirSync` applies to the directories this call CREATES and to
+// nothing else, and `writeFileSync`'s applies only when it creates the file:
+// a directory or a record already on disk keeps the permissions its owner
+// chose, which is the position `perms.rs` and `paths.traces_dir()` take on
+// the same store.
+const DIR_MODE = 0o700;
+const FILE_MODE = 0o600;
+
 /**
  * @typedef {{files_transformed: number, functions_focused: number,
  *   excluded: Record<string, number>}} Tally
@@ -113,10 +127,11 @@ export function record(file, out, dirname) {
  * @returns {void}
  */
 function writeManifest(dirname, manifest) {
-  fs.mkdirSync(dirname, { recursive: true });
+  fs.mkdirSync(dirname, { recursive: true, mode: DIR_MODE });
   fs.writeFileSync(
     path.join(dirname, `${manifest.rel.split('/').join('__')}.json`),
     JSON.stringify(manifest),
+    { mode: FILE_MODE },
   );
 }
 
@@ -128,8 +143,8 @@ function writeManifest(dirname, manifest) {
  */
 export function write(dirname, name) {
   try {
-    fs.mkdirSync(dirname, { recursive: true });
-    fs.writeFileSync(path.join(dirname, name), JSON.stringify(tally));
+    fs.mkdirSync(dirname, { recursive: true, mode: DIR_MODE });
+    fs.writeFileSync(path.join(dirname, name), JSON.stringify(tally), { mode: FILE_MODE });
   } catch (err) {
     process.emitWarning(`sensorium: could not write the transform tally to ${dirname}: ${err}`);
   }

@@ -1,8 +1,11 @@
 """Trace file creation, opening, and run-metadata access."""
 import importlib.metadata
 import json
+import os
 import sqlite3
 from pathlib import Path
+
+from sensorium import paths
 
 TRACE_FORMAT = 4
 
@@ -111,9 +114,63 @@ CREATE INDEX idx_frames_code ON frames(code_id);
 """
 
 
+def _create_parent(parent: Path) -> None:
+    """The directory a trace is about to be written into, 0700 (R35).
+
+    This was `parent.mkdir(parents=True, exist_ok=True)` -- the last
+    default-mode creator left inside the store after E16 part A. It is
+    normally preceded by `paths.traces_dir()`, so the hole was latent (E16
+    read `traces/` at 0700), but a caller reaching here first would have
+    made the directory holding every trace on the box world-listable.
+
+    Routed through `paths.traces_dir()` when the parent IS the store's own
+    `traces/`, so that directory has ONE owner and one rule. Otherwise the
+    same two-level idiom that function documents: `mkdir(parents=True,
+    mode=...)` applies the mode to the directory it NAMES and gives every
+    parent it creates the default, so the level above is created explicitly
+    too. An existing directory is never chmod'ed.
+
+    The comparison is against `trace_root() / "traces"` and not against
+    `traces_dir()`, because the latter CREATES what it names: asking it
+    where the store is would mint a `~/.sensorium` for a caller writing a
+    trace somewhere else entirely. `RuntimeError` is `Path.home()`'s answer
+    when there is no home and `SENSORIUM_DIR` is unset -- then this is not
+    the store's `traces/` by definition.
+    """
+    try:
+        is_the_store = parent == paths.trace_root() / "traces"
+    except RuntimeError:
+        is_the_store = False
+    if is_the_store:
+        paths.traces_dir()
+        return
+    parent.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    parent.mkdir(exist_ok=True, mode=0o700)
+
+
 def create_trace(path: Path) -> sqlite3.Connection:
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _create_parent(path.parent)
+    # The trace exists at 0600 from its first instant. sqlite would create
+    # it 0666-under-the-umask -- 0644 on most boxes -- and a trace holds the
+    # whole recorded environment, so the window between "file appears" and
+    # "we chmod it" is the window the spec closes (design §5.5).
+    #
+    # No `O_EXCL`: `ts/ingest.py` reserves a run id by creating the file
+    # itself, `O_EXCL`, and hands TraceWriter the zero-byte result, which
+    # sqlite opens as a new database exactly as it would its own. The guard
+    # against an explicit `--run-id` colliding with a real trace stays where
+    # it was, in `boot.run_target`'s `trace_path.exists()` refusal.
+    #
+    # `fchmod` behind the open because `O_CREAT`'s mode applies only when
+    # the open CREATES the file: on ingest's reserved file it is ignored,
+    # and that file was made 0600 by its own creator -- fchmod is what makes
+    # this function's promise hold whichever of the two paths arrived.
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
     # The tracer flushes on whichever thread fills the batch, so the write
     # connection outlives its creating thread. TraceWriter serialises every
     # access under its own lock, which is the invariant check_same_thread

@@ -99,20 +99,20 @@ import sys
 import time
 from pathlib import Path
 
-from sensorium import paths
+from sensorium import paths, redact
 # The two verdict paths this branch shares with the Rust one. Imported, not
 # copied: both print sentences with no language in them -- "the re-run
 # happened and produced no comparable pair" is one verdict with one exit
 # code, and "these checks could not run" is one finding about a pair --
 # and two spellings of one sentence is how two branches come to report the
 # same fact differently (ruling P2, 2026-09-13).
-from sensorium.query.refocus_rust import (_print_unverifiable,
-                                          _refused_after_rerun)
+from sensorium.query.refocus_rust import _refused_after_rerun
 # The licence and world code at its shared home. `env_of` takes this
 # branch's own `is_recorder_key` because which variables are the recorder's
 # bookkeeping is the one part of the environment rule that is per-language;
 # everything done with the answer is shared.
-from sensorium.query.refocus_world import (_source_state, env_of, relicense,
+from sensorium.query.refocus_world import (_source_state, env_of,
+                                           print_unverifiable, relicense,
                                            stamp_unverifiable,
                                            unverifiable_checks)
 from sensorium.store import db
@@ -127,6 +127,27 @@ SIBLINGS_KEY = "refocus_siblings"
 #: `include` is `**/*.{test,spec}.?(c|m)[jt]s?(x)`, so the two infixes are
 #: the harness's own convention and not this tool's invention.
 _TEST_INFIXES = (".test.", ".spec.")
+
+
+#: Every `SENSORIUM_` name `sensorium ts run` puts into the harness's
+#: environment, and no other. ONE source, unlike the Rust branch's three:
+#: `ts/driver.py::_env` builds the whole environment in one function, and
+#: `tests/test_refocus_typescript_recorder_keys.py` parses that function and
+#: holds this set equal to what it sets -- so a variable the driver starts
+#: handing down without a line here fails loudly rather than quietly
+#: widening what a licence stops checking. `SENSORIUM_REDACT_KEY` is added
+#: there rather than found, because `_env` sets it through `redact.KEY_VAR`
+#: and no literal spells it.
+RECORDER_KEYS = frozenset({
+    "SENSORIUM_FOCUS",
+    "SENSORIUM_INVOCATION",
+    "SENSORIUM_MANIFEST_DIR",
+    "SENSORIUM_SPOOL",
+    "SENSORIUM_TIER",
+    "SENSORIUM_TS_PKG",
+    "SENSORIUM_TS_ROOT",
+    redact.KEY_VAR,
+})
 
 
 def is_recorder_key(name: str) -> bool:
@@ -147,16 +168,40 @@ def is_recorder_key(name: str) -> bool:
     The rest carry the SAME fact across the pair -- `SENSORIUM_TS_PKG`,
     `SENSORIUM_TS_ROOT` and `SENSORIUM_TIER` are the package, the project
     root and the depth the re-run inherits -- so nothing is lost by
-    exempting them, and exempting the whole prefix is what keeps the rule
-    one sentence long.
+    exempting them.
 
-    A PREFIX, unlike the Rust predicate's third clause, because every
-    variable this recorder sets is under one. The names are printed on the
-    line beside the count rather than hidden behind it, which is the rule
-    the shell list follows too: an exemption a reader cannot see is a
-    silent one.
+    `SENSORIUM_REDACT_KEY` is the eighth, and it stays for a reason of its
+    own: every recorder DELETES it from what it records (`redact.env`), so
+    a pair of current traces never holds it -- but a trace converted before
+    rule v1 existed does, and comparing it against a re-run that does not
+    would report the tool's own key as a change the world made.
+
+    A LIST AND NOT A PREFIX (R33, 2026-09-14)
+    -----------------------------------------
+    This was `name.startswith("SENSORIUM_")`, and the argument for it was
+    that every variable this recorder sets is under one prefix. True, and
+    beside the point: the prefix also claims every variable the recorder
+    does NOT set. E16 part A measured what that costs on the Rust branch,
+    whose predicate had the identical shape -- a pre-registered
+    `SENSORIUM_E16_TOKEN` in the recorded program's environment was removed
+    before anything was compared, so a re-run whose value had been rotated
+    still earned a full licence (§2, H3). Nothing about that reading was
+    about Rust; §1 simply exercised this branch's env clause through
+    `tests/test_refocus_redaction.py` rather than live, so this half went
+    unmeasured rather than uninfected.
+
+    So: `RECORDER_KEYS` above, pinned to `_env`, and everything else --
+    `SENSORIUM_NO_REDACT`, `SENSORIUM_REDACT_NAMES`,
+    `SENSORIUM_REDACT_ALLOW`, which `_env` passes on untouched because what
+    a recording was made under is the user's statement, and any
+    `SENSORIUM_`-shaped name a person exports -- is the user's and is
+    compared like any other variable.
+
+    The names are printed on the line beside the count rather than hidden
+    behind it, which is the rule the shell list follows too: an exemption a
+    reader cannot see is a silent one.
     """
-    return name.startswith("SENSORIUM_")
+    return name in RECORDER_KEYS
 
 
 # -- what the trace says its tests ran in ----------------------------------
@@ -639,7 +684,7 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
     # unrun checks, which are findings about THIS pair rather than about the
     # recorder, and are stamped as well as printed.
     code = report(orig, new, res, orig_name, new_id, a)
-    _print_unverifiable(checks)
+    print_unverifiable(checks)
     return code
 
 

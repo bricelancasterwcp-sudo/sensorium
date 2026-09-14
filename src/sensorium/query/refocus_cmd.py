@@ -151,7 +151,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from sensorium import paths
+from sensorium import paths, redact
 from sensorium.exit import BAD_CALL
 from sensorium.query.caps import require
 from sensorium.query.refocus_env import is_env_rule_note
@@ -163,7 +163,8 @@ from sensorium.query.diff_cmd import compare
 from sensorium.query.refocus_world import (  # noqa: F401
     _UNCOMPARED_ENV, _clip, _env_diff, _env_state, _licence_caveats,
     _output_difference, _output_text, _source_state, _spawn_witnessed,
-    _verified_facts, harness_note, uncompared_threads)
+    _verified_facts, harness_note, print_unverifiable, relicense,
+    stamp_unverifiable, uncompared_threads, unverifiable_checks)
 # The reporting layer, split out at this file's 800-line ceiling. Re-exported
 # so `refocus_cmd.<name>` keeps resolving: these are one command's internals
 # across its files, not separate modules with surfaces of their own.
@@ -530,7 +531,12 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     focus = _merged_focus(meta, args.focus)
     window = args.window if args.window is not None else meta.get("window")
     source, source_caveat, source_fact = _source_state(meta)
-    env_line, env_caveat, env_fact = _env_state(meta, env)
+    # `now_meta=None`: `env` is this process's LIVE environment, in
+    # plaintext, because this branch performs the re-run itself. A redacted
+    # variable is therefore compared by hashing the live value under the
+    # store's key -- never by redacting the live side, which would grant a
+    # licence over a secret that really had changed.
+    env_line, env_caveat, env_fact = _env_state(meta, env, now_meta=None)
 
     print(f"refocus-of: {orig_name}   cmd: {' '.join(argv)}")
     print(f"cwd: {os.getcwd()}")
@@ -547,16 +553,34 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     new_path = (paths.traces_dir() / f"{new_id}.db").resolve()
     new = Trace.open(new_path)
     res = compare(orig, new)
+    world_verified = [f for f in (source_fact, env_fact) if f]
     a = assess(orig, new, res,
-               [c for c in (source_caveat, env_caveat) if c],
-               [f for f in (source_fact, env_fact) if f])
+               [c for c in (source_caveat, env_caveat) if c], world_verified)
+    # The same two hands the Rust and TypeScript branches use, in the same
+    # order (ruling R19). This branch had neither, so a check that COULD
+    # NOT RUN -- a redacted variable with no key to read it by -- withheld
+    # the licence here while the same marker was reported and set aside on
+    # the other two. `relicense` takes the markers' vote and nothing else's,
+    # so a redacted variable that really differs still withholds; and the
+    # stamp is written even when the list is empty, so `info` on any Python
+    # re-run says which checks the verdict does not rest on rather than
+    # leaving a reader to infer it from an absent key.
+    checks = unverifiable_checks(orig, new)
+    a = relicense(a, orig, new, world_verified)
     _stamp(new_path, res, a)
+    stamp_unverifiable(new_path, checks)
 
     print("--- verdict ---")
     print(f"run: {new_id}")
     print(f"trace: {new_path}")
     print(f"exit: rerun {status}   original {meta.get('exit_status', '?')}")
-    return report(orig, new, res, orig_name, new_id, a)
+    # `report` prints the blind-spot block; what follows it is this pair's
+    # own unrun checks, printed where the other two branches print them so
+    # that a reader of a Python re-run is told what a reader of a Rust one
+    # is told (R19). Stamped as well as printed, above.
+    code = report(orig, new, res, orig_name, new_id, a)
+    print_unverifiable(checks)
+    return code
 
 
 def run(args) -> int:
@@ -606,6 +630,16 @@ def run(args) -> int:
     # check describing an environment the program never saw.
     _pin_trace_store()
     env = dict(os.environ)
+    # Every recorder DELETES this from what it records (`redact.env`): a
+    # digest of the key under the key is a pointless row, and a driver that
+    # hands the key down leaves it set in the process this command runs in.
+    # Compared as it arrives it is a variable that appeared out of nowhere,
+    # and the licence would be withheld over the tool's own plumbing. It is
+    # popped HERE rather than added to `_UNCOMPARED_ENV`, whose printed
+    # `not compared:` list is a pinned sentence about the SHELL's
+    # bookkeeping -- this name was never in the recorded environment to be
+    # compared in the first place.
+    env.pop(redact.KEY_VAR, None)
     prev_cwd = os.getcwd()
     os.chdir(meta["cwd"])
     try:

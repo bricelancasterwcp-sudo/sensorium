@@ -56,10 +56,14 @@ questions:
       when an error escapes, and this one did not escape, so its absence
       likewise says nothing about what was recorded.
     command: ["info", "$RUN"]
+    # Re-pinned 2026-09-13 (secrets redaction, PR A): 0.4.0 -> 0.5.0,
+    # because the runtime now redacts its own BOOT environment under rule v1
+    # and writes the two keys that say so. The rows this case asks about are
+    # untouched by that; only the recorder's name in the sentence moved.
     expect_line:
       - ["recorded: CALL 3", "RETURN 2", "RAISE 1", "HANDLED 1"]
       - ["capabilities:", "err_flow=yes"]
-      - ["recorder: sensorium-ts 0.4.0", "lang: typescript"]
+      - ["recorder: sensorium-ts 0.5.0", "lang: typescript"]
   - id: what-does-the-trace-show-happened
     ask: >
       Without a verdict, what does the recording show about that call?

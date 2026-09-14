@@ -1,0 +1,29 @@
+$ $REPO/.venv/bin/python -m sensorium refocus 20260914-001903-871933 --focus derive_sandbox
+# cwd $E16_DIR/py-case  exit 0  0.097s
+refocus-of: 20260914-001903-871933   cmd: main.py
+cwd: $E16_DIR/py-case
+focus: derive_sandbox   window: -
+source: unchanged (1 file(s) compared by content; data files, untraced code and installed dependencies are NOT covered -- see blind spots below)
+env: CHANGED since the original run -- 1 variable(s) differ: SENSORIUM_E16_TOKEN   (names only)
+--- rerunning (the lines below are the program's own output) ---
+prod timeout: 1 sandbox timeout: 1
+--- verdict ---
+run: 20260914-001905-04f53e
+trace: $E16_DIR/store-a/traces/20260914-001905-04f53e.db
+exit: rerun 0   original 0
+A 20260914-001903-871933: threads 1  compared: t1 [recorded main thread]  fp 0838dd587f5e3f6515a34b5788917c4f
+B 20260914-001905-04f53e: threads 1  compared: t1 [recorded main thread]  fp 0838dd587f5e3f6515a34b5788917c4f
+verdict: MATCH -- identical causal streams (8 events): the same sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED on the main thread; values, timing, and LINE events were not compared
+threads: 1 recorded fingerprint(s) compared, all matching
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence
+licence: WITHHELD -- this MATCH is about call shape, and these checks say it is not a statement about the run as a whole:
+  - 1 environment variable(s) differ between the two runs (SENSORIUM_E16_TOKEN); a program that reads them got different input
+what sensorium sees at all: Python code that this run traced, in files under the run's own root. Nothing else. No verdict here -- MATCH, DIVERGED or REFUSED -- says anything about:
+  - any child process, by any mechanism. Some are noticed and listed above; an empty list is NOT evidence that none ran
+  - any thread not started through Python's own threading/_thread
+  - any file the program read or wrote. Only SOURCE files are hashed, so config, fixtures, databases and inputs move unseen
+  - any code outside the run's root: the stdlib, site-packages, installed dependencies, PYTHONPATH modules, and whatever this run's own --include/--exclude filtered out
+  - any environment variable this run did not compare; the ones it skipped are named above
+  - the clock, the network, and everything else the machine did
+  - argument and return values, per-line state, timing, the order threads ran in relative to one another, and the order asyncio tasks interleaved in: recorded, never compared
+  - the recorder's own footprint: deeper capture runs the program's __repr__ inside hooks that suppress themselves, so an instrument that changes the program leaves no mark on the fingerprint

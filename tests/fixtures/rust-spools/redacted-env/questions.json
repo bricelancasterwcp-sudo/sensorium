@@ -1,0 +1,13 @@
+[
+  {
+    "id": "info-names-what-the-recorder-redacted",
+    "ask": "A recorder that redacted one variable wrote `env_redaction` and `redaction` beside `env_hash` -- does the converter carry both into the trace, so `info` names MY_API_KEY as redacted and prints the rule, the key id and the hand that applied it?",
+    "command": ["info", "$RUN"],
+    "expect_exit": 0,
+    "expect_line": [["env:", "2 vars, 1 redacted: MY_API_KEY"]],
+    "expect_contains": [
+      "redaction: rule v1, keyed (key 0a1b2c3d), by recorder"
+    ],
+    "expect_absent": ["aabbccddeeff0011"]
+  }
+]

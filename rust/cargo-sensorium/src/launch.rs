@@ -35,6 +35,22 @@ pub(crate) struct Ground<'a> {
     pub(crate) rt: &'a Path,
     pub(crate) tool_hash: &'a str,
     pub(crate) invocation: &'a str,
+    /// The store's redaction key as hex, or `None` when the store has none.
+    ///
+    /// The ONE hop between the driver, which owns `<store>/redaction.key`,
+    /// and the runtime, which never reads a key file and only ever parses
+    /// this variable (`sensorium-rt/src/redact.rs`, "THE KEY"). Every process
+    /// cargo starts inherits it, which is the point: one invocation's traces
+    /// are keyed alike, and the runtime DELETES the variable from each
+    /// recorded environment rather than storing a digest of the key under
+    /// the key.
+    ///
+    /// The three redaction KNOBS are deliberately not here.
+    /// `SENSORIUM_NO_REDACT`, `SENSORIUM_REDACT_NAMES` and
+    /// `SENSORIUM_REDACT_ALLOW` belong to the shell that ran
+    /// `cargo sensorium` and are inherited through cargo untouched; a driver
+    /// that re-set them could only get them wrong.
+    pub(crate) redaction_key: Option<&'a str>,
 }
 
 /// Run cargo with the argv the user typed, and wait for it.
@@ -56,8 +72,10 @@ pub(crate) fn run_cargo(ground: &Ground<'_>) -> Result<ExitStatus, String> {
         rt,
         tool_hash,
         invocation,
+        redaction_key,
     } = *ground;
-    Command::new(cargo_path())
+    let mut cargo = Command::new(cargo_path());
+    cargo
         .args(cargo_args)
         .current_dir(ws)
         // Doctests are not routed through `RUSTC_WORKSPACE_WRAPPER` — cargo
@@ -77,9 +95,17 @@ pub(crate) fn run_cargo(ground: &Ground<'_>) -> Result<ExitStatus, String> {
         .env("SENSORIUM_WS", ws)
         .env("SENSORIUM_RT_DIR", rt)
         .env("SENSORIUM_TOOL_HASH", tool_hash)
-        .env("SENSORIUM_INVOCATION", invocation)
-        .status()
-        .map_err(|e| format!("cannot run cargo: {e}"))
+        .env("SENSORIUM_INVOCATION", invocation);
+    // Only when there is a key. An unkeyed driver sets NOTHING here rather
+    // than an empty value: the runtime reads an absent variable and a
+    // malformed one identically (both unkeyed), and setting the variable to
+    // nothing would put a claim in every recorded environment that no key
+    // exists on this box -- which is a statement about the store, not about
+    // the process being recorded.
+    if let Some(hex) = redaction_key {
+        cargo.env(sensorium_rt::redact::KEY_VAR, hex);
+    }
+    cargo.status().map_err(|e| format!("cannot run cargo: {e}"))
 }
 
 /// Cargo's per-target runner variable for a host triple: the triple uppercased

@@ -9,14 +9,19 @@ with a fallback, and the INCOMPLETE flag is printed first, not buried.
 import re
 from collections import Counter
 
-from sensorium import paths
+from sensorium import paths, redact
 from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
 from sensorium.query.info_rust import rust_lines
 from sensorium.query.info_typescript import (interp_suffix,
                                              typescript_lines)
-from sensorium.query.refocus_world import (harness_exclusion,
+# `_capped` is private to `refocus_world` and stays there: it is the cap the
+# licence's own printed lists use, and the `env:` field below is a printed
+# list of names on the same terms. Importing it is how the two cannot drift
+# to two different caps; a second spelling of "eight, then a count" would be
+# a second answer to how much of an environment `info` shows.
+from sensorium.query.refocus_world import (_capped, harness_exclusion,
                                            unverifiable_line)
 from sensorium.query.vocab import exit_phrase, terms
 from sensorium.store.reader import Trace
@@ -175,6 +180,68 @@ def focus_matched_line(meta: dict) -> str | None:
     return line
 
 
+def env_field(meta: dict) -> str:
+    """The `env:` field: the hash, and what rule v1 took out of the
+    environment that hash is over (design section 6.1).
+
+    NAMES only. A digest beside the name it belongs to is an offline
+    guessing target for any short value, and this field exists to say what
+    was redacted, never to carry it.
+
+    Three forms, and the difference between the last two is the whole
+    point: `(120 vars, 2 redacted: ...)` when the rule fired,
+    `(120 vars, 0 redacted)` when it ran and fired on nothing -- a MEASURED
+    zero, which is not the same fact as the bare hash a trace from before
+    the rule prints. `mode: off` prints the bare hash too: nothing was
+    taken, and the line below says so in words.
+    """
+    hashed = meta.get("env_hash", "?")
+    redaction = meta.get("redaction") or {}
+    if redaction.get("mode") != "on":
+        return hashed
+    names = sorted(redaction.get("env") or {})
+    stored = f"{len(meta.get('env') or {})} vars"
+    if not names:
+        return f"{hashed} ({stored}, 0 redacted)"
+    return f"{hashed} ({stored}, {len(names)} redacted: {_capped(names)})"
+
+
+def redaction_line(meta: dict) -> str:
+    """The rule this recording was made under, in one of four forms.
+
+    `none` is the one a reader most needs: a trace with no `redaction` key
+    was written before the rule existed and holds the launching shell's
+    environment in plaintext, tokens and all. Absence of the key is not
+    absence of secrets, and this line is the only place that is said.
+
+    The key MODE rides the keyed form when the store's key is loose AND is
+    the key that took these digests: a world-readable key makes every
+    digest in the store guessable, and a note about some other store's file
+    permissions would send a reader to the wrong file. `values redacted:`
+    is not printed -- rule v1 redacts the environment and nothing else yet,
+    so a count of captured values would be a measured zero of a rule that
+    has not shipped.
+    """
+    redaction = meta.get("redaction")
+    if not redaction:
+        return ("redaction: none -- recorded before redaction existed; "
+                "plaintext throughout")
+    if redaction.get("mode") != "on":
+        return ("redaction: OFF (SENSORIUM_NO_REDACT) -- the environment "
+                "and every captured value are stored in plaintext")
+    rule, by = redaction.get("rule"), redaction.get("by")
+    if not redaction.get("keyed"):
+        return (f"redaction: rule {rule}, UNKEYED (no redaction.key in the "
+                f"store); by {by}")
+    key_id = redaction.get("key_id")
+    # One read of the store's key answers both halves -- whether the file
+    # is loose, and whether it is the file that took these digests.
+    key = redact.Key.load(paths.trace_root())
+    note = key.mode_note()
+    mode = f" ({note})" if note and key_id == key.key_id else ""
+    return f"redaction: rule {rule}, keyed (key {key_id}), by {by}{mode}"
+
+
 def run(args) -> int:
     t = Trace.open(paths.find_trace(args.run))
     m = t.meta
@@ -200,7 +267,7 @@ def run(args) -> int:
     # `Terms` field with two empty columns.
     ts = t.lang == "typescript"
     print(f"{words.interp_line(m)}{interp_suffix(m) if ts else ''}  "
-          f"env:{m.get('env_hash', '?')}  "
+          f"env:{env_field(m)}  "
           f"exit: {exit_phrase(m)}  events: {sum(counts.values())}"
           f"{dur}")
     print(f"recorder: {t.recorder}  lang: {t.lang}  "
@@ -229,6 +296,11 @@ def run(args) -> int:
     caps = m.get("caps", {})
     print("caps: " + " ".join(f"{k}={v}" for k, v in caps.items())
           + f"   truncated values: {m.get('truncated_count', 0)}")
+    # Directly under `caps:`, because it is a parameter of the recording
+    # like the capture limits above it, and the one line every trace prints
+    # -- including one recorded before the rule existed, which is exactly
+    # the trace whose reader most needs to be told.
+    print(redaction_line(m))
     # A Rust trace's build facts, and its unwitnessed block, come BEFORE the
     # fingerprints: what a fingerprint row covers depends on which units
     # were instrumented at all, and a ceiling above it changes what every

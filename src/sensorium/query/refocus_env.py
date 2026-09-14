@@ -38,6 +38,9 @@ still holds. If anything else about the value moved, it is a change, and it
 withholds exactly as it did before.
 """
 import re
+from dataclasses import dataclass
+
+from sensorium import redact
 
 #: The variable that names the root every other one embeds. Present only on
 #: a trace `cargo sensorium` recorded, which is what makes the whole rule a
@@ -349,9 +352,10 @@ def relocated_clause(names: list[str]) -> str:
 
 def is_env_rule_note(fact: str) -> bool:
     """Whether a world-fact carries the names a rule of this module
-    explained -- by ANY of its four: the target directory that moved, the
-    recorder's own fragment removed before the compare, or either of the
-    two sets that never withhold.
+    explained -- by ANY of its five: the target directory that moved, the
+    recorder's own fragment removed before the compare, either of the two
+    sets that never withhold, or the redacted variables no comparison could
+    decide.
 
     A withheld licence records no verified facts -- it rests on nothing --
     but the keys these rules EXPLAINED are a finding of their own, and the
@@ -359,14 +363,131 @@ def is_env_rule_note(fact: str) -> bool:
     trace kept only the accusation, and `info` replayed a licence whose
     screen had said more than the record does.
 
-    Recognised by the phrases `relocated_clause`, `stripped_clause` and the
-    two set clauses build, from the same constants they build them from, so
-    a rewording moves both halves together and cannot leave this reading a
-    sentence that no longer exists.
+    Recognised by the phrases `relocated_clause`, `stripped_clause`,
+    `uncomparable_clause` and the two set clauses build, from the same
+    constants they build them from, so a rewording moves both halves
+    together and cannot leave this reading a sentence that no longer
+    exists.
 
     Named for the rules and not for one of them: it was
     `is_relocation_note` while it already tested two, and a one-rule name
-    over a four-rule predicate is a reader's mistake waiting to be made.
+    over a five-rule predicate is a reader's mistake waiting to be made.
     """
     return (_RELOCATED in fact or _STRIPPED in fact
-            or SESSION_DIFFER in fact or HARNESS_DIFFER in fact)
+            or SESSION_DIFFER in fact or HARNESS_DIFFER in fact
+            or _UNCOMPARABLE in fact)
+
+
+# -- the redacted variables, and what may still be said about them ---------
+@dataclass(frozen=True)
+class RedactionPair:
+    """The two sides' `redaction` tables, as one comparison can read them.
+
+    Rule v1 stores a secret-named variable as `<redacted>` and keeps an
+    HMAC of the plaintext under the store's key (`redact`), so the licence
+    can still answer the only question it asks of a variable -- did it
+    change -- over a value it does not hold. The table is what carries the
+    digests; this is the pair of them plus the key that verifies a
+    PLAINTEXT side against one.
+
+    `now is None` is the live plaintext side: `refocus` on a Python trace
+    re-runs in this process and compares the original's table against the
+    environment the re-run executed under, which is not a trace and has no
+    table. A `now` table that is merely EMPTY reads the same way for every
+    name -- a side that did not redact it -- and the distinction is kept in
+    the type because the two arrive from different places and a reader of
+    this class should be able to tell which one they have.
+
+    The comparison table itself (§6.2) lives in `redact.compare` and is not
+    re-encoded here: `compare` below builds the two `Side`s and delegates.
+    Two spellings of one table is how two commands come to give two answers
+    about one pair of digests.
+    """
+    was: dict[str, str | None]
+    was_key_id: str | None
+    was_keyed: bool
+    now: dict[str, str | None] | None
+    now_key_id: str | None
+    now_keyed: bool
+    key: redact.Key
+
+    @classmethod
+    def of(cls, was_meta: dict, now_meta: dict | None,
+           key: redact.Key) -> "RedactionPair | None":
+        """The pair, or None when NEITHER side redacted anything.
+
+        None is the whole of the legacy path: a pair of traces from before
+        the rule existed builds no pair, `_env_diff` is handed no
+        `redaction`, and every string it writes is byte for byte the one it
+        wrote before this module knew what a digest was.
+        """
+        was, now = _redaction(was_meta), _redaction(now_meta)
+        was_env = was.get("env") or {}
+        now_env = None if now_meta is None else (now.get("env") or {})
+        if not was_env and not now_env:
+            return None
+        return cls(was_env, was.get("key_id"), bool(was.get("keyed")),
+                   now_env, now.get("key_id"), bool(now.get("keyed")), key)
+
+    def covers(self, name: str) -> bool:
+        """Whether EITHER side redacted `name`.
+
+        The gate on the whole comparison: a name no side redacted is
+        decided by the plain equality that has always decided it, and
+        `compare` is never asked about one.
+        """
+        return name in self.was or (self.now is not None and name in self.now)
+
+    def compare(self, name: str, before: str | None,
+                after: str | None) -> bool | None:
+        """True equal, False differs, None unverifiable -- §6.2's table,
+        through the one implementation of it.
+
+        `before`/`after` are the two sides' STORED values, read only on a
+        side that did not redact this name, where the stored value is the
+        plaintext itself.
+        """
+        was = self._side(name, self.was, self.was_key_id, self.was_keyed)
+        now = self._side(name, self.now, self.now_key_id, self.now_keyed)
+        return redact.compare(before, after, was, now, self.key)
+
+    @staticmethod
+    def _side(name: str, table: dict | None, key_id: str | None,
+              keyed: bool) -> redact.Side | None:
+        """One side's account of one name, or None when that side holds the
+        plaintext (it did not redact the name, or it is the live side)."""
+        if table is None or name not in table:
+            return None
+        return table[name], key_id, keyed
+
+
+def _redaction(meta: dict | None) -> dict:
+    return ((meta or {}).get("redaction") or {})
+
+
+#: The phrase that both WRITES the uncomparable clause and RECOGNISES it,
+#: the `_RELOCATED`/`_STRIPPED`/`SESSION_DIFFER` pattern a fifth time: one
+#: constant, so the sentence and its reader cannot drift apart.
+_UNCOMPARABLE = " redacted variable(s) not comparable ("
+
+
+def uncomparable_clause(names: list[str], reason: str | None,
+                        capped: str) -> str:
+    """What the env line and the verified fact both say about the redacted
+    names no comparison could decide. Empty when there are none, so every
+    pair that compared cleanly reads exactly as it always did.
+
+    ONE reason for the whole list, and the word is `redact.uncomparable`'s
+    (`unkeyed`, `different keys`): a per-name reason would be several
+    spellings of one repair -- find the other store's key, or accept that
+    there is none to find.
+
+    Named and never counted alone, on the `stripped_clause` pattern: a
+    variable this tool stopped checking is one a reader is owed the name
+    of. The cap on how many print is `refocus_world._capped`, passed in
+    already applied, because every other capped list on that line is capped
+    by the same function and this module is the one that file imports FROM.
+    """
+    if not names:
+        return ""
+    return f"{len(names)}{_UNCOMPARABLE}{reason}): {capped}"

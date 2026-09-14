@@ -380,9 +380,14 @@ def test_a_focus_in_the_callers_shell_is_not_this_runs_focus(tmp_path,
     the one that sets it. Inherited, it would focus a run whose own record
     says `focus: []` -- statement rows nobody asked for, and a record beside
     them denying they were asked for. (Which variable goes where is
-    `test_ts_driver.py`'s seven-things test; this is the override alone.)"""
+    `test_ts_driver.py`'s eight-things test; this is the override alone.)"""
     from sensorium.ts import harness as harness_mod
 
+    # The store is this test's, not the box's: `_env` MINTS
+    # `<store>/redaction.key` on its way past, and a test that left
+    # `SENSORIUM_DIR` unset would write one into the developer's own
+    # `~/.sensorium` every time the suite ran.
+    monkeypatch.setenv("SENSORIUM_DIR", str(tmp_path / "sdir"))
     monkeypatch.setenv("SENSORIUM_FOCUS", "left over from a shell")
     plan = harness_mod.recognise(["vitest", "run"], tmp_path)
     assert "SENSORIUM_FOCUS" not in driver_mod._env(

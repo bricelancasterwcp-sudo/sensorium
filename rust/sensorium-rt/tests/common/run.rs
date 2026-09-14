@@ -96,6 +96,13 @@ impl<'a> Spec<'a> {
         cmd.env_remove("SENSORIUM_SPOOL");
         cmd.env_remove("SENSORIUM_TIER");
         cmd.env_remove("SENSORIUM_TEST_SPOOL_LIMIT");
+        // The redaction knobs, for the same reason as the three above: a
+        // scenario must record what its Spec says and not what the shell that
+        // started `cargo test` happened to be carrying.
+        cmd.env_remove("SENSORIUM_REDACT_KEY");
+        cmd.env_remove("SENSORIUM_NO_REDACT");
+        cmd.env_remove("SENSORIUM_REDACT_NAMES");
+        cmd.env_remove("SENSORIUM_REDACT_ALLOW");
         if let Some(d) = self.dir {
             cmd.env("SENSORIUM_SPOOL", d);
         }

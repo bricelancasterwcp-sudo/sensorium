@@ -28,7 +28,6 @@ with the harness's own status, and `128 + n` when a signal ended it. A
 recorder whose exit status meant something different from the command it
 wrapped could not be put in front of an existing command line at all.
 """
-import hashlib
 import importlib.metadata
 import json
 import os
@@ -41,7 +40,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from sensorium import exit as ex
-from sensorium import paths
+from sensorium import paths, redact
 from sensorium.ts import focus as focus_mod
 from sensorium.ts import harness as harness_mod
 from sensorium.ts import ingest, invocation, pkg as pkg_mod, wrapper
@@ -166,8 +165,18 @@ def _record(plan, package: Path, node: str, cwd: Path, args,
             link: str | None = None) -> int:
     """Everything from the mint to the conversion."""
     inv_id = paths.new_run_id()
-    spool = paths.trace_root() / SPOOL_DIR / inv_id
-    spool.mkdir(parents=True, exist_ok=True)
+    # One level at a time, 0700 each, for `paths.traces_dir()`'s reason:
+    # `Path.mkdir(parents=True, mode=...)` applies the mode to the directory
+    # it NAMES and gives every parent it creates on the way the default, so
+    # a single `spool.mkdir(parents=True, mode=0o700)` would leave
+    # `<store>/spool` -- and the store root above it, where `redaction.key`
+    # lives -- at 0775. Measured at 0775 by E16 part A (H2). An existing
+    # directory is never chmod'ed: the user's own store is theirs.
+    root = paths.trace_root()
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    (root / SPOOL_DIR).mkdir(exist_ok=True, mode=0o700)
+    spool = root / SPOOL_DIR / inv_id
+    spool.mkdir(exist_ok=True, mode=0o700)
     config = (wrapper.home(plan.root) /
               f"{inv_id}{wrapper.CONFIG_SUFFIX}"
               if plan.kind == "vitest" else None)
@@ -196,8 +205,9 @@ def _record(plan, package: Path, node: str, cwd: Path, args,
             _discard(spool)
             raise SpawnError(
                 f"{argv[0]} could not be started: {e.strerror}") from None
-        (spool / invocation.HARNESS_FILE).write_text(
-            json.dumps(ending.to_json(), indent=2) + "\n", encoding="utf-8")
+        invocation.write_record(
+            spool / invocation.HARNESS_FILE,
+            json.dumps(ending.to_json(), indent=2) + "\n")
     finally:
         wrapper.remove(files)
     return _convert(spool, inv_id, ending, getattr(args, "jobs", None),
@@ -258,19 +268,20 @@ def _write_record(spool: Path, plan, inv_id: str, node: str, package: Path,
         # no `refocus_of` key at all: an absent key is what every reader of
         # a trace branches on.
         refocus_of=refocus_of)
-    (spool / invocation.INVOCATION_FILE).write_text(
-        json.dumps(record.to_json(), indent=2) + "\n", encoding="utf-8")
+    invocation.write_record(spool / invocation.INVOCATION_FILE,
+                            json.dumps(record.to_json(), indent=2) + "\n")
 
 
 def _env_hash() -> str:
-    """A digest of the DRIVER's environment, sorted, one `k=v` per line.
+    """A digest of the DRIVER's environment, by the recipe both this
+    recorder's halves use (`invocation.env_hash`).
 
     The driver's and not the harness's: the harness's differs from it by the
     variables written two functions below, which are the recorder's own and
-    would make every invocation's hash unique by construction.
+    would make every invocation's hash unique by construction -- the
+    redaction key most of all, which is 64 characters no two stores share.
     """
-    body = "\n".join(f"{k}={v}" for k, v in sorted(os.environ.items()))
-    return hashlib.sha256(body.encode("utf-8", "surrogateescape")).hexdigest()[:16]
+    return invocation.env_hash(os.environ)
 
 
 def _driver_version() -> str:
@@ -314,6 +325,21 @@ def _env(spool: Path, inv_id: str, plan, package: Path, tier: str,
     passes on. A `SENSORIUM_FOCUS` left in a shell would otherwise focus a
     run whose own record says `focus: []` -- the recording would carry
     statement rows nobody asked for, and the record beside it would deny it.
+
+    `SENSORIUM_REDACT_KEY` is the eighth, and the one the harness could not
+    work out even in principle: the runtime only ever PARSES a key, because
+    creating one means a directory, a temporary, a link and a race and the
+    runtime is linked into somebody else's test suite (design section 3). So
+    the STORE's key -- the same `<trace root>/redaction.key` the Python
+    recorder and `cargo-sensorium` use, minted here on first use -- is handed
+    down as hex. Set only when there IS a key: absent and malformed read
+    identically to the runtime, and an unkeyed store POPS whatever the
+    launching shell was carrying, because a key from some other store would
+    have the recorder write digests nothing here can verify.
+
+    The three knob variables are the USER's and are passed on untouched: what
+    a recording was made under is the user's statement, and the BOOT records
+    it.
     """
     env = dict(os.environ,
                SENSORIUM_SPOOL=str(spool),
@@ -326,6 +352,11 @@ def _env(spool: Path, inv_id: str, plan, package: Path, tier: str,
         env["SENSORIUM_FOCUS"] = focus_mod.SEP.join(focus)
     else:
         env.pop("SENSORIUM_FOCUS", None)
+    key = redact.Key.load_or_create(paths.trace_root())
+    if key.material is None:
+        env.pop(redact.KEY_VAR, None)
+    else:
+        env[redact.KEY_VAR] = key.material.hex()
     return env
 
 

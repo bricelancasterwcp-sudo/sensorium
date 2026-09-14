@@ -8,7 +8,6 @@
 // One spool per container `(pid, threadId)`; one JSON object per line; the
 // converter (`sensorium ts ingest`) is the only reader.
 import { AsyncLocalStorage } from 'node:async_hooks';
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { isMainThread, threadId } from 'node:worker_threads';
@@ -16,6 +15,7 @@ import { isMainThread, threadId } from 'node:worker_threads';
 import { cap, dbg, exc } from './dbg.mjs';
 import { VERSION } from './index.mjs';
 import { nameFor, setProvider, titleOf } from './naming.mjs';
+import { bootEnv } from './redact.mjs';
 
 /** @typedef {{id: number, name: string, stack: Frame[]}} Task */
 /** @typedef {{id: number, task: Task|null, open: boolean, mark: Record<string, unknown>|null, pending?: Captured}} Frame */
@@ -107,17 +107,6 @@ let booted = false;
 /** Monotonic nanoseconds, the clock every record is stamped with. */
 const now = () => Number(process.hrtime.bigint());
 
-/**
- * The Rust recorder's recipe: sorted `k=v` lines, sha256, first 16 hex.
- * Comparable within one language, and the ledger says so.
- * @param {Record<string, string|undefined>} env
- * @returns {string}
- */
-function envHash(env) {
-  const lines = Object.keys(env).sort().map((k) => `${k}=${env[k]}`).join('\n');
-  return crypto.createHash('sha256').update(lines).digest('hex').slice(0, 16);
-}
-
 // --- the spool -------------------------------------------------------------
 
 /**
@@ -130,7 +119,8 @@ export function flush() {
   const text = `${buf.join('\n')}\n`;
   buf.length = 0;
   try {
-    fs.appendFileSync(spoolPath, text);
+    // 0600 at CREATION, which is the only moment the mode is applied.
+    fs.appendFileSync(spoolPath, text, { mode: 0o600 });
   } catch (err) {
     // A recorder that cannot write says so once and stops; it does not retry
     // into a full disk, and it does not pretend the records were kept.
@@ -176,14 +166,16 @@ function emitTs(rec) {
 function boot() {
   booted = true;
   try {
-    fs.mkdirSync(SPOOL_DIR, { recursive: true });
+    fs.mkdirSync(SPOOL_DIR, { recursive: true, mode: 0o700 });
   } catch (err) {
     on = false;
     process.emitWarning(`sensorium: recording stopped, cannot use ${SPOOL_DIR}: ${err}`);
     return;
   }
   spoolPath = path.join(SPOOL_DIR, `${process.pid}-${threadId}.jsonl`);
-  const env = { ...process.env };
+  // Rule v1 applies HERE, before a byte reaches the disk: `env` is what the
+  // trace will hold, `envHash` is over THAT, and the other two say what was
+  // taken out and under which rule (`redact.mjs`).
   buf.push(JSON.stringify({
     e: 'BOOT',
     wire: 1,
@@ -193,8 +185,7 @@ function boot() {
     isMainThread,
     argv: process.argv,
     cwd: process.cwd(),
-    env,
-    envHash: envHash(env),
+    ...bootEnv(process.env),
     node: process.version,
     version: VERSION,
     tier: TIER,

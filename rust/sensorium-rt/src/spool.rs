@@ -65,7 +65,8 @@ use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::ffi;
-use crate::sha256::{hex_prefix, Sha256};
+use crate::json::push_json_str;
+use crate::redact;
 
 pub(crate) const MAGIC: [u8; 4] = *b"SNSR";
 pub(crate) const VERSION: u8 = 3;
@@ -121,7 +122,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.5.0";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.6.0";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK
@@ -155,12 +156,20 @@ impl Spool {
         let name = truncate_name(name);
         let header_len = HEADER_FIXED + name.len();
         let path = dir.join(format!("{pid}.{serial}.spool"));
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)?;
+        let mut opts = OpenOptions::new();
+        opts.read(true).write(true).create(true).truncate(true);
+        // 0600: a spool holds captured return values and err messages out of
+        // somebody's program. The mode is the one the file is CREATED with; a
+        // file already at this path keeps the mode it has, which is why a
+        // 0.5.0 spool left in a reused directory under a recycled pid is
+        // rewritten at whatever it was. Nothing here chmods, so there is no
+        // window between creating a file and tightening it.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let file = opts.open(path)?;
         let map_len = round_up_to_chunk(header_len + RECORD_FIXED);
         set_len(&file, map_len)?;
         let base = map(&file, map_len)?;
@@ -413,7 +422,11 @@ pub(crate) fn write_proc_header(
     units: &[&'static str],
     refused: Option<&'static str>,
 ) -> io::Result<()> {
-    let env = sorted_env();
+    // Rule v1, applied HERE -- before the environment reaches a string, let
+    // alone the disk. `sorted_env` sorts, which is what makes the table sorted
+    // (R13); `redact.rs` keeps the order it is given and writes the two
+    // siblings that describe what it did.
+    let (env, redacted) = redact::redact_process_env(sorted_env());
     let mut json = String::with_capacity(4096);
     json.push_str("{\"pid\":");
     json.push_str(&pid.to_string());
@@ -454,7 +467,11 @@ pub(crate) fn write_proc_header(
         push_json_str(&mut json, v);
     }
     json.push_str("},\"env_hash\":");
-    push_json_str(&mut json, &env_hash(&env));
+    // Over the REDACTED environment: the hash is an identity for what this
+    // trace HOLDS, and hashing the plaintext would make two traces of the same
+    // program disagree for a reason neither of them records.
+    push_json_str(&mut json, &redact::env_hash(&env));
+    redact::push_header_siblings(&mut json, &redacted);
     json.push_str(",\"units\":{");
     for (id, metadata) in units.iter().enumerate() {
         if id > 0 {
@@ -494,7 +511,16 @@ pub(crate) fn write_proc_header(
     let tmp = dir.join(format!("{pid}.proc.json.tmp"));
     let path = dir.join(format!("{pid}.proc.json"));
     {
-        let mut f = File::create(&tmp)?;
+        let mut opts = OpenOptions::new();
+        opts.write(true).create(true).truncate(true);
+        // 0600, for the same reason and at the same moment as the spool's: the
+        // header carries the whole environment, redacted or not.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let mut f = opts.open(&tmp)?;
         f.write_all(json.as_bytes())?;
         f.flush()?;
     }
@@ -514,49 +540,6 @@ fn sorted_env() -> Vec<(String, String)> {
     env
 }
 
-/// `sha256` over `"\n".join(f"{k}={v}")` for the sorted environment, first 16
-/// hex characters.
-///
-/// **Deliberately not the Python recorder's formula.** `src/sensorium/record/boot.py`
-/// hashes `json.dumps(env, sort_keys=True)`; this hashes the plan's
-/// `"{k}={v}"` join. Ruled 2026-09-02: `env_hash` is a per-recorder identity,
-/// compared only between traces from the same recorder, and no command compares
-/// one across languages. Each is stable within its own language, which is the
-/// whole of what the key is for.
-fn env_hash(env: &[(String, String)]) -> String {
-    let mut h = Sha256::new();
-    for (i, (k, v)) in env.iter().enumerate() {
-        if i > 0 {
-            h.update(b"\n");
-        }
-        h.update(k.as_bytes());
-        h.update(b"=");
-        h.update(v.as_bytes());
-    }
-    hex_prefix(&h.finish(), 16)
-}
-
-fn push_json_str(out: &mut String, s: &str) {
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => {
-                let cp = c as u32;
-                out.push_str("\\u00");
-                out.push(char::from_digit(cp >> 4, 16).unwrap());
-                out.push(char::from_digit(cp & 0xf, 16).unwrap());
-            }
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,23 +551,6 @@ mod tests {
             format!("sensorium-rt {}", env!("CARGO_PKG_VERSION")),
             "the hard-coded version string drifted from Cargo.toml"
         );
-    }
-
-    #[test]
-    fn env_hash_is_sha256_of_key_equals_value_newline_joined() {
-        // sha256(b"A=1\nB=2").hexdigest()[:16]
-        let env = vec![
-            ("A".to_owned(), "1".to_owned()),
-            ("B".to_owned(), "2".to_owned()),
-        ];
-        assert_eq!(env_hash(&env), "c1f0203c784f4397");
-    }
-
-    #[test]
-    fn json_strings_escape_what_json_requires() {
-        let mut out = String::new();
-        push_json_str(&mut out, "a\"b\\c\nd\te\u{1}f\u{e9}");
-        assert_eq!(out, "\"a\\\"b\\\\c\\nd\\te\\u0001f\u{e9}\"");
     }
 
     #[test]

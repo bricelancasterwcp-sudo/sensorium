@@ -202,7 +202,7 @@ fn local_stamp(secs: i64) -> Result<String, String> {
 pub(crate) fn write_invocation(path: &Path, record: &Invocation) -> Result<(), String> {
     let json = serde_json::to_string(record)
         .map_err(|e| format!("cannot serialise the invocation record: {e}"))?;
-    std::fs::write(path, json.as_bytes())
+    crate::perms::write(path, json.as_bytes())
         .map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn the_driver_version_is_the_crates_own() {
-        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.6.0");
+        assert_eq!(DRIVER_VERSION, "cargo-sensorium 0.7.0");
     }
 
     #[test]
@@ -411,7 +411,7 @@ mod tests {
         assert_eq!(value["workspace_root"], "/w");
         assert_eq!(value["target_dir"], "/t");
         assert_eq!(value["tool_hash"], "0123456789abcdef");
-        assert_eq!(value["driver_version"], "cargo-sensorium 0.6.0");
+        assert_eq!(value["driver_version"], "cargo-sensorium 0.7.0");
         assert_eq!(value["rustc_path"], "/u/bin/rustc");
         // Null, not absent: the converter tells "cargo has not finished" from
         // "cargo exited 0" by the value, and an absent key is neither.

@@ -129,7 +129,12 @@ def convert(spool_path, invocation_data: dict, harness_data: dict | None,
     sp = spool.read(spool_path)
 
     traces = Path(store_dir) / "traces"
-    traces.mkdir(parents=True, exist_ok=True)
+    # `paths.traces_dir()`'s rule, spelled here because this worker is handed
+    # a `store_dir` and never reads the environment `paths` resolves: one
+    # level at a time, because `parents=True` gives every parent it creates
+    # the DEFAULT mode and the store root is where `redaction.key` lives.
+    Path(store_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
+    traces.mkdir(exist_ok=True, mode=0o700)
     run_id, tmp = _reserve(traces, sp.boot["startTs"])
     builder = build.Builder(sp, inv, harness, tally, tmp, run_id)
     try:
@@ -165,7 +170,7 @@ def _reserve(traces: Path, start_ts: float) -> tuple[str, Path]:
         if (traces / f"{run_id}.db").exists():
             continue
         try:
-            os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+            os.close(os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
         except FileExistsError:
             continue
         return run_id, tmp
@@ -248,7 +253,7 @@ def _write_marker(marker: Path, summaries: list[Summary],
     body: dict = {"run_ids": result.run_ids, "refused": result.refused}
     if error is not None:
         body["error"] = error
-    marker.write_text(json.dumps(body, indent=2) + "\n")
+    invocation.write_record(marker, json.dumps(body, indent=2) + "\n")
 
 
 def _map(jobs: int, work: list[tuple], out: list[Summary]) -> None:

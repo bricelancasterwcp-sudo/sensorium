@@ -82,12 +82,15 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   (`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`
   §3.1). Both are the same ~1000x order of improvement over the 1118.9s
   per-row baseline; neither reading is gated.
-- **Permissions**: the file is created with the process umask — `0644` on a
-  default Linux setup, readable by every account on the machine. A trace
-  holds the entire process environment, everything the program wrote to
-  stdout/stderr, the command line, the working directory, and captured
-  values. Treat one the way you would treat a core dump or a `.env`; see
-  the README's "What a trace file holds". There is no redaction pass.
+- **Permissions**: from `sensorium 0.15.0` / `cargo-sensorium 0.7.0` /
+  `sensorium-ts 0.5.0` the file is created **`0600`** and every directory a
+  recorder makes **`0700`**, by explicit mode at creation; earlier writers
+  used the process umask — `0644` on a default Linux setup, readable by
+  every account on the machine. A trace holds the process environment (minus
+  what rule v1 withheld), everything the program wrote to stdout/stderr, the
+  command line, the working directory, and captured values, which rule v1
+  does not reach. Treat one as a core dump or a `.env`; see the README's
+  "What a trace file holds" and [`redaction.md`](redaction.md).
 
 ## 3. Tables
 
@@ -400,13 +403,18 @@ Vectors: `v02-declared-not-witnessed`, `v07-flow-refuses-undeclared-line`.
 ### Optional keys, by writer
 
 **Written by both recorders, read with defaults** (never refused, because
-no reader turns their absence into a number): `env` — the whole
-environment, variable by variable, which may be withheld for privacy;
-`info` refuses to print it and prints `env_hash` instead — `caps`, the
-capture caps in force (`{"str": 200, "repr": 200, "sample": 8, "depth": 3}`
-in the Python recorder), and the record-time filters `focus`, `include`,
-`exclude`, `window`. These six are the shared optional set; they are not
-Python-only.
+no reader turns their absence into a number): `env` — the environment,
+variable by variable, with each secret-*named* value stored as `<redacted>`
+under rule v1; `info` refuses to print it and prints `env_hash` instead —
+`redaction`, what that rule did, `caps`, the capture caps in force
+(`{"str": 200, "repr": 200, "sample": 8, "depth": 3}` in the Python
+recorder), and the record-time filters `focus`, `include`, `exclude`,
+`window`. These seven are the shared optional set; they are not Python-only.
+
+`redaction`'s shape, its four `info` renderings and every limit of the rule
+are [`redaction.md`](redaction.md); `env_hash` is over the environment AS
+STORED, and a trace with NO `redaction` key predates the rule. Vectors
+`v42-redaction-render`, `v42b-redaction-none`, `v43-refocus-redacted-env`.
 
 **Python-only, present today:**
 
@@ -519,7 +527,8 @@ A captured **value** is a tagged object read by `query/fmt.fmt_value`:
 `{"k": "unread"}` (with `type` and `oid` where the recorder has them).
 `len: null` prints `?`; an `unread` list names the reads the observed object
 refused. A payload key a recorder cannot fill is **omitted**, never filled
-with a zero or an empty string.
+with a zero or an empty string, and **no capture carries a `redacted` object
+in this version** — rule v1 reaches the environment and nothing else.
 
 Two of those tags are what a recorder that does not decompose values writes,
 and both render as themselves rather than as `?`:

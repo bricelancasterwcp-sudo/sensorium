@@ -121,14 +121,23 @@ pub fn tmp_record_path(spool: &Path, pid: u32) -> PathBuf {
 /// # Errors
 /// Any filesystem or serialisation failure, naming the path.
 fn write_record(spool: &Path, pid: u32, record: &RunnerRecord) -> Result<(), String> {
-    std::fs::create_dir_all(spool)
-        .map_err(|e| format!("cannot create {}: {e}", spool.display()))?;
+    use std::io::Write;
+
+    crate::perms::dir_all(spool).map_err(|e| format!("cannot create {}: {e}", spool.display()))?;
     let json = serde_json::to_string(record)
         .map_err(|e| format!("cannot serialise the runner record: {e}"))?;
     let dest = record_path(spool, pid);
     let tmp = tmp_record_path(spool, pid);
-    std::fs::write(&tmp, json.as_bytes())
+    // 0600 on the temporary, which the rename below carries to the record:
+    // this file holds the recorded process's full argv, and a secret typed on
+    // a command line is in it. The directory is 0700 for the same reason --
+    // the runtime creates it that way too, and either of them may be the one
+    // that gets there first.
+    let mut file =
+        crate::perms::create(&tmp).map_err(|e| format!("cannot write {}: {e}", tmp.display()))?;
+    file.write_all(json.as_bytes())
         .map_err(|e| format!("cannot write {}: {e}", tmp.display()))?;
+    drop(file);
     std::fs::rename(&tmp, &dest).map_err(|e| format!("cannot write {}: {e}", dest.display()))
 }
 

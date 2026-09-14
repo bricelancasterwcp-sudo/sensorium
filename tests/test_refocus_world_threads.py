@@ -25,7 +25,9 @@ from sensorium.query.refocus_env import (HARNESS_DIFFER, HARNESS_ORDER,
                                          HARNESS_SET, SESSION_EXACT,
                                          SESSION_PREFIXES, is_env_rule_note,
                                          is_harness_key)
-from sensorium.query.refocus_world import (UNVERIFIABLE, UNVERIFIABLE_CHILDREN,
+from sensorium.query.refocus_world import (UNVERIFIABLE,
+                                           UNVERIFIABLE_CHILDREN,
+                                           UNVERIFIABLE_ENV,
                                            UNVERIFIABLE_OUTPUT,
                                            UNVERIFIABLE_THREADS, _env_diff,
                                            _env_state, _licence_caveats,
@@ -66,13 +68,17 @@ def _ts_pair(tmp_path, monkeypatch) -> tuple[Trace, Trace]:
 def test_a_recorder_that_declares_threads_unwitnessed_gets_the_marker(
         tmp_path, monkeypatch):
     """The three checks a `sensorium-ts` pair cannot run, in the order
-    `unverifiable_checks` asks them: output, children, threads."""
+    `unverifiable_checks` asks them: output, children, threads -- and not
+    the fourth, which no trace of this pair gives it a reason to add."""
     a, b = _ts_pair(tmp_path, monkeypatch)
     assert unverifiable_checks(a, b) == [UNVERIFIABLE_OUTPUT,
                                          UNVERIFIABLE_CHILDREN,
                                          UNVERIFIABLE_THREADS]
+    # The fourth is rule v1's and is asked of the two METAS rather than of
+    # a capability, so a pair that declares nothing false never carries it;
+    # `tests/test_refocus_redaction.py` is where it is stated.
     assert UNVERIFIABLE == (UNVERIFIABLE_OUTPUT, UNVERIFIABLE_CHILDREN,
-                            UNVERIFIABLE_THREADS)
+                            UNVERIFIABLE_THREADS, UNVERIFIABLE_ENV)
     assert UNVERIFIABLE_THREADS == "threads: unverifiable (not witnessed)"
 
 
@@ -220,12 +226,13 @@ def test_the_two_sets_do_not_overlap():
 def test_a_harness_key_is_partitioned_out_of_the_changed_list():
     """The partition itself, not only its rendering: a differing pool slot
     is on the harness list and on no other, so it never withholds."""
-    changed, relocated, stripped, session, harness = _env_diff(
-        {"VITEST_POOL_ID": "1", "A": "x"},
-        {"VITEST_POOL_ID": "2", "A": "x"})
+    (changed, relocated, stripped, session, harness,
+     uncomparable) = _env_diff({"VITEST_POOL_ID": "1", "A": "x"},
+                               {"VITEST_POOL_ID": "2", "A": "x"})
     assert changed == []
     assert harness == ["VITEST_POOL_ID"]
     assert relocated == [] and stripped == [] and session == []
+    assert uncomparable == []
 
 
 def test_the_env_line_names_harness_set_1_and_counts_it(capsys):

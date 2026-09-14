@@ -32,7 +32,7 @@ import time
 import traceback
 from pathlib import Path
 
-from sensorium import paths
+from sensorium import paths, redact
 from sensorium.record import capture
 from sensorium.record.tracer import FocusSpec, Tracer
 from sensorium.store.writer import TraceWriter
@@ -550,14 +550,23 @@ def _source_hashes(files) -> dict:
 
 
 def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
-                    refocus_of) -> None:
-    env = dict(os.environ)
+                    refocus_of, *, key, knobs) -> None:
+    # Rule v1 applies HERE, at the writer, before anything reaches disk:
+    # `env` is what the trace holds and there is no moment at which the
+    # plaintext was in the file. `env_hash` is taken over that stored
+    # environment and not over `os.environ`, so two runs of one unchanged
+    # shell hash alike whatever their secrets were -- a hash of the
+    # plaintext would report a world change whose evidence the trace no
+    # longer holds. `table` is the name -> digest map; `redact.meta` is the
+    # only thing that decides the `redaction` object's shape.
+    env, table = redact.env(os.environ, key, knobs)
     w.set_meta("run_id", run_id)
     w.set_meta("argv", list(argv))
     w.set_meta("cwd", str(Path.cwd()))
     w.set_meta("env", env)
     w.set_meta("env_hash", hashlib.sha256(
         json.dumps(env, sort_keys=True).encode()).hexdigest()[:16])
+    w.set_meta("redaction", redact.meta(key, knobs, table))
     w.set_meta("python", sys.version.split()[0])
     w.set_meta("recorder", _recorder_id())
     w.set_meta("lang", "python")
@@ -696,13 +705,20 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         # exists" and escapes cli.main as a raw sqlite traceback.
         raise TargetError(
             f"run id {run_id!r} already has a trace at {trace_path}")
+    # The key and the knobs are read from the store and the environment as
+    # they are NOW, before the target is even resolved: a program that
+    # chdirs, or that rewrites `SENSORIUM_DIR` or one of the knobs in its
+    # own `os.environ` during import, cannot move the key the digests are
+    # taken under or change the rule the recording was made under.
+    key = redact.Key.load_or_create(paths.trace_root())
+    knobs = redact.Knobs.from_environ(os.environ)
     target = resolve_target(list(argv))   # resolve before hooks: never traced
     # Resolved here, before the program can chdir underneath us.
     entry = (str(Path(argv[0]).resolve())
              if argv and str(argv[0]).endswith(".py") else None)
     w = _LateWriteGuard(TraceWriter(trace_path))
     _write_run_meta(w, run_id, argv, focus, include, exclude, window,
-                    refocus_of)
+                    refocus_of, key=key, knobs=knobs)
     truncated_before = capture.capture_stats["truncated"]
     tracer = Tracer(w, root=Path.cwd(), focus=FocusSpec(list(focus)),
                     include=include, exclude=exclude, window=window)

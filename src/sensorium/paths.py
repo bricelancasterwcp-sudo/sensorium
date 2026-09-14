@@ -29,8 +29,20 @@ def trace_root() -> Path:
 
 
 def traces_dir() -> Path:
-    d = trace_root() / "traces"
-    d.mkdir(parents=True, exist_ok=True)
+    """`<trace root>/traces`, created 0700 the whole way down.
+
+    The two `mkdir` calls are one rule, not a tidy-up: `Path.mkdir` applies
+    `mode` to the directory it names and gives every PARENT it creates on
+    the way the default, so a single `traces.mkdir(parents=True,
+    mode=0o700)` would leave the store root itself world-readable -- and
+    the root is where `redaction.key` and `invocations.jsonl` live. An
+    existing directory is never chmod'ed: the user's own permissions on
+    their own store are theirs.
+    """
+    root = trace_root()
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    d = root / "traces"
+    d.mkdir(exist_ok=True, mode=0o700)
     return d
 
 
