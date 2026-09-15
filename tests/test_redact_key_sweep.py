@@ -76,6 +76,34 @@ def test_a_missing_root_returns_nothing(tmp_path):
     assert redact_key.sweep_stale(tmp_path / "does-not-exist") == []
 
 
+def test_a_pid_outside_the_c_int_range_never_raises_and_is_kept(tmp_path):
+    """`os.kill` raises `OverflowError` -- not an `OSError` -- for a pid
+    past the platform's signed-int range (`2**31` on this interpreter): a
+    `.tmp` name is trusted only as digits, and digits can spell a number
+    no real pid ever is. `_pid_alive` must read that as "cannot check,
+    call it alive," not let it propagate out of `sweep_stale`."""
+    tmp = tmp_path / f"{redact_key.KEY_FILE}.2147483648.tmp"
+    tmp.write_bytes(b"\x00" * redact_key.KEY_BYTES)
+
+    assert redact_key.sweep_stale(tmp_path) == []
+    assert tmp.exists()
+
+
+def test_a_negative_or_zero_middle_is_left(tmp_path):
+    """`os.kill` treats a negative number as a process GROUP, not the pid
+    the name encodes, and pid 0 means the caller's own group -- neither is
+    the pid this name claims, so both are refused like a non-int middle,
+    before `_pid_alive` is ever asked."""
+    negative = tmp_path / f"{redact_key.KEY_FILE}.-5.tmp"
+    zero = tmp_path / f"{redact_key.KEY_FILE}.0.tmp"
+    negative.write_bytes(b"\x00" * redact_key.KEY_BYTES)
+    zero.write_bytes(b"\x00" * redact_key.KEY_BYTES)
+
+    assert redact_key.sweep_stale(tmp_path) == []
+    assert negative.exists()
+    assert zero.exists()
+
+
 def test_never_raises_on_an_unlinkable_file(tmp_path):
     """0500 keeps read and traversal but drops write on the directory
     itself, which is what unlink needs: the file is still there afterward,
