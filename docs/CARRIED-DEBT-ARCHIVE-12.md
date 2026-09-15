@@ -13,8 +13,9 @@ asks: PR B's section was drafted at **414** lines against a live file of
 **722**, which would have taken it to **1,136** — three hundred and
 thirty-six over the ceiling. One section had to go whichever way the
 arithmetic fell, and no other cut would have been enough on its own: the
-moved section is **352** lines, and the live file is **795** after both the
-cut and the append.
+moved section is **351** lines — the live file's 126–476 as it stood, and
+everything below this header here — and the live file was **795** after both
+the cut and the append (591 today, volume 13 having been cut from it since).
 Content was not trimmed to fit; the oldest section was cut, which is the rule.
 
 **The wording, the order and the strikes are unchanged** — nothing was edited

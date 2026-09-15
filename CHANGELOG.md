@@ -121,8 +121,10 @@ record kind. The Rust spool wire moves to **v4**; the TypeScript wire stays
 
 **The honest limits, stated where a reader meets them.** A secret in a
 variable named `x` or in a bare `key`; a shape on none of the nineteen
-patterns; `argv`, which no part of this rule reaches; an output chunk scanned
-one `write()` at a time, so a token split across two writes is not seen; a
+patterns, or one the cap clipped too short to match; `argv`, which no part
+of this rule reaches — though a SPAWNED child's command line
+(`meta.children`) takes the content rule; an output chunk scanned one
+`write()` at a time, so a token split across two writes is not seen; a
 Rust `?`-hop RAISE's message, which is the probe's own read and takes the
 content rule like any other; a spool converted against a store that did not
 record it, whose `key_id` is the recorder's while the converter's capture

@@ -275,7 +275,8 @@ scan, and the content rule refuses anything already carrying `redacted`
 | a CALL argument, a LINE delta | the binding's own name |
 | a RETURN value | the LAST segment of the CALLEE's qualname, split on `.` (Python, TypeScript) or `::` (Rust): `Store.get_api_key` is asked for by `get_api_key`, so its answer is an API key whatever the caller stores it in |
 | a `map` sample's VALUE | the paired KEY's own text where that key is a `str` — a headers dict's `authorization` entry. **Python only**: the Rust and TypeScript recorders store a rendering rather than a decomposed map, and the content rule is their only reach into one |
-| an output chunk, an exception message | none — the content rule alone; a message is a sentence the program wrote, not a value with an identity, so a hit is marked on the `exc` object and carries no digest |
+| an output chunk, an exception message | none — the content rule alone; a message is a sentence the program wrote, not a value with an identity, so a hit is marked on the `exc` object and carries no digest — except a Rust `Err` return taken by name, whose origin RAISE repeats the RETURN's withholding (ruling R16): one withheld text on two rows, under one digest, `trunc` false on both, counted once |
+| an element of a SPAWNED command line (`meta.children`) | none — the content rule alone, at the audit sink (ruling R25); an argv has positions rather than bindings, and a hit is counted like any other |
 
 `tests/test_redact_values.py::test_named_return_reads_the_last_segment` and
 `::test_a_map_value_under_a_firing_key_is_redacted_by_that_name`,
@@ -476,14 +477,23 @@ advisory there.
   secret in a variable called `x`. `SENSORIUM_REDACT_NAMES` is the remedy,
   and it is recorded.
 - **A secret matching none of the nineteen content patterns is stored as
-  typed.** The list is a floor, not a scanner.
+  typed.** The list is a floor, not a scanner. The rule also sees the CLIPPED
+  text rather than the value the program had, so a secret that BEGINS near
+  the 200-byte cap can leave a fragment shorter than every pattern's minimum
+  length — which then matches nothing, and is stored as typed.
 - **An output chunk is scanned one `write()` at a time.** A token split
   across two writes is not seen: the tee holds no state between writes, and
   one that did would be a buffer of the program's output living inside the
   instrument.
-- **`argv` is stored in plaintext.** A secret passed on the command line is
-  in the trace, in `meta.argv` and in the Rust proc header, and no part of
-  rule v1 reaches it.
+- **The recorded program's OWN command line is stored in plaintext.** A
+  secret passed to it on the command line is in the trace, in `meta.argv` and
+  in the Rust proc header, and no part of rule v1 reaches it. The command
+  lines of the processes it SPAWNS are covered differently rather than not at
+  all: each element of `meta.children` takes the CONTENT rule at the audit
+  sink and counts into `values` (ruling R25), so a shape the patterns know is
+  replaced where it stands — but a command line has positions rather than
+  bindings, so there is no name to ask about and the NAME rule never runs on
+  one.
 - **A `?`-hop RAISE's message in Rust is the probe's own read of the error**,
   not the returned value, so it takes the content rule like any other message
   and is never withheld whole by the qualname that took the RETURN.

@@ -897,7 +897,7 @@ landed is what the docs describe**.
 | B27 | The census is STATIC and runs at Task 0, over every binding name in `corpus/**`, every `args`/`deltas` key in the vectors and every `a`/`d` key in the ts-spool fixtures, against a committed `tests/fixtures/corpus-firing-names.txt`. Shipped as written — and it is what produced B28. |
 | B28 | `KEY` fires only inside a name of two or more segments, as `PWD` does (a `_SOLO_EXEMPT` set `{PWD, KEY}` in all three rule modules). Added by the controller at Task 0 on the census's evidence (**R6**); rule v1 is AMENDED rather than bumped to v2, because no trace under the earlier spelling exists outside this box and CI. |
 
-#### (b) The controller's rulings R1–R23
+#### (b) The controller's rulings R1–R25
 
 Each was ruled during execution and is in the plan's gitignored ledger with
 its evidence. The third column is the cost the ruling was taken at.
@@ -927,11 +927,13 @@ its evidence. The third column is the cost the ruling was taken at.
 | R21 | **Amends B18**: `_TRIGGER` folds case where the pattern it guards does — it was case-SENSITIVE while `authorization-header` is `(?i)`, so `BEARER <token>` skipped the table and was stored in plaintext. Fixed in all three languages with two uppercase fixture rows. | a leak on an uppercase header |
 | R22 | Part B is measured into the SAME work root the pre-registration names, `store-b` beside `store-a`; the controller deletes `$E16_DIR/rust-target` WHOLE before launching (part A's build cache, which the `other` sweep walks), and everything else of A's stays. | one cold build of the probe crate |
 | R23 | `mint` is a critical phase — an empty token would run every later phase on `""`. | none |
+| R24 | Task 12's two review findings join the final whole-branch review's fix wave as ONE dispatch, rather than a round of their own for two one-line doc corrections. | none; a review seat |
+| R25 | The fix wave CLOSES the `meta.children` path rather than only disclosing it: each element of a SPAWNED process's command line goes through `redact_values.text()` at the audit sink, an element that changed counts into `values`, and the limits inventory names it beside `argv`. | a content-ruled child argv where no name rule can apply — a command line has positions, not bindings, so there is no name to ask about |
 
 #### (c) Where the shipped code differs from §§1–12
 
-Nineteen, documented at Task 9 and named here so a reader of the sections
-above is not misled by them.
+Twenty — nineteen documented at Task 9, the twentieth added by the final fix
+wave — named here so a reader of the sections above is not misled by them.
 
 1. **§5.2's LINE tag is `4`, not `3`.** Tag 3 has meant UNBOUND on a LINE
    row since wire v3 shipped in 0.13.0, one day before this spec was
@@ -1053,6 +1055,16 @@ above is not misled by them.
     `typescript/HONESTY.md` carries row 13 of its index and nothing else —
     no `## 13.` heading in the body, which would have cost the four lines
     that file does not have. `rust/HONESTY.md` §14 is in place as written.
+20. **`meta.children` is content-ruled, which §5.1 does not reach**
+    (**R25**, the final whole-branch review's finding). §5.1 applies the
+    rule to captures, exception messages and output chunks; shipped, each
+    element of a SPAWNED process's command line takes the CONTENT rule at
+    the Python recorder's audit sink and an element that changed counts into
+    `redaction.values` at the write — `info` prints that list back verbatim,
+    so it was a plaintext path out of the trace. The NAME rule does not run
+    there: an argv has positions rather than bindings, and there is no name
+    to ask about. Where: `src/sensorium/record/boot.py::_audit`,
+    `::_content_ruled`.
 
 One further limit, not a difference but not stated in §§1–12 either: **a
 spool ingested into a store that did not record it names two keys.** The
