@@ -339,3 +339,46 @@ def test_a_value_that_does_not_change_across_lines_is_one_delta(tmp_path):
     delta, rows = _delta_of(trace, _codes(trace)["handle"], "api_key")
     assert rows == 1
     assert delta["redacted"]["by"] == "name"
+
+
+#: A program whose CHILD carries the secret on its command line. Recorded
+#: with no `--focus`, so the target itself contributes no LINE delta: the
+#: only text rule v1 meets here is the one the audit hook stores.
+SPAWNS_A_SECRET = f'''import subprocess
+import sys
+
+subprocess.run([sys.executable, "-c", "pass", "--token", "{TOKEN}"])
+'''
+
+
+def test_a_spawned_command_line_is_content_ruled_and_counted(tmp_path):
+    """R25: `meta.children` is text this recorder STORES -- and `info` prints
+    it back verbatim -- so a secret on a CHILD's command line was a plaintext
+    path straight out of the trace. The content rule runs at the audit sink;
+    a command line has positions rather than bindings, so there is no name to
+    ask about and the span operation is the whole of the rule here.
+
+    The count is derived from the program, not read off it: recorded without
+    `--focus` there is no LINE delta, the one call it makes is into the
+    stdlib (which this recorder does not follow), it prints nothing and it
+    raises nothing -- so the child's fifth argument is the only value this
+    trace withholds. `_withheld_by_the_trace` walks payloads and output and
+    not `meta`, which is why its reading is 0 beside `values` of 1.
+    """
+    trace, _, path = _record(tmp_path, SPAWNS_A_SECRET, None, extra=())
+    children = trace.meta["children"]
+    assert len(children) == 1, children
+    # The span went; the shape of the invocation stayed, which is what
+    # `meta.children` is for.
+    assert children[0][-2:] == ["--token", redact.REDACTED], children[0]
+    assert TOKEN not in json.dumps(trace.meta)
+
+    assert _withheld_by_the_trace(trace) == 0, "the program stores no value"
+    assert trace.meta["redaction"]["values"] == 1
+
+    # A trace is a file a user hands to someone else: the raw bytes, not only
+    # the keys this test thought to walk.
+    raw = TOKEN.encode()
+    for p in (path, Path(f"{path}-wal")):
+        if p.exists():
+            assert raw not in p.read_bytes(), p.name

@@ -346,7 +346,15 @@ def _audit(event, args) -> None:
             return
         if isinstance(cmd, (str, bytes, os.PathLike)):
             cmd = [cmd]           # a bare command line, as Windows reports it
-        sink.append([_as_text(a) for a in cmd][:8])
+        # Rule v1's CONTENT half over each element, at the write (R25). A
+        # child's command line is text this recorder STORES -- `meta.children`,
+        # which `info` prints back verbatim -- so
+        # `subprocess.run(["curl", "-H", f"Authorization: Bearer {tok}"])`
+        # would otherwise put a live token in run metadata. Only after the
+        # slice: `values` counts what the trace HOLDS (B3), and the ninth
+        # argument is not held.
+        sink.append([_content_ruled(a)
+                     for a in [_as_text(a) for a in cmd][:8]])
     # BaseException, not Exception. The arguments in `args` are the program's
     # own objects -- `isinstance` consults `__class__`, `str()` runs
     # `__str__`, and `for a in cmd` runs `__iter__` -- so a dunder raising
@@ -376,6 +384,26 @@ def _as_text(arg) -> str:
     # alive in run metadata until the finalizer. Same normalisation as every
     # other payload; found by the item-7 sweep.
     return capture.plain_str(str(arg))
+
+
+def _content_ruled(text: str) -> str:
+    """One element of a spawned command line, under rule v1's CONTENT half.
+
+    There is no NAME to read on a command line -- a child's argv has
+    positions, not bindings -- so the span operation is the whole of the rule
+    at this site (ruling R25): `--token sk-live-…` becomes
+    `--token <redacted>` and the shape of the invocation survives, which is
+    what `meta.children` is FOR.
+
+    Counted per element that CHANGED, by the hand that writes it, exactly as
+    the tee counts a chunk it stores (B3). `rv.text` honours the `off` knob
+    itself and never raises, which is what lets it be called from inside an
+    audit hook that must not.
+    """
+    after, hit = rv.text(text)
+    if hit:
+        rv.stats["values"] += 1
+    return after
 
 
 def _arm_audit(sink: list, threads: list, errors: list,
