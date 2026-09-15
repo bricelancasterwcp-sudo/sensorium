@@ -635,4 +635,4 @@ guard list is narrowed) and **R29** (§2.2's `Closest:` clause gains the case
 where only `<anonymous>` qualnames are eligible). `docs/CARRIED-DEBT.md` closes
 five rung-3 debts and opens this rung's.
 
-Earlier entries: [`CHANGELOG-ARCHIVE-2.md`](CHANGELOG-ARCHIVE-2.md) (0.9.0–0.11.0), [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) (older).
+Earlier entries: [`CHANGELOG-ARCHIVE-2.md`](CHANGELOG-ARCHIVE-2.md) (0.8.7–0.11.0), [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) (older).
