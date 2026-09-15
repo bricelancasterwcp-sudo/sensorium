@@ -255,3 +255,53 @@ def _unlink(path: Path) -> None:
         os.unlink(path)
     except OSError:
         pass
+
+
+#: A leftover tmp's name, never `KEY_FILE` itself -- the dot before `*`
+#: means the glob cannot match the key file, which has no `.tmp` suffix.
+_TMP_GLOB = f"{KEY_FILE}.*.tmp"
+
+
+def _pid_alive(pid: int) -> bool:
+    """`os.kill(pid, 0)` sends no signal, only asks whether `pid` is still
+    a process this box has. `ProcessLookupError` is the one "gone" answer;
+    `PermissionError` means the pid is real but owned by someone else, so
+    it counts as alive -- a sweep must never unlink a live writer's tmp
+    just because it lacks the rights to signal it."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
+def sweep_stale(root: Path) -> list[Path]:
+    """Unlink every `<root>/redaction.key.<pid>.tmp` whose writer is dead:
+    the one hazard `load_or_create`'s own `finally` cannot cover (R15) is a
+    process KILLED between `_write_key` finishing and that `finally`
+    running, which leaves a 32-byte secret half nobody will ever finish
+    writing. A name whose middle does not parse as a pid, or whose pid is
+    still alive, is left untouched. Never raises: a file this cannot
+    unlink (permissions, a race) is simply absent from the result.
+
+    Not called by any recorder -- a recorder deleting files at its own
+    startup is a different threat model than a `redact` pass that, by
+    design, visits the whole store once (C13); today only `redact` calls
+    this, and only once per invocation.
+    """
+    root = Path(root)
+    swept = []
+    for tmp in sorted(root.glob(_TMP_GLOB)):
+        middle = tmp.name.removeprefix(f"{KEY_FILE}.").removesuffix(".tmp")
+        try:
+            pid = int(middle)
+        except ValueError:
+            continue
+        if _pid_alive(pid):
+            continue
+        _unlink(tmp)
+        if not tmp.exists():
+            swept.append(tmp)
+    return swept
