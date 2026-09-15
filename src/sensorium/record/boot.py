@@ -33,7 +33,13 @@ import traceback
 from pathlib import Path
 
 from sensorium import paths, redact
+from sensorium import redact_values as rv
 from sensorium.record import capture
+# The stream interception, split out at this file's 800-line ceiling.
+# Re-exported so `boot._Tee` and `boot._StdinProxy` keep resolving:
+# these are one recorder's internals across two files, not separate
+# modules with surfaces of their own.
+from sensorium.record.boot_io import _StdinProxy, _Tee  # noqa: F401
 from sensorium.record.tracer import FocusSpec, Tracer
 from sensorium.store.writer import TraceWriter
 
@@ -120,118 +126,6 @@ def _console_script_target(argv: list[str]):
     raise TargetError(
         f"cannot resolve target {cmd!r}: not a .py file, -m module, "
         "or installed console script")
-
-
-# -- stream interception ---------------------------------------------------
-class _Tee:
-    """Pass writes through to the real stream and into the trace.
-
-    A delegating proxy rather than a TextIOBase subclass: programs reach for
-    `sys.stdout.buffer`, `.fileno()`, `.encoding` and `.isatty()`, and a
-    subclass would answer those for itself instead of for the stream the
-    program actually has. Output written straight to the file descriptor
-    (`os.write(1, ...)`, a child process) bypasses this and is not captured;
-    the trace holds what went through the Python stream object.
-    """
-
-    def __init__(self, orig, name, writer) -> None:
-        self._orig = orig
-        self._name = name
-        self._writer = writer
-
-    def write(self, s):
-        n = self._orig.write(s)
-        # Normalise BEFORE testing or storing. `s` is whatever the program
-        # passed to `print`, which may be a `str` subclass with live dunders:
-        # `if s:` ran its `__bool__`/`__len__` from inside the program's own
-        # call, the instance was then held in the writer's buffer until the
-        # next flush, and bound into sqlite from there. An exception out of
-        # any of that is the recorder killing the program it observes, at the
-        # program's own line. Found by the sweep for item 7, not reported.
-        text = capture.plain_str(s)
-        if text:
-            self._writer.add_output(self._writer.last_event_id, self._name,
-                                    text)
-        return n
-
-    def writelines(self, lines) -> None:
-        for line in lines:
-            self.write(line)
-
-    def flush(self) -> None:
-        self._orig.flush()
-
-    def __getattr__(self, name):
-        return getattr(self._orig, name)
-
-
-_MARK_ON_CALL = ("read", "readline", "readlines", "readinto", "read1")
-_MARK_ON_ACCESS = ("buffer", "detach")
-
-
-class _StdinProxy:
-    """Mark the run as having consumed stdin, so replay knows it is not pure.
-
-    Only reads that go through the Python object are seen. An interactive
-    `input()` on a real tty is served by the readline fast path against fd 0
-    and does not touch this proxy; piped and redirected stdin, which is what
-    a recorded run almost always has, does.
-
-    Everything else about the stream must behave exactly as it would without
-    the recorder -- an instrument that changes the program it observes is
-    worse than no instrument.
-    """
-
-    def __init__(self, orig) -> None:
-        self._orig = orig
-        self.consumed = False
-
-    def _marking(self, fn):
-        def inner(*a, **k):
-            self.consumed = True
-            return fn(*a, **k)
-        return inner
-
-    def __getattr__(self, name):
-        attr = getattr(self._orig, name)     # raises first: absent is not use
-        # `name` is whatever the program passed to `getattr`, and CPython
-        # hands a `str` SUBCLASS straight through -- so the two membership
-        # tests below would run its `__eq__` and `__hash__`, from inside the
-        # program's own `getattr(sys.stdin, ...)` call, where without the
-        # recorder no comparison happens at all. Measured; found by the
-        # general-case audit for item 7.
-        name = capture.plain_str(name)
-        if name in _MARK_ON_CALL:
-            return self._marking(attr)
-        if name in _MARK_ON_ACCESS:
-            # Handing out the binary layer forfeits the ability to see the
-            # read, so the access itself counts. Over-marking is the safe
-            # direction: it costs a refused refocus, where a missed mark
-            # costs a MATCH verdict on a run that was never repeatable.
-            self.consumed = True
-        return attr
-
-    # Implicit special-method lookup goes to the type, not to __getattr__, so
-    # every dunder a program might use on a stream is spelled out here. A
-    # missing one is not a missed mark -- it is a TypeError in a program that
-    # ran fine without the recorder.
-    def __iter__(self):
-        self.consumed = True
-        return self               # a file is its own iterator; so is this
-
-    def __next__(self):
-        self.consumed = True
-        return next(self._orig)
-
-    def __enter__(self):
-        self._orig.__enter__()
-        return self               # never the raw stream: reads must stay seen
-
-    def __exit__(self, *exc_info):
-        return self._orig.__exit__(*exc_info)
-
-    def __repr__(self) -> str:
-        return repr(self._orig)   # the instrument does not announce itself
 
 
 # -- writes from threads that outlive the target ---------------------------
@@ -452,7 +346,15 @@ def _audit(event, args) -> None:
             return
         if isinstance(cmd, (str, bytes, os.PathLike)):
             cmd = [cmd]           # a bare command line, as Windows reports it
-        sink.append([_as_text(a) for a in cmd][:8])
+        # Rule v1's CONTENT half over each element, at the write (R25). A
+        # child's command line is text this recorder STORES -- `meta.children`,
+        # which `info` prints back verbatim -- so
+        # `subprocess.run(["curl", "-H", f"Authorization: Bearer {tok}"])`
+        # would otherwise put a live token in run metadata. Only after the
+        # slice: `values` counts what the trace HOLDS (B3), and the ninth
+        # argument is not held.
+        sink.append([_content_ruled(a)
+                     for a in [_as_text(a) for a in cmd][:8]])
     # BaseException, not Exception. The arguments in `args` are the program's
     # own objects -- `isinstance` consults `__class__`, `str()` runs
     # `__str__`, and `for a in cmd` runs `__iter__` -- so a dunder raising
@@ -482,6 +384,26 @@ def _as_text(arg) -> str:
     # alive in run metadata until the finalizer. Same normalisation as every
     # other payload; found by the item-7 sweep.
     return capture.plain_str(str(arg))
+
+
+def _content_ruled(text: str) -> str:
+    """One element of a spawned command line, under rule v1's CONTENT half.
+
+    There is no NAME to read on a command line -- a child's argv has
+    positions, not bindings -- so the span operation is the whole of the rule
+    at this site (ruling R25): `--token sk-live-…` becomes
+    `--token <redacted>` and the shape of the invocation survives, which is
+    what `meta.children` is FOR.
+
+    Counted per element that CHANGED, by the hand that writes it, exactly as
+    the tee counts a chunk it stores (B3). `rv.text` honours the `off` knob
+    itself and never raises, which is what lets it be called from inside an
+    audit hook that must not.
+    """
+    after, hit = rv.text(text)
+    if hit:
+        rv.stats["values"] += 1
+    return after
 
 
 def _arm_audit(sink: list, threads: list, errors: list,
@@ -550,7 +472,7 @@ def _source_hashes(files) -> dict:
 
 
 def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
-                    refocus_of, *, key, knobs) -> None:
+                    refocus_of, *, key, knobs) -> dict:
     # Rule v1 applies HERE, at the writer, before anything reaches disk:
     # `env` is what the trace holds and there is no moment at which the
     # plaintext was in the file. `env_hash` is taken over that stored
@@ -560,13 +482,14 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
     # longer holds. `table` is the name -> digest map; `redact.meta` is the
     # only thing that decides the `redaction` object's shape.
     env, table = redact.env(os.environ, key, knobs)
+    redaction = redact.meta(key, knobs, table)
     w.set_meta("run_id", run_id)
     w.set_meta("argv", list(argv))
     w.set_meta("cwd", str(Path.cwd()))
     w.set_meta("env", env)
     w.set_meta("env_hash", hashlib.sha256(
         json.dumps(env, sort_keys=True).encode()).hexdigest()[:16])
-    w.set_meta("redaction", redact.meta(key, knobs, table))
+    w.set_meta("redaction", redaction)
     w.set_meta("python", sys.version.split()[0])
     w.set_meta("recorder", _recorder_id())
     w.set_meta("lang", "python")
@@ -589,12 +512,24 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
     w.set_meta("incomplete", True)      # cleared only after a clean finish
     if refocus_of:
         w.set_meta("refocus_of", refocus_of)
+    # Returned, not re-read: `_finalize_meta` rewrites this same object with
+    # the run's `values` count, and a second `redact.meta(...)` there could
+    # drift from the one the trace already holds.
+    return redaction
 
 
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
                    truncated_count, live_threads, entry, threads_started,
-                   audit_errors, spawn_syscalls, task_errors) -> None:
+                   audit_errors, spawn_syscalls, task_errors,
+                   redaction, values) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
+    # How many values rule v1 took, counted by the hand that wrote them (B3)
+    # -- captures taken by name or by content, output chunks and exception
+    # messages alike. Written only under `mode: on`: a recording made with
+    # the rule off counted nothing, and a `values: 0` there would read as
+    # "the rule ran and found none" (B26).
+    if redaction.get("mode") == "on":
+        w.set_meta_final("redaction", {**redaction, "values": values})
     w.set_meta_final("uncaught", uncaught)
     w.set_meta_final("stdin_consumed", stdin_consumed)
     w.set_meta_final("children", children)
@@ -712,14 +647,18 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
     # taken under or change the rule the recording was made under.
     key = redact.Key.load_or_create(paths.trace_root())
     knobs = redact.Knobs.from_environ(os.environ)
+    # The value half of the rule reads the same key and the same knobs, from
+    # the same moment: one recording is made under one rule.
+    rv.install(key, knobs)
     target = resolve_target(list(argv))   # resolve before hooks: never traced
     # Resolved here, before the program can chdir underneath us.
     entry = (str(Path(argv[0]).resolve())
              if argv and str(argv[0]).endswith(".py") else None)
     w = _LateWriteGuard(TraceWriter(trace_path))
-    _write_run_meta(w, run_id, argv, focus, include, exclude, window,
-                    refocus_of, key=key, knobs=knobs)
+    redaction = _write_run_meta(w, run_id, argv, focus, include, exclude,
+                                window, refocus_of, key=key, knobs=knobs)
     truncated_before = capture.capture_stats["truncated"]
+    values_before = rv.stats["values"]
     tracer = Tracer(w, root=Path.cwd(), focus=FocusSpec(list(focus)),
                     include=include, exclude=exclude, window=window)
     # The thread constructing the Tracer -- this one, which runs `target()`
@@ -756,7 +695,8 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         # Ask the tracer for this object's serial before uninstalling it, so
         # the uncaught record names the exact RAISE row that produced it
         # rather than being matched back by a recyclable address.
-        uncaught = capture.capture_exc(e, tracer.serial_of(e))
+        uncaught = rv.exc(capture.capture_exc(e, tracer.serial_of(e)))
+        rv.stats["values"] += rv.count_capture(uncaught)
         traceback.print_exception(e)   # tee'd: the trace holds what was shown
     finally:
         tracer.uninstall()             # stop callbacks before closing the db
@@ -775,7 +715,9 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 threads_started=len(started),
                 audit_errors=len(audit_errors),
                 spawn_syscalls=len(spawns),
-                task_errors=tracer.task_errors)
+                task_errors=tracer.task_errors,
+                redaction=redaction,
+                values=rv.stats["values"] - values_before)
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)

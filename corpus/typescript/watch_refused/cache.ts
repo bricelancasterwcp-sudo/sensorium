@@ -5,15 +5,15 @@
 // declares it cannot answer.
 const CACHE: Record<string, number> = { rate: 100 };
 
-export function compute(key: string): number {
-  return CACHE[key] * 2;
+export function compute(slot: string): number {
+  return CACHE[slot] * 2;
 }
 
-export function refresh(key: string): number {
-  const fresh = compute(key);
-  return CACHE[key];            // BUG: the recomputed value is dropped
+export function refresh(slot: string): number {
+  const fresh = compute(slot);
+  return CACHE[slot];           // BUG: the recomputed value is dropped
 }
 
-export function lookup(key: string): number {
-  return CACHE[key];
+export function lookup(slot: string): number {
+  return CACHE[slot];
 }

@@ -59,7 +59,7 @@ ALLOWED_Q_KEYS = {"id", "ask", "truth", "why_logs_fail", "command",
                   "expect_contains", "expect_line", "expect_count",
                   "expect_absent", "expect_exit", "depends_on"}
 ALLOWED_TOP_KEYS = {"program", "argv", "record", "second_run", "questions",
-                    "cargo_args", "harness_args"}
+                    "cargo_args", "harness_args", "env"}
 #: `program:` value that selects the Rust recorder instead of the Python one.
 CARGO = "cargo"
 #: ...and the one that selects the TypeScript recorder.
@@ -100,6 +100,13 @@ class Case:
     cargo_args: list = field(default_factory=list)
     #: argv after `vitest`, for a `program: vitest` case.
     harness_args: list = field(default_factory=list)
+    #: Extra environment variables, merged into the RECORDING only (never
+    #: into a question's own command) -- a case that needs a real secret in
+    #: the process the recorder launches, without hardcoding it in the
+    #: program itself. Allowed on every program kind alike: what varies
+    #: between the three recorders is how the case tells them what to RUN,
+    #: not what environment that run gets.
+    env: dict = field(default_factory=dict)
 
     @property
     def is_cargo(self) -> bool:
@@ -178,6 +185,7 @@ def _validate_top(where: str, spec: dict) -> None:
         raise ValueError(f"{where}: unknown keys {sorted(extra)}")
     if "program" not in spec or "questions" not in spec:
         raise ValueError(f"{where}: needs both 'program' and 'questions'")
+    _validate_env(where, spec.get("env"))
     program = spec["program"]
     if program == CARGO:
         _validate_cargo(where, spec)
@@ -185,6 +193,23 @@ def _validate_top(where: str, spec: dict) -> None:
         _validate_vitest(where, spec)
     else:
         _validate_python(where, spec)
+
+
+def _validate_env(where: str, env) -> None:
+    """`env:` -- extra variables merged into the RECORDING's environment.
+
+    A map of `str -> str`, checked here rather than left to the runner: a
+    non-string value would reach a subprocess's environment as whatever
+    `str()` gives it, silently drifting from what the YAML says the case
+    was recorded under. `None` (the key absent) is fine -- most cases carry
+    no secret to plant.
+    """
+    if env is None:
+        return
+    if not isinstance(env, dict) or not all(
+            isinstance(k, str) and isinstance(v, str)
+            for k, v in env.items()):
+        raise ValueError(f"{where}: env must be a mapping of str -> str")
 
 
 def _validate_python(where: str, spec: dict) -> None:
@@ -376,7 +401,8 @@ def load_cases(root: Path = ROOT, only_dir: str | None = None) -> list[Case]:
                           spec.get("argv", []), spec.get("record") or {},
                           spec.get("second_run"), spec["questions"],
                           spec.get("cargo_args") or [],
-                          spec.get("harness_args") or []))
+                          spec.get("harness_args") or [],
+                          spec.get("env") or {}))
     return cases
 
 

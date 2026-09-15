@@ -8,12 +8,14 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use sensorium_rt::redact::{Key, REDACTED};
 use serde_json::{json, Map, Value};
 
 use crate::convert::errflow::{self, ErrFlowEvent, IndexInput};
 use crate::convert::fingerprint::Fingerprint;
 use crate::convert::manifest::{Manifest, RetKind, SiteInfo, SiteKind};
 use crate::convert::merge::MergeResult;
+use crate::convert::redaction;
 use crate::convert::spool::{
     self, How, ProcHeader, KIND_CALL, KIND_HANDLED, KIND_LINE, KIND_PANIC, KIND_RAISE, KIND_RETURN,
     KIND_THREAD_END, TAG_DEBUG, TAG_NO_VALUE, TAG_UNREAD,
@@ -37,6 +39,13 @@ struct OpenFrame {
 
 struct PendingPanic {
     msg: String,
+    /// The `redacted` object the PANIC record's `exc` carried, if any.
+    /// Carried rather than recomputed: the message is redacted ONCE, at the
+    /// record, and the unwind `exc` this becomes is the same message seen a
+    /// second time -- re-running the rule there would find a fixed point and
+    /// say "nothing changed", and the `exc` object would lose the mark that
+    /// says why its text has a marker in it.
+    msg_mark: Option<Value>,
     loc: String,
     serial: u64,
 }
@@ -61,6 +70,13 @@ pub struct ProcessResult {
     pub closure_frames: u64,
     /// Serials that saw a `THREAD_END` record.
     pub ended_threads: std::collections::BTreeSet<u32>,
+    /// B3's `redaction.values`: how many captures and messages this trace
+    /// WITHHOLDS. Counted at the write and never as the rule fires -- one
+    /// count per capture or message the walk stores with a `redacted` object
+    /// on it, whichever hand put it there. A delta the RUNTIME took (wire v4's
+    /// tag 4) is one of them: it is a value this trace does not hold, and a
+    /// reader asking "how much is missing" is owed it.
+    pub values_redacted: usize,
 }
 
 /// One process's record stream and everything needed to read it.
@@ -73,6 +89,11 @@ pub struct Walk<'a> {
     pub names: &'a BTreeMap<u32, String>,
     /// Thread serial -> the wire version of that thread's spool file.
     pub versions: &'a BTreeMap<u32, u8>,
+    /// Rule v1's value half, as it stands for this process: the STORE's key,
+    /// or `None` when the recording says the rule was OFF (B26 -- a trace
+    /// whose own `redaction` key says it stores plaintext is not quietly
+    /// redacted here, which would make the key and the rows disagree).
+    pub value_rule: Option<&'a Key>,
 }
 
 /// Consume `merged` against `proc`'s registered units and `manifests`, writing
@@ -99,6 +120,7 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
         pid,
         names,
         versions,
+        value_rule,
     } = *w;
     let unit_by_id: HashMap<u8, &str> = proc
         .units
@@ -133,6 +155,7 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
     let mut err_flow_handled = 0u64;
     let mut err_flow_outside_frames = 0u64;
     let mut closure_frames = 0u64;
+    let mut values_redacted = 0usize;
 
     for m in &merged.records {
         let thread_id = m.thread_serial;
@@ -222,8 +245,15 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     // workspace error type that happens to be spelled that way.
                     Some(match pending_panic.get(&thread_id) {
                         Some(p) => {
-                            json!({"kind": "panic", "type": "panic", "msg": p.msg,
-                                   "serial": p.serial, "loc": p.loc})
+                            let mut exc = json!({"kind": "panic", "type": "panic", "msg": p.msg,
+                                                 "serial": p.serial, "loc": p.loc});
+                            // The SAME message the RAISE already carries, so
+                            // the same mark -- and no second count, because it
+                            // is one message withheld, seen twice.
+                            if let Some(mark) = &p.msg_mark {
+                                exc["redacted"] = mark.clone();
+                            }
+                            exc
                         }
                         None => {
                             panics_unrecorded += 1;
@@ -255,26 +285,32 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                         }
                     };
                     obj.insert("outcome".to_owned(), json!(outcome_str));
-                    if is_unit_none {
-                        obj.insert("value".to_owned(), json!({"k": "dbg", "v": "()"}));
+                    // Built first and redacted once, at the single point it
+                    // reaches the row: the RETURN name rule runs on EVERY wire
+                    // (no runtime has a qualname at its exit probe), and the
+                    // content rule behind it runs on every `dbg` text this
+                    // converter writes.
+                    let value = if is_unit_none {
+                        Some(json!({"k": "dbg", "v": "()"}))
                     } else {
                         match payload.tag {
-                            TAG_NO_VALUE => {}
-                            TAG_DEBUG => {
-                                obj.insert(
-                                    "value".to_owned(),
-                                    json!({"k": "dbg", "v": payload.text, "trunc": payload.truncated}),
-                                );
-                            }
-                            TAG_UNREAD => {
-                                obj.insert("value".to_owned(), json!({"k": "unread"}));
-                            }
+                            TAG_NO_VALUE => None,
+                            TAG_DEBUG => Some(
+                                json!({"k": "dbg", "v": payload.text, "trunc": payload.truncated}),
+                            ),
+                            TAG_UNREAD => Some(json!({"k": "unread"})),
                             other => {
                                 return Err(format!(
                                     "{label}: RETURN payload tag {other} is not 0..=2"
                                 ))
                             }
                         }
+                    };
+                    if let Some(value) = value {
+                        obj.insert(
+                            "value".to_owned(),
+                            redact_return(value_rule, &top.qualname, value, &mut values_redacted),
+                        );
                     }
                     None
                 };
@@ -283,14 +319,40 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 // chain has a record of its own to be reported at. `how: exit`
                 // is the converter's, and no runtime may write it.
                 if let Some(chain) = chains.at_exit(thread_id, r.seq) {
-                    let msg =
-                        (payload.tag == TAG_DEBUG).then(|| errflow::err_debug_text(&payload.text));
+                    let text = (payload.tag == TAG_DEBUG)
+                        .then(|| errflow::err_debug_text(&payload.text).to_owned());
+                    // R16. An `Err` return IS the return value in Rust, and
+                    // this synthesised origin RAISE repeats that value's own
+                    // text. So a value the NAME rule took whole is withheld on
+                    // BOTH rows, under ONE digest -- the RETURN's, read back
+                    // off the row just written rather than hashed a second
+                    // time from a different spelling of the same value -- and
+                    // counted ONCE, by the RETURN above. That is the panic
+                    // path's rule at the other site where one text is written
+                    // twice. Under a qualname that does not fire, the message
+                    // takes the content rule like any other, and counts.
+                    let taken_by_name = obj
+                        .get("value")
+                        .and_then(|v| v.get("redacted"))
+                        .filter(|r| r.get("by").and_then(Value::as_str) == Some("name"))
+                        .cloned();
+                    // ...and the two rows agree about the CLIP as well. The
+                    // RETURN forces `trunc` false when it takes a value whole
+                    // (nothing was clipped: it was taken), so a `trunc: true`
+                    // here would have this row say the very marker beside it
+                    // was cut short, of one withheld text seen twice.
+                    let withheld_whole = taken_by_name.is_some();
+                    let (msg, msg_redacted) = match taken_by_name {
+                        Some(mark) => (text.map(|_| REDACTED.to_owned()), Some(mark)),
+                        None => redact_msg(value_rule, text, &mut values_redacted),
+                    };
                     let exc = errflow::payload(&ErrFlowEvent {
                         how: How::Exit,
                         type_name: payload.err_type.as_deref(),
                         type_truncated: payload.err_type_truncated,
-                        msg,
-                        msg_truncated: payload.truncated,
+                        msg: msg.as_deref(),
+                        msg_redacted,
+                        msg_truncated: payload.truncated && !withheld_whole,
                         loc: format!("{}:{}", top.rel_file, top.line),
                         chain,
                     });
@@ -339,7 +401,8 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 // sentence that named only the record's position would leave
                 // a reader to work out which of the two it meant.
                 site.require_line(&format!("{label}: LINE record"))?;
-                let parsed = spool::line::parse_line_payload(&label, &r.payload)?;
+                let version = versions.get(&thread_id).copied().unwrap_or(3);
+                let parsed = spool::line::parse_line_payload(&label, &r.payload, version)?;
                 // Design amendment A6: the parameters LINE is spliced AFTER
                 // the entry guard, so a LINE always falls inside its
                 // function's CALL. No open frame is therefore a malformed
@@ -359,6 +422,8 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 let task_id = (thread_id != MAIN_SERIAL).then_some(thread_id);
                 let mut deltas = Map::new();
                 for (name, capture) in parsed.deltas {
+                    let capture =
+                        redact_delta(value_rule, &name, capture, version, &mut values_redacted);
                     deltas.insert(name, capture);
                 }
                 let mut obj = Map::new();
@@ -397,6 +462,10 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
             KIND_PANIC => {
                 let label = format!("pid {pid} thread {thread_id} seq {}", r.seq);
                 let payload = spool::parse_panic_payload(&label, &r.payload)?;
+                // Once, here: the RAISE below and the unwind `exc` the frame's
+                // close carries are the same message, and `PendingPanic` takes
+                // the redacted form so the second one is not a second count.
+                let (msg, msg_mark) = redact_text(value_rule, payload.msg, &mut values_redacted);
                 let serial = panic_serial.entry(thread_id).or_insert(0);
                 *serial += 1;
                 let this_serial = *serial;
@@ -407,11 +476,12 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     let line = split_loc(&payload.loc)
                         .and_then(|(file, line)| (file == top.rel_file).then_some(line));
                     let task_id = (thread_id != MAIN_SERIAL).then_some(thread_id);
-                    let payload_value = json!({
-                        "exc": {"kind": "panic", "type": "panic", "msg": payload.msg,
-                                "serial": this_serial},
-                        "loc": payload.loc,
-                    });
+                    let mut exc = json!({"kind": "panic", "type": "panic", "msg": msg,
+                                         "serial": this_serial});
+                    if let Some(mark) = &msg_mark {
+                        exc["redacted"] = mark.clone();
+                    }
+                    let payload_value = json!({"exc": exc, "loc": payload.loc});
                     writer.insert_event(
                         r.ts_ns,
                         thread_id,
@@ -429,7 +499,8 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     pending_panic.insert(
                         thread_id,
                         PendingPanic {
-                            msg: payload.msg,
+                            msg,
+                            msg_mark,
                             loc: payload.loc,
                             serial: this_serial,
                         },
@@ -463,11 +534,13 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     format!("{label}: no chain was minted for this {kind_name} record")
                 })?;
                 let task_id = (thread_id != MAIN_SERIAL).then_some(thread_id);
+                let (msg, msg_redacted) = redact_msg(value_rule, seen.msg, &mut values_redacted);
                 let value = errflow::payload(&ErrFlowEvent {
                     how,
                     type_name: seen.type_name.as_deref(),
                     type_truncated: seen.type_truncated,
-                    msg: seen.msg.as_deref(),
+                    msg: msg.as_deref(),
+                    msg_redacted,
                     msg_truncated: seen.msg_truncated,
                     loc: site.loc(),
                     chain,
@@ -523,7 +596,81 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
         err_flow_outside_frames,
         closure_frames,
         ended_threads,
+        values_redacted,
     })
+}
+
+// ---------------------------------------------------------------------------
+// Rule v1 at the five places this walk writes a value or a message
+// ---------------------------------------------------------------------------
+//
+// One shape for all of them: the `Option<&Key>` gate (B26's OFF recording runs
+// no rule at all), the rule, and `+1` on the walk's count when the rule says
+// this is a value the trace withholds. Counting HERE and not inside
+// `redaction` is what makes B3's rule one sentence -- `values` is the number
+// of TEXTS this walk withheld, so a value the rule ran over and left alone is
+// not counted, a value the RECORDER took (wire v4's tag 4) is, and a text
+// written into two rows is counted ONCE because it is one withheld text seen
+// twice. There are exactly two such pairs, and each is settled at the site
+// that writes the SECOND row rather than by a rule here: a panic's message
+// (the PANIC RAISE and the frame's `unwind_exc`, through
+// `PendingPanic.msg_mark`) and, under R16, an `err` RETURN's value (the RETURN
+// and the origin RAISE synthesised in front of it, through the mark read back
+// off the RETURN row).
+
+/// One RETURN value, under the returning site's qualname.
+fn redact_return(rule: Option<&Key>, qualname: &str, value: Value, count: &mut usize) -> Value {
+    let Some(key) = rule else {
+        return value;
+    };
+    let (value, hit) = redaction::return_value(qualname, value, key);
+    *count += usize::from(hit);
+    value
+}
+
+/// One LINE delta, under its binding's name and its spool file's wire version.
+fn redact_delta(
+    rule: Option<&Key>,
+    name: &str,
+    capture: Value,
+    version: u8,
+    count: &mut usize,
+) -> Value {
+    let Some(key) = rule else {
+        return capture;
+    };
+    let (capture, hit) = redaction::line_delta(name, capture, version, key);
+    *count += usize::from(hit);
+    capture
+}
+
+/// One exception message that was READ, under the CONTENT rule. `None` is a
+/// message the probe could not read at all -- there is no text to run the rule
+/// over, and nothing to withhold.
+fn redact_msg(
+    rule: Option<&Key>,
+    msg: Option<String>,
+    count: &mut usize,
+) -> (Option<String>, Option<Value>) {
+    match msg {
+        Some(msg) => {
+            let (msg, mark) = redact_text(rule, msg, count);
+            (Some(msg), mark)
+        }
+        None => (None, None),
+    }
+}
+
+/// One exception message the recorder always writes (a panic's), under the
+/// CONTENT rule -- and the `redacted` object its `exc` carries when the rule
+/// changed it.
+fn redact_text(rule: Option<&Key>, msg: String, count: &mut usize) -> (String, Option<Value>) {
+    if rule.is_none() {
+        return (msg, None);
+    }
+    let (msg, hit) = redaction::exc_msg(msg);
+    *count += usize::from(hit);
+    (msg, hit.then(redaction::content_mark))
 }
 
 /// The manifest row a record's site word names.

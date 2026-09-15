@@ -1,0 +1,10 @@
+$ $DRIVER_DIR/cargo-sensorium sensorium --focus handle run
+# cwd $E16_DIR/rust-crate-b  exit 0  0.647s
+focus: handle
+   Compiling e16_probe_secret v0.1.0 ($E16_DIR/rust-crate-b)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running `$E16_DIR/rust-target/sensorium/shim/4c60f61aceb904b1-c2a116aa910d147b/cargo-sensorium --runner $E16_DIR/rust-target/debug/secret`
+40
+run: 20260914-180856-d41cc8  pid: 4057202  exe: secret  events: 9  threads: 1  exit: 0
+spool: $E16_DIR/rust-target/sensorium/spool/20260914-180856-fae745
+cargo exit: 0

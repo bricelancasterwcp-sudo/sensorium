@@ -1,8 +1,9 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.6.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.7.0` —
+`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.0` —
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.5.0`, `sensorium-transform 0.5.0`,
+(~~`sensorium-rt 0.6.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.7.0`~~,
+before them ~~`sensorium-rt 0.5.0`, `sensorium-transform 0.5.0`,
 `cargo-sensorium 0.6.0`~~, before them
 ~~`sensorium-rt 0.4.1`, `sensorium-transform 0.4.4`,
 `cargo-sensorium 0.5.3`~~, before them
@@ -51,6 +52,11 @@ time the wire DID move: `sensorium-rt 0.5.0` writes a fourth LINE delta tag,
 `sensorium-transform 0.5.0` decides which names a block-like statement's row
 carries, and `cargo-sensorium 0.6.0` reads the tag and writes them on the row
 as `unbound`. §12 is what that row may mean.
+On **2026-09-13** secrets redaction part A moved `sensorium-rt` to `0.6.0` and
+`cargo-sensorium` to `0.7.0` (rule v1 over the environment at the runtime's
+own writer, the driver's key, 0600/0700 under the store and the spool), and on
+**2026-09-14** part B moved them to `0.7.0` and `0.8.0` for the captured values
+and wire v4's tag `4` (§14). `sensorium-transform` moved at neither.
 `HONESTY.md` was
 not versioned per-crate before 2026-09-03, so no edition older than that is
 struck. **Deduped 2026-09-08**: `cargo-sensorium 0.4.0` stood struck **twice**
@@ -709,6 +715,60 @@ order there are unchanged**, so `§13` still names what it always named, one
 file away, and no citation of `§13` needed editing). It is the split this
 slice chose deliberately, the way the focus tier chose §11 before it, rather
 than one discovered at the ceiling.
+
+## 14. Redaction
+
+**The promise.** A secret this rule can name never reaches a trace, and every
+place it could not reach is stated rather than left to be found.
+
+- **The environment, at the runtime's own writer.** A secret-*named* variable
+  is `<redacted>` in the proc header before that header is a string, with an
+  HMAC beside it under the driver's key; the runtime reads the three knobs,
+  deletes `SENSORIUM_REDACT_KEY`, and hashes `env_hash` over what it stores.
+- **Captured values, split between the two crates, because one of them may
+  not take a dependency.** `sensorium-rt` applies the NAME rule to a LINE
+  delta and writes wire v4's tag 4 — the digest where the text was. The
+  converter applies the CONTENT rule to every `dbg` text it writes and the
+  RETURN name rule against the manifest's qualname, a name no runtime holds.
+- **`by` says which hand was last**, and says `converter` on every spool below
+  wire v4 though the environment there was the recorder's work — so a
+  re-conversion changes that word, which is the truth about whose key the
+  capture digests are under.
+- **Two values are never taken, under any name**: the unit return `()` the
+  converter synthesises off the manifest (ruling R17), and an `unread`. A
+  marker on either would cost a reader a fact and hide no secret, and on
+  `()` would publish a digest of a constant identifying what it stands for.
+- **One withheld TEXT is one count.** An `Err` return taken by name is
+  withheld on the origin RAISE synthesised in front of it too, under the
+  RETURN's own digest read off the row rather than hashed twice, and counted
+  once (R16); a `?`-hop RAISE's message is the probe's own read and takes the
+  content rule like any other.
+
+**What it does not reach, stated:**
+
+- **The spool under `<target>/sensorium/spool/` holds content-plaintext**
+  between the runtime and the converter — a token inside a `Debug` rendering,
+  `get_token()`'s return; never a name-hit LINE delta and never an environment
+  value. `0600`, taken by `cargo clean`; closing the window means the runtime
+  taking a regex dependency, a different crate than the one that ships.
+- **The build tree under `<target>/sensorium/`** — the mirror, holding a copy
+  of your source — is at the platform default, and **`argv`** is plaintext in
+  the proc header and in the trace. A secret in a binding named `x`, or one
+  no content pattern knows, is stored as typed: a floor, not a scanner.
+
+**Falsified by** `sensorium-rt/tests/redact.rs` against
+[`../docs/trace-format/redaction-v1.json`](../docs/trace-format/redaction-v1.json),
+the same file the Python and TypeScript suites read;
+`sensorium-rt/tests/redact/line.rs` and `sensorium-rt/src/line/tests/redact.rs`
+for tag 4, the unkeyed empty text and the capped digest;
+`cargo-sensorium/src/convert/spool/tests/line.rs` for reading it and for a
+tag 4 on a v3 file refused by number;
+`cargo-sensorium/tests/convert_redaction.rs` for R16, R17 and the count;
+`cargo-sensorium/tests/convert_e2e.rs` (`check_redaction`, `check_modes`) over
+a real invocation; and `corpus/rust/secret_in_env`, which plants a token in a
+real recording's environment and asks `info`, `frame`, `watch` and `flow` what
+became of it, every question asserting the token appears in no answer.
+[`../docs/redaction.md`](../docs/redaction.md) is the rule and its limits.
 
 ---
 

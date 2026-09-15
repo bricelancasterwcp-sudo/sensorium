@@ -17,9 +17,63 @@ def unread_marker(v: dict) -> str:
     return f" <unread: {','.join(names)}>" if names else ""
 
 
+#: How many hex of a digest a marker shows. Enough that two takings of one
+#: value read alike on a screen, and far too few to guess a short value back
+#: from -- the rule `info`'s `env:` field already keeps, applied where every
+#: reader prints rather than to one field of one command.
+_DIGEST_HEAD = 8
+
+
+def _redacted_marker(v: dict) -> str | None:
+    """How a capture the NAME rule took renders, or None for every capture
+    that renders the way it always did.
+
+    Read before `fmt_value`'s kind dispatch, and that ordering is the whole
+    of it. A taken capture KEEPS its kind and holds `redact.REDACTED` in the
+    field the value was in, so each arm below would render the rule's marker
+    text as if it were the value: a `num` through `repr` as the quoted
+    string `'<redacted>'` -- a number shown as a string the program never
+    held -- and a `str` indistinguishably from one that really did hold
+    those characters.
+
+    Three answers, one per shape the writer leaves behind (design B12):
+
+      * A text-shaped capture (`str`, `num`, `dbg`, and any kind the rule
+        did not recognise and so withheld whole) has nothing left but the
+        digest, so a prefix of the digest IS the rendering.
+      * A container keeps its type, its length and its address on purpose:
+        a size is a fact about the program, not about the value. It renders
+        as its own head with the marker where the members were.
+      * An object renders exactly as it did before. The rule takes its
+        `repr`; `type` and `oid` are its identity, which is all this
+        rendering ever read -- so no byte of an object line moves, and
+        `flow --object` can still follow it.
+
+    `digest: null` is not a missing digest but a value that was never hashed
+    (a container has no one text to hash, and a withheld unknown kind has no
+    field this rule can name), so `<redacted #None>` there would be a reader
+    inventing a digest out of a null.
+    """
+    r = v.get("redacted")
+    if not r or r.get("by") != "name":
+        return None
+    k = v.get("k")
+    if k == "obj":
+        return None
+    if k in ("seq", "map"):
+        return f"{v['type']}[{_size(v)}]=<redacted>"
+    digest = r.get("digest")
+    return f"<redacted #{digest[:_DIGEST_HEAD]}>" if digest else "<redacted>"
+
+
 def fmt_value(v: dict | None) -> str:
     if v is None:
         return "?"
+    # BEFORE the dispatch: a taken capture keeps its kind, so every arm
+    # below would render the rule's marker text as if it were the value.
+    taken = _redacted_marker(v)
+    if taken is not None:
+        return taken
     k = v.get("k")
     if k == "none":
         return "None"

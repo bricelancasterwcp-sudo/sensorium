@@ -8,8 +8,14 @@ process — the same SQLite format 4 the Python recorder writes, read by the sam
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.5.0`**,
-**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.6.0`**. All three
+Three crates, all `publish = false`: **`sensorium-rt 0.7.0`**,
+**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.8.0`**. On 2026-09-13
+secrets redaction part A moved `sensorium-rt` to `0.6.0` and `cargo-sensorium`
+to `0.7.0` (rule v1 over the environment at the runtime's own writer, the
+driver's key, and 0600/0700 on everything either creates under the store and
+the spool); on 2026-09-14 part B moved them to `0.7.0` and `0.8.0` for the
+captured values and the wire v4 tag below. `sensorium-transform` moved at
+neither: no probe it emits changed. All three
 were `0.4.0` at the focus tier of 2026-09-06 (a new wire kind, LINE, and the
 `--focus` flag that mints it); on 2026-09-07 the refocus slice moved
 `sensorium-transform` alone to `0.4.1` for the brace-delimited-macro-tail
@@ -268,6 +274,50 @@ those over a real invocation, and
 `redaction_key.rs::load_or_create_mints_a_32_byte_key_at_0600_under_a_0700_root`
 pins the store root the key is minted under;
 [`docs/redaction.md`](../docs/redaction.md) is the rule and its limits.
+
+From `sensorium-rt 0.7.0` / `cargo-sensorium 0.8.0` the rule reaches CAPTURED
+values too, and the two crates split the work — which is why the spool's wire
+moved to **v4**. The runtime applies the NAME rule to a LINE delta at its own
+writer and writes the result as a fourth delta tag; `src/spool.rs`'s module
+comment is the format's one home, and these are its changed lines, verbatim
+(everything between them is v3's, byte for byte):
+
+```text
+file header:  b"SNSR" u8 version=4 u8 flags=0 u16 name_len u32 thread_serial u64 records_dropped u64 truncated  name_bytes
+LINE payload: u8 flags (bit0 deltas dropped) u16 n, then n ×
+              { u16 name_len, name UTF-8,
+                u8 tag (0 no value | 1 debug text | 2 unread | 3 unbound | 4 REDACTED BY NAME),
+                u8 truncated (0 on tags 2, 3, 4),
+                [u16 text_len, text UTF-8]   -- present iff tag == 1 or tag == 4;
+                                                on tag 4 the text is the 16-hex HMAC digest of the CAPPED
+                                                Debug text under SENSORIUM_REDACT_KEY, or empty when unkeyed }
+Tag 4 appears on LINE rows only. RETURN payloads are unchanged from v3.
+```
+
+Tag 3 is UNBOUND and predates this; tag 4 is the new one. The converter reads
+versions 2, 3 and 4 and refuses anything else by number, and tag 4 is read
+only on a v4 file — a v3 spool carrying one is corruption, not a capture
+(`rust/sensorium-rt/tests/redact/line.rs`,
+`rust/cargo-sensorium/src/convert/spool/tests/line.rs::a_tag_four_delta_on_a_version_three_spool_is_still_refused_by_number`).
+
+**Everything else is the CONVERTER's**, because `sensorium-rt` is
+dependency-free and has no regex engine. It applies the CONTENT rule to every
+`dbg` text it writes — a LINE delta, a RETURN value, an `Err` message — and
+the RETURN name rule against the site's qualname from the manifest, since the
+runtime's exit probe has no qualname to fire on. **So the spool under
+`<target>/sensorium/spool/` holds content-plaintext between the two**: a token
+inside a struct's `Debug` rendering, and `get_token()`'s return. Never a
+name-hit LINE delta and never an environment value — the runtime took those.
+Those files are `0600` and a `cargo clean` takes them, but the window is real
+(`rust/HONESTY.md` §14).
+
+That split is what `redaction.by` says. It reads **`recorder`** only where the
+runtime did the value half too — wire v4 or better with a `redaction` header
+whose mode is on — and **`converter`** otherwise, so a v3 spool re-converted
+under this driver produces a trace that says `converter` where the environment
+alone would have said `recorder`
+(`rust/cargo-sensorium/tests/convert_redaction.rs`,
+`tests/fixtures/rust-spools/redacted-values`).
 
 ## Ask
 

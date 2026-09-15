@@ -80,7 +80,27 @@ def _sub(value, run_id: str, run_id2: str | None):
     return value
 
 
+#: The store key every case converts under. FIXED, not minted: the converter
+#: takes a digest of every value rule v1 withholds by name, and a random key
+#: would make that digest -- which a question is entitled to pin, since it is
+#: the only thing a reader gets back of a taken value -- differ on every run.
+#: 32 bytes, because a store whose key file is any other length reads as
+#: UNKEYED (`redact_key.KEY_BYTES`).
+#:
+#: Its id is `sha256(material)[:8]`, which `redacted-values/case.json` states
+#: in its own recorded header so the fixture's recorder and its store are one
+#: world rather than two.
+_STORE_KEY = bytes([0xBB]) * 32
+
+
 def _convert(spool_dir: Path, sdir: Path) -> subprocess.CompletedProcess:
+    # 0600 and created before the binary runs, exactly as the driver leaves
+    # it: a looser mode makes `info` print a note about the store's key, which
+    # is a true statement about the box and not about the fixture.
+    sdir.mkdir(parents=True, exist_ok=True)
+    key_path = sdir / "redaction.key"
+    key_path.write_bytes(_STORE_KEY)
+    key_path.chmod(0o600)
     env = dict(os.environ, SENSORIUM_DIR=str(sdir))
     return subprocess.run([CARGO_SENSORIUM, "convert", str(spool_dir)],
                           env=env, capture_output=True, text=True, check=False)
@@ -335,7 +355,7 @@ def test_every_case_pins_a_named_invariant_and_asserts_something():
     assert CASES, "no rust-spool fixtures found"
     for name in ("identical-pair", "panic-unwind", "live-thread",
                  "child-linked", "unwitnessed-exit", "unnamed-task",
-                 "spawn-sites", "errflow", "redacted-env"):
+                 "spawn-sites", "errflow", "redacted-env", "redacted-values"):
         assert name in CASES, f"missing fixture case {name!r}"
     for case_name in CASES:
         case, questions = _load_case(case_name)

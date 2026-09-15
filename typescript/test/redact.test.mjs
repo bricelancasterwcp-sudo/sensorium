@@ -16,9 +16,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { dbg, exc } from '../src/dbg.mjs';
 import {
-  Key, KEY_VAR, REDACTED, RULE, bootEnv, fires, knobsFromEnv, normalise,
-  redactEnv, redactionMeta, split,
+  Key, KEY_VAR, PATTERNS, REDACTED, RULE, bootEnv, content, current, triggers,
+  fires, knobsFromEnv, lastSegment, normalise, redactCaptures, redactEnv,
+  redactReturn, redactionMeta, split,
 } from '../src/redact.mjs';
 
 /** The shared fixture, read the way the Rust suite reads it: off disk. */
@@ -26,10 +28,30 @@ const FIXTURE = JSON.parse(fs.readFileSync(
   new URL('../../docs/trace-format/redaction-v1.json', import.meta.url), 'utf8'));
 
 const RT = new URL('../src/rt.mjs', import.meta.url).href;
+/** The two modules the value rules live in, for the children below. */
+const REDACT = new URL('../src/redact.mjs', import.meta.url).href;
+const DBG = new URL('../src/dbg.mjs', import.meta.url).href;
 
 /** 32 bytes nobody minted, in the form a driver hands over. */
 const KEY_HEX = 'ab'.repeat(32);
 const MATERIAL = Buffer.from(KEY_HEX, 'hex');
+
+// What THIS process's own `current()` will read, stated here rather than
+// inherited: the rule reads the environment once, lazily (B22), so a shell
+// carrying a key or a knob would decide what every unit case below tests.
+// The children have their own, deleted and restated in `record`/`inChild`.
+process.env[KEY_VAR] = KEY_HEX;
+delete process.env.SENSORIUM_NO_REDACT;
+delete process.env.SENSORIUM_REDACT_NAMES;
+delete process.env.SENSORIUM_REDACT_ALLOW;
+
+/**
+ * A capture read one key at a time. `Captured` is a union, and asking the
+ * union for a `dbg` arm's own key is a type error, not a test failure.
+ * @param {unknown} capture
+ * @returns {any}
+ */
+const bag = (capture) => capture;
 
 /** The knobs a recording with no knobs was made under. */
 const NONE = knobsFromEnv({});
@@ -316,4 +338,267 @@ test('with the rule off the record says so and holds the plaintext', () => {
   assert.deepEqual(boot.redaction, { rule: RULE, mode: 'off' });
   assert.deepEqual(boot.envRedaction, {});
   assert.equal(KEY_VAR in boot.env, false);
+});
+
+// --- the content rule (§2.2) ------------------------------------------------
+//
+// Two operations exist in rule v1 (§2.3): a NAME hit redacts the whole
+// value (above); a CONTENT hit replaces the matched SPAN and keeps
+// everything around it. `docs/trace-format/redaction-v1.json`'s `content`
+// list is what `src/sensorium/redact_content.py`'s suite and
+// `redact_content.rs`'s `#[cfg(test)]` read too.
+
+test('every content case in the shared fixture', () => {
+  assert.ok(FIXTURE.content.length > 0, 'the fixture has content cases');
+  for (const c of FIXTURE.content) {
+    const { text, hit } = content(c.text);
+    assert.equal(text, c.after, `pattern ${JSON.stringify(c.pattern)}`);
+    assert.equal(hit, c.after !== c.text, `pattern ${JSON.stringify(c.pattern)}`);
+  }
+});
+
+test('every pattern has a positive and a negative row', () => {
+  // A pattern with no positive is a pattern nothing here proves fires; a
+  // pattern with no negative is a pattern nothing here proves has a floor.
+  const byPattern = new Map();
+  for (const c of FIXTURE.content) {
+    const hits = byPattern.get(c.pattern) ?? [];
+    hits.push(c.after !== c.text);
+    byPattern.set(c.pattern, hits);
+  }
+  for (const { name } of PATTERNS) {
+    const hits = byPattern.get(name) ?? [];
+    assert.ok(hits.some(Boolean), `${name} has no positive row`);
+    assert.ok(hits.some((/** @type {boolean} */ h) => !h), `${name} has no negative row`);
+  }
+});
+
+test('every positive passes the trigger', () => {
+  // B18's pre-check: a positive case the trigger misses is a secret the
+  // content rule would silently never look at. `triggers`, never one of its
+  // two halves: the case-sensitive alternation alone answered false on
+  // `Authorization: BEARER <token>` and the table never ran (ruling R21),
+  // which is exactly what this test exists to catch.
+  for (const c of FIXTURE.content) {
+    if (c.after !== c.text) {
+      assert.ok(triggers(c.text),
+        `${JSON.stringify(c.pattern)}'s positive does not pass the trigger: ${JSON.stringify(c.text)}`);
+    }
+  }
+});
+
+test('the rule is a fixed point', () => {
+  // A text that has been through the rule once holds no trigger the rule
+  // would act on again -- the marker itself contains none of §2.2's shapes.
+  for (const c of FIXTURE.content) {
+    assert.equal(content(c.after).text, c.after, `pattern ${JSON.stringify(c.pattern)}`);
+  }
+});
+
+test('a marker is never re-redacted', () => {
+  assert.deepEqual(content(REDACTED), { text: REDACTED, hit: false });
+});
+
+test('a url-userinfo marker in context is a no-op', () => {
+  // §2.3's boundary case: `hit` means the TEXT CHANGED, not that a pattern
+  // matched. `url-userinfo` matches `postgres://u:<redacted>@h/db` (its
+  // group is already the marker), and the converter (Task 6/7) counts on
+  // this staying a no-op.
+  const text = `postgres://u:${REDACTED}@h/db`;
+  assert.deepEqual(content(text), { text, hit: false });
+});
+
+test('the empty string is a no-op', () => {
+  assert.deepEqual(content(''), { text: '', hit: false });
+});
+
+// --- the value rules: a name over a capture, a pattern over its text -------
+//
+// §2.3's two operations, where this runtime applies them. `redactCaptures`
+// and `redactReturn` are the NAME half, over a capture `dbg()` has already
+// built; `dbg()` and `exc()` are the CONTENT half, over the text they are
+// about to write. Both read `current()`, which reads `process.env` ONCE --
+// so the key this file runs under is set at the top, before the first call,
+// and the two knob cases below are children, because a process cannot change
+// what it was started with (B22).
+
+/** A secret shaped like §2.2's `sk` row, long enough to clear its floor. */
+const SK = `sk-test-${'A'.repeat(24)}`;
+
+/**
+ * Evaluate `body` against `redact.mjs` and `dbg.mjs` in a child started with
+ * `extra`, and parse the JSON it printed. The four variables the rule reads
+ * are deleted first, for the reason `record` above gives.
+ * @param {string} body a function body, returning the value to print
+ * @param {Record<string, string>} [extra]
+ * @returns {any}
+ */
+function inChild(body, extra = {}) {
+  const env = { ...process.env };
+  for (const name of [KEY_VAR, 'SENSORIUM_NO_REDACT', 'SENSORIUM_REDACT_NAMES',
+    'SENSORIUM_REDACT_ALLOW']) {
+    delete env[name];
+  }
+  Object.assign(env, extra);
+  const script = `import * as __r from ${JSON.stringify(REDACT)};\n`
+    + `import * as __d from ${JSON.stringify(DBG)};\n`
+    + `console.log(JSON.stringify((() => {${body}})()));\n`;
+  const res = spawnSync(process.execPath, ['--input-type=module', '-e', script],
+    { encoding: 'utf8', env, timeout: 30_000 });
+  assert.equal(res.status, 0, `child stderr: ${res.stderr}`);
+  return JSON.parse(res.stdout);
+}
+
+test('lastSegment is the name a value was asked for by', () => {
+  assert.equal(lastSegment('Store.getApiKey'), 'getApiKey');
+  assert.equal(lastSegment('outer.<anonymous>.inner'), 'inner');
+  assert.equal(lastSegment('refreshToken'), 'refreshToken');
+  // A callback with no name of its own fires on nothing, which is the answer
+  // and not a special case: `<anonymous>` splits to `[ANONYMOUS]`.
+  assert.equal(lastSegment('<anonymous>'), '<anonymous>');
+  assert.equal(fires(lastSegment('<anonymous>'), NONE), false);
+  assert.equal(lastSegment(''), '');
+  assert.equal(fires(lastSegment(''), NONE), false);
+});
+
+test('a capture under a firing name is taken whole, and its neighbour is not', () => {
+  const taken = dbg('abc');
+  // The digest is over the text `dbg` produced — inspect's rendering, quotes
+  // included — because that is the text the trace would otherwise have held.
+  assert.equal(bag(taken).v, "'abc'");
+  const plain = dbg(1);
+  const out = redactCaptures({ token: taken, plain });
+  assert.deepEqual(out.token, {
+    k: 'dbg',
+    v: REDACTED,
+    trunc: false,
+    redacted: { by: 'name', digest: Key.fromHex(KEY_HEX).digest("'abc'") },
+  });
+  assert.equal(out.plain, plain, 'a name that does not fire is not copied');
+});
+
+test('a taken object keeps the identity it was captured with', () => {
+  // B4: the type and the address are facts about the PROGRAM; the text is the
+  // value. `flow --object` follows the first two and must still work.
+  const out = bag(redactCaptures({ apiKey: dbg({ a: 1 }) }).apiKey);
+  assert.equal(out.v, REDACTED);
+  assert.equal(out.type, 'Object');
+  assert.ok(out.oid > 0);
+  assert.equal(out.redacted.by, 'name');
+});
+
+test('a value that could not be read is left exactly as it is', () => {
+  // Taking it would cost a reader the fact that the value was unreadable and
+  // hide no secret: there was never a text.
+  /** @type {import('../src/dbg.mjs').Captured} */
+  const unread = { k: 'unread' };
+  assert.equal(redactCaptures({ token: unread }).token, unread);
+  assert.equal(redactReturn('getToken', unread), unread);
+});
+
+test('a value that is undefined or null withholds nothing (R19)', () => {
+  // A function that returned NOTHING withheld nothing, and a name is not a
+  // reason to hide that it returned. The same exemption Python's `none` kind
+  // has and Rust's `()` (R17): the marker would cost a reader a fact and hide
+  // no secret, and the digest would be an HMAC of a constant.
+  const nothing = dbg(undefined);
+  assert.equal(redactReturn('secret', nothing), nothing);
+  const out = redactCaptures({ token: dbg(undefined), other: dbg(null) });
+  assert.deepEqual(out.token, { k: 'dbg', v: 'undefined', trunc: false });
+  assert.deepEqual(out.other, { k: 'dbg', v: 'null', trunc: false });
+  assert.equal('redacted' in out.token, false);
+  assert.equal('redacted' in out.other, false);
+  // The boundary is the WHOLE text and nothing near it: every other value a
+  // firing name holds is still taken, `NaN` included.
+  assert.equal(bag(redactCaptures({ token: dbg(NaN) }).token).v, REDACTED);
+  assert.equal(bag(redactReturn('getToken', dbg('undefined'))).v, REDACTED);
+});
+
+test('a taken capture says nothing was clipped', () => {
+  // `trunc` is written FALSE rather than dropped: a reader that met it
+  // missing would have to guess whether the formatter had been cut short.
+  // Nothing was cut here — the whole of it was taken.
+  // A long STRING is cut by inspect's own 100-character cap long before the
+  // wire cap sees it, so the value here is one whose RENDERING is over 200
+  // bytes: eight sampled strings, which is what the wire cap is for.
+  const long = dbg(Array.from({ length: 8 }, () => 'y'.repeat(60)));
+  assert.equal(bag(long).trunc, true);
+  assert.equal(bag(redactCaptures({ secret: long }).secret).trunc, false);
+});
+
+test('redactReturn reads the last segment of the callee qualname', () => {
+  const capture = dbg('abc');
+  assert.equal(bag(redactReturn('Store.getApiKey', capture)).v, REDACTED);
+  assert.equal(bag(redactReturn('tokenAge', capture)).v, REDACTED);
+  // `nestedArrow.double` and `<anonymous>` fire on nothing, and a capture the
+  // rule leaves alone is the SAME object, never a copy of it.
+  assert.equal(redactReturn('nestedArrow.double', capture), capture);
+  assert.equal(redactReturn('<anonymous>', capture), capture);
+});
+
+test('current is read once, from the environment this process was started with', () => {
+  const first = current();
+  assert.equal(current(), first, 'one read, one answer, for the life of the process');
+  assert.equal(first.key.keyId, Key.fromHex(KEY_HEX).keyId);
+  assert.deepEqual(first.knobs, knobsFromEnv(process.env));
+});
+
+test('with the rule off nothing is taken and no text is scanned', () => {
+  const out = inChild(`
+    const taken = __r.redactCaptures({ token: __d.dbg('abc') });
+    const text = __r.redactCaptures({ note: __d.dbg(${JSON.stringify(SK)}) });
+    return { off: __r.current().knobs.off, taken, text };
+  `, { SENSORIUM_NO_REDACT: '1' });
+  assert.equal(out.off, true);
+  assert.deepEqual(out.taken.token, { k: 'dbg', v: "'abc'", trunc: false });
+  // The content half is off with it: `SENSORIUM_NO_REDACT` is one switch over
+  // rule v1, not over its name half alone.
+  assert.deepEqual(out.text.note, { k: 'dbg', v: `'${SK}'`, trunc: false });
+});
+
+test('an unkeyed recorder still takes the value and says the digest is absent', () => {
+  // "No key" must mean "redacted, with no digest to compare", never
+  // "plaintext": the failure direction of this control is a lost fact.
+  const out = inChild("return __r.redactCaptures({ token: __d.dbg('abc') });");
+  assert.deepEqual(out.token,
+    { k: 'dbg', v: REDACTED, trunc: false, redacted: { by: 'name', digest: null } });
+});
+
+test('an inspected text holding a secret is replaced span by span', () => {
+  // The CONTENT half, where a name fires on nothing: the span goes, the
+  // sentence around it stays, and there is no digest — a partial cannot
+  // honestly commit to the whole.
+  const capture = bag(redactCaptures({ note: dbg(`key=${SK} rest`) }).note);
+  assert.equal(capture.v, `'key=${REDACTED} rest'`);
+  assert.deepEqual(capture.redacted, { by: 'content', digest: null });
+  assert.equal(capture.trunc, false);
+});
+
+test('a message holding a secret is replaced the same way', () => {
+  const out = exc(new Error(`bad ${SK}`), 'throw');
+  assert.equal(out.msg, `bad ${REDACTED}`);
+  assert.deepEqual(out.redacted, { by: 'content', digest: null });
+  assert.equal(out.type, 'Error');
+});
+
+test('a capture with nothing in it to find carries no redacted key', () => {
+  // The flag is written on a CHANGE, never on a match: an absent key is what
+  // tells a reader the text is the program's own, whole.
+  assert.equal('redacted' in redactCaptures({ rate: dbg('7') }).rate, false);
+  assert.equal('redacted' in exc(new Error('plain'), 'throw'), false);
+});
+
+test('a value whose text also holds a secret is digested as the program had it', () => {
+  // The two operations never stand together on one capture (§2.3), and the
+  // NAME rule decides which: a value it takes has no text left to scan. The
+  // order is load-bearing — a digest taken after the content rule had
+  // replaced the span would be an HMAC of the marker, which is a CONSTANT,
+  // and two different secrets would then carry one identity and read as the
+  // same value. `redact_values.named` and the Rust runtime's tag-4 delta
+  // take the same order, for the same reason.
+  const out = bag(redactCaptures({ apiKey: dbg(SK) }).apiKey);
+  assert.equal(out.v, REDACTED);
+  assert.equal(out.redacted.by, 'name');
+  assert.equal(out.redacted.digest, Key.fromHex(KEY_HEX).digest(`'${SK}'`));
+  assert.notEqual(out.redacted.digest, Key.fromHex(KEY_HEX).digest(`'${REDACTED}'`));
 });

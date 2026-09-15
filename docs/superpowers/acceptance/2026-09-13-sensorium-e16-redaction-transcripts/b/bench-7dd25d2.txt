@@ -1,0 +1,17 @@
+$ $E16_DIR/baseline-7dd25d2/.venv/bin/python -c from corpus._bench import bench; bench.report(reps=5)
+# cwd $E16_DIR/baseline-7dd25d2  exit 0  37.656s
+workload            tier      baseline  recorded       x    events  us/event
+call_dense          default     0.0087    1.4707   168.6    185428       7.9
+call_dense          focused     0.0086    2.0526   238.2    278140       7.3
+work_between_calls  default     0.1427    0.4040     2.8     24004      10.9
+work_between_calls  focused     0.1436    0.5680     4.0     48006       8.8
+async_call_dense    default     0.0264    0.3929    14.9     40004       9.2
+async_call_dense    focused  n/a  (no focus target registered for this workload)
+await_dense         default     0.0459    0.3164     6.9     40004       6.8
+await_dense         focused     0.0455    0.4756    10.5     60005       7.2
+
+recorder fixed cost: 0.080s on a program that does nothing (0.0073s -> 0.0868s).
+  Every row above includes it, so a short program's multiplier is mostly this.
+best of 5 timed runs after one untimed warm-up; python 3.13.13.
+  Measurements of THIS machine and these workloads, not a promise about yours: the
+  multiplier tracks how call-dense the program is, and us/event is the figure that travels.

@@ -1,0 +1,4 @@
+$ git -C $REPO worktree add $E16_DIR/baseline-7dd25d2 7dd25d2
+# cwd $E16_DIR  exit 0  0.115s
+Preparing worktree (detached HEAD 7dd25d2)
+HEAD is now at 7dd25d2 Merge pull request #38 from bricelancasterwcp-sudo/feat/s5-refocus-ts

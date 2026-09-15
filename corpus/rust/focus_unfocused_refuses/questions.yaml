@@ -36,13 +36,19 @@ questions:
     # and its declared identity moved with the crate. Neither the wire nor
     # what is recorded changed -- only the recorder's name in the sentence.
     expect_contains:
+    # Re-pinned 2026-09-14 (secrets redaction PR B, task 6): 0.6.0 -> 0.7.0,
+    # because `sensorium-rt` 0.7.0 writes wire v4 -- a LINE delta whose name
+    # fires rule v1 is written REDACTED, digest and all -- and the driver moved
+    # with it (`cargo-sensorium` 0.8.0, which reads v4). This case records
+    # WITHOUT a `--focus`, so it still produces no LINE events at all and the
+    # refusal is still 3; only the recorder's name in the sentence moved.
     # Re-pinned 2026-09-14 (secrets redaction PR A shipped red): 0.5.0 -> 0.6.0,
     # because `sensorium-rt` 0.6.0 redacts its environment in the proc header
     # and the refusal's only moving part is the recorder's own name. The
     # local corpus run that called PR A green recorded through a STALE
     # driver on PATH, which embeds the runtime it was built with; CI builds
     # the driver fresh and read 0.6.0 (run 34840430230).
-      - "REFUSED: watch needs line, which recorder sensorium-rt 0.6.0 declares it does not produce (capabilities.line: false); nothing was checked"
+      - "REFUSED: watch needs line, which recorder sensorium-rt 0.7.0 declares it does not produce (capabilities.line: false); nothing was checked"
     expect_absent: ["hits:", "near-miss", "verdict:"]
   - id: does-an-unfocused-run-claim-a-focus
     ask: >

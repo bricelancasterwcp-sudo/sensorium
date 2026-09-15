@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 
-import { awaitToken, tokenAge } from './fetcher';
+import { awaitPayload, payloadAge } from './fetcher';
 
-test('a token is fetched', { timeout: 200 }, async () => {
-  const token = await awaitToken();
-  expect(token).toBe('t');
-  expect(tokenAge()).toBe(0);
+test('a payload is fetched', { timeout: 200 }, async () => {
+  const payload = await awaitPayload();
+  expect(payload).toBe('t');
+  expect(payloadAge()).toBe(0);
 });

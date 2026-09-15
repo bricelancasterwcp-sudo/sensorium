@@ -35,8 +35,12 @@
 // BOOT says `keyed: false` so nobody mistakes a missing digest for a value
 // that did not change.
 //
-// This module imports `node:crypto` and nothing else of ours: `rt.mjs` calls
-// `bootEnv` once and spreads what it returns.
+// This module imports `node:crypto` and nothing else of ours at RUNTIME:
+// `rt.mjs` calls `bootEnv` once at boot and `redactCaptures`/`redactReturn`
+// at every capture, and `dbg.mjs` calls `content` and `current` for the one
+// text that has no name — a thrown message. The `Captured` type is read back
+// from `dbg.mjs` through JSDoc, which is a type reference and not an import,
+// so the two modules do not form a cycle.
 import crypto from 'node:crypto';
 
 /**
@@ -74,11 +78,17 @@ const SEGMENTS = [
 ];
 
 /**
- * `PWD` fires only as a segment of a LONGER name: `MYSQL_PWD` and `DB_PWD` are
- * passwords, and `PWD` and `OLDPWD` are the shell's working directory, on
- * every machine that has ever run a shell.
+ * The segments that fire only as part of a LONGER name (ruling B28, for
+ * `KEY`). `PWD`: `MYSQL_PWD` and `DB_PWD` are passwords, and `PWD` and
+ * `OLDPWD` are the shell's working directory, on every machine that has ever
+ * run a shell. `KEY`: a bare `key` is a cache key, a dict key, a lookup key
+ * on almost every function that iterates a mapping, and redacting it by
+ * default would blind `watch` on the commonest local in the language, while
+ * every compound spelling (`api_key`, `apiKey`, `secret_key`, `build_key`,
+ * `KEY_FILE`) still fires and `SENSORIUM_REDACT_NAMES=key` restores it per
+ * run.
  */
-const PWD = 'PWD';
+const SOLO_EXEMPT = ['PWD', 'KEY'];
 
 /**
  * Whole NORMALISED names that fire whatever their segments say. Segment-exact
@@ -186,7 +196,7 @@ export function fires(name, knobs) {
   if (knobs.names.includes(normalised)) return true;
   if (EXACT.includes(normalised)) return true;
   const multi = segments.length > 1;
-  return segments.some((s) => SEGMENTS.includes(s) && (multi || s !== PWD));
+  return segments.some((s) => SEGMENTS.includes(s) && (multi || !SOLO_EXEMPT.includes(s)));
 }
 
 /**
@@ -357,4 +367,345 @@ export function bootEnv(processEnv) {
     envRedaction: table,
     redaction: redactionMeta(key, knobs),
   };
+}
+
+// ---------------------------------------------------------------------------
+// The content rule (§2.2)
+// ---------------------------------------------------------------------------
+//
+// `redactEnv` above is the NAME half of rule v1: it decides whether a whole
+// value is worth redacting at all. `content` below is the CONTENT half: a
+// fixed list of patterns over a value's TEXT, whatever it was called. §2.3:
+// a name hit redacts the WHOLE value; a content hit replaces the matched
+// SPAN and keeps everything around it (`postgres://u:<redacted>@h/db`) — a
+// repr or a log line is not a value with an identity, it is text that
+// happened to contain one.
+//
+// NOT A SECRET SCANNER: the list is a floor, nineteen shapes each with a
+// minimum length so a short benign string cannot fire. A secret that
+// matches none of them is stored as typed.
+//
+// THE FIXTURE: `docs/trace-format/redaction-v1.json`'s `content` list holds
+// every case, and `src/sensorium/redact_content.py`'s suite and
+// `cargo-sensorium`'s `redact_content.rs` read the SAME file. The three
+// implementations are the same nineteen patterns, textually, save for the
+// one place the three engines cannot agree on a spelling: end-of-text in
+// the PEM row's truncated form (`\Z` in Python, `\z` in Rust, plain `$`
+// here under the `s` flag) and inline case/dotall flags — Python and Rust
+// accept `(?i)`/`(?s)` inside the pattern text; JavaScript's `RegExp` does
+// not, so the `i`/`s` flags stand in for them on the two patterns that need
+// them. Three spellings, one pattern.
+
+/**
+ * Escapes a literal string for use inside a `RegExp` source — the handful
+ * of characters that are regex metacharacters get a backslash. No engine
+ * ships `RegExp.escape` yet; this is the whole of what {@link TRIGGER}
+ * needs it for.
+ * @param {string} s
+ * @returns {string}
+ */
+function escapeLiteral(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * §2.2's table, verbatim, in the order the table gives it — table order
+ * matters exactly once, for `sk-ant` before `sk`: both match an Anthropic
+ * key, the whole match is replaced either way so the two rows' output never
+ * differs, and the order is only for which row NAME a test or a report
+ * attributes the hit to.
+ *
+ * `group` is which capture a match replaces (`0` is the whole match). The
+ * three patterns whose group is not `0` carry the `d` (`hasIndices`) flag,
+ * which is how {@link applyOne} recovers a group's own start and end
+ * offsets — `String.prototype.replace`'s replacer callback is handed a
+ * group's captured VALUE but never its position, so there is no way to
+ * "replace only the group" through `replace` alone.
+ * @type {{name: string, regex: RegExp, group: number}[]}
+ */
+export const PATTERNS = [
+  { name: 'url-userinfo', regex: /:\/\/[^/\s:@]{1,64}:([^@\s/]{1,256})@/gd, group: 1 },
+  // The PEM body, through the matching END line or to end of text when
+  // truncated. `s` is inline DOTALL: the body spans real newlines.
+  {
+    name: 'pem',
+    regex: /-----BEGIN [A-Z ]*PRIVATE KEY-----(.*?)(?:-----END [A-Z ]*PRIVATE KEY-----|$)/gsd,
+    group: 1,
+  },
+  { name: 'authorization-header', regex: /\b(Bearer|Basic)\s+([A-Za-z0-9._~+/=-]{16,})/gid, group: 2 },
+  { name: 'jwt', regex: /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, group: 0 },
+  { name: 'sk-ant', regex: /\bsk-ant-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'sk', regex: /\bsk-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'stripe', regex: /\b(sk|rk)_(live|test)_[A-Za-z0-9]{16,}/g, group: 0 },
+  { name: 'github', regex: /\bgh[pousr]_[A-Za-z0-9]{20,}/g, group: 0 },
+  { name: 'github-pat', regex: /\bgithub_pat_[A-Za-z0-9_]{20,}/g, group: 0 },
+  { name: 'gitlab', regex: /\bglpat-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'slack', regex: /\bxox[abprs]-[A-Za-z0-9-]{10,}/g, group: 0 },
+  { name: 'aws', regex: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g, group: 0 },
+  { name: 'google', regex: /\bAIza[0-9A-Za-z_-]{35}\b/g, group: 0 },
+  { name: 'huggingface', regex: /\bhf_[A-Za-z0-9]{20,}/g, group: 0 },
+  { name: 'npm', regex: /\bnpm_[A-Za-z0-9]{20,}/g, group: 0 },
+  { name: 'pypi', regex: /\bpypi-[A-Za-z0-9_-]{20,}/g, group: 0 },
+  { name: 'digitalocean', regex: /\bdop_v1_[a-f0-9]{20,}/g, group: 0 },
+  { name: 'shopify', regex: /\bshpat_[a-f0-9]{20,}/g, group: 0 },
+  { name: 'sendgrid', regex: /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g, group: 0 },
+];
+
+/**
+ * B18's pre-check (§12's mitigation, built in rather than waited for): the
+ * literal prefix every CASE-SENSITIVE pattern above starts with, as one
+ * alternation. A string that matches neither this nor {@link TRIGGER_CI}
+ * cannot match any of the nineteen patterns either, so {@link content} skips
+ * the whole table rather than running twenty regexes over every string a
+ * recording ever touches.
+ */
+export const TRIGGER = new RegExp([
+  '://', '-----BEGIN', 'eyJ', 'sk-', 'sk_', 'rk_', 'gh', 'github_pat_',
+  'glpat-', 'xox', 'AKIA', 'ASIA', 'AIza', 'hf_', 'npm_', 'pypi-',
+  'dop_v1_', 'shpat_', 'SG.',
+].map(escapeLiteral).join('|'));
+
+/**
+ * The same pre-check for the one pattern above that is itself case-blind.
+ *
+ * `authorization-header` accepts every case spelling of each word, and a
+ * literal alternation of `Bearer|Basic|bearer|basic` stood in front of it
+ * covering two of each: `Authorization: BEARER <token>` matched no literal,
+ * skipped the table, and reached the spool in plaintext. A pre-check
+ * NARROWER than the pattern it guards is a leak and not an optimisation
+ * (ruling R21). Its own `RegExp` with the `i` flag, which is this engine's
+ * only spelling of a scoped case fold, and the shape the Python and Rust
+ * twins take too so the three agree in behaviour rather than in syntax.
+ */
+export const TRIGGER_CI = /Bearer|Basic/i;
+
+/**
+ * Whether any §2.2 pattern could match `text` at all: the union of the two
+ * pre-checks, and the one thing {@link content} consults.
+ *
+ * The union is what a test may pin. Either half alone is a pre-check for
+ * part of the table, and pinning one of them proves nothing about the shapes
+ * the other stands in front of.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function triggers(text) {
+  return TRIGGER.test(text) || TRIGGER_CI.test(text);
+}
+
+/**
+ * One pattern's substitution over `text`: the whole match for group `0`
+ * (a plain string replacement — `REDACTED` holds no `$` and needs no
+ * replacer), or the match with only its group's span swapped for
+ * `REDACTED` — never the whole match when a narrower group was asked for
+ * (§2.3's span operation: everything around the secret is kept).
+ * @param {string} text
+ * @param {{regex: RegExp, group: number}} pattern
+ * @returns {string}
+ */
+function applyOne(text, { regex, group }) {
+  regex.lastIndex = 0;
+  if (group === 0) return text.replace(regex, REDACTED);
+
+  let out = '';
+  let lastEnd = 0;
+  let m = regex.exec(text);
+  while (m !== null) {
+    // `d` (`hasIndices`) is on every pattern whose group is not 0, so the
+    // match HAS them; the cast is what says so to a checker that reads
+    // `indices` as optional on every `RegExp` match.
+    const [groupStart, groupEnd] = /** @type {[number, number]} */ (m.indices?.[group]);
+    out += text.slice(lastEnd, groupStart) + REDACTED;
+    lastEnd = groupEnd;
+    // A pattern that could match empty would loop forever at the same
+    // position; none of the three do, but a broken pattern must not hang.
+    if (m[0].length === 0) regex.lastIndex += 1;
+    m = regex.exec(text);
+  }
+  return out + text.slice(lastEnd);
+}
+
+/**
+ * `text` with every matched span replaced by `REDACTED`, and whether the
+ * text CHANGED — never whether some pattern merely matched.
+ *
+ * That distinction is the whole of the contract: `url-userinfo` matches
+ * `postgres://u:<redacted>@h/db` (its group already reads as the marker),
+ * and replacing it with itself is not a hit. Comparing the WHOLE result to
+ * the input, once, at the end, is what makes that true without a special
+ * case for it — the converters that count `values` from this flag rely on
+ * it (Task 6/7).
+ *
+ * Applied left to right, pattern by pattern in table order, over the
+ * CURRENT text — so a later pattern sees an earlier pattern's markers,
+ * never the original secret twice.
+ * @param {string} text
+ * @returns {{text: string, hit: boolean}}
+ */
+export function content(text) {
+  if (!text || !triggers(text)) return { text, hit: false };
+  let out = text;
+  for (const pattern of PATTERNS) out = applyOne(out, pattern);
+  return { text: out, hit: out !== text };
+}
+
+// ---------------------------------------------------------------------------
+// The value rules (§2.3, at the capture)
+// ---------------------------------------------------------------------------
+//
+// `redactEnv` applies the two halves above to the ENVIRONMENT, once, at boot.
+// These apply them to every value a recording captures, at the writer: a
+// CALL's arguments, a statement's deltas and a RETURN's value. From 0.6.0
+// this runtime does it ITSELF rather than leaving it to the converter, so a
+// secret is never on the disk to be retrofitted — which is the only place
+// the promise can actually be kept (§5.1).
+//
+// A capture meets ONE of the two halves, never both, and which one is the
+// name's to decide: a value the name rule takes has no text left to scan, and
+// one it leaves is offered to the content rule here. That ORDER is the whole
+// reason both live in this function rather than in `dbg.mjs` where the text
+// is made — a digest taken after a span had been replaced would be an HMAC of
+// the marker, which is a CONSTANT, and two different secrets would then carry
+// one identity and read as the same value. `redact_values.named` (Python) and
+// the Rust runtime's tag-4 delta take the same order for the same reason:
+// three implementations of one rule, digesting one text.
+
+/** @typedef {import('./dbg.mjs').Captured} Captured */
+
+/** @type {{key: Key, knobs: Knobs}|null} */
+let state = null;
+
+/**
+ * The key and the knobs this PROCESS records under, read once.
+ *
+ * Lazily, and never re-read (B22): a recording is made under one set of
+ * rules, and a program that edits `process.env` half way through its own test
+ * run must not be able to change what the rest of the recording was made
+ * under — or to turn the rule off after the first secret has been withheld.
+ * `bootEnv` above keeps its own reads: it is called once, at boot, before
+ * anything else, and its answer goes into the BOOT record for a reader.
+ * @returns {{key: Key, knobs: Knobs}}
+ */
+export function current() {
+  if (state === null) {
+    state = { key: Key.fromHex(process.env[KEY_VAR]), knobs: knobsFromEnv(process.env) };
+  }
+  return state;
+}
+
+/**
+ * The name a returned value was asked for by (B7): `Store.getApiKey` ->
+ * `getApiKey`, `fetch.<anonymous>` -> `<anonymous>`.
+ *
+ * `<anonymous>` and the other bracketed spellings come through unchanged and
+ * fire on nothing — their segments are words in no set — which is the
+ * answer, not a special case.
+ * @param {string} qualname
+ * @returns {string}
+ */
+export function lastSegment(qualname) {
+  const tail = qualname.slice(qualname.lastIndexOf('.') + 1);
+  return tail === '' ? qualname : tail;
+}
+
+/**
+ * `map` with every capture whose NAME fires taken whole.
+ *
+ * The arguments of a focused CALL and the deltas of a LINE, which are the two
+ * places this runtime holds a value under a name the program chose. A name
+ * that does not fire is left with the capture it arrived with — the same
+ * object, not a copy of it.
+ * @param {Record<string, Captured>} map
+ * @returns {Record<string, Captured>}
+ */
+export function redactCaptures(map) {
+  const { key, knobs } = current();
+  if (knobs.off) return map;
+  /** @type {Record<string, Captured>} */
+  const out = {};
+  for (const [name, captured] of Object.entries(map)) {
+    out[name] = fires(name, knobs) ? taken(captured, key) : scanned(captured);
+  }
+  return out;
+}
+
+/**
+ * A RETURN's capture, taken whole when the CALLEE's own name fires (B7).
+ *
+ * The value a function hands back has no name of its own, so the rule reads
+ * the one it was asked for by: `getApiKey()`'s answer is an API key whatever
+ * the caller stores it in.
+ * @param {string} qualname the callee's, as the FILE record declared it
+ * @param {Captured} captured
+ * @returns {Captured}
+ */
+export function redactReturn(qualname, captured) {
+  const { key, knobs } = current();
+  if (knobs.off) return captured;
+  return fires(lastSegment(qualname), knobs)
+    ? taken(captured, key) : scanned(captured);
+}
+
+/**
+ * The texts that withhold NOTHING, so the name rule leaves them alone (ruling
+ * R19). A function that returned nothing is a fact about the program, and a
+ * name is not a reason to hide that it returned: the marker would cost a
+ * reader that fact, hide no secret, and publish a digest of a constant. The
+ * same exemption Python gives its `none` kind and Rust its `()` (R17),
+ * written over the TEXT because `dbg` has no type of its own. Two spellings
+ * and nothing near them: `NaN` is a value the program had, and a text that
+ * merely contains one of these is taken like any other.
+ */
+const WITHHOLDS_NOTHING = new Set(['undefined', 'null']);
+
+/**
+ * B4: the whole value, gone, and an HMAC of it in its place.
+ *
+ * `oid` and `type` STAY — the address and the constructor are facts about
+ * the program, not about the value, and `flow --object` follows them. `trunc`
+ * is written FALSE rather than dropped: nothing was clipped, because the
+ * whole of it was taken, and a reader that met the key missing would have to
+ * guess whether the formatter had been cut short.
+ *
+ * Two captures are left exactly as they are, for one reason: there is nothing
+ * to take. An `unread` never held a text, and a `dbg` whose text is one of
+ * {@link WITHHOLDS_NOTHING} holds one that says the program produced no value
+ * — and a reader told `<redacted>` there would have lost a fact and been
+ * shown no secret.
+ * @param {Captured} captured
+ * @param {Key} key
+ * @returns {Captured}
+ */
+function taken(captured, key) {
+  if (captured.k !== 'dbg' || WITHHOLDS_NOTHING.has(captured.v)) return captured;
+  return {
+    ...captured,
+    v: REDACTED,
+    trunc: false,
+    redacted: { by: 'name', digest: key.digest(captured.v) },
+  };
+}
+
+/**
+ * The CONTENT half over one capture's own text: every matched span replaced,
+ * and a `redacted` object saying so — with no digest, because a partial
+ * cannot honestly commit to the whole.
+ *
+ * Over the CAPPED text, which is what the trace would otherwise have held: a
+ * secret the 200-byte cap already cut in half is not there to match, and a
+ * rule run over the whole rendering would mark a capture for a span the
+ * record does not carry. `trunc` STAYS: the text was clipped, and a span
+ * inside it was replaced.
+ *
+ * The mark is written on a CHANGE, never on a match — `<redacted>` inside a
+ * URL's userinfo matches the pattern that put it there, and replacing it with
+ * itself is not a hit. `content` above is where that distinction lives.
+ * @param {Captured} captured
+ * @returns {Captured}
+ */
+function scanned(captured) {
+  if (captured.k !== 'dbg') return captured;
+  const { text, hit } = content(captured.v);
+  if (!hit) return captured;
+  return { ...captured, v: text, redacted: { by: 'content', digest: null } };
 }

@@ -1,0 +1,100 @@
+program: main.py
+record: {focus: ["main:handle"]}
+env: {SENSORIUM_CORPUS_TOKEN: tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK}
+questions:
+  - id: info-counts-the-values-the-rule-took
+    ask: >
+      handle() reads an API token out of the environment and threads it
+      through a local, a header dict and a call. What does info say became
+      of it?
+    truth: >
+      Redacted at every one of the four places rule v1 can reach it: the
+      env line names SENSORIUM_CORPUS_TOKEN among the redacted variables,
+      and the redaction line counts values redacted: 4 -- secret()'s
+      RETURN (taken by the callee's own name, B7), the token local (taken
+      by its own name), the headers dict's value under its authorization
+      key (the map VALUE fires under its key, B8 -- the key itself,
+      "authorization", is not a secret and is kept), and send's CALL
+      argument token. handle and send fire on nothing themselves, so
+      neither name is redacted -- only the values that passed through
+      token, authorization and secret are.
+    why_logs_fail: >
+      A print(token) at any of those four sites is exactly what this rule
+      exists to stop -- it would put a live token in this trace's own
+      stored output, in a case whose whole point is that the trace never
+      holds it. The honest way to confirm the token never reached disk is
+      to ask the tool what it redacted, not to log the value the rule is
+      protecting.
+    command: ["info", "$RUN"]
+    expect_contains:
+      - "SENSORIUM_CORPUS_TOKEN"
+      - "values redacted: 4"
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
+
+  - id: frame-renders-the-marker-not-the-token
+    ask: >
+      frame handle prints a timeline of its locals. What does it print for
+      the token this function is holding?
+    truth: >
+      A marker, token=<redacted #xxxxxxxx> -- eight hex characters of a
+      digest keyed to this store, never the token itself. The digest lets
+      two takings of the same value be told apart by eye without printing
+      either; it is not pinned here because it is per-store and would
+      differ on every recording.
+    why_logs_fail: >
+      Printing token to check it against the planted value is the same act
+      this trace refuses to commit to disk -- a log line here would hold
+      the plaintext the recording does not.
+    command: ["frame", "$RUN", "--fn", "handle"]
+    expect_contains: ["token=<redacted #"]
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
+
+  - id: watch-refuses-to-compare-a-redacted-name
+    ask: >
+      Would watch --expr "token == 'x'" at handle find the token equal to
+      'x', or say it differs?
+    truth: >
+      Neither. The predicate touches only a name the rule took, so watch
+      ends at NOTHING WAS CHECKED (exit 3) rather than deciding true or
+      false about a value it does not hold, and the state line for token
+      reads <redacted; no comparable value> rather than the marker's
+      digest -- a state line is read by eye, and a digest there would be an
+      offline guessing target for the value it stands for.
+    why_logs_fail: >
+      Answering this needs the plaintext, and getting it into a log is the
+      leak this recorder exists to prevent. The honest answer is that the
+      recording cannot support the comparison at all, not that it silently
+      ran one.
+    command: ["watch", "$RUN", "--at", "handle", "--expr", "token == 'x'"]
+    expect_exit: 3
+    expect_contains:
+      - "NOTHING WAS CHECKED"
+      - "<redacted; no comparable value>"
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
+
+  - id: flow-refuses-to-follow-a-redacted-argument
+    ask: >
+      send(token) passes the token by value. Can flow follow it as an
+      object -- alias, copy, or otherwise?
+    truth: >
+      No. token at send's CALL is a value rule v1 took by name, and a taken
+      value keeps no identity to follow -- only a kept address would, and
+      the rule takes the whole value, address included, when the value is a
+      primitive like this one. flow --object refuses at exit 2 rather than
+      minting a target from nothing, and names which rule did it and that
+      the value is unreachable, not merely unrecorded.
+
+      (handle itself takes no arguments -- token is a local it binds by
+      calling secret() -- so the object this question names is send's
+      argument, the one place in this program token is genuinely a CALL
+      argument; handle:token would not resolve at all, since handle's own
+      CALL captures no arguments to ask about.)
+    why_logs_fail: >
+      id(token) would answer the identity question a log line asks, but
+      running it means already suspecting redaction hides identity here --
+      which is the thing this case exists to show the tool says up front.
+    command: ["flow", "$RUN", "--object", "send:token"]
+    expect_exit: 2
+    expect_contains:
+      - "is redacted (by name) and has no identity or value to follow"
+    expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]

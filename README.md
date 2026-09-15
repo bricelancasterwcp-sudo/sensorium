@@ -342,33 +342,33 @@ on — `0644` under your umask before that. It holds:
 
 - **the process environment** at record time, variable by variable, minus
   what **rule v1** withheld: a secret-*named* variable is stored as
-  `<redacted>` beside an HMAC of its value under a key that never leaves the
-  store, so `refocus` can still say whether it changed
-  ([`docs/redaction.md`](docs/redaction.md); `info` names what it took);
+  `<redacted>` beside an HMAC under a key that never leaves the store, so
+  `refocus` can still say whether it changed; `info` names what it took;
 - **everything the program wrote** to stdout and stderr, interleaved with the
   events it wrote them between;
 - the command line, the working directory, the git commit, and content
   digests of every source file the run traced;
-- captured argument, return and local values, clipped to the caps `info`
-  prints and **not** filtered for what they contain — rule v1 reaches the
-  environment and nothing else yet;
+- **captured argument, return and local values**, clipped to the caps `info`
+  prints and under that same rule by NAME, with any secret-shaped SPAN inside
+  a stored text replaced where it stands ([`docs/redaction.md`](docs/redaction.md));
 - which asyncio task each event ran in, and the tasks' names;
 - one causal fingerprint per thread (events outside any task) and per
   asyncio task.
 
-The file layout is trace format 4; `docs/TRACE-FORMAT.md` is the contract,
-with conformance vectors under `docs/trace-format/vectors/`. A Rust trace
-holds the environment, command line, source digests and captured `Debug`
-values the same way; its tasks are libtest tests and spawned threads rather
-than asyncio tasks, program output under libtest is declared absent rather
-than stored, and the spool directory under `target/` holds the same before
-conversion (`rust/README.md`, "Where traces go").
+The file layout is trace format 4; `docs/TRACE-FORMAT.md` is the contract, with
+conformance vectors under `docs/trace-format/vectors/`. A Rust trace holds the
+environment, command line, source digests and captured `Debug` values the same
+way; its tasks are libtest tests and spawned threads, its output is declared
+absent, and its spool holds the same until conversion (`rust/README.md`).
 
-`info` refuses to print the environment and `refocus` refuses to print the
-variables it compared — both carry secrets, and both say so in their own
-source. What rule v1 does not name is stored as it was. Treat a trace as you
-would a core dump or a `.env`: sharing one shares all of the above, and
-`SENSORIUM_DIR` is the only control over where it lands.
+`info` refuses to print the environment and `refocus` the variables it
+compared: both carry secrets. **What rule v1 does not reach is stored as it
+was** — a secret in a variable named `x` or a bare `key`, one no content
+pattern knows, the command line, a token split across two `write()`s,
+anything under `SENSORIUM_NO_REDACT`, every mode bit on Windows, and every
+trace already on disk, which a later version's retrofit reaches. Treat a
+trace as you would a core dump or a `.env`: sharing one shares all of the
+above, and `SENSORIUM_DIR` is the only control over where it lands.
 
 ## What sensorium sees at all
 
@@ -515,10 +515,10 @@ and a workload, not a pass/fail property of the tool.
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
 crates the same way `sensorium run` records a Python program: one sensorium
 trace per process, trace format 4, read by the same `sensorium` command line.
-`rust/` ships `sensorium-rt 0.5.0` (zero dependencies, the runtime linked into
+`rust/` ships `sensorium-rt 0.7.0` (zero dependencies, the runtime linked into
 every instrumented unit, and the owner of the one sha256 the other two hash
 with), `sensorium-transform 0.5.0` (the `syn` rewriter), and `cargo-sensorium
-0.6.0` (driver, workspace wrapper, target runner, converter — one binary, four
+0.8.0` (driver, workspace wrapper, target runner, converter — one binary, four
 roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
 with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
 [`rust/README.md`](rust/README.md) is the full build/install/record reference.
@@ -688,7 +688,7 @@ states one as a translation of the other. The driver's own fixed cost is
 `sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite the
 way `cargo sensorium test` records a Rust workspace: one trace per test-file
 process, trace format 4, read by the same `sensorium` command line. `typescript/`
-ships **`sensorium-ts 0.5.0`** — a transform whose edits never contain a newline,
+ships **`sensorium-ts 0.6.0`** — a transform whose edits never contain a newline,
 a runtime on `AsyncLocalStorage`, a vitest plugin, a `node --test` hook — with
 driver and converter in Python, so reading a trace needs no Node. What it sees and
 does not is [`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot

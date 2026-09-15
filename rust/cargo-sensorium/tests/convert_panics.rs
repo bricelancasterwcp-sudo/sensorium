@@ -200,3 +200,82 @@ fn a_panic_with_no_open_frame_still_consumes_its_threads_panic_serial() {
     let u: serde_json::Value = serde_json::from_str(&unwind_exc).unwrap();
     assert_eq!(u["serial"], 2, "{u}");
 }
+
+// ---------------------------------------------------------------------------
+// Rule v1 over a panic's message
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_panic_message_carrying_a_secret_is_redacted_on_the_raise_and_on_the_unwind() {
+    // B21: every `msg` this converter writes into an `exc` object goes through
+    // the content rule -- and a panic's message is written TWICE, once on the
+    // RAISE the PANIC record produces and once on the `unwind_exc` the frame's
+    // close carries. A converter that redacted only the first would leave the
+    // secret in the frames table, where `frame` prints it as `unwound: ...`.
+    //
+    // The message is a real shape from §2.2's table (`github`, 20+ chars), so
+    // the pin is on the rule and not on a literal this test invented.
+    let f = Fixture::new("panic-message-redaction");
+    f.manifest(&[site(0, QUALNAME, 3, "value")]);
+    wire::write_proc_header(
+        &f.spool_dir,
+        904,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    wire::SpoolBuilder::new(904, 1, "main")
+        .call(0, 1000, 0, 0)
+        .raw(
+            1,
+            1500,
+            0,
+            KIND_PANIC,
+            0,
+            &panic_payload(
+                &format!("{FILE}:3:5"),
+                "push failed for ghp_0123456789abcdefghij",
+            ),
+        )
+        .raw(2, 2000, 0, KIND_RETURN, OUTCOME_PANIC, &RET_NO_VALUE)
+        .write(&f.spool_dir);
+    let conn = f.converted();
+
+    let raise: String = conn
+        .query_row("SELECT payload FROM events WHERE kind = 'RAISE'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    let p: serde_json::Value = serde_json::from_str(&raise).unwrap();
+    assert_eq!(p["exc"]["msg"], "push failed for <redacted>");
+    // A span operation leaves no digest: a partial cannot commit to the whole.
+    assert_eq!(
+        p["exc"]["redacted"],
+        serde_json::json!({"by": "content", "digest": null})
+    );
+
+    let unwind_exc: String = conn
+        .query_row(
+            "SELECT unwind_exc FROM frames WHERE closed_by = 'unwind'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let u: serde_json::Value = serde_json::from_str(&unwind_exc).unwrap();
+    assert_eq!(u["msg"], "push failed for <redacted>");
+    assert_eq!(
+        u["redacted"],
+        serde_json::json!({"by": "content", "digest": null})
+    );
+
+    // ONE message, withheld once: the RAISE and the unwind are two sightings
+    // of it, and `values` counts what the trace withholds, not how many rows
+    // mention it.
+    let redaction = meta(&conn, "redaction");
+    assert_eq!(redaction["values"], 1, "{redaction}");
+    assert!(
+        !raise.contains("ghp_"),
+        "the plaintext token reached a row: {raise}"
+    );
+}

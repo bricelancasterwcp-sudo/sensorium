@@ -391,3 +391,23 @@ def test_a_case_missing_program_or_questions_is_refused(tmp_path):
     (d / "questions.yaml").write_text("program: main.py\n")
     with pytest.raises(ValueError, match="needs both"):
         run_corpus.load_cases(tmp_path)
+
+
+def test_env_is_merged_into_the_case(tmp_path):
+    """A case's `env:` reaches the loaded `Case` -- what the runner merges
+    into the recording -- and not just the raw YAML."""
+    case = _load_one(tmp_path, [GOOD_QUESTION], env={"MY_TOKEN": "abc"})
+    assert case.env == {"MY_TOKEN": "abc"}
+
+
+def test_a_case_with_no_env_key_gets_an_empty_one(tmp_path):
+    case = _load_one(tmp_path, [GOOD_QUESTION])
+    assert case.env == {}
+
+
+def test_env_value_that_is_not_a_string_is_refused(tmp_path):
+    """A non-string value would reach the recorder's subprocess environment
+    as whatever `str()` gives it, silently drifting from what the YAML
+    says the case was recorded under."""
+    with pytest.raises(ValueError, match="env must be a mapping of str"):
+        _load_one(tmp_path, [GOOD_QUESTION], env={"MY_TOKEN": 5})

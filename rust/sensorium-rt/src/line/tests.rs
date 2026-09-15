@@ -16,8 +16,29 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use crate::probe::Capture;
+use crate::redact::{Key, Knobs};
 use crate::spool::{HEADER_FIXED, KIND_LINE, RECORD_FIXED};
 use crate::{Unit, STATE, STATE_CALL, STATE_OFF, STATE_UNINIT};
+
+/// A key with no meaning beyond being 64 hex characters -- this module's own
+/// copy of `tests/redact.rs`'s `HEX_KEY`, so the byte-layout tests below never
+/// depend on an integration test's fixture.
+const HEX_KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+
+/// The `Key`/`Knobs` every EXISTING `write_line_payload` test in this file was
+/// written against, before wire v4 gave the writer anything to redact:
+/// unkeyed, and the rule on with nothing configured. None of the names these
+/// tests use (`"x"`, `"buf"`, `"a"`, `"s"`, `"delta_NN"`, ...) fire rule v1 --
+/// `tests/redact.rs`'s fixture is where a name's own verdict is pinned -- so
+/// passing this pair everywhere leaves every one of those tests byte-for-byte
+/// what it was.
+fn unkeyed() -> Key {
+    Key::from_hex(None)
+}
+
+fn rule_on() -> Knobs {
+    Knobs::from_values(None, None, None)
+}
 
 // -----------------------------------------------------------------------
 // (z) the ladder, applied to one borrowed value
@@ -134,7 +155,10 @@ fn parse(payload: &[u8]) -> (u8, Vec<Delta>) {
         at += name_len;
         let (tag, truncated) = (payload[at], payload[at + 1]);
         at += 2;
-        let text = if tag == 1 {
+        // Tag 4 (redacted, wire v4) carries a text block exactly as tag 1
+        // does -- a digest rather than the captured value, but present the
+        // same way.
+        let text = if tag == 1 || tag == 4 {
             let text_len = u16::from_le_bytes([payload[at], payload[at + 1]]) as usize;
             at += 2;
             let text = std::str::from_utf8(&payload[at..at + text_len])
@@ -166,7 +190,7 @@ fn parse(payload: &[u8]) -> (u8, Vec<Delta>) {
 fn two_deltas_encode_to_the_bytes_the_wire_format_names() {
     let deltas = [("x", debug("5")), ("buf", unread())];
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[], &unkeyed(), &rule_on());
     assert!(!dropped);
     #[rustfmt::skip]
     let want: Vec<u8> = vec![
@@ -182,6 +206,11 @@ fn two_deltas_encode_to_the_bytes_the_wire_format_names() {
     assert_eq!(len as usize, 18);
 }
 
+// Wire v4 (task 5, design 2026-09-14): a delta whose name fires rule v1 --
+// split into its own file, `tests/redact.rs`, once this one crossed the
+// crate's 800-line ceiling.
+mod redact;
+
 /// The same hand-written vector for the fourth tag: a block-like statement's
 /// row carries the deltas it wrote AND, after them, the names its blocks and
 /// its own head pattern bound and killed -- one block each, name only
@@ -191,7 +220,8 @@ fn two_deltas_encode_to_the_bytes_the_wire_format_names() {
 fn one_delta_and_two_unbound_encode_to_the_bytes_the_wire_format_names() {
     let deltas = [("x", debug("5"))];
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas, &["a", "bb"]);
+    let (len, dropped) =
+        write_line_payload(&mut buf, &deltas, &["a", "bb"], &unkeyed(), &rule_on());
     assert!(!dropped);
     #[rustfmt::skip]
     let want: Vec<u8> = vec![
@@ -225,7 +255,7 @@ fn one_delta_and_two_unbound_encode_to_the_bytes_the_wire_format_names() {
 #[test]
 fn a_statement_that_wrote_nothing_is_three_bytes_and_still_a_row() {
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &[], &[]);
+    let (len, dropped) = write_line_payload(&mut buf, &[], &[], &unkeyed(), &rule_on());
     assert_eq!((len, dropped), (3, false));
     assert_eq!(&buf[..3], &[0, 0, 0]);
 }
@@ -236,7 +266,7 @@ fn an_over_long_text_is_cut_at_the_cap_on_a_char_boundary_and_flagged() {
     // not be UTF-8.
     let deltas = [("s", debug(&"é".repeat(150)))];
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[], &unkeyed(), &rule_on());
     assert!(!dropped, "one capped delta fits; nothing is dropped");
     let (flags, deltas) = parse(&buf[..len as usize]);
     assert_eq!(flags, 0);
@@ -259,7 +289,8 @@ fn an_over_long_text_is_cut_at_the_cap_on_a_char_boundary_and_flagged() {
 #[test]
 fn an_empty_debug_rendering_is_a_read_value_not_an_unread_one() {
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &[("s", debug(""))], &[]);
+    let (len, dropped) =
+        write_line_payload(&mut buf, &[("s", debug(""))], &[], &unkeyed(), &rule_on());
     assert!(!dropped);
     #[rustfmt::skip]
     let want: Vec<u8> = vec![
@@ -286,7 +317,7 @@ fn a_capture_that_was_already_cut_stays_flagged_truncated() {
         },
     )];
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, _) = write_line_payload(&mut buf, &deltas, &[]);
+    let (len, _) = write_line_payload(&mut buf, &deltas, &[], &unkeyed(), &rule_on());
     let (_, deltas) = parse(&buf[..len as usize]);
     assert_eq!(deltas[0].truncated, 1);
     assert_eq!(deltas[0].text.as_deref(), Some("abc"));
@@ -298,7 +329,7 @@ fn deltas_that_do_not_fit_are_dropped_whole_and_the_flag_says_so() {
     let text = "x".repeat(190);
     let deltas: Vec<(&str, Capture)> = names.iter().map(|n| (n.as_str(), debug(&text))).collect();
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[], &unkeyed(), &rule_on());
     assert!(dropped, "forty 190-byte deltas do not fit one record");
     assert!(len as usize <= LINE_PAYLOAD_MAX);
     let (flags, written) = parse(&buf[..len as usize]);
@@ -350,7 +381,7 @@ fn eight_fully_capped_deltas_fit_and_the_boundary_is_nine() {
             })
             .collect();
         let mut buf = [0u8; LINE_PAYLOAD_MAX];
-        let (len, dropped) = write_line_payload(&mut buf, &deltas, &[]);
+        let (len, dropped) = write_line_payload(&mut buf, &deltas, &[], &unkeyed(), &rule_on());
         assert_eq!(dropped, want_dropped, "k={k}");
         let (flags, written) = parse(&buf[..len as usize]);
         assert_eq!(flags & 1, u8::from(want_dropped), "k={k}");
@@ -384,7 +415,8 @@ fn an_unbound_name_that_does_not_fit_sets_bit0_and_stops() {
     // on the bound.
     let fits = "f".repeat(left - 4);
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[fits.as_str()]);
+    let (len, dropped) =
+        write_line_payload(&mut buf, &deltas, &[fits.as_str()], &unkeyed(), &rule_on());
     assert!(!dropped, "a {left}-byte block is the last thing that fits");
     assert_eq!(len as usize, LINE_PAYLOAD_MAX);
     let (flags, blocks) = parse(&buf[..len as usize]);
@@ -397,7 +429,13 @@ fn an_unbound_name_that_does_not_fit_sets_bit0_and_stops() {
     // did rather than an arbitrary subset of it.
     let too_long = "f".repeat(left - 3);
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas, &[too_long.as_str(), "z"]);
+    let (len, dropped) = write_line_payload(
+        &mut buf,
+        &deltas,
+        &[too_long.as_str(), "z"],
+        &unkeyed(),
+        &rule_on(),
+    );
     assert!(dropped);
     let (flags, blocks) = parse(&buf[..len as usize]);
     assert_eq!(flags & 1, 1, "bit0 is the dropped flag");
@@ -418,7 +456,7 @@ fn a_dropped_delta_stops_the_unbound_names_there_was_still_room_for() {
     let text = "t".repeat(crate::probe::CAP);
     let deltas: Vec<(&str, Capture)> = names.iter().map(|n| (n.as_str(), debug(&text))).collect();
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, dropped) = write_line_payload(&mut buf, &deltas, &["z"]);
+    let (len, dropped) = write_line_payload(&mut buf, &deltas, &["z"], &unkeyed(), &rule_on());
     assert!(dropped, "the tenth capped delta does not fit");
     let (flags, blocks) = parse(&buf[..len as usize]);
     assert_eq!(flags & 1, 1);

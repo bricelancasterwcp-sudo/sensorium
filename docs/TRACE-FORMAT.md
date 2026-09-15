@@ -86,11 +86,11 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   `sensorium-ts 0.5.0` the file is created **`0600`** and every directory a
   recorder makes **`0700`**, by explicit mode at creation; earlier writers
   used the process umask — `0644` on a default Linux setup, readable by
-  every account on the machine. A trace holds the process environment (minus
-  what rule v1 withheld), everything the program wrote to stdout/stderr, the
-  command line, the working directory, and captured values, which rule v1
-  does not reach. Treat one as a core dump or a `.env`; see the README's
-  "What a trace file holds" and [`redaction.md`](redaction.md).
+  every account on the machine. A trace holds the process environment and the
+  captured values (minus what rule v1 withheld from each), everything the
+  program wrote to stdout/stderr, the working directory, and the command
+  line — which rule v1 does not reach. Treat one as a core dump or a `.env`;
+  see the README's "What a trace file holds" and [`redaction.md`](redaction.md).
 
 ## 3. Tables
 
@@ -527,8 +527,8 @@ A captured **value** is a tagged object read by `query/fmt.fmt_value`:
 `{"k": "unread"}` (with `type` and `oid` where the recorder has them).
 `len: null` prints `?`; an `unread` list names the reads the observed object
 refused. A payload key a recorder cannot fill is **omitted**, never filled
-with a zero or an empty string, and **no capture carries a `redacted` object
-in this version** — rule v1 reaches the environment and nothing else.
+with a zero or an empty string. A capture may carry an optional **`redacted`**
+object, `{by, digest}`: rule v1's two operations, in [`redaction.md`](redaction.md).
 
 Two of those tags are what a recorder that does not decompose values writes,
 and both render as themselves rather than as `?`:

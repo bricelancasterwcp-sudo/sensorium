@@ -6,12 +6,12 @@ amount. Nothing in the output mentions the cache."""
 CACHE = {}
 
 
-def build_key(record):
+def memo_id(record):
     return record["sku"]          # BUG: tier is priced but not keyed
 
 
 def price_of(record):
-    key = build_key(record)
+    key = memo_id(record)
     if key in CACHE:
         return CACHE[key]
     price = 10.0 if record["tier"] == "basic" else 25.0

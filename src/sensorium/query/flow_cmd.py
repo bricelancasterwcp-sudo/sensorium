@@ -131,7 +131,14 @@ from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.caps import none_status, print_incomplete, require
 from sensorium.query.dbg_dialects import for_trace
-from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
+from sensorium.query.fmt import fmt_value, parse_eref
+# The printing half, split out at this file's 800-line ceiling.
+# Re-exported so `flow_cmd.<name>` keeps resolving: these are one
+# command's internals across two files, not separate modules with
+# surfaces of their own.
+from sensorium.query.flow_report import (  # noqa: F401
+    EXACT_CONTINUITY, ROLES_SEARCHED, _MAX_NAMED_GAPS, _notes,
+    _print_footer, _print_rows, continuity_line, page_gaps)
 from sensorium.query.flow_values import (  # noqa: F401  (re-exported)
     CONTAINER_KINDS, ObjTarget, _walk, find_in_value, matches,
     parse_literal)
@@ -139,7 +146,6 @@ from sensorium.query.rust_debug import debug_text
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
-ROLES_SEARCHED = "CALL args, RETURN values and LINE local deltas"
 IDENTITY_CAVEAT = (
     "identity-based lineage, not true dataflow analysis",
     "object identity is the memory address plus type; CPython recycles "
@@ -164,10 +170,7 @@ SERIAL_CAVEAT = (
     "values, not the edges between them",
 )
 _CAVEATS = {"address": IDENTITY_CAVEAT, "serial": SERIAL_CAVEAT}
-#: The footer line for an identity that needs no corroborating.
-EXACT_CONTINUITY = "continuity: exact (serial identity)"
 _MAX_OTHER_REFS = 5
-_MAX_NAMED_GAPS = 6
 _CTORS = (".__init__", ".__new__")
 
 
@@ -490,24 +493,6 @@ def gap_lines(gs: list[Gap]) -> dict[int, str]:
     return out
 
 
-def continuity_line(gs: list[Gap]) -> str:
-    unwit = [g for g in gs
-             if g.reuse is None and g.born is None and g.held is None]
-    named = ", ".join(f"e{g.a}->e{g.b}" for g in unwit[:_MAX_NAMED_GAPS])
-    extra = len(unwit) - _MAX_NAMED_GAPS
-    if named:
-        named = f" ({named}{f', +{extra} more' if extra > 0 else ''})"
-    parts = [f"{sum(1 for g in gs if g.held)} gap(s) spanned by a recorded "
-             "binding", f"{len(unwit)} unwitnessed{named}"]
-    reused = sum(1 for g in gs if g.reuse)
-    if reused:
-        parts.append(f"{reused} crossed a proven address reuse")
-    born = sum(1 for g in gs if g.born)
-    if born:
-        parts.append(f"{born} crossed a recorded construction")
-    return "continuity: " + ", ".join(parts)
-
-
 def resolve_object(trace, idx: Index, spec: str):
     """(target, canonical ref, resolution note, `Unresolved` | None).
 
@@ -554,6 +539,14 @@ def resolve_object(trace, idx: Index, spec: str):
         return None, None, None, Unresolved(err, NEGATIVE)
     if at is not ev and note:
         note += f"; its return is captured at e{at.id}"
+    if (v.get("redacted") or {}).get("by") == "name":
+        # BEFORE the primitive check, which a taken container would pass:
+        # the rule keeps `oid` and `type` (an address is a fact about the
+        # program), so the resolver would mint a target and follow an
+        # address whose occupant nobody recorded.
+        return None, None, None, Unresolved(
+            f"{name!r} at e{at.id} is redacted (by name) and has no "
+            f"identity or value to follow", BAD_CALL)
     if v.get("k") not in CONTAINER_KINDS and "oid" not in v:
         # A rendered capture carries `oid`/`type` when the recorder minted
         # an identity for the value -- an object or a function, never a
@@ -664,74 +657,6 @@ def _header(trace, idx: Index, args) -> tuple:
         f"flow of {target!r} ({type(target).__name__}) in {trace.path.stem}",
         "  captured-value equality, not true dataflow analysis: the trace "
         "records values, not the edges between them"], None
-
-
-def _notes(idx: Index, seen: int, trunc: int) -> list[str]:
-    out = []
-    if trunc:
-        out.append(f"note: {trunc} of {seen} capture(s) searched were "
-                   "truncated (over-cap or depth-capped containers, or "
-                   "clipped strings); the parts not recorded could not be "
-                   "compared, so a value present only there is not listed")
-    if not idx.has_line:
-        out.append("note: this run recorded no LINE events, so no local was "
-                   "ever captured; a value that only lived in a local between "
-                   "call and return is not in this trace (re-record with "
-                   "--focus MODULE[:QUALNAME])")
-    return out
-
-
-def page_gaps(all_gaps: list[Gap], start: int, shown: int) -> tuple:
-    """(gaps this page must account for, gaps it can annotate, lead offset).
-
-    `start` is the index in the full sighting list of this page's first row.
-    A page after the first has a gap LEADING INTO its first row -- the one
-    crossing the page boundary -- which is as much part of its story as any
-    gap between its own rows: on page 2 of a lineage split by an ADDRESS
-    REUSED, that gap is the whole point. So it is annotated above the first
-    row and counted in this page's footer, instead of existing only in the
-    previous page's output.
-    """
-    lead = 1 if start else 0
-    first = start - lead
-    end = start + max(shown - 1, 0)
-    return all_gaps[first:], all_gaps[first:max(end, first + lead)], lead
-
-
-def _print_rows(trace, shown, notes: dict, lead: int) -> None:
-    if lead and 0 in notes:
-        print("  " + notes[0])          # the gap crossing into this page
-    for i, s in enumerate(shown):
-        print(f"  {fmt_event(trace, s.event)}   [{', '.join(s.labels)}]")
-        if lead + i in notes:
-            print("  " + notes[lead + i])
-
-
-def _print_footer(args, ref, idx, counts, scope, shown, gs, after,
-                  exact: bool = False) -> None:
-    found, searched, seen, trunc = counts
-    # Counted over every sighting in scope, never over the printed page: a
-    # total that shrank with --limit would be a false fact about the run.
-    tail = ""
-    if len(shown) < len(scope):
-        tail += f" (showing {len(shown)})"
-    skipped = found - len(scope)
-    if skipped:
-        tail += f" ({skipped} earlier sighting(s) skipped by --after e{after})"
-    print(f"sightings: {len(scope)} event(s), "
-          f"{sum(len(s.labels) for s in scope)} capture(s){tail}")
-    if exact:
-        print(EXACT_CONTINUITY)
-    elif gs:
-        print(continuity_line(gs))
-    print(f"scope: {seen} capture(s) searched across {searched} event(s) in "
-          f"{ROLES_SEARCHED}")
-    for note in _notes(idx, seen, trunc):
-        print(note)
-    last = shown[-1].event.id if shown else after
-    note = more_note(len(scope), len(shown), continue_cmd(args, ref, last))
-    if note:
-        print(note)
 
 
 def run(args) -> int:

@@ -86,6 +86,12 @@ questions:
       reaped whom.
     command: ["info", "$RUN"]
     expect_contains: ["exit: unwitnessed"]
+    # Re-pinned 2026-09-14 (secrets redaction PR B, task 7): 0.5.0 -> 0.6.0,
+    # because `sensorium-ts` 0.6.0 applies rule v1 to the VALUES it records --
+    # a CALL argument, a LINE delta or a RETURN whose name fires is withheld
+    # at the writer, and every inspected text is scanned for a secret-shaped
+    # span. The rows this case asks about carry no such name, so only
+    # the recorder's name in the sentence moved.
     # Re-pinned 2026-09-13 (secrets redaction, PR A): 0.4.0 -> 0.5.0,
     # because the runtime now redacts its own BOOT environment under rule v1
     # and writes the two keys that say so. The rows this case asks about are
@@ -93,7 +99,7 @@ questions:
     expect_line:
       - ["harness: npx vitest run pass_vs_fail", "exit: 1 (waited)"]
       - ["container: pid", "file: pass_vs_fail/"]
-      - ["recorder: sensorium-ts 0.5.0", "lang: typescript"]
+      - ["recorder: sensorium-ts 0.6.0", "lang: typescript"]
   - id: what-does-the-store-hold-afterwards
     ask: >
       The terminal has scrolled away. What did that one command leave in the

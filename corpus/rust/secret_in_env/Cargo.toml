@@ -1,0 +1,9 @@
+[package]
+name = "corpus_secret_in_env"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "secret_in_env"
+path = "src/main.rs"

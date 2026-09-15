@@ -13,7 +13,7 @@ mod common;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use common::{Spec, TempDir};
+use common::{Spec, TempDir, MSG_CAP};
 use sensorium_rt::redact::{
     env_hash, fires, hmac_sha256, redact_env, redaction_json, split, Key, Knobs, KEY_VAR, REDACTED,
     RULE,
@@ -701,3 +701,12 @@ fn the_spool_the_header_and_the_spool_directory_are_private() {
         "the directory the runtime created is the owner's alone too"
     );
 }
+
+// Wire v4 (task 5): a LINE delta whose name fires -- split into its own
+// file, `tests/redact/line.rs`, once this one crossed the crate's 800-line
+// ceiling. `tests/redact.rs` is a crate ROOT (it is an integration test
+// binary), so a plain `mod line;` would look for `tests/line.rs`; `#[path]`
+// puts this one in `tests/redact/` instead, the same reason
+// `src/bin/scenario.rs` needs it for its own scenario modules.
+#[path = "redact/line.rs"]
+mod line;

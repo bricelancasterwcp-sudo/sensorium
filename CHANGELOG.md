@@ -1,5 +1,143 @@
 # Changelog
 
+## 0.16.0 — 2026-09-14
+
+**And now the values.** Part A took the environment; this takes everything a
+recording CAPTURES. An argument, a local, a return value, an exception
+message and a line of output are judged at the writer under the same **rule
+v1**: a value whose NAME fires is stored as `<redacted>` with an HMAC of the
+text the trace would otherwise have held, and a secret-shaped SPAN inside any
+stored text is replaced where it stands, sentence intact
+(`postgres://u:<redacted>@h/db`). The readers refuse to guess, and `info`
+counts what was taken. Python **0.16.0**, `sensorium-ts` **0.6.0**,
+`sensorium-rt` **0.7.0**, `cargo-sensorium` **0.8.0**;
+`sensorium-transform` stays **0.5.0** (no probe it emits changed) and
+`TRACE_FORMAT` stays **4** — one optional key on a capture, no column and no
+record kind. The Rust spool wire moves to **v4**; the TypeScript wire stays
+**v1**. This is PART B. The retrofit of traces already on disk,
+`sensorium redact`, is part C.
+
+- **The content rule: nineteen patterns, three implementations, one
+  fixture.** A URL's userinfo password, a PEM private-key body, an
+  `Authorization: Bearer`/`Basic` value, a JWT, and the provider-prefixed
+  shapes (`sk-ant-`, `sk-`, Stripe, GitHub, GitLab, Slack, AWS, Google,
+  Hugging Face, npm, PyPI, DigitalOcean, Shopify, SendGrid) — most floored by
+  a minimum length so a short benign string cannot fire, the rest by their own
+  delimiters. A **hit** means the text CHANGED, never that a pattern matched:
+  the userinfo pattern matches the marker it put there itself, which is what
+  makes a re-conversion idempotent and the count below honest. The cases are
+  `docs/trace-format/redaction-v1.json`; `src/sensorium/redact_content.py`,
+  `rust/cargo-sensorium/src/convert/redact_content.rs` and
+  `typescript/src/redact.mjs` all read it.
+- **`KEY` fires only inside a longer name, as `PWD` does.** A bare `key` is a
+  cache key, a dict key, a lookup key on almost every function that iterates
+  a mapping, and redacting it by default blinded `watch` on the commonest
+  local in the language; every compound spelling (`api_key`, `apiKey`,
+  `secret_key`, `KEY_FILE`) still fires, and `SENSORIUM_REDACT_NAMES=key`
+  restores it where a bare `key` IS the secret. Amended into **rule v1**
+  rather than minted as a v2, because no trace under the earlier spelling
+  existed outside this box and CI (`tests/test_redact.py`, the fixture's
+  `names` list).
+- **Per kind, exactly what a name hit leaves.** `str`/`num`/`dbg`: the marker
+  in place of the value, `trunc` dropped — except on a `dbg`, which writes it
+  **false**, since nothing was clipped and the whole of it was taken — and a
+  digest over the clipped text, `repr(v)` for a `num` so `1234` and `"1234"`
+  never share one. `obj`: the `repr` goes, `type` and `oid` stay, so
+  `flow --object` still follows it and not one byte of an object line moves.
+  `seq`/`map`: the sample goes, `type`/`len`/`oid` stay and the digest is
+  `null` — a size is a fact about the program, not about the value. `none`,
+  `bool` and `unread` are untouched; a kind this rule has never heard of is
+  withheld WHOLE, because the failure direction of this control has to be a
+  lost fact and never a kept secret (`tests/test_redact_values.py`).
+- **Two values are never taken, under any name** (rulings R17, R19): Rust's
+  synthesised unit return `()` and a `dbg` text that is exactly `undefined`
+  or `null`. They say the program produced no value; a marker there would
+  cost a reader that fact, hide no secret and publish a digest of a constant.
+  Whole texts and nothing near them — a `NaN` is a value the program had
+  (`rust/cargo-sensorium/tests/convert_redaction.rs`,
+  `tests/test_redact_values.py::test_the_boundary_is_the_whole_text_and_nothing_near_it`).
+- **A RETURN is judged by the CALLEE's own name** — the last segment of its
+  qualname, split on `.` or `::`: `get_api_key()`'s answer is an API key
+  whatever the caller stores it in. In Python a `map` sample's VALUE is
+  judged by its paired KEY's text, which is what reaches a headers dict's
+  `authorization` entry; Rust and TypeScript store a rendering rather than a
+  decomposed map, and the content rule is their only reach into one.
+- **The Rust wire moves to v4**, one new LINE delta tag: `4`, REDACTED BY
+  NAME, whose text is the 16-hex digest or empty when unkeyed (tag `3` is
+  UNBOUND and predates this). The runtime writes it — it needs no regex — and
+  everything else is the converter's, which is why the spool under
+  `<target>/sensorium/spool/` holds **content-plaintext** between the two: a
+  token inside a `Debug` rendering, `get_token()`'s return. `0600`, taken by
+  `cargo clean`, and named in `rust/README.md` and `rust/HONESTY.md` §14
+  rather than left to be discovered. The converter reads versions 2, 3 and 4
+  and reads tag 4 only on a v4 file (`rust/sensorium-rt/tests/redact/line.rs`,
+  `rust/cargo-sensorium/src/convert/spool/tests/line.rs`).
+- **The TypeScript runtime does both halves itself**, so its spool has no
+  such window; the wire stays v1 because a JSON object with one more optional
+  key is additive, and a reader older than this version ignores the key and
+  prints the marker text (`typescript/test/rt.redaction.test.mjs`,
+  `typescript/HONESTY-REDACTION.md`).
+- **`redaction.values`, counted by the trace's WRITER.** The Python recorder
+  counts at finalize over what it WROTE, the two converters as they build, so
+  the number is a pure function of the trace's contents: a secret local
+  re-captured at every line of a loop counts ONCE, one text written into two
+  rows counts once (a panic's message; an `Err` return and the origin RAISE
+  synthesised in front of it, under one digest, ruling R16), and a `RAISE`
+  and a `HANDLED` of one exception count two. Absent entirely under
+  `mode: off`, so a printed zero is always a measured zero
+  (`tests/test_record_values_redaction.py`,
+  `tests/test_ts_ingest_redaction.py`, `tests/test_info_redaction.py`).
+- **`by` changes meaning, visibly.** It reads `recorder` only where the
+  RUNTIME did the value half too — Rust wire v4 or better with a `redaction`
+  header whose mode is on, `sensorium-ts` 0.6.0 or better. A 0.6.0/v3 Rust
+  spool or a 0.5.0 TypeScript spool re-converted under this release therefore
+  produces a trace that says **`converter`** where it used to say
+  `recorder`. That is the truth about whose key the capture digests are
+  under, and it is a change to a published key
+  (`rust/cargo-sensorium/src/convert/redaction.rs`,
+  `src/sensorium/ts/redaction.py`).
+- **The readers name what they cannot do.** `frame`/`tree`/`grep` print
+  `token=<redacted #01234567>` — the digest's first eight hex, enough to tell
+  two takings apart and far too few to guess a short value back from — or
+  `<redacted>` unkeyed, `dict[3]=<redacted>` for a container and `Cfg#7`
+  unchanged for an object; a content hit prints as stored. `watch` renders a
+  state line as `<redacted; no comparable value>`, ends a predicate that met
+  only taken values at `NOTHING WAS CHECKED` and exit 3, and names the
+  remedy — `export SENSORIUM_REDACT_ALLOW=<name> && <re-record>` — rather
+  than only the diagnosis. `flow --object` refuses at exit 2
+  (`'token' at e1 is redacted (by name) and has no identity or value to
+  follow`), because the address it kept is real and its occupant was never
+  recorded, and `flow --value` never sights the marker, which would otherwise
+  report every secret in the run as sightings of one value. `info` appends
+  `; values redacted: N` to the keyed and the UNKEYED line alike. Vector
+  `v42-redaction-render`; `tests/test_fmt_redaction.py`,
+  `tests/test_watch_redaction.py`, `tests/test_flow_redaction.py`,
+  `tests/test_info_redaction.py`.
+- **Three corpus cases, one per language** (`corpus/secret_in_env`,
+  `corpus/rust/secret_in_env`, `corpus/typescript/secret_in_env`): a real
+  recording with a planted token in its environment, threaded through a
+  function's bindings, where every question asserts the token itself appears
+  in no answer.
+
+**The honest limits, stated where a reader meets them.** A secret in a
+variable named `x` or in a bare `key`; a shape on none of the nineteen
+patterns, or one the cap clipped too short to match; `argv`, which no part
+of this rule reaches — though a SPAWNED child's command line
+(`meta.children`) takes the content rule; an output chunk scanned one
+`write()` at a time, so a token split across two writes is not seen; a
+Rust `?`-hop RAISE's message, which is the probe's own read and takes the
+content rule like any other; a spool converted against a store that did not
+record it, whose `key_id` is the recorder's while the converter's capture
+digests are the ingesting store's; `exceptions` grouping two identically
+redacted messages as one; every mode bit on Windows; and every trace already
+on disk, which part C's retrofit reaches. `docs/redaction.md` gains *What a
+captured value becomes* and an extended *honest limits*, and `README.md`,
+`docs/TRACE-FORMAT.md` §5, `rust/README.md`, `rust/HONESTY.md` (§14, new)
+with `rust/HONESTY-INDEX.md`, `typescript/HONESTY.md` with the new
+`typescript/HONESTY-REDACTION.md`, `typescript/README.md` and
+`docs/trace-format/TYPESCRIPT-KEYS.md` are amended to this state — where the
+code and the design differ, the code is what these describe.
+
 ## 0.15.0 — 2026-09-13
 
 **Secrets stop reaching disk in the first place.** Every recorder stored the
@@ -12,8 +150,9 @@ disk, and keeps an HMAC-SHA256 of the plaintext under a per-store key so
 to; every file a recorder now creates **under the store and the spool
 directories** is `0600` in a `0700` directory. This is PART A: the
 environment and the file modes. Captured argument, local, return and output
-values are still stored as the caps clipped them, and part B redacts those. Python **0.15.0**, `sensorium-ts` **0.5.0**, `sensorium-rt`
-**0.6.0**, `cargo-sensorium` **0.7.0**; `sensorium-transform` stays **0.5.0**,
+values are still stored as the caps clipped them, and part B redacts those.
+Python **0.15.0**, `sensorium-ts` **0.5.0**, `sensorium-rt` **0.6.0**,
+`cargo-sensorium` **0.7.0**; `sensorium-transform` stays **0.5.0**,
 `TRACE_FORMAT` stays **4**, the Rust spool wire stays **v3** and the
 TypeScript wire **v1** — one optional meta key, no column and no record kind.
 

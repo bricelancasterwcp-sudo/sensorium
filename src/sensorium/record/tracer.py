@@ -90,6 +90,7 @@ import time
 import weakref
 from pathlib import Path
 
+from sensorium import redact_values as rv
 from sensorium.record.capture import (capture_exc, capture_value, plain_str,
                                       type_name)
 from sensorium.record.fingerprint import Fingerprint
@@ -228,8 +229,13 @@ class Tracer(_FrameDecisions):
             # this project has already watched rot twice, and the snapshot
             # makes it structural instead.
             loc = locals_snapshot(frame)
+            # Rule v1 applies HERE, before the payload exists: an argument
+            # bound to a secret-shaped NAME is taken whole, and every text
+            # in every other one is scanned. `capture.py` stays pure -- it
+            # decides what a value looks like, never what may be stored.
             args = ({} if loc is None else
-                    {n: capture_value(loc[n]) for n in names if n in loc})
+                    {n: rv.named(n, capture_value(loc[n]))
+                     for n in names if n in loc})
             payload = {"args": args} if loc is not None else {
                 "args": {}, "unread": ["locals"]}
             tid = tls.thread_serial
@@ -240,6 +246,12 @@ class Tracer(_FrameDecisions):
             parent = self._parent_of(tls, caller)
             if parent is None:
                 self._note_caller(payload, caller)
+            # `values` counts what the TRACE HOLDS (B3), so it is counted
+            # at the WRITE: one per capture in the payload carrying a
+            # `redacted` object. The rule's transforms count nothing, and a
+            # capture the recorder builds but does not store -- every
+            # unchanged local, at every line -- is never counted.
+            rv.stats["values"] += rv.count(payload)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "CALL",
                                         None, cid, code.co_firstlineno,
                                         payload, task_id=task)
@@ -274,9 +286,11 @@ class Tracer(_FrameDecisions):
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             task = self._task_serial(tls)
+            payload = {"value": rv.named_return(qual,
+                                                capture_value(retval))}
+            rv.stats["values"] += rv.count(payload)
             eid = self.writer.add_event(time.monotonic_ns(), tid, "RETURN",
-                                        fid, cid, None,
-                                        {"value": capture_value(retval)},
+                                        fid, cid, None, payload,
                                         task_id=task)
             if fid is not None:
                 self.writer.close_frame(fid, eid, "return")
@@ -298,9 +312,9 @@ class Tracer(_FrameDecisions):
             entry = self._live_entry(tls, frame, code)
             if entry is not None:
                 del tls.live[id(frame)]
-                self.writer.close_frame(
-                    entry[0], None, "unwind",
-                    capture_exc(exc, self.serial_of(exc)))
+                unwind_exc = rv.exc(capture_exc(exc, self.serial_of(exc)))
+                rv.stats["values"] += rv.count_capture(unwind_exc)
+                self.writer.close_frame(entry[0], None, "unwind", unwind_exc)
         finally:
             tls.in_hook = False
         return None
@@ -345,9 +359,10 @@ class Tracer(_FrameDecisions):
                 return None
             suspending = kind == "YIELD"
             entry[6] = suspending
+            payload = payload_factory()
+            rv.stats["values"] += rv.count(payload)
             self.writer.add_event(time.monotonic_ns(), tls.thread_serial, kind,
-                                  entry[0], entry[2], frame.f_lineno,
-                                  payload_factory(),
+                                  entry[0], entry[2], frame.f_lineno, payload,
                                   task_id=self._task_serial(tls))
             if suspending:
                 self._park(tls, frame, entry)
@@ -404,7 +419,8 @@ class Tracer(_FrameDecisions):
         refs = tls.cf_exc if _is_control_flow(exc) else tls.exc
         return self._suspension(
             code, sys._getframe(1), "RESUME",
-            lambda: {"thrown": capture_exc(exc, refs.identify(exc))},
+            lambda: {"thrown": rv.exc(capture_exc(exc,
+                                                  refs.identify(exc)))},
             disable_ok=False)
 
     # The triggering frame is sys._getframe(1) *of the registered callback*,
@@ -489,10 +505,10 @@ class Tracer(_FrameDecisions):
             cid = self.writer.intern_code(code.co_filename, qual,
                                           code.co_firstlineno)
             task = self._task_serial(tls)
+            payload = {"exc": rv.exc(capture_exc(exc, serial))}
+            rv.stats["values"] += rv.count(payload)
             self.writer.add_event(time.monotonic_ns(), tid, kind, fid, cid,
-                                  frame.f_lineno,
-                                  {"exc": capture_exc(exc, serial)},
-                                  task_id=task)
+                                  frame.f_lineno, payload, task_id=task)
             self._fp_for(tid, task).update(fp_file, qual, kind)
         finally:
             tls.in_hook = False
@@ -529,6 +545,7 @@ class Tracer(_FrameDecisions):
                 # checked must not look like a site where nothing changed,
                 # and `prev` is deliberately left in place, because this
                 # step establishes nothing about what went out of scope.
+                # Not counted: this payload holds no capture at all.
                 self.writer.add_event(time.monotonic_ns(),
                                       tls.thread_serial, "LINE",
                                       entry[0], entry[2], line,
@@ -537,7 +554,12 @@ class Tracer(_FrameDecisions):
                 return None
             cur, deltas = {}, {}
             for name, val in snap.items():
-                cap = capture_value(val)
+                # The NAME rule runs BEFORE the comparison below, not
+                # after it: a redacted value is what this frame now holds,
+                # so two sightings of one unchanged secret must compare
+                # equal (their digests do) and be ONE delta, exactly as
+                # they were before the rule.
+                cap = rv.named(name, capture_value(val))
                 cur[name] = cap
                 # Captures, never live objects -- and NAMES that are exact
                 # `str`, never the program's own key objects. Both halves
@@ -559,6 +581,9 @@ class Tracer(_FrameDecisions):
                     # widen capture_value's codomain and force a type check on
                     # every value. Readers that ignore it lose nothing else.
                     payload["unbound"] = sorted(gone)
+                # Only the deltas this row stores are counted -- the rule ran
+                # over every local in scope, and most of them changed nothing.
+                rv.stats["values"] += rv.count(payload)
                 self.writer.add_event(time.monotonic_ns(),
                                       tls.thread_serial, "LINE",
                                       entry[0], entry[2], line, payload,

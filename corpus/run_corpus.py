@@ -147,18 +147,21 @@ _EXCERPT = 1200
 
 
 # -- running ---------------------------------------------------------------
-def _cli(args, cwd, sdir):
+def _cli(args, cwd, sdir, extra_env=None):
     """The real CLI, in a subprocess, against a disposable trace store.
 
     SENSORIUM_DIR is what keeps the corpus out of the user's own trace
     store; PYTHONDONTWRITEBYTECODE keeps stale bytecode from surviving a
-    same-second rewrite of a corpus program.
+    same-second rewrite of a corpus program. `extra_env` is a case's own
+    `env:` -- merged in LAST, so a case cannot be shadowed by a variable the
+    launching shell happens to hold, and applied only where the caller
+    passes it (a question's own command never does; only a RECORDING does).
     """
     return subprocess.run(
         [sys.executable, "-m", "sensorium", *args], cwd=cwd,
         capture_output=True, text=True,
         env={**os.environ, "SENSORIUM_DIR": str(sdir),
-             "PYTHONDONTWRITEBYTECODE": "1"})
+             "PYTHONDONTWRITEBYTECODE": "1", **(extra_env or {})})
 
 
 #: Why the cargo cases could not run, in the words the summary prints.
@@ -281,30 +284,32 @@ def _record(case: Case, wd: Path, sdir: Path, argv) -> tuple[list[str], str]:
     if case.record.get("window"):
         rec += ["--window", case.record["window"]]
     rec += ["--", case.program, *[str(a) for a in argv]]
-    r = _cli(rec, wd, sdir)
+    r = _cli(rec, wd, sdir, case.env)
     return _run_ids(r.stdout), _diagnostic([sys.executable, "-m", "sensorium",
                                             *rec], r)
 
 
 def _record_cargo(driver: str, wd: Path, sdir: Path,
-                  cargo_args) -> tuple[list[str], str]:
+                  cargo_args, case_env=None) -> tuple[list[str], str]:
     """One `cargo sensorium <cargo_args>` invocation in the copied crate.
 
     CARGO_TARGET_DIR is whatever the environment says (unset -> cargo's own
     `<wd>/target`, inside the disposable copy), so a caller can point every
     case at one warm target directory without this file naming a path that
-    exists on one machine.
+    exists on one machine. `case_env` is the case's own `env:`, merged LAST
+    so it cannot be shadowed by a variable the launching shell happens to
+    hold.
     """
     argv = [driver, "sensorium", *[str(a) for a in cargo_args]]
     r = subprocess.run(
         argv, cwd=wd, capture_output=True, text=True,
         env={**os.environ, "SENSORIUM_DIR": str(sdir),
-             "PYTHONDONTWRITEBYTECODE": "1"})
+             "PYTHONDONTWRITEBYTECODE": "1", **(case_env or {})})
     return _run_ids(r.stdout), _diagnostic(argv, r)
 
 
 def _record_vitest(wd: Path, sdir: Path, harness_args,
-                   focus=()) -> tuple[list[str], str]:
+                   focus=(), case_env=None) -> tuple[list[str], str]:
     """One `sensorium ts run -- npx vitest run <args>` in the copied project.
 
     `focus` is the case's `record: {focus: [...]}` -- one `--focus <spec>`
@@ -313,6 +318,9 @@ def _record_vitest(wd: Path, sdir: Path, harness_args,
     vitest as a file pattern instead: the recording would be a call-tier one
     and every per-line question would answer "nothing was checked", which
     reads as the recorder's refusal rather than as a misplaced flag.
+
+    `case_env` is the case's own `env:`, merged LAST for the same reason
+    `_record_cargo` merges it last.
 
     A NON-ZERO exit here is not a recording failure. `sensorium ts run`
     returns the harness's own status by design, so a case whose planted
@@ -330,7 +338,7 @@ def _record_vitest(wd: Path, sdir: Path, harness_args,
     r = subprocess.run(
         argv, cwd=wd, capture_output=True, text=True,
         env={**os.environ, "SENSORIUM_DIR": str(sdir),
-             "PYTHONDONTWRITEBYTECODE": "1"})
+             "PYTHONDONTWRITEBYTECODE": "1", **(case_env or {})})
     return _run_ids(r.stdout), _diagnostic(argv, r)
 
 
@@ -416,19 +424,22 @@ def _record_both(case: Case, wd: Path, sdir: Path,
     """
     focus = case.record.get("focus") or []
     if case.is_cargo:
-        first, err = _record_cargo(driver, wd, sdir, case.cargo_args)
+        first, err = _record_cargo(driver, wd, sdir, case.cargo_args,
+                                   case.env)
     elif case.is_vitest:
-        first, err = _record_vitest(wd, sdir, case.harness_args, focus)
+        first, err = _record_vitest(wd, sdir, case.harness_args, focus,
+                                    case.env)
     else:
         first, err = _record(case, wd, sdir, case.argv)
     if not first or case.second_run is None:
         return first, [], err
     if case.is_cargo:
         second, err2 = _record_cargo(driver, wd, sdir,
-                                     case.second_run["cargo_args"])
+                                     case.second_run["cargo_args"], case.env)
     elif case.is_vitest:
         second, err2 = _record_vitest(wd, sdir,
-                                      case.second_run["harness_args"], focus)
+                                      case.second_run["harness_args"], focus,
+                                      case.env)
     else:
         second, err2 = _record(case, wd, sdir,
                                case.second_run.get("argv", []))

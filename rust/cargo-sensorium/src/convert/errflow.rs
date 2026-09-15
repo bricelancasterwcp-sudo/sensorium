@@ -231,6 +231,18 @@ pub struct ErrFlowEvent<'a> {
     pub type_name: Option<&'a str>,
     pub type_truncated: bool,
     pub msg: Option<&'a str>,
+    /// The `redacted` object this message's `exc` carries, or `None` when no
+    /// rule touched it. Two shapes reach here: `content` with no digest, for
+    /// a span replaced inside a sentence the program wrote (B21), and `name`
+    /// with the RETURN value's own digest, for the origin RAISE synthesised
+    /// in front of an `err` RETURN the name rule took whole (R16) -- an `Err`
+    /// return IS the return value in Rust, and a name hit cannot stop at the
+    /// row that repeats it.
+    ///
+    /// Decided by the CALLER: this module builds the object, and `frames.rs`
+    /// is where the rule ran, where the digest is, and where the count was
+    /// made.
+    pub msg_redacted: Option<Value>,
     pub msg_truncated: bool,
     /// `<file>:<line>` of the SITE, from the manifest row.
     pub loc: String,
@@ -267,6 +279,12 @@ pub fn payload(e: &ErrFlowEvent) -> Value {
             exc.insert("msg".to_owned(), json!(m));
             if e.msg_truncated {
                 exc.insert("trunc".to_owned(), json!(true));
+            }
+            // `trunc` is untouched by either shape: the message WAS clipped
+            // by the probe, and what survived the clip is what the rule then
+            // acted on.
+            if let Some(mark) = &e.msg_redacted {
+                exc.insert("redacted".to_owned(), mark.clone());
             }
         }
         None => unread.push("msg"),
@@ -315,6 +333,7 @@ mod tests {
             type_name: Some("io::Error"),
             type_truncated: false,
             msg: Some("Os { code: 2 }"),
+            msg_redacted: None,
             msg_truncated: false,
             loc: "a/src/lib.rs:12".to_owned(),
             chain: &chain,
@@ -341,6 +360,7 @@ mod tests {
             type_name: Some("E"),
             type_truncated: false,
             msg: None,
+            msg_redacted: None,
             msg_truncated: false,
             loc: "a.rs:1".to_owned(),
             chain: &chain,
@@ -360,6 +380,7 @@ mod tests {
             type_name: None,
             type_truncated: false,
             msg: None,
+            msg_redacted: None,
             msg_truncated: false,
             loc: "a.rs:1".to_owned(),
             chain: &chain,
@@ -379,6 +400,7 @@ mod tests {
             type_name: None,
             type_truncated: false,
             msg: None,
+            msg_redacted: None,
             msg_truncated: false,
             loc: "a.rs:1".to_owned(),
             chain: &chain,
@@ -398,6 +420,7 @@ mod tests {
             type_name: Some("io::Error"),
             type_truncated: false,
             msg: Some("ENOENT"),
+            msg_redacted: None,
             msg_truncated: false,
             loc: "a.rs:1".to_owned(),
             chain: &chain,
@@ -414,6 +437,7 @@ mod tests {
             type_name: Some("Loooong"),
             type_truncated: true,
             msg: Some("cut"),
+            msg_redacted: None,
             msg_truncated: true,
             loc: "a.rs:1".to_owned(),
             chain: &chain,
@@ -433,6 +457,7 @@ mod tests {
             type_name: Some("E"),
             type_truncated: false,
             msg: Some("x"),
+            msg_redacted: None,
             msg_truncated: false,
             loc: "a.rs:1".to_owned(),
             chain: &chain,

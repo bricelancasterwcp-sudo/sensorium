@@ -1,6 +1,6 @@
 # The Rust corpus
 
-Forty-three cases recorded by the **Rust** recorder (`cargo sensorium …`) and
+Forty-five cases recorded by the **Rust** recorder (`cargo sensorium …`) and
 questioned through the same Python CLI as the rest of the corpus. Each case
 directory is a self-contained, dependency-free crate plus its
 `questions.yaml`; `corpus/run_corpus.py` copies one whole directory into a
@@ -153,6 +153,24 @@ refocuses once and reads the re-run's trace never.
 | `refocus_refused_many` | `cargo test` on a crate with two integration tests is two processes, and refocus refuses BEFORE building anything — exit 2, the single-target sentence, and a store with no third trace in it | `refocus`, `runs` |
 | `refocus_child_run` | a program that spawns itself: the re-run leaves TWO traces carrying `refocus_of`, and the one whose `ppid` is the other's `pid` is a child RUN rather than a second candidate — MATCH about the parent, the excluded child named on the pair line, and both re-run traces still listed, the unpaired one as `verdict:UNVERIFIED` | `info`, `refocus`, `runs` |
 | `refocus_spawned_test_fn` | a test that spawns a thread onto another `#[test]` fn: the marked ROOT frame is not proof the recorder started that thread, so it counts as the program's (`1 besides the main one and 2 harness threads`) and the licence is WITHHELD — the rule that read the mark on any root subtracted all three, said `no thread started besides the main one`, and GRANTED | `info`, `refocus` |
+
+## The redaction case
+
+Added by the secrets-redaction slice, this recorder's twin of the Python and
+TypeScript `secret_in_env` cases: under a focus, `token`'s own parameter
+delta, `api_key`'s delta and `auth_headers`'s delta are three names rule v1
+fires on, and `secret`'s RETURN is a fourth — `info` counts
+`values redacted: 4`. Not a seeded bug — the planted truth is that the
+token never reaches the trace at all. Its fourth question is the one place
+this case's Rust nature shows through: `flow --object` refuses on every
+Rust trace regardless of redaction (`capabilities.object_identity: false`,
+the same refusal `rust/aliasing` and `rust/stale_cache` hit), so it does not
+by itself demonstrate the redaction-specific refusal `frame` and `watch`
+do — only that the recording is not silently different underneath it.
+
+| Case | Planted truth | Commands |
+|---|---|---|
+| `secret_in_env` | a token read from the environment and threaded through two more bindings: `info` names it among the redacted env vars and counts four values taken; `frame` renders `token=<redacted #…>`; `watch "token == 'x'"` ends NOTHING WAS CHECKED, exit 3; `flow --object handle:token` refuses at exit 3, but through `object_identity: false` rather than the name rule | `info`, `frame`, `watch`, `flow --object` |
 
 ## Two things a case here must know
 

@@ -103,6 +103,21 @@ impl Fixture {
         open(&found[0])
     }
 
+    /// A fixed 32-byte `redaction.key` in this fixture's store, returning the
+    /// material so a test can take the digest it expects under the same key.
+    ///
+    /// For the tests that compare a DIGEST: with no key file the converter is
+    /// unkeyed and every digest it takes is `null`, which any two rows share
+    /// for free. Fixed rather than random so the expectation is arithmetic and
+    /// not a re-run of the thing under test.
+    pub fn with_redaction_key(&self) -> [u8; 32] {
+        let material = [0xBB_u8; 32];
+        std::fs::create_dir_all(&self.sensorium_dir).expect("create the store");
+        std::fs::write(self.sensorium_dir.join("redaction.key"), material)
+            .expect("write the store's redaction key");
+        material
+    }
+
     pub fn refusal(&self) -> String {
         let out = self.convert();
         assert!(

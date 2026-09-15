@@ -28,11 +28,12 @@ what it was about to write, so the trace carries `incomplete: true` and no
 import time
 from dataclasses import dataclass
 
-from sensorium import paths, redact
+from sensorium import paths, redact, redact_values
 from sensorium.query.js_inspect import is_clipped
 from sensorium.record.fingerprint import Fingerprint
 from sensorium.store.writer import TraceWriter
 from sensorium.ts.invocation import env_hash
+from sensorium.ts.redaction import ran_the_value_rule, rule_runs
 from sensorium.ts.spool import Spool, SpoolError
 
 #: What this recorder produces, and what it does not (design section 5.2).
@@ -119,6 +120,12 @@ class Builder:
 
         self.source_hashes: dict[str, str] = {}
         self.truncated = 0
+        #: How many captures this trace withholds, counted at the WRITE and
+        #: never at the rule (R10): one per stored capture carrying a
+        #: `redacted` object, whichever hand put it there. That makes
+        #: `values` a function of the trace's contents (B3).
+        self.values = 0
+        self._runtime_did_names = ran_the_value_rule(spool.boot)
         self.tests_seen = 0
         # Whether anything in this spool says the counter RAN. A `node --test`
         # container runs no setup file, so nothing ever calls `seen()` -- and
@@ -164,15 +171,34 @@ class Builder:
             pass
 
     def build(self) -> dict:
-        """Convert, finalize, close. Returns the meta that was written."""
-        for rec in self.spool.records:
-            self._one(rec)
-        self._fingerprints()
-        meta = self._meta()
-        for key, value in meta.items():
-            self.w.set_meta(key, value)
-        self.w.close()
-        return meta
+        """Convert, finalize, close. Returns the meta that was written.
+
+        Rule v1 is installed for the length of the pass and reset after it:
+        the value rules read one module-level state (B6), and the pool
+        reuses its workers. Under the STORE's key -- the one `_redaction`
+        loads for the environment -- and under NO KNOBS, for the reason
+        `_redaction` gives: the knobs belong to a recording this converter
+        did not make.
+        """
+        # B26: a recording made with the rule OFF is converted as it was
+        # written. The OFF knob rather than a branch at every site: every
+        # transform in `redact_values` is a pass-through under it, so one
+        # decision is taken once, here, and `values` stays the zero
+        # `_redaction` then does not write.
+        off = not rule_runs(self.spool.boot)
+        redact_values.install(redact.Key.load(paths.trace_root()),
+                              redact.Knobs(off, frozenset(), frozenset()))
+        try:
+            for rec in self.spool.records:
+                self._one(rec)
+            self._fingerprints()
+            meta = self._meta()
+            for key, value in meta.items():
+                self.w.set_meta(key, value)
+            self.w.close()
+            return meta
+        finally:
+            redact_values.reset()
 
     def _one(self, rec: dict) -> None:
         handler = getattr(self, "_on_" + rec["e"].lower(), None)
@@ -244,9 +270,11 @@ class Builder:
             # happened. An `a` that is an empty map is still a read --
             # `catchBinding()` takes nothing, and "read, found none" is a
             # different fact from "nobody looked" (the marker's whole job).
-            payload = {"args": rec["a"]}
-            for v in rec["a"].values():
+            args = self._values(rec["a"])
+            payload = {"args": args}
+            for v in args.values():
                 self._trunc(v)
+            self.values += redact_values.count(payload)
         else:
             payload = {"args": {}, "unread": ["locals"]}
         parent = None
@@ -270,10 +298,19 @@ class Builder:
     def _on_return(self, rec: dict) -> None:
         frame = self._close(rec)
         task = self._task(rec)
-        self._trunc(rec.get("v"))
+        # The RETURN rule reads the CALLEE's own name (B7). Only where the
+        # recorder did not: a 0.6.0 runtime read the same qualname off the
+        # same FILE record, and running it again here would digest the
+        # marker it left.
+        value = rec["v"]
+        if not self._runtime_did_names:
+            value = redact_values.named_return(frame.qualname, value)
+        value = redact_values.value(value)
+        self._trunc(value)
+        payload = {"value": value, "outcome": "ok"}
         eid = self.w.add_event(rec["ts"], THREAD, "RETURN", frame.db_id,
-                               frame.code_id, None,
-                               {"value": rec["v"], "outcome": "ok"}, task)
+                               frame.code_id, None, payload, task)
+        self.values += redact_values.count(payload)
         self.events += 1
         self._fps[task].update(frame.rel, frame.qualname, "RETURN")
         self.w.close_frame(frame.db_id, eid, "return")
@@ -283,8 +320,10 @@ class Builder:
         ended is what the reader derives from `closed_by` and `unwind_exc`
         -- so no event is written and nothing enters the fingerprint."""
         frame = self._close(rec)
-        self._trunc(rec.get("x"))
-        self.w.close_frame(frame.db_id, None, "unwind", rec["x"])
+        exc = redact_values.exc(rec["x"])
+        self._trunc(exc)
+        self.w.close_frame(frame.db_id, None, "unwind", exc)
+        self.values += redact_values.count_capture(exc)
 
     def _on_line(self, rec: dict) -> None:
         """One completed statement of a focused function.
@@ -308,11 +347,16 @@ class Builder:
             raise ConversionError(
                 f"{self.spool.path}: a LINE names frame {rec['f']}, which "
                 "had already closed")
-        payload = {"deltas": rec["d"]}
+        payload = {"deltas": self._values(rec["d"])}
         if rec.get("u"):
+            # R5: an `unbound` NAME is never withheld. It is the name of a
+            # value the trace does not hold at all, so there is nothing to
+            # take, and taking the name would cost a reader the fact that
+            # the binding ended here.
             payload["unbound"] = list(rec["u"])
-        for v in rec["d"].values():
+        for v in payload["deltas"].values():
             self._trunc(v)
+        self.values += redact_values.count(payload)
         self.w.add_event(rec["ts"], THREAD, "LINE", frame.db_id,
                          frame.code_id, rec["l"], payload, self._task(rec))
         # No fingerprint update: a LINE is not causal, and a fingerprint
@@ -342,24 +386,41 @@ class Builder:
         self._throw(rec, "HANDLED")
 
     def _throw(self, rec: dict, kind: str) -> None:
-        self._trunc(rec.get("x"))
         if rec["f"] is None:
             # No frame to attach it to, so no event: the count is the only
             # trace of it, read the way Rust's err_flow_outside_frames is.
+            # Nothing of it is stored, so nothing of it is ruled either --
+            # the rule runs where a text is WRITTEN (R10).
+            self._trunc(rec.get("x"))
             self.outside_frames += 1
             return
+        exc = redact_values.exc(rec["x"])
+        self._trunc(exc)
         frame = self._frame(rec, rec["f"])
         task = self._task(rec)
+        payload = {"exc": exc, "how": rec["how"]}
         self.w.add_event(rec["ts"], THREAD, kind, frame.db_id, frame.code_id,
-                         rec["l"], {"exc": rec["x"], "how": rec["how"]}, task)
+                         rec["l"], payload, task)
+        self.values += redact_values.count(payload)
         self.events += 1
         self._fps[task].update(frame.rel, frame.qualname, kind)
 
     def _on_unhandled(self, rec: dict) -> None:
-        exc = rec["x"]
+        """A rejection nobody handled, as a meta entry.
+
+        Its message meets the same content rule every other stored message
+        does -- `meta` is as much of the trace as an event is -- and the
+        `redacted` mark travels with it, absent as everywhere else when
+        nothing was found.
+        """
+        exc = redact_values.exc(rec["x"])
         self._trunc(exc)
-        self.rejections.append({"type": exc["type"], "msg": exc["msg"],
-                                "serial": exc["serial"]})
+        entry = {"type": exc["type"], "msg": exc["msg"],
+                 "serial": exc["serial"]}
+        if "redacted" in exc:
+            entry["redacted"] = exc["redacted"]
+        self.rejections.append(entry)
+        self.values += redact_values.count_capture(entry)
 
     # -- lookups ------------------------------------------------------------
 
@@ -413,6 +474,24 @@ class Builder:
                 f"{self.spool.path}: a {rec['e']} names test {task}, which no "
                 "TASK record opened")
         return task
+
+    def _values(self, captures: dict) -> dict:
+        """Rule v1 over one CALL's arguments or one LINE's deltas.
+
+        The NAME half runs only where the RECORDER did not (B2): a 0.6.0
+        runtime took every firing name at the writer under its own key and
+        knobs, and running the rule again here would digest the marker it
+        left and overrule that recording's knobs with today's environment.
+
+        The CONTENT half runs on EVERY path (B9): it is idempotent -- the
+        marker holds none of the shapes it looks for -- so it changes
+        nothing on a scanned text and takes the span out of an unscanned
+        one. `value` is also what passes an already-taken capture through.
+        """
+        if self._runtime_did_names:
+            return {n: redact_values.value(c) for n, c in captures.items()}
+        return {n: redact_values.value(redact_values.named(n, c))
+                for n, c in captures.items()}
 
     def _trunc(self, obj) -> None:
         """Count every way this capture says it is a prefix.
@@ -521,13 +600,23 @@ class Builder:
         if recorded:
             if isinstance(recorded, dict) and recorded.get("mode") == "on":
                 recorded = {**recorded, "env": boot.get("envRedaction") or {},
-                            "by": "recorder"}
+                            "by": self._by(), "values": self.values}
             return boot["env"], boot["envHash"], recorded
         key = redact.Key.load(paths.trace_root())
         knobs = redact.Knobs(False, frozenset(), frozenset())
         stored, table = redact.env(boot["env"], key, knobs)
         return (stored, env_hash(stored),
-                redact.meta(key, knobs, table, by="converter"))
+                {**redact.meta(key, knobs, table, by="converter"),
+                 "values": self.values})
+
+    def _by(self) -> str:
+        """Whose rule the trace records (B2): the LAST hand to apply it.
+
+        A 0.5.0 spool's environment is the recorder's work and its captures
+        are this converter's; one word cannot say both, and the later hand
+        is the one whose key the digests are under.
+        """
+        return "recorder" if self._runtime_did_names else "converter"
 
     def _container_meta(self) -> dict:
         boot = self.spool.boot

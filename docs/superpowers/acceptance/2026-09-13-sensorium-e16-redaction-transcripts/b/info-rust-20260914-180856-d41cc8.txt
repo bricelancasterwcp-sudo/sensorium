@@ -1,0 +1,24 @@
+$ $REPO/.venv/bin/python -m sensorium info 20260914-180856-d41cc8
+# cwd $E16_DIR  exit 0  0.047s
+run 20260914-180856-d41cc8  trace: $E16_DIR/store-b/traces/20260914-180856-d41cc8.db
+cmd: $E16_DIR/rust-target/debug/secret    cwd: $E16_DIR/rust-crate-b
+toolchain: rustc 1.96.0 (ac68faa20 2026-05-25)  env:5f9cb842bfed87d1 (44 vars, 1 redacted: SENSORIUM_E16_TOKEN)  exit: 0 (waited)  events: 9  duration: 0.00s
+recorder: sensorium-rt 0.7.0  lang: rust  capabilities: children=no err_flow=yes line=yes locals=yes object_identity=no output=no refocus=yes return_value=yes stdin=no tasks=yes threads=yes
+recorded: CALL 3  RETURN 3  RAISE 0  HANDLED 0  YIELD 0  RESUME 0  LINE 3
+focus: handle    window: -
+focus matched: 1 — handle
+caps: repr=200   truncated values: 0
+redaction: rule v1, keyed (key f4de4c4a), by recorder; values redacted: 4
+invocation: 20260914-180856-fae745  binary: secret  pid: 4057202
+units: 1 instrumented, 0 fell back, 0 skipped, 0 spawn sites (0 wrapped)
+partial fns: 0 (?-sites the transformer could not reach)
+not recorded in this trace: children, spawn_syscalls, audit_errors -- recorder sensorium-rt 0.7.0 declares children not witnessed (capabilities.children: false), so there is no child-process record to read; absence of the record is not a record of absence
+err_flow_outside_frames: 0 -- RAISE/HANDLED records on a thread with no open frame (a sink or arm inside an `async {}` block polled off-frame, or a site whose enclosing CALL was refused), counted and never written as events
+fingerprint thread 1 (main): d503576b5856a0dbb93f56f1dde89526 (6 causal events)
+fingerprints: per-task basis -- each thread row covers the events that ran in no test or spawned thread
+unframed calls: 0 (all calls framed in format 3)
+tasks: none (no event ran inside a test or spawned thread)
+hot functions:
+  1x main.rs:main
+  1x main.rs:secret
+  1x main.rs:handle

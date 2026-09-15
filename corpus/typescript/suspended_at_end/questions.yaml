@@ -13,7 +13,7 @@ questions:
       of what this recorder can say: a `sensorium-ts` YIELD records no site,
       so the state is derived and the place is honestly absent rather than
       invented (R28; the reader used to render the null as the literal
-      `LNone`). `awaitToken` returned a `Promise { <pending> }`, which is
+      `LNone`). `awaitPayload` returned a `Promise { <pending> }`, which is
       the promise nothing ever settles.
     why_logs_fail: >
       A timed-out test prints a timeout message naming the `test(` line --
@@ -26,8 +26,8 @@ questions:
     command: ["tree", "$RUN"]
     expect_line:
       - ["<anonymous>()", "[async]", "~ suspended at end of recording"]
-      - ["awaitToken() <unread: locals> -> Promise { <pending> }"]
-    expect_contains: ["task t1: a token is fetched"]
+      - ["awaitPayload() <unread: locals> -> Promise { <pending> }"]
+    expect_contains: ["task t1: a payload is fetched"]
     # `LNone` is the counterfactual: a reader that filled the absent site in
     # from a null would print it here and nowhere else in this output.
     expect_absent: ["INCOMPLETE", "(open)", "LNone", "suspended at L"]
@@ -67,7 +67,7 @@ questions:
       because no site was recorded (R28, the same rule the tree keeps). The
       YIELD ROW under it says the same thing one layer down (R28a): it names
       what is awaited and no line, because the row carries none. Its one
-      child, `awaitToken`, had already returned the pending promise, so the
+      child, `awaitPayload`, had already returned the pending promise, so the
       recording distinguishes the call that produced the promise from the
       wait on it.
     why_logs_fail: >

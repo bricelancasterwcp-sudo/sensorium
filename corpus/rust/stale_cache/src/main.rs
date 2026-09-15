@@ -16,13 +16,13 @@ struct Record {
     tier: String,
 }
 
-fn build_key(record: &Record) -> String {
+fn memo_id(record: &Record) -> String {
     // BUG: the tier is priced but not keyed.
     record.sku.clone()
 }
 
 fn price_of(record: &Record, cache: &mut HashMap<String, f64>) -> f64 {
-    let key = build_key(record);
+    let key = memo_id(record);
     if let Some(hit) = cache.get(&key) {
         return *hit;
     }

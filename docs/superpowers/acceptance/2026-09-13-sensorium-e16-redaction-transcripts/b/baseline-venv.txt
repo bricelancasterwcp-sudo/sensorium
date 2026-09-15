@@ -1,0 +1,4 @@
+$ $HOME/.local/bin/uv venv -p 3.13 $E16_DIR/baseline-7dd25d2/.venv
+# cwd $E16_DIR  exit 0  0.037s
+Using CPython 3.13.13
+Creating virtual environment at: baseline-7dd25d2/.venv

@@ -1,11 +1,11 @@
 # The TypeScript recorder's honesty ledger
 
-`sensorium-ts 0.5.0` — the call tier, and a per-statement tier under `--focus`,
+`sensorium-ts 0.6.0` — the call tier, and a per-statement tier under `--focus`,
 under vitest and `node --test`. Read by `sensorium` 0.9.0 and above, by
 **0.10.0** and above for the throw-flow verdicts of §4, and by **0.12.0** and
 above for the focus tier of §11; a trace names its own writer, because the
 runtime stamps the package's `VERSION` into every spool's BOOT record and the
-converter spends it on `recorder: "sensorium-ts 0.5.0"` in meta.
+converter spends it on `recorder: "sensorium-ts 0.6.0"` in meta.
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the
@@ -573,7 +573,7 @@ refusal)*.
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
 wrapper merges onto one: the plugin never reaches the projects' pipelines, so
 the suite runs and nothing is recorded. The wrapper config refuses it at load
-time — `vitest projects/workspaces are not supported by sensorium-ts 0.5.0` —
+time — `vitest projects/workspaces are not supported by sensorium-ts 0.6.0` —
 and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
 the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
 a run came back as the CONVERTER's sentence, "nothing was recorded, or the
@@ -793,3 +793,4 @@ a corpus case, a vector or an acceptance endpoint.
 | 11 | A capture's text is node's own `util.inspect` dialect, read and written over one generated table, so `watch --expr` and `flow --value` cannot disagree about a spelling | `tests/test_js_inspect.py` against `typescript/test/fixtures/inspect-table.json` (41 measured rows), `corpus/typescript/flow_value_inspect`, `docs/trace-format/vectors/v38-inspect-dialect-agreement.json` |
 | 12 | A refocus re-runs the whole recorded invocation and answers about ONE pair, found by test file; the other containers are counted, re-executed and left UNVERIFIED | `E15` H3, `corpus/typescript/refocus_match`, `tests/test_refocus_typescript.py` |
 | 12 | Threads, output and children are UNVERIFIABLE on a TypeScript pair and never counted as verified; the recorder's own variables are named and harness set 1 counted | `E15` H5, `tests/test_refocus_world_threads.py`, `corpus/typescript/refocus_match` |
+| 13 | Rule v1 runs in the RUNTIME, both halves: a secret-named environment variable, argument, delta or return is `<redacted>` with an HMAC beside it and every secret-shaped span is taken out of every inspected text before a line reaches the spool — and what the rule does not reach is stated. The whole section is [`HONESTY-REDACTION.md`](HONESTY-REDACTION.md), written there 2026-09-14 so this file stays under 800 lines | `typescript/test/redact.test.mjs` against `docs/trace-format/redaction-v1.json` (the same cases the Python and Rust suites read), `typescript/test/rt.redaction.test.mjs`, `tests/test_ts_ingest_redaction.py`, `tests/test_ts_driver_redaction.py`, `corpus/typescript/secret_in_env` |

@@ -1,0 +1,15 @@
+# E16 part B's Rust probe. Four planted rows (§1's amendment): the `token`
+# parameter delta of `handle` (name, tag 4, taken by the recorder), the
+# `copy` delta (content, taken by the converter), the `Headers` value's
+# `Debug` text (content, converter) and `secret`'s RETURN (name, converter).
+# `copy` and `headers` are names rule v1 does NOT fire on, which is what
+# makes those two rows the content rule's and not the name rule's.
+[package]
+name = "e16_probe_secret"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "secret"
+path = "src/main.rs"

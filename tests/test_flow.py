@@ -43,11 +43,14 @@ if __name__ == "__main__":
 # `del` unbinds a local: the LINE event after it carries `unbound: [token]`
 # and no delta for it. That event must never be listed as a sighting of the
 # value the name used to hold.
+# The local is `tag` and not `token`: this fixture is about a name going
+# AWAY, and rule v1 would take a `token` delta whole -- leaving `--value` a
+# literal to sight that the trace no longer holds.
 DEL_LOCAL = """
 def watched():
-    token = "sk-live-42"
-    box = {"token": token}
-    del token
+    tag = "sk-live-42"
+    box = {"tag": tag}
+    del tag
     return box
 
 def main():
@@ -349,18 +352,18 @@ def test_flow_rejects_a_nonpositive_limit(tmp_path, monkeypatch, capsys):
 
 def test_flow_skips_locals_that_went_out_of_scope(tmp_path, monkeypatch,
                                                   capsys):
-    """A LINE event carrying `unbound: [token]` records a name going AWAY.
+    """A LINE event carrying `unbound: [tag]` records a name going AWAY.
     Listing it as a sighting claims a live binding that had just ended."""
     run_id = record(tmp_path, monkeypatch, DEL_LOCAL,
                     extra=("--focus", "prog:watched"))
     trace = open_trace(run_id)
     gone = [e for e in trace.events(kind="LINE")
-            if "token" in (e.payload or {}).get("unbound", [])]
+            if "tag" in (e.payload or {}).get("unbound", [])]
     assert len(gone) == 1, "the fixture must actually unbind a local"
 
     assert cli.main(["flow", run_id, "--value", "'sk-live-42'"]) == 0
     out = capsys.readouterr().out
-    assert "[local token]" in out                    # it was live earlier
+    assert "[local tag]" in out                      # it was live earlier
     assert gone[0].id not in flow_shown_ids(out)     # ...but not at the unbind
 
 

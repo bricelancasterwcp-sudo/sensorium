@@ -12,15 +12,22 @@
 //!
 //! and the payload that produces is `exit.rs`'s RETURN value block -- tag,
 //! truncated flag, capped text -- repeated once per delta with the binding's
-//! name in front of it (design 2026-09-06 §3.4):
+//! name in front of it (design 2026-09-06 §3.4), plus one tag `exit.rs` never
+//! writes: a delta whose NAME fires rule v1 (`redact::fires`, `src/redact.rs`)
+//! is tag 4, REDACTED BY NAME, and carries a digest rather than the value it
+//! captured (wire v4, design 2026-09-14) -- LINE-only, because rule v1 never
+//! touches a RETURN:
 //!
 //! ```text
 //! u8  flags        bit0 = the row is short: something did not fit
 //! u16 n            blocks present -- the deltas, then the unbound names
 //! n × { u16 name_len, name UTF-8,
-//!       u8 tag (0 no value | 1 debug text | 2 unread | 3 unbound),
-//!       u8 truncated,
-//!       [u16 text_len, text UTF-8]   -- present iff tag == 1 }
+//!       u8 tag (0 no value | 1 debug text | 2 unread | 3 unbound | 4 REDACTED BY NAME),
+//!       u8 truncated (0 on tags 2, 3, 4),
+//!       [u16 text_len, text UTF-8]   -- present iff tag == 1 or tag == 4;
+//!                                       on tag 4 the text is the 16-hex HMAC digest of the
+//!                                       CAPPED Debug text under SENSORIUM_REDACT_KEY, or
+//!                                       empty when unkeyed }
 //! ```
 //!
 //! **Why `probe_cap` is a macro.** `probe.rs`'s ladder specialises by autoref at
@@ -71,8 +78,11 @@
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
+use std::borrow::Cow;
+
 use crate::exit::{TAG_DEBUG, TAG_UNREAD};
 use crate::probe::{self, Capture};
+use crate::redact::{self, Key, Knobs};
 use crate::spool::{self, KIND_LINE, OUTCOME_NONE, SITE_INDEX_MASK};
 use crate::{thread, Unit, STATE, STATE_CALL};
 
@@ -92,6 +102,13 @@ pub(crate) const FLAG_DELTAS_DROPPED: u8 = 1 << 0;
 /// `exit.rs` owns 0..=2, the RETURN value block's tags that a delta reuses; 3 is
 /// this module's alone, because a returned value cannot go out of scope.
 pub(crate) const TAG_UNBOUND: u8 = 3;
+
+/// The fifth delta tag (wire v4, task 5, design 2026-09-14): a LINE delta
+/// whose NAME fires rule v1's judgement (`redact::fires`). The text block is
+/// still present, as tag 1's is, but it holds a digest rather than the
+/// captured value -- see [`write_line_payload`]. `exit.rs` never writes this
+/// tag: rule v1 redacts a LINE delta's captured value, never a RETURN's.
+pub(crate) const TAG_REDACTED: u8 = 4;
 
 /// The payload's fixed head: `u8 flags`, `u16 n`.
 const LINE_HEADER: usize = 3;
@@ -256,7 +273,8 @@ fn emit_line_unbinding<const N: usize>(
 #[inline(never)]
 fn write_and_emit(dir: &Path, site: u32, deltas: &[(&'static str, Capture)], unbound: &[&str]) {
     let mut buf = [0u8; LINE_PAYLOAD_MAX];
-    let (len, _dropped) = write_line_payload(&mut buf, deltas, unbound);
+    let (len, _dropped) =
+        write_line_payload(&mut buf, deltas, unbound, redact::key(), redact::knobs());
     thread::emit(dir, site, KIND_LINE, OUTCOME_NONE, &buf[..len as usize]);
 }
 
@@ -266,6 +284,20 @@ fn write_and_emit(dir: &Path, site: u32, deltas: &[(&'static str, Capture)], unb
 /// writer caps its own -- `spool::record` refuses a payload it cannot describe
 /// rather than clamping one, so every cut happens here, on a char boundary, and
 /// is witnessed by the delta's `truncated` byte.
+///
+/// `key` and `knobs` are rule v1's, and a caller outside this module's tests
+/// always hands over the process-wide [`redact::key`]/[`redact::knobs`]
+/// ([`write_and_emit`]) -- they are PARAMETERS, not read from here, so a unit
+/// test can pin the byte layout against a `Key`/`Knobs` of its own choosing
+/// without a process-global `OnceLock` making every other test in the binary
+/// see the same one (design 2026-09-14, task 5). With the rule on and the
+/// delta's name firing [`redact::fires`], the CAPPED text is redacted:
+/// [`TAG_REDACTED`] rather than [`TAG_DEBUG`], `truncated` forced to 0 (B1 --
+/// the digest never reveals whether the value it stands for was cut), and the
+/// text block replaced by the 16-hex digest [`Key::digest`] takes of the
+/// capped text, or left empty when the store is unkeyed. An UNREAD delta
+/// (`capture.text: None`) is untouched by any of this and stays [`TAG_UNREAD`]
+/// even when its name fires (B24): nothing was read, so nothing is withheld.
 ///
 /// A delta that does not fit STOPS the loop rather than skipping to the next
 /// one: "the first n of them" is a thing a reader can reason about, and a
@@ -280,6 +312,8 @@ pub(crate) fn write_line_payload(
     buf: &mut [u8; LINE_PAYLOAD_MAX],
     deltas: &[(&str, Capture)],
     unbound: &[&str],
+    key: &Key,
+    knobs: &Knobs,
 ) -> (u16, bool) {
     let mut at = LINE_HEADER;
     let mut n: u16 = 0;
@@ -288,15 +322,31 @@ pub(crate) fn write_line_payload(
         // `Capture { text: None }` is *unread*, never "no value": a delta is a
         // binding the statement wrote, so tag 0 -- the RETURN block's "there was
         // no value at all" -- cannot arise on a LINE.
-        let (tag, text, truncated) = match capture.text.as_deref() {
-            None => (TAG_UNREAD, "", false),
+        let (tag, text, truncated): (u8, Cow<'_, str>, bool) = match capture.text.as_deref() {
+            None => (TAG_UNREAD, Cow::Borrowed(""), false),
             Some(text) => {
-                let (text, cut_here) = spool::cap_utf8(text, probe::CAP);
-                (TAG_DEBUG, text, capture.truncated || cut_here)
+                // The cap is applied BEFORE the rule fires either way: a
+                // redacted delta's digest is taken over what a reader who saw
+                // the plaintext would have seen, never over bytes the rest of
+                // the wire format never keeps (B24 on the capped text).
+                let (capped, cut_here) = spool::cap_utf8(text, probe::CAP);
+                if !knobs.off && redact::fires(name, knobs) {
+                    (
+                        TAG_REDACTED,
+                        Cow::Owned(key.digest(capped).unwrap_or_default()),
+                        false,
+                    )
+                } else {
+                    (
+                        TAG_DEBUG,
+                        Cow::Borrowed(capped),
+                        capture.truncated || cut_here,
+                    )
+                }
             }
         };
         let mut need = 2 + name.len() + 2;
-        if tag == TAG_DEBUG {
+        if tag == TAG_DEBUG || tag == TAG_REDACTED {
             need += 2 + text.len();
         }
         if at + need > LINE_PAYLOAD_MAX {
@@ -310,7 +360,7 @@ pub(crate) fn write_line_payload(
         buf[at] = tag;
         buf[at + 1] = u8::from(truncated);
         at += 2;
-        if tag == TAG_DEBUG {
+        if tag == TAG_DEBUG || tag == TAG_REDACTED {
             buf[at..at + 2].copy_from_slice(&(text.len() as u16).to_le_bytes());
             at += 2;
             buf[at..at + text.len()].copy_from_slice(text.as_bytes());

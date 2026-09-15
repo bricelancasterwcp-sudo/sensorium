@@ -8,7 +8,7 @@
 //! uses are transcribed from:
 //!
 //! ```text
-//! file header:  b"SNSR" u8 version=3 u8 flags=0 u16 name_len u32 thread_serial
+//! file header:  b"SNSR" u8 version=4 u8 flags=0 u16 name_len u32 thread_serial
 //!               u64 records_dropped u64 truncated  name_bytes
 //!               (fixed 28 bytes, then name_bytes; records start at 28 + name_len)
 //! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len

@@ -1,0 +1,20 @@
+$ $HOME/.local/bin/uv pip install -p $E16_DIR/baseline-7dd25d2/.venv/bin/python -e $E16_DIR/baseline-7dd25d2[dev]
+# cwd $E16_DIR  exit 0  0.514s
+Using Python 3.13.13 environment at: baseline-7dd25d2/.venv
+Resolved 9 packages in 193ms
+   Building sensorium @ file://$E16_DIR/baseline-7dd25d2
+      Built sensorium @ file://$E16_DIR/baseline-7dd25d2
+Prepared 1 package in 236ms
+warning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.
+         If the cache and target directories are on different filesystems, hardlinking may not be supported.
+         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.
+Installed 9 packages in 41ms
+ + coverage==7.16.1
+ + iniconfig==2.3.0
+ + packaging==26.3
+ + pluggy==1.6.0
+ + pygments==2.21.0
+ + pytest==9.1.1
+ + pytest-cov==7.1.0
+ + pyyaml==6.0.3
+ + sensorium==0.14.0 (from file://$E16_DIR/baseline-7dd25d2)
