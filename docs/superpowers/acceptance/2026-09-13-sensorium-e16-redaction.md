@@ -51,6 +51,16 @@ the dry-run/real pair, the bench numbers and their lens.
 - **Versions expected:** `recorder` reads `sensorium 0.16.0`, `sensorium-rt 0.7.0`, `sensorium-ts 0.6.0`; `driver_version` `cargo-sensorium 0.8.0`; §3 records what they were.
 - **Kill rules:** the driver rebuild 1800 s, the baseline worktree build 600 s, each recording 600 s, each bench table 1200 s, the part 60 min; a kill is an infrastructure event, rerun from zero with a fresh token.
 
+### 2026-09-15 — Part C's pre-registration (amendment, beside the locked text above)
+
+- **Part C's cell is H4 in full**, on a COPY of this box's `~/.sensorium/traces` — the store §9 names, 273 traces when §9 was written; the copy's own count is recorded in §4 and H4 is read over every trace the copy holds. H1, H2, H3 and H6 were parts A's and B's (measured, DONE); H5 was part B's. Each is written into the results file as `dropped` with the part that owns it. §9's H4 row stands: PASS iff `redact --all --dry-run` on the copy reports every trace holding `CLAUDE_CODE_MESSAGING_TOKEN` plaintext, `redact --all` on the copy leaves `grep -c` of that token's value at 0 across every file, every trace still opens (`info` exit 0), and the count line matches the dry run; STOP on any residue, any trace that no longer opens, or dry-run ≠ real.
+- **The token is not minted.** It is the value of `CLAUDE_CODE_MESSAGING_TOKEN` in the copy's own traces, read by the instrument from the first trace's `meta.env` through a read-only connection, held in memory, never printed and never written by the instrument anywhere but its own `grep` argument; the record cites its `sha256` first 8 hex. The rehearsal (`E16_DRY=1`) runs the same phases on a fabricated store of three synthetic traces carrying `dry-` + 4 characters in the same variable, one `str` RETURN, one output row and one `children` element, and never touches the live store's copy.
+- **H4's reading, clause by clause:** (1) the dry run's stdout parsed line by line — `run <id>: env <n> redacted (<names>); values <n>; mode <a> -> <b>` — and the set of `<id>` whose `<names>` contains `CLAUDE_CODE_MESSAGING_TOKEN` must equal the set of `*.db` stems in the copy; (2) `grep -rc --binary-files=text -F <value>` over `store-c/` after the real run, per file, every count 0 (a `-wal`/`-shm` that no longer exists is 0 by absence; `redaction.key` and `invocations.jsonl` are in the sweep); (3) `sensorium info <id>` for every stem, exit 0 and the `redaction:` line containing `by retrofit`; (4) the two captured stdouts compared as bytes. The count-before phase is a PRECONDITION: every `*.db` in the copy must hold the value at least once before the run, else the copy is not the store §9 describes and the run refuses.
+- **Reported, not gated:** the copy's trace count beside §9's 273; the summary line verbatim (it carries no path); every file's mode after (`stat -c %a`) and `traces/`'s; the number of `-wal`/`-shm` files before and after; the wall time of the dry run and the real run; `values` totals summed over the dry-run lines.
+- **Locations** are the record's §4 pin table only: `E16C_DIR=/mnt/extra/sensorium-rung2/e16c`, the copy `$E16C_DIR/store-c`, transcripts `$E16C_DIR/c-transcripts/`, instrument output `$E16C_DIR/c-out/`, the rehearsal's own root `$E16C_DIR-dry`. Part A's and B's trees under `/mnt/extra/sensorium-rung2/e16` were freed 2026-09-15 (evidence archived) and are not read.
+- **Versions expected:** the venv's `sensorium` reads **0.17.0** (`importlib.metadata`), and every retrofitted trace's `redaction.by` reads `retrofit`; the traces' own `recorder` strings are whatever they were and §4 records their distribution (§13(a): 251 `sensorium-rt`, 19 Python, 3 `sensorium-ts`).
+- **Kill rules:** the copy 600 s, each `redact` run 900 s, the `info` sweep 900 s, each grep 300 s, the part 45 min; a kill is an infrastructure event, rerun from zero on a FRESH copy.
+
 ## 2. Part A
 
 ### measured 2026-09-14
@@ -727,3 +737,7 @@ Never gated (§9, and rust/HONESTY.md §10: cost is reported, never gated). An o
 | grep-values | 0.276 |
 | bench-baseline | 37.656 |
 | bench-head | 44.6 |
+
+## 4. Part C
+
+Not yet measured.
