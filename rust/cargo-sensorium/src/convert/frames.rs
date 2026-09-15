@@ -336,6 +336,12 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                         .and_then(|v| v.get("redacted"))
                         .filter(|r| r.get("by").and_then(Value::as_str) == Some("name"))
                         .cloned();
+                    // ...and the two rows agree about the CLIP as well. The
+                    // RETURN forces `trunc` false when it takes a value whole
+                    // (nothing was clipped: it was taken), so a `trunc: true`
+                    // here would have this row say the very marker beside it
+                    // was cut short, of one withheld text seen twice.
+                    let withheld_whole = taken_by_name.is_some();
                     let (msg, msg_redacted) = match taken_by_name {
                         Some(mark) => (text.map(|_| REDACTED.to_owned()), Some(mark)),
                         None => redact_msg(value_rule, text, &mut values_redacted),
@@ -346,7 +352,7 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                         type_truncated: payload.err_type_truncated,
                         msg: msg.as_deref(),
                         msg_redacted,
-                        msg_truncated: payload.truncated,
+                        msg_truncated: payload.truncated && !withheld_whole,
                         loc: format!("{}:{}", top.rel_file, top.line),
                         chain,
                     });

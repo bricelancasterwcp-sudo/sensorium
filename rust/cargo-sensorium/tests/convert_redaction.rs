@@ -22,6 +22,11 @@ use common::wire::{self, err_site, site};
 const RET_TEXT: &str = r#"Err(Vault("hunter2"))"#;
 const INNER_TEXT: &str = r#"Vault("hunter2")"#;
 
+/// The same error as the probe's 200-byte cap leaves it: the wire's truncated
+/// flag set and the rendering without its closing `)`, which is what a cut
+/// does to a long `Debug`. The padding is what took it over the cap.
+const CUT_RET_TEXT: &str = r#"Err(Vault("hunter2 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"#;
+
 #[test]
 fn an_err_return_taken_by_name_is_withheld_on_its_origin_raise_under_one_digest() {
     // R16. `demo::get_token` fires the name rule, so its returned value is
@@ -100,6 +105,62 @@ fn an_err_return_taken_by_name_is_withheld_on_its_origin_raise_under_one_digest(
         assert!(!text.contains("hunter2"), "{text}");
         assert!(!text.contains(INNER_TEXT), "{text}");
     }
+
+    // The same pair where the probe had to CUT the rendering at its 200-byte
+    // cap -- the case where the two rows could disagree about the clip. The
+    // RETURN forces `trunc` FALSE when it takes a value whole (nothing was
+    // clipped: it was taken), so the origin RAISE, which is that same
+    // withheld text seen one event earlier, must not say the marker beside it
+    // was cut short.
+    let cut = Fixture::new("redaction-err-return-name-cut");
+    cut.with_redaction_key();
+    cut.manifest(&[
+        site(0, "demo::run", 3, "value"),
+        site(1, "demo::get_token", 10, "value"),
+        err_site(2, "demo::run", 5, "try", "try"),
+    ]);
+    wire::write_proc_header_caps(
+        &cut.spool_dir,
+        701,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+        Some(true),
+    );
+    wire::SpoolBuilder::new(701, 1, "main")
+        .version(3)
+        .call(0, 1000, 0, 0)
+        .call(1, 1100, 0, 1)
+        .ret_err_typed_cut(2, 1200, 0, 1, "demo::E", CUT_RET_TEXT)
+        .ret_none(3, 1300, 0, 0)
+        .thread_end(4, 1400)
+        .write(&cut.spool_dir);
+    let cut_conn = cut.converted();
+    let cut_rows = events(&cut_conn);
+    let (_, _, cut_origin) = &cut_rows[2];
+    let (_, _, cut_ret) = &cut_rows[3];
+
+    assert_eq!(
+        cut_ret["value"]["v"],
+        serde_json::json!("<redacted>"),
+        "{cut_ret}"
+    );
+    assert_eq!(
+        cut_ret["value"]["trunc"],
+        serde_json::json!(false),
+        "the RETURN says nothing was clipped, because it was taken: {cut_ret}"
+    );
+    assert_eq!(
+        cut_origin["exc"]["msg"],
+        serde_json::json!("<redacted>"),
+        "{cut_origin}"
+    );
+    assert!(
+        cut_origin["exc"].get("trunc").is_none(),
+        "one withheld text cannot be clipped on one row and whole on the \
+         other: {cut_origin}"
+    );
 }
 
 #[test]
