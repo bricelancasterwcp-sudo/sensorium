@@ -40,6 +40,11 @@ BEARER = "Bearer abcdefghijklmnopqrstuvwxyz"
 ANT = "sk-ant-abcdefghijklmnopqrstuvwxyz1234"
 DSN = "postgres://u:pw@h/db"
 
+#: A name rule v1 does NOT know: `MYCO` and `HANDLE` are segments of no
+#: set, so only a caller's `SENSORIUM_REDACT_NAMES` can take it. That is
+#: what makes the knobs argument load-bearing rather than decorative.
+HANDLE_NAME, HANDLE = "MYCO_HANDLE", "handle-0123456789"
+
 #: `API_KEY` fires the NAME rule (segments `API`, `KEY`); `HOME` fires
 #: nothing and is what a test reads to see the env pass left it alone.
 ENV = {"API_KEY": "api-key-0123456789", "HOME": "/tmp/u"}
@@ -356,6 +361,35 @@ def test_a_file_that_is_not_a_database_is_refused(tmp_path):
     assert p.rewrites is False
 
 
+def test_a_vanished_file_is_refused_not_raised(tmp_path):
+    """A trace another process removed between the walk and the open. An
+    `--all` pass has to lose that trace and not the ones after it."""
+    key = _key(tmp_path)
+    path = Path(tmp_path) / "sdir" / "traces" / "20260101-000000-gone01.db"
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    p = redact_store.plan(path, key, KNOBS)
+
+    assert p.refused.startswith("cannot open: ")
+    assert p.rewrites is False and p.changes is False
+
+
+def test_a_corrupt_meta_row_is_refused(tmp_path):
+    """`db.all_meta` `json.loads`es every row; a truncated or hand-edited
+    one is this trace's problem, not the walk's."""
+    key = _key(tmp_path)
+    path = _python(tmp_path, env=ENV)
+    conn = sqlite3.connect(path)
+    with conn:
+        conn.execute("UPDATE meta SET value = '{' WHERE key = 'cwd'")
+    conn.close()
+
+    p = redact_store.plan(path, key, KNOBS)
+
+    assert p.refused.startswith("meta is not JSON: ")
+    assert (p.meta, p.values) == ({}, 0)
+
+
 def test_a_keyed_trace_under_another_key_is_refused(tmp_path):
     """C5: a stamp that names one key has to be true of every digest under
     it, so two keys never meet in one trace."""
@@ -412,26 +446,77 @@ def test_a_mode_on_trace_with_nothing_new_is_not_rewritten(tmp_path):
 
 def test_a_mode_on_trace_gains_a_name_the_callers_knobs_add(tmp_path):
     """C5's other half: a name NOT in the table is digested now, under the
-    store's key, and the previous stamp's count carries (P2)."""
+    store's key, and the previous stamp's count carries (P2).
+
+    `MYCO_HANDLE` fires on nothing rule v1 knows, so the ONLY thing that can
+    take it is the `names` list this caller passed -- which is what makes
+    `_env_pass`'s `knobs` argument load-bearing rather than decorative.
+    """
     key = _key(tmp_path)
     path, first = _settled(tmp_path, key)
-    env = {**first.meta["env"], "MYCO_DSN": DSN}
+    assert redact.fires(HANDLE_NAME, KNOBS) is False    # nothing else does
+    env = {**first.meta["env"], HANDLE_NAME: HANDLE}
     _set_meta(path, env=env, env_hash=_json_hash(env),
               redaction={**first.meta["redaction"], "by": "recorder",
                          "values": 3})
-    knobs = redact.Knobs.from_environ({"SENSORIUM_REDACT_NAMES": "myco_dsn"})
+    knobs = redact.Knobs.from_environ(
+        {"SENSORIUM_REDACT_NAMES": "myco_handle"})
 
     p = redact_store.plan(path, key, knobs)
 
-    assert p.env_names == ("MYCO_DSN",)
+    assert p.env_names == (HANDLE_NAME,)
     assert p.values == 0
-    assert p.meta["env"]["MYCO_DSN"] == redact.REDACTED
+    assert p.meta["env"][HANDLE_NAME] == redact.REDACTED
     table = p.meta["redaction"]["env"]
-    assert table["MYCO_DSN"] == key.digest(DSN)
+    assert table[HANDLE_NAME] == key.digest(HANDLE)
     assert table["API_KEY"] == first.meta["redaction"]["env"]["API_KEY"]
     assert p.meta["redaction"]["values"] == 3
-    assert p.meta["redaction"]["names"] == ["MYCODSN"]
+    assert p.meta["redaction"]["names"] == ["MYCOHANDLE"]
     assert p.meta["redaction"]["by"] == "retrofit"
+
+
+def test_the_callers_allow_list_reaches_the_env_and_the_values(tmp_path):
+    """§2.3: allow WINS, and the list the command was given has to reach
+    BOTH sites that consume knobs -- `_env_pass`'s `redact.fires` and the
+    state `rv.install` publishes for the value pass. `API_KEY` stays
+    plaintext in the environment and the RETURN under `get_api_key` is left
+    exactly as the recorder wrote it, so neither site can be hardcoded."""
+    key = _key(tmp_path)
+    path = _python(tmp_path, env=ENV)
+    knobs = redact.Knobs.from_environ(
+        {"SENSORIUM_REDACT_ALLOW": "api_key,get_api_key"})
+
+    p = redact_store.plan(path, key, knobs)
+
+    assert p.env_names == ()
+    assert "env" not in p.meta and "env_hash" not in p.meta
+    assert p.meta["redaction"]["env"] == {}
+    assert E_RETURN not in p.payloads
+    assert p.values == 5                      # the other five still fired
+    assert p.meta["redaction"]["allow"] == ["APIKEY", "GETAPIKEY"]
+
+
+def test_off_knobs_are_ignored_and_the_stamp_is_on(tmp_path):
+    """C4: `SENSORIUM_NO_REDACT` is a decision about a RECORDING; running
+    `redact` is the decision here, so `mode` is always on.
+
+    Left unforced this is not a no-op but a corruption: `redact.fires`
+    ignores `off`, so the pass would take every firing value and digest it,
+    and then `redact.meta` would stamp the two-key `mode: "off"` shape over
+    an environment whose plaintext is gone -- the digests discarded, the
+    trace claiming it was never redacted.
+    """
+    key = _key(tmp_path)
+    path = _python(tmp_path, env=ENV)
+
+    p = redact_store.plan(path, key,
+                          redact.Knobs(True, frozenset(), frozenset()))
+
+    assert p.meta["redaction"]["mode"] == "on"
+    assert p.meta["redaction"]["env"] == {
+        "API_KEY": key.digest(ENV["API_KEY"])}
+    assert p.meta["env"]["API_KEY"] == redact.REDACTED
+    assert p.values == 6                      # the value pass ran too
 
 
 def test_a_marker_value_outside_the_table_is_never_digested(tmp_path):
@@ -496,7 +581,8 @@ def test_the_format_one_fixture_is_planned(tmp_path):
     key = _key(tmp_path)
     path = Path(tmp_path) / "sdir" / "traces" / "20260821-090431-646201.db"
     path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(Path("tests/fixtures/format1_async.db"), path)
+    shutil.copy(Path(__file__).parent / "fixtures" / "format1_async.db",
+                path)
     conn = sqlite3.connect(path)
     env = {**db.get_meta(conn, "env"), "SECRET_TOKEN": "s3cr3t-value"}
     conn.close()

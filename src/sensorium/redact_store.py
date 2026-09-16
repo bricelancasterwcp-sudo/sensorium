@@ -29,8 +29,9 @@ under the name `code_objects` holds (P7), an unchanged one unwritten (P8).
 Nothing escapes as an exception: a newer format, a format-4 trace missing
 required meta, an unknown lang (those three in `db.open_trace`'s words minus
 its leading path), a non-reproducing hash, another key, a live tmp, a file
-SQLite cannot open -- each is a sentence on the `Plan` (C9), so one refusal
-does not end an `--all` pass; an in-flight trace is skipped (C8). Only
+SQLite cannot open, a file another process removed, a meta row that is not
+JSON -- each is a sentence on the `Plan` (C9), so one refusal does not end
+an `--all` pass; an in-flight trace is skipped (C8). Only
 `live_tmp` touches the filesystem, to unlink a dead pid's leftover.
 """
 import hashlib
@@ -38,7 +39,7 @@ import json
 import sqlite3
 import stat
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from sensorium import redact
@@ -139,12 +140,19 @@ def plan(path: Path, key: Key, knobs: redact.Knobs) -> Plan:
     command's own environment as `redact_cmd` read it (C4). Nothing here
     reads `os.environ`, so a `SENSORIUM_NO_REDACT` in the shell running the
     retrofit cannot quietly turn it off."""
+    # C4, forced at the one point the knobs enter: `redact.env` returns
+    # early on `off` but `redact.fires` deliberately ignores it, so an
+    # unforced `off` would take every firing value and then have
+    # `redact.meta` stamp the two-key `mode: "off"` shape over an
+    # environment whose plaintext is gone. Running the command IS the
+    # decision (§7), and `mode` is always "on".
+    knobs = replace(knobs, off=False)
     path = Path(path)
     run = path.stem
     try:
         mode_before = stat.S_IMODE(path.stat().st_mode)
     except OSError:
-        mode_before = TIGHT    # `open_trace` owns the sentence for that
+        mode_before = TIGHT    # the open below refuses it, by name
     busy = live_tmp(path)
     if busy is not None:
         return Plan(path, run, "", refused=busy, mode_before=mode_before)
@@ -157,6 +165,14 @@ def plan(path: Path, key: Key, knobs: redact.Knobs) -> Plan:
     except sqlite3.DatabaseError as e:
         return Plan(path, run, "", mode_before=mode_before,
                     refused=f"not a database this sensorium can open: {e}")
+    except ValueError as e:
+        return Plan(path, run, "", mode_before=mode_before,
+                    refused=f"meta is not JSON: {e}")
+    except OSError as e:
+        # A trace another process removed between the walk and this open:
+        # an `--all` pass loses that trace and not the rest of them.
+        return Plan(path, run, "", mode_before=mode_before,
+                    refused=f"cannot open: {e}")
     try:
         return _judge(path, run, conn, key, knobs, mode_before)
     finally:
@@ -167,7 +183,11 @@ def _judge(path: Path, run: str, conn: sqlite3.Connection, key: Key,
            knobs: redact.Knobs, mode_before: int) -> Plan:
     """`plan`'s decision with the connection open, split off so one
     `finally` closes it whichever way out is taken."""
-    meta = db.all_meta(conn)
+    try:
+        meta = db.all_meta(conn)
+    except ValueError as e:
+        return Plan(path, run, "", mode_before=mode_before,
+                    refused=f"meta is not JSON: {e}")
     lang = meta.get("lang") or "python"
     if meta.get("incomplete") is True:
         # The Python recorder writes in place: another process holds this
