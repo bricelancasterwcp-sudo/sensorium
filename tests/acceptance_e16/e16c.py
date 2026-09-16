@@ -40,8 +40,8 @@ to do is report a hole as a pass.
 WHY THE TWO REDACT RUNS DO NOT USE PART A'S RUNNER
 --------------------------------------------------
 `e16a._run` merges stderr INTO stdout, which is right for a recording whose
-whole output is evidence and wrong here: `--dry-run` prints `dry run:
-nothing was written` on STDERR precisely so its stdout stays byte-identical
+whole output is evidence and wrong here: `--dry-run` prints `dry run: no
+trace was changed` on STDERR precisely so its stdout stays byte-identical
 to the real run's (C10), and a merged capture would make H4's clause 4
 compare the one line the design put out of the way.
 """

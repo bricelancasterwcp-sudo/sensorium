@@ -430,7 +430,17 @@ def test_the_token_variable_is_the_one_section_nine_names():
     assert TOKEN_VAR in DOC.read_text().split("## 2. Part A")[0]
 
 
-def test_the_pins_and_kill_rules_are_the_pre_registrations():
+def test_the_timers_are_the_numbers_this_module_declares():
+    """The pins and the timers, against numbers typed here.
+
+    A hand-typed copy of `TIMERS` catches an accidental edit to the table
+    and nothing else -- it cannot tell whether those seconds are §1's, and
+    it does not try: **§1's kill rules are not parsed**. What §1's own text
+    IS read for is `RULES` (the PASS/STOP column, compared to the record on
+    disk) and `TOKEN_VAR`; the timers are this instrument's operating
+    limits, declared here and pinned here, and `DRY_TIMERS` is checked as a
+    function of them rather than as a second typed table.
+    """
     assert EXPECTED_TRACES == 273
     assert EXPECTED_VERSION == "0.17.0"
     assert TIMERS == {"copy": 600, "redact": 900, "info": 900, "grep": 300,

@@ -1176,7 +1176,7 @@ the decisions this one reports against.
 | P13 | H4's four clauses are four rows of one cell, PASS iff all four, `273` reported beside the copy's count and never gated. Shipped as written, with **R17** making clause 4 compare BYTES and a STOP outrank a drop in the verdict's read sentence. |
 | P14 | The live retrofit is a post-merge chore, not a task (C18), conditional on §4 reading H4 PASS. Shipped as written: the condition is met, the chore is not yet run, and CARRIED-DEBT carries it. |
 
-#### (b) The controller's rulings R1–R17
+#### (b) The controller's rulings R1–R19
 
 Each was ruled during execution and is in the plan's gitignored ledger with
 its evidence. The third column is the cost the ruling was taken at.
@@ -1198,12 +1198,14 @@ its evidence. The third column is the cost the ruling was taken at.
 | R13 | Task 5's prose minor rides with Task 6 (a docs task): the case's `truth` says "the env line names `SENSORIUM_CORPUS_TOKEN` among however many variables the launching shell made fire" rather than a count. | none |
 | R14 | The rehearsal's fabricated store plants the `dry-` decoy only where the NAME rule reaches it — the env, a `str` RETURN under a code named `secret`, a LINE delta named `token` — and NOT in an output row or a `children` element, because the content rule cannot see `dry-` and those would survive the retrofit and read as residue. **P11 is amended accordingly.** | the rehearsal exercises fewer sites than the measurement; the measurement is what counts |
 | R15 | **Pre-launch amendment, recorded BESIDE §1 on the house pattern** (the locked block stays as written; the measured section's *Amendments, beside §1* names it): the instrument sweeps EVERY distinct value of `CLAUDE_CODE_MESSAGING_TOKEN` found across the copy's traces — `count-before` records the number of distinct values and requires each trace to hold ITS OWN value at least once, `grep-after` requires every value at 0 in every file, and the record cites each value's sha8 and its count, never a value. Strictly stronger than the pre-registered single-value reading, and the only honest one for a store whose token rotated. | none — a single-valued store is the special case |
-| R16 | `e16c.py` at 553 lines is accepted (the 400 was a hint; the ceiling is 800; part B's `e16b.py` is 537). | recorded by the ledger's dated addendum (2026-09-16) rather than with the ruling: none — a longer instrument file, still under the 800 gate |
+| R16 | `e16c.py` at 553 lines is accepted (the 400 was a hint; the ceiling is 800; part B's `e16b.py` is 537) — 553 at the ruling; **727 as shipped**, after **R15**'s value-set sweep and **R17**'s fix round, still under the gate. | recorded by the ledger's dated addendum (2026-09-16) rather than with the ruling: none — a longer instrument file, still under the 800 gate |
 | R17 | The fix round also takes four of Task 7's minors: clause 4 compares BYTES (capture bytes, decode only for parsing); a STOP outranks a drop in `h4`'s read sentence, naming both; a non-dict `env` is a `copy` refusal; a no-op conditional goes. The three docstring/test-pin repairs ride with them, the same functions being open. | none beyond the diff |
+| R18 | Task 9's third commit stays as its own commit (history over shape); the corpus runner's language skip is a deferred finding for the final review's list — a `--require-driver`-style refusal for a missing Node install would be the fix, outside this slice. | none |
+| R19 | **The final fix wave**, after the whole-branch review: (1) a rewritten-but-empty trace prints C12's counted form with zeros — `run <id>: env 0 redacted (); values 0; <mode clause>` — so the line, the summary and the exit agree, `nothing to redact` staying for a trace NOT rewritten; (2) the dry run's stderr line becomes `dry run: no trace was changed`, with the invocation log and the store directories named among what a dry run leaves; (3) the per-target guard becomes `except Exception` → `REFUSED: cannot judge: …` (`KeyboardInterrupt` still ends the pass). Folded minors: the TRUNCATE checkpoint's busy column is read and raises when non-zero; a post-replace sidecar unlink that fails raises `redact_store.SidecarLeft`, which the command prints as a stderr note over a trace it still counts as rewritten; **R18**'s row and the ruling counts; this row's own R16 clause; the assembler's `token_lengths` docstring; the timers test's name; the CHANGELOG's H4 clause; and the process lesson's `--require-driver` spelling. | none beyond the diff — nothing in it touches the measured record, its raw results, its transcripts or `e16c_cells`' contracts |
 
 #### (c) Where the shipped code differs from §7 and C1–C20
 
-Fifteen. Each is a place a reader of the sections above would be told
+Sixteen. Each is a place a reader of the sections above would be told
 something the code does not do.
 
 1. **C6's `values` is ADDITIVE** (decision **P2**). C6 says the stamp's
@@ -1295,6 +1297,15 @@ something the code does not do.
     `redact $RUN` pass was added, pinning `nothing to redact; mode 600` at
     exit 1 — idempotence (**C5**, **P5**) proved end to end rather than
     only in a unit test. Where: `corpus/redact_retrofit/questions.yaml`.
+16. **The dry run's stderr line is `dry run: no trace was changed`**
+    (**R19**). C10 spells it `dry run: nothing was written`, which is false
+    of three things a dry run leaves: its own row in `invocations.jsonl`,
+    the litter the stale-key sweep consumes (**P3**), and — on a store that
+    did not exist — the root and `traces/` that `paths.traces_dir()`
+    creates on its way to globbing them. What a dry run does not change is
+    a TRACE, which is what §7 promises and what the line now says. Clause 4
+    reads STDOUT and is untouched. Where: `redact_cmd.run`, its docstring,
+    `docs/redaction.md`.
 
 #### (d) E16 part C's outcome
 

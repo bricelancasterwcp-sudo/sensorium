@@ -167,7 +167,7 @@ CAPTURES, and this takes the traces that were already on disk when the rule
 shipped — on this box, **all 273 of them**, every one predating rule v1 and
 holding a live token in `meta.env` at 0644. Fourteen plan decisions
 (**P1–P14**), twenty decisions written before any code (**C1–C20**) and
-seventeen rulings (**R1–R17**) are in the design's **§13** with what each
+nineteen rulings (**R1–R19**) are in the design's **§13** with what each
 costs if wrong, beside every place the shipped code differs from §§1–12.
 **DONE** — E16 part C was measured **once**, on 2026-09-16
 (`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §4):
@@ -235,7 +235,12 @@ repository change.
   the per-trace line prints what THIS run did.
 - **`--dry-run`'s stdout is the real run's, byte for byte** (**C10**,
   **P3**) — the same per-trace lines, the same summary, in the same order,
-  with `dry run: nothing was written` on STDERR. Both modes run one loop
+  with `dry run: no trace was changed` on STDERR (**R19**: no trace's bytes
+  and no trace's mode change and no key is minted, but the call is logged
+  and an absent store is created by the walk that looks for its traces; the
+  measurement's transcript quotes the earlier wording, `dry run: nothing was
+  written`, and clause 4 reads STDOUT, which this did not touch). Both modes
+  run one loop
   with a single branch around `apply`, so the two cannot drift, and the
   stale-key sweep and the `traces/` mode clause run in BOTH. That is what
   makes H4's fourth clause a diff of two byte strings rather than a
@@ -441,8 +446,11 @@ for would read as one somebody did.
   argparse-after-dispatch hole — `parser.error` inside `run()` ends the
   call with no `invocations.jsonl` row, as every argparse error does
   (**R12**); `_dir_mode`'s `except OSError` branch is not
-  mutation-coverable as the owning user; the degenerate `env 0 redacted
-  ()` line form is spelled as required but untested. The test helper's
+  mutation-coverable as the owning user. The degenerate `env 0 redacted
+  ()` line form is **closed** by the final fix wave (**R19**): it is the
+  line a pre-rule or `mode: "off"` trace with nothing to take now prints,
+  and `test_a_trace_rewritten_only_for_its_stamp_prints_the_counted_form`
+  pins it against `e16c_cells.LINE`. The test helper's
   `_traces()` now creates `traces/` at 0700 — every `--all` test had been
   exercising the directory clause silently until the fix round.
 - **T5 (the corpus case):** the case leaves the `print` chunk plaintext —
@@ -490,12 +498,17 @@ for would read as one somebody did.
   a question about the diff. The same gap has THREE more mouths, found at
   this slice's own full-green run: `corpus/typescript/node_modules` and
   `typescript/node_modules` are both untracked, so a fresh worktree
-  SKIPS all 48 TypeScript cases silently until the first is installed and
+  SKIPS all 48 TypeScript cases until the first is installed and
   FAILS all 48 until the second is — `npm ci` under `corpus/typescript`
   and under `typescript`, the recorder's own error naming the second by
-  path. A skip that reads as a pass is worse than the
-  failure under it: the count line said *115 cases (48 skipped)* and
-  *0 failures* in the same breath. **A fresh worktree is green only after
+  path. The runner is not the quiet one here: it marks each skipped case
+  `skip`, names every distinct reason on the count line (*115 cases (48
+  skipped: …), 157 questions, 0 failures*) and has carried
+  `--require-driver` — exit 1 if any case could not run — all along. What
+  read as a pass was a *reader* taking `0 failures` for an answer about
+  48 cases nobody asked. So the pre-merge gate has a spelling, and it is
+  the flag: **`corpus/run_corpus.py --require-driver`**, which turns a
+  skip into a verdict on the run. **A fresh worktree is green only after
   the venv, the driver and both Node installs** — and a corpus total that
   moved (157 questions to 253) is the tell that a language was not being
   asked anything.

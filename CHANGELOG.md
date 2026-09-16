@@ -16,7 +16,8 @@ the three.
   memory — environment and hash, the changed rows, the stamp, the counts, the
   refusal or the skip — and writes nothing; `apply()` alone writes. `--dry-run`
   is `plan()` alone, so its stdout is byte-identical to the real run's (`dry
-  run: nothing was written` goes to STDERR).
+  run: no trace was changed` goes to STDERR — a dry run still logs its own
+  invocation and still creates an absent store on its way to globbing it).
 - **What a pass takes.** The environment takes the NAME rule and nothing else;
   the values are what the three writers reach — `args`/`deltas` bindings, a map
   sample's value under its key, a RETURN under its callee's last qualname
@@ -42,7 +43,9 @@ the three.
   `traces/` set 0700 under `--all`, and a dead writer's
   `redaction.key.<pid>.tmp` swept once per pass.
 - **H4 is pre-registered, not claimed here**: the acceptance record's part C
-  measures this over a copy of the box's own store, in a later commit.
+  measures this over a copy of the box's own store, in a later commit —
+  measured 2026-09-16, **H4 PASS** on all four clauses over a `cp -a` copy of
+  the box's 273-trace store (the record's §4).
   `corpus/redact_retrofit` is this one's end-to-end case — a plaintext
   recording, retrofitted and read back with the token in no answer.
 

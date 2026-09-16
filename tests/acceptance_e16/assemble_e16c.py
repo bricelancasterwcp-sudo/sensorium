@@ -238,8 +238,15 @@ def _token_digests(raw: dict) -> str:
     """Every distinct value as `sha256[:8] (N traces)`, in one clause.
 
     Digests and counts, never a value and never a length that would narrow
-    one: this is the whole of what §4 is allowed to say about the secret it
+    one: this is the whole of what the RENDERED §4 says about the secret it
     is a claim about.
+
+    The RAW results file is the other thing, and it does carry
+    `token_lengths` -- `e16c.py` records the sorted set of value lengths,
+    and a measured artifact is committed as it was measured rather than
+    edited afterwards. So the narrowing this function refuses is a property
+    of the section a reader reads, not of the bytes beside it; the raw is
+    scrubbed of work-root paths on its way in and of nothing else.
     """
     rows = raw.get("token_sha8") or []
     if not rows:

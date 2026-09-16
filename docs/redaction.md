@@ -542,6 +542,13 @@ run 20260916-095744-071829: REFUSED: env_hash does not reproduce under the pytho
 redacted 1 of 4 traces (1 already clean, 1 skipped, 1 refused); spools under target/ and the TypeScript spool dirs are not reached
 ```
 
+`nothing to redact` belongs to a trace that is NOT rewritten — one already
+`mode: "on"` whose pass finds nothing. A pre-rule or `mode: "off"` trace whose
+pass finds nothing is stamped all the same, so its file changes and it is
+counted among the redacted: it prints the counted form with the counts it took,
+`run <id>: env 0 redacted (); values 0; mode 600`, and the line, the summary
+and the exit then agree.
+
 Names are capped at eight and then counted, `info`'s own cap; the lines are
 pinned to the character in `tests/test_redact_cmd.py`. Exit **0** when
 something changed or would, **1** when nothing needed doing, **2** when a trace
@@ -586,8 +593,14 @@ too (`REFUSED: cannot judge: …`) and not a traceback (ruling R10).
   `redaction.key.<pid>.tmp` whose writer is dead — 32 bytes of a secret nobody
   will finish writing (ruling R15) — is unlinked and counted.
 - **`--dry-run` prints the real run's stdout, byte for byte** — same lines,
-  summary, order and exit, with `dry run: nothing was written` on STDERR — for
-  it runs the judgement alone, the function the real pass applies. Two corners:
+  summary, order and exit, with `dry run: no trace was changed` on STDERR — for
+  it runs the judgement alone, the function the real pass applies. The line
+  says TRACE, and means it: no trace's bytes and no trace's mode change, and
+  no `redaction.key` is minted — but the call is logged to
+  `invocations.jsonl` like every other, the stale-key sweep is real, and a
+  store that did not exist is created by the walk that went looking for its
+  traces (the root and `traces/` at 0700, `redacted 0 of 0 traces`). Two
+  corners:
   an unkeyed store's dry run READS a key where a real run MINTS one, so the
   other-key refusal says `none` in the first and a key id in the second; and
   the sweep is real in both modes, so a dry run consumes litter a later real
