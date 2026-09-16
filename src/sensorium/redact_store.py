@@ -31,11 +31,17 @@ required meta, an unknown lang (those three in `db.open_trace`'s words minus
 its leading path), a non-reproducing hash, another key, a live tmp, a file
 SQLite cannot open, a file another process removed, a meta row that is not
 JSON -- each is a sentence on the `Plan` (C9), so one refusal does not end
-an `--all` pass; an in-flight trace is skipped (C8). Only
-`live_tmp` touches the filesystem, to unlink a dead pid's leftover.
+an `--all` pass; an in-flight trace is skipped (C8). Of the judgement
+only `live_tmp` touches the filesystem, to unlink a dead pid's leftover.
+
+`apply()` is the other half and the only hand that writes: C7's backup ->
+rewrite -> checkpoint -> fsync -> rename -> sidecars, on a private copy, so
+the original is whole up to one atomic rename. A row the plan did not name
+is a row it does not touch.
 """
 import hashlib
 import json
+import os
 import sqlite3
 import stat
 from collections.abc import Mapping
@@ -51,6 +57,9 @@ from sensorium.ts.invocation import env_hash as _kv_env_hash
 #: The rewrite's tmp is `.<run>.db.redact.<pid>.tmp` beside the trace: a
 #: dotfile, so every glob for `*.db` walks past it.
 TMP_SUFFIX = ".redact"
+
+#: What SQLite leaves beside a WAL database; a result carries neither.
+_SIDECARS = ("-wal", "-shm")
 
 #: The recorders whose `env_hash` is the sorted `k=v` join. An absent
 #: `lang` predates the key and is the Python recorder's.
@@ -319,3 +328,123 @@ def _children(meta: dict, writes: dict) -> int:
     if hits:
         writes["children"] = after
     return hits
+
+
+
+def tmp_path_for(path: Path) -> Path:
+    """The private copy `apply` builds this trace's replacement in:
+    `TMP_SUFFIX`'s name, BESIDE the trace because `os.replace` is atomic
+    only within one filesystem and a store can sit on any mount, and
+    carrying this pid because that is what `live_tmp` reads to tell a
+    live run's workspace from a killed one's litter."""
+    path = Path(path)
+    return path.with_name(f".{path.stem}.db{TMP_SUFFIX}.{os.getpid()}.tmp")
+
+
+def _unlink_sidecars(path: Path) -> int:
+    """`path`'s `-wal` and `-shm` removed, and how many there were.
+    Absent is the ordinary case and not an error; any other `OSError` is
+    raised, because a `-wal` this cannot remove is a file still holding
+    the plaintext pages the rewrite just took out."""
+    gone = 0
+    for suffix in _SIDECARS:
+        try:
+            path.with_name(path.name + suffix).unlink()
+        except FileNotFoundError:
+            continue
+        gone += 1
+    return gone
+
+
+def apply(p: Plan) -> None:
+    """Put `p` on disk (C7, C11). The only writer in the retrofit.
+
+    In a private copy and never in place: a retrofit dying mid-rewrite
+    would leave a trace that is neither the old one nor the new. The copy
+    is `Connection.backup` and not a byte copy of the `.db` because a
+    committed row can be living in the `-wal` with nobody yet
+    checkpointing it -- in the DATABASE and not in that file -- and a copy
+    that drops it is a different trace (R37's lesson).
+
+    The TRUNCATE checkpoint comes BEFORE the close, so the copy is whole
+    in one file when it is renamed and the result carries no sidecars of
+    its own. The directory is fsynced after the rename because a rename
+    is durable only when its directory entry is. The ORIGINAL's
+    `-wal`/`-shm` go LAST because they belong to the inode the rename
+    displaced: unlinking them earlier would take pages the backup had not
+    read, and a reader holding that inode keeps them open regardless.
+
+    What a kill leaves: before the create, nothing; between it and the
+    rename, the original whole and a tmp this pid owns, swept by the next
+    `redact` to reach the trace once the pid is dead (C7); after it, the
+    redacted trace and at worst the old inode's sidecars, which the next
+    pass unlinks. A failure this process sees rather than dies from
+    clears its own tmp and is raised to the caller.
+    """
+    if p.refused or p.skipped or not p.changes:
+        return
+    if not p.rewrites:
+        # C11: nothing to carry, so nothing is copied. A trace already
+        # redacted but sitting at 0644 is CHANGED, and the sidecars are
+        # tightened in place, not removed: nothing rewrote their pages.
+        os.chmod(p.path, TIGHT)
+        for suffix in _SIDECARS:
+            sidecar = p.path.with_name(p.path.name + suffix)
+            if sidecar.exists():
+                os.chmod(sidecar, TIGHT)
+        return
+    tmp = tmp_path_for(p.path)
+    try:
+        # O_EXCL, so a taken name is a failure and never a file this
+        # writes over blind; the pid in it makes that this process's own
+        # leftover. Another live process's tmp was `plan`'s refusal (C7).
+        os.close(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, TIGHT))
+        _copy_and_rewrite(p, tmp)
+        _fsync(tmp)
+        os.chmod(tmp, TIGHT)
+        os.replace(tmp, p.path)
+        _fsync(p.path.parent)
+    except BaseException:
+        _unlink_sidecars(tmp)
+        tmp.unlink(missing_ok=True)
+        raise
+    _unlink_sidecars(p.path)
+
+
+def _copy_and_rewrite(p: Plan, tmp: Path) -> None:
+    """The copy, the rewrite and the checkpoint -- `apply`'s middle. One
+    transaction, so the copy is never a half-redacted database even for an
+    instant; the rows go in as the plan finished them, every judgement
+    having been made before anything was opened for writing. The original
+    is read and closed here and touched no further."""
+    dst = sqlite3.connect(tmp)
+    try:
+        src = sqlite3.connect(p.path)
+        try:
+            src.backup(dst)
+        finally:
+            src.close()
+        dst.executemany("UPDATE events SET payload = ? WHERE id = ?",
+                        [(t, i) for i, t in p.payloads.items()])
+        dst.executemany("UPDATE frames SET unwind_exc = ? WHERE id = ?",
+                        [(t, i) for i, t in p.unwinds.items()])
+        dst.executemany("UPDATE output SET data = ? WHERE id = ?",
+                        [(t, i) for i, t in p.outputs.items()])
+        for name, value in p.meta.items():
+            db.set_meta(dst, name, value)
+        dst.commit()
+        dst.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        dst.close()
+    # Past the checkpoint a surviving log is litter, not a reader's.
+    _unlink_sidecars(tmp)
+
+
+def _fsync(path: Path) -> None:
+    """`path` on the platter, file or directory: a rename is only as
+    durable as the two things it names."""
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
