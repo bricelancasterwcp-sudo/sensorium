@@ -27,7 +27,9 @@ prints lines.
 
 **`--dry-run` is `plan` alone, and its stdout is byte-identical to the real
 run's** (C10) -- the same per-trace lines, the same summary, in the same
-order -- with one line on STDERR saying nothing was written. That is not a
+order -- with `dry run: no trace was changed` on STDERR. The line says
+TRACE and not "nothing" on purpose (R19): a dry run is not a read-only
+call, and the two corners below name what it does leave. That is not a
 courtesy: E16's H4 reads the two stdouts and DIFFS them, so a dry run that
 printed anything of its own would turn a measurement into a judgement about
 wording. Both modes run the same loop with a single branch around `apply`,
@@ -42,6 +44,15 @@ store's key says `none` in the first and a key id in the second (every
 other line carries names, counts and modes, which no key decides); and
 across two CONSECUTIVE invocations the sweep is real in both modes (P3), so
 a dry run consumes the litter and the run after it counts none.
+
+**What a dry run DOES leave** (R19), so the stderr line is read for what it
+says and not for more: no TRACE is changed -- not a byte, not a mode -- and
+no `redaction.key` is minted (R1); but the call is logged to
+`invocations.jsonl` like every other, the sweep is real (P3, above), and a
+store that did not exist is CREATED as a side effect of looking for its
+traces, `paths.traces_dir()` making the root and `traces/` at 0700. A dry
+run over an absent store therefore leaves an empty store behind and says
+`redacted 0 of 0 traces`.
 
 **Modes** (C11): a rewritten trace is 0600 by creation, and a trace that
 needs no rewrite but sits at another mode is tightened in place and counts
@@ -64,10 +75,16 @@ in BOTH modes (P3): a `redaction.key.<pid>.tmp` left by a killed
 nothing" does not cover it -- and skipping it under `--dry-run` would make
 the two stdouts differ exactly when a reader is comparing them.
 
-`nothing to redact` is P5's line: a trace already `mode: "on"` whose pass
-finds nothing is not rewritten, even when the caller's knobs differ from
-the recorded ones, because a stamp is a statement about what was taken and
-rewriting one over an unchanged trace would date a file to say nothing new.
+`nothing to redact` is P5's line, and it belongs to a trace that is NOT
+REWRITTEN: one already `mode: "on"` whose pass finds nothing, even when the
+caller's knobs differ from the recorded ones, because a stamp is a statement
+about what was taken and rewriting one over an unchanged trace would date a
+file to say nothing new. A pre-rule or `mode: "off"` trace whose pass finds
+nothing is the other case and NOT this line: it still gains its stamp (P5),
+so the file changed, the summary counts it redacted and the call exits 0 --
+it prints the counted form with zeros, `env 0 redacted (); values 0; <mode>`
+(R19). The line, the summary and the exit then say the same thing, which is
+the whole of what a reader can check without opening the trace.
 """
 import os
 import sqlite3
@@ -133,7 +150,14 @@ def line_for(p: Plan) -> str:
         return f"run {p.run}: REFUSED: {p.refused}"
     if p.skipped:
         return f"run {p.run}: {p.skipped}, skipped"
-    if p.env_names or p.values:
+    if p.env_names or p.values or p.rewrites:
+        # `rewrites` and not the two counters alone (R19): a pre-rule or
+        # `mode: "off"` trace with no firing name and no firing value is
+        # still STAMPED (P5), so the file changes, the summary counts it
+        # redacted and the call exits 0. Printing `nothing to redact` over
+        # that would make the line the one place in the pass that says
+        # nothing happened -- the degenerate `env 0 redacted (); values 0`
+        # is C12's own spelling with the numbers it actually took.
         return (f"run {p.run}: env {len(p.env_names)} redacted "
                 f"({capped(p.env_names)}); values {p.values}; "
                 f"{_mode_clause(p)}")
@@ -221,19 +245,39 @@ def run(args) -> int:
     for path in _targets(args):
         try:
             p = redact_store.plan(path, key, knobs)
-        except (OSError, sqlite3.Error, ValueError) as e:
+        except Exception as e:
             # `plan` names every condition it FORESEES as a sentence on
             # the Plan, but sqlite reads pages lazily: a corrupt row, a
             # payload that is not JSON, a file another process moved
             # under it can all surface from inside the walk. C9 says the
             # others continue, so an unforeseen one is a refusal too
             # rather than a traceback that ends the pass (R10).
+            #
+            # `Exception` and not a tuple (R19): a `meta.env` holding a
+            # non-string value raises `AttributeError` out of
+            # `key.digest`, and a previous stamp whose `env` is a scalar
+            # raises `TypeError` out of `dict()` -- neither is an OSError,
+            # a sqlite error or a ValueError, so a tuple of the three let
+            # ONE odd trace end an `--all` pass over 273 of them. The
+            # judgement is pure, so anything it raises is a statement
+            # about that trace. `KeyboardInterrupt` is a `BaseException`
+            # and still ends the pass, which is what a person asking it to
+            # stop means.
             p = Plan(path, Path(path).stem, "",
                      refused=f"cannot judge: {e}")
         else:
             if not args.dry_run:
                 try:
                     redact_store.apply(p)
+                except redact_store.SidecarLeft as e:
+                    # The rewrite LANDED (R19): the rename is past, the
+                    # trace on disk is the redacted one, and what failed
+                    # was removing the displaced inode's log afterwards.
+                    # Calling that "the rewrite failed" would refuse a
+                    # trace that was redacted; the note says what is
+                    # actually wrong, on STDERR so the two stdouts stay
+                    # the same bytes (C10), and the trace counts as done.
+                    print(f"run {p.run}: {e}", file=sys.stderr)
                 except (OSError, sqlite3.Error) as e:
                     # The original is untouched (C7), so this is a
                     # refusal like any other: named on its own line, the
@@ -244,8 +288,11 @@ def run(args) -> int:
     dir_mode = _dir_mode(args.dry_run) if args.all else None
     print(summary(plans, swept, dir_mode))
     if args.dry_run:
-        # On STDERR, so the two stdouts are the same bytes (C10).
-        print("dry run: nothing was written", file=sys.stderr)
+        # On STDERR, so the two stdouts are the same bytes (C10). "no trace
+        # was changed" and not "nothing was written" (R19): the call is
+        # logged, the sweep is real, and an absent store was created by the
+        # walk that looked for its traces -- the docstring lists all three.
+        print("dry run: no trace was changed", file=sys.stderr)
     if any(p.refused for p in plans):
         return BAD_CALL
     # The directory joins the predicate (R11): a store of settled traces

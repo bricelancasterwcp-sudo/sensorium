@@ -75,6 +75,20 @@ _SEP = (",", ":")
 _SKIPPED = "in flight (incomplete)"
 
 
+class SidecarLeft(OSError):
+    """The rewrite LANDED and the OLD `-wal`/`-shm` are still on disk.
+
+    Raised only from `apply`'s post-rename cleanup, and distinct from every
+    other failure there because it is the one that is not a failure of the
+    rewrite (R19): the rename is past, the trace on disk is the redacted
+    one, and what could not be done is removing the displaced inode's log.
+    The command prints it as a NOTE and counts the trace as rewritten --
+    `REFUSED: the rewrite failed` over a trace that WAS rewritten would send
+    a reader looking for plaintext that is no longer in the database, and
+    say nothing about the log that still holds it.
+    """
+
+
 @dataclass(frozen=True)
 class Plan:
     """One trace's whole future, in memory: `apply()` touches nothing this
@@ -380,7 +394,9 @@ def apply(p: Plan) -> None:
     redacted trace, the displaced inode's sidecars gone in a `finally` so
     that only a signal ending the process outright can leave them. A
     failure this process sees rather than dies from clears its own tmp
-    and is raised to the caller.
+    and is raised to the caller -- as `SidecarLeft` when the rename is
+    already past and only the old log could not be removed, which is a
+    note about a trace that WAS rewritten and not a failed rewrite (R19).
     """
     if p.refused or p.skipped or not p.changes:
         return
@@ -413,7 +429,15 @@ def apply(p: Plan) -> None:
             # database -- serving the secrets back, or refusing the trace
             # as malformed. A directory fsync that fails, or a Ctrl-C
             # during an `--all` pass, must not be what leaves it there.
-            _unlink_sidecars(p.path)
+            try:
+                _unlink_sidecars(p.path)
+            except OSError as e:
+                # Re-raised under its own class (R19), because past the
+                # rename this is the one failure here that is not a
+                # failure of the rewrite: the caller prints it as a note
+                # and counts the trace as done rather than refusing a
+                # trace that is on disk redacted.
+                raise SidecarLeft(f"old sidecar not removed: {e}") from e
     except BaseException:
         # The database first: `_unlink_sidecars` raises on an OSError that
         # is not absence, and a tmp holding a whole plaintext copy must
@@ -428,7 +452,16 @@ def _copy_and_rewrite(p: Plan, tmp: Path) -> None:
     transaction, so the copy is never a half-redacted database even for an
     instant; the rows go in as the plan finished them, every judgement
     having been made before anything was opened for writing. The original
-    is read and closed here and touched no further."""
+    is read and closed here and touched no further.
+
+    The checkpoint's FIRST column is read and not discarded (R19). `PRAGMA
+    wal_checkpoint(TRUNCATE)` returns `(busy, log, checkpointed)` and
+    REPORTS a failure rather than raising one: a busy checkpoint leaves
+    pages in the log, and the next line unlinks that log. On this tmp it
+    cannot happen -- one connection, just committed, nobody else holding
+    the file -- which is exactly why it is checked: the cost of reading a
+    column is nothing, and the cost of not reading it is a rewritten trace
+    that quietly lost the rows the checkpoint could not move."""
     dst = sqlite3.connect(tmp)
     try:
         src = sqlite3.connect(p.path)
@@ -445,7 +478,12 @@ def _copy_and_rewrite(p: Plan, tmp: Path) -> None:
         for name, value in p.meta.items():
             db.set_meta(dst, name, value)
         dst.commit()
-        dst.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        busy, log, done = dst.execute(
+            "PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+        if busy:
+            raise sqlite3.OperationalError(
+                f"checkpoint busy: wal_checkpoint(TRUNCATE) returned "
+                f"({busy}, {log}, {done})")
     finally:
         dst.close()
     # Past the checkpoint a surviving log is litter, not a reader's.
