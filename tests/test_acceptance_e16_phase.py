@@ -48,14 +48,16 @@ sys.path.insert(0, str(REPO / "tests" / "acceptance_e16"))
 
 import e16a                                                       # noqa: E402
 import e16b                                                       # noqa: E402
+import e16c                                                       # noqa: E402
 from e16a import CRITICAL_PHASES, Part, Refused                   # noqa: E402
 
-#: The two instruments this module holds, and the file each one's `main`
-#: lives in. Part B's runner SUBCLASSES part A's `Part`, so `phase()` itself
-#: is tested once (below); what has to be checked twice is the CALL SITES --
-#: `main` is written fresh in each file, and a `critical=True` dropped from
-#: either one restores the fail-open R37 was added to close.
-INSTRUMENTS = ((e16a, "e16a.py"), (e16b, "e16b.py"))
+#: The three instruments this module holds, and the file each one's `main`
+#: lives in. Parts B's and C's runners SUBCLASS part A's `Part`, so
+#: `phase()` itself is tested once (below); what has to be checked three
+#: times is the CALL SITES -- `main` is written fresh in each file, and a
+#: `critical=True` dropped from any one of them restores the fail-open R37
+#: was added to close.
+INSTRUMENTS = ((e16a, "e16a.py"), (e16b, "e16b.py"), (e16c, "e16c.py"))
 
 
 @pytest.fixture
@@ -204,4 +206,37 @@ def test_part_b_builds_its_two_h5_trees_without_touching_the_box(tmp_path):
     assert part.bench_dir.name == "bench-b"
     assert part.store.name == "store-b"
     assert part.reps == e16b.DRY_BENCH_REPS
+    assert not (tmp_path / "work").exists()
+
+
+def test_part_cs_phases_are_accounted_for_too():
+    """Part C's own list, and the phases §1's amendment gives it: the copy,
+    the premise, the two passes, the comparison, the sweep, the census and
+    the modes.
+
+    Its three preconditions are `preflight` (a retrofit measured under the
+    previous version is a measurement of a command that is not there),
+    `copy` (the subject) and `count-before` (H4's PREMISE -- "0 everywhere
+    after" is true of a store that never held the value). The parametrised
+    test above then holds each call site by construction.
+    """
+    calls = _phase_calls("e16c.py")
+    assert e16c.CRITICAL_PHASES == ("preflight", "copy", "count-before")
+    for name in ("preflight", "copy", "count-before", "dry-run", "real",
+                 "compare", "grep-after", "info", "modes"):
+        assert name in calls, name
+
+
+def test_part_c_derives_its_copy_without_touching_the_box(tmp_path):
+    """`PartC.__init__` derives paths and nothing else -- which is what lets
+    this module construct one -- and the two locations §1's amendment pins
+    by name are the copy and the transcripts. It does NOT call part A's
+    `__init__`: there is no node directory, no driver and no cargo target
+    here, because part C records nothing."""
+    part = e16c.PartC(tmp_path / "work", tmp_path / "out", dry=True,
+                      label="c")
+    assert part.store.name == "store-c"
+    assert part.transcripts.name == "c-transcripts"
+    assert part.timers == e16c.DRY_TIMERS
+    assert part.stems is None and part.token == ""
     assert not (tmp_path / "work").exists()
