@@ -1,38 +1,39 @@
 """The byte-lock on E16's acceptance record (plan `2026-09-13-sensorium-
 redaction-a.md`, Task 0; the part B amendment, plan `2026-09-14-sensorium-
-redaction-b.md`, Task 0).
+redaction-b.md`, Task 0; the part C amendment, plan `2026-09-15-sensorium-
+redaction-c.md`, Task 0).
 
 Two claims this document makes about itself, held by a test rather than by
 prose:
 
-* **§1's three bodies are verbatim.** §1 says block (a) is spec §9's `## 9.
+* **§1's four bodies are verbatim.** §1 says block (a) is spec §9's `## 9.
   E16, pre-registered` section, byte-for-byte, and block (b) is plan A's
-  `## Pre-registration (…)` block, byte-for-byte. Block (c), added the day
-  part B was planned, is plan B's own `## Pre-registration (…)` block under
-  a dated `###` heading -- pre-registration written down BESIDE the locked
-  text rather than over it, so that what part A was measured against is
-  still readable exactly as it was. All three are checkable against the
-  source files, so all three are checked here -- a paraphrase, a reordered
-  row or a softened endpoint would otherwise read as the source and never
-  be caught.
+  `## Pre-registration (…)` block, byte-for-byte. Blocks (c) and (d), added
+  the days part B and part C were planned, are plan B's and plan C's own
+  `## Pre-registration (…)` blocks under dated `###` headings --
+  pre-registration written down BESIDE the locked text rather than over it,
+  so that what an earlier part was measured against is still readable
+  exactly as it was. All four are checkable against the source files, so
+  all four are checked here -- a paraphrase, a reordered row or a softened
+  endpoint would otherwise read as the source and never be caught.
 
   Unlike `tests/test_acceptance_e15_lock.py`, the source read is the WORKING
   TREE and only the working tree -- no `git show <commit>:<path>` fallback.
-  Both `docs/superpowers/specs/2026-09-13-sensorium-secrets-redaction-
-  design.md` and `docs/superpowers/plans/2026-09-13-sensorium-redaction-
-  a.md` are committed on THIS branch, and CI does not fetch the docs branch
-  those files were first drafted on -- a `git show` primary read would skip
-  by name on every CI run, which is a check that never checks anything. The
+  `docs/superpowers/specs/2026-09-13-sensorium-secrets-redaction-design.md`
+  and all three `docs/superpowers/plans/…-sensorium-redaction-{a,b,c}.md`
+  are committed on THIS branch, and CI does not fetch the docs branch those
+  files were first drafted on -- a `git show` primary read would skip by
+  name on every CI run, which is a check that never checks anything. The
   bodies end differently in their sources, and are read differently here:
-  the spec's `## 9.` section runs to the next heading (`## 10.`); either
+  the spec's `## 9.` section runs to the next heading (`## 10.`); each
   plan's `## Pre-registration (…)` block runs to the `---` that terminates
   it, which is §1's own stated rule for that source.
 
-* **§2 and §3 open the shape §1 promises.** The first non-blank line after
-  `## 2. Part A` -- and after `## 3. Part B` -- is either the literal `Not
-  yet measured.` (that part's unmeasured state) or a heading beginning
-  `### measured` (its measured one) -- never a bare claim typed in between
-  the two.
+* **§2, §3 and §4 open the shape §1 promises.** The first non-blank line
+  after `## 2. Part A` -- and after `## 3. Part B`, and after `## 4. Part
+  C` -- is either the literal `Not yet measured.` (that part's unmeasured
+  state) or a heading beginning `### measured` (its measured one) -- never
+  a bare claim typed in between the two.
 
 There is no separate content-hash lock on the record's own §1 bytes: the
 verbatim check against the (static, already-committed) source files IS the
@@ -64,6 +65,8 @@ _PLAN = (REPO / "docs" / "superpowers" / "plans"
          / "2026-09-13-sensorium-redaction-a.md")
 _PLAN_B = (REPO / "docs" / "superpowers" / "plans"
            / "2026-09-14-sensorium-redaction-b.md")
+_PLAN_C = (REPO / "docs" / "superpowers" / "plans"
+           / "2026-09-15-sensorium-redaction-c.md")
 
 _SPEC_HEAD = "## 9. E16, pre-registered"
 _PLAN_HEAD = ("## Pre-registration (Task 0 commits spec §9 verbatim as the "
@@ -71,10 +74,15 @@ _PLAN_HEAD = ("## Pre-registration (Task 0 commits spec §9 verbatim as the "
 _PLAN_B_HEAD = ("## Pre-registration (Task 0 appends this block verbatim to "
                 "the record's §1 as a dated amendment; the lock test holds "
                 "it there)")
+_PLAN_C_HEAD = ("## Pre-registration (Task 0 appends this block verbatim to "
+                "the record's §1 as a dated amendment; the lock test holds "
+                "it there)")
 _AMENDMENT = ("### 2026-09-14 — Part B's pre-registration (amendment, beside "
               "the locked text above)")
+_AMENDMENT_C = ("### 2026-09-15 — Part C's pre-registration (amendment, "
+                "beside the locked text above)")
 
-#: The three headings §1 carries the sources under, and the reader that ends
+#: The four headings §1 carries the sources under, and the reader that ends
 #: each body ON EACH SIDE. In the record every block butts against the next
 #: `###`/`##` heading, so the record side always reads `body_to_heading`;
 #: the spec's source section does too (it ends at `## 10.`), but a plan's
@@ -87,6 +95,7 @@ SECTIONS = (
     ("### The plan's pre-registration block", "body_to_heading",
      _PLAN, _PLAN_HEAD, "body_to_rule"),
     (_AMENDMENT, "body_to_heading", _PLAN_B, _PLAN_B_HEAD, "body_to_rule"),
+    (_AMENDMENT_C, "body_to_heading", _PLAN_C, _PLAN_C_HEAD, "body_to_rule"),
 )
 
 
@@ -177,6 +186,23 @@ def test_section_one_carries_part_bs_preregistration_verbatim():
         f"{len(theirs.encode())} B in the source")
 
 
+def test_section_one_carries_part_cs_preregistration_verbatim():
+    """The same for part C's block, the second dated amendment: parts A and
+    B stay readable exactly as they were measured, and part C's endpoints
+    are written down before part C is run. Read to the `---` in plan C.
+
+    Part C's block is now the LAST in §1, so it is the one whose
+    `body_to_heading` read ends at `## 2. Part A`; part B's now ends at
+    this heading, which is a heading too and so reads the same."""
+    here, here_reader, source, there, there_reader = SECTIONS[3]
+    mine = _READERS[here_reader](DOC.read_text(), here)
+    theirs = _READERS[there_reader](source.read_text(), there)
+    assert mine == theirs, (
+        f"{there} vs record's {here}: "
+        f"{len(mine.encode())} B in the record, "
+        f"{len(theirs.encode())} B in the source")
+
+
 def test_the_verbatim_check_REFUSES_a_body_that_differs_by_one_byte():
     """Catches: a verbatim check that compares a body to itself, or that
     compares nothing because a heading lookup silently returned empty. The
@@ -204,10 +230,10 @@ def test_a_missing_heading_is_refused_not_silently_empty():
 def test_the_record_carries_both_headings_inside_section_one():
     """Catches: a block moved out of `## 1.` -- into `## 2.`, or above the
     record's title -- where it would still read as "in the record" but no
-    longer as "locked". Every heading in `SECTIONS`, part B's amendment
-    included, which is also what holds the amendment LAST in §1: a block
-    after it would end its `body_to_heading` read early and fail the
-    verbatim check above."""
+    longer as "locked". Every heading in `SECTIONS`, both amendments
+    included, which is also what holds them in `SECTIONS` order in §1: an
+    unlisted block between two of them would end the earlier one's
+    `body_to_heading` read early and fail the verbatim check above."""
     text = DOC.read_text()
     one_at = text.index("## 1. Pre-registration (locked)")
     two_at = text.index("## 2. Part A")
@@ -245,13 +271,26 @@ def test_part_b_begins_not_yet_measured_or_a_measured_heading():
             or first.startswith("### measured")), first
 
 
+def test_part_c_begins_not_yet_measured_or_a_measured_heading():
+    """The same gate on §4, opened the day part C was pre-registered and
+    before the retrofit is run on a copy of this box's own store."""
+    text = DOC.read_text()
+    lines = text.splitlines()
+    idx = lines.index("## 4. Part C")
+    first = next(ln for ln in lines[idx + 1:] if ln.strip())
+    assert (first == "Not yet measured."
+            or first.startswith("### measured")), first
+
+
 def test_the_record_opens_with_its_title_and_no_box_path():
     """Catches: a retitled record, or a box-specific absolute path leaking
     into a document meant to travel with the repo -- outside the one
-    sanctioned `E16_DIR=` pin each of blocks (b) and (c) carries, which stay
+    sanctioned work-root pin each of blocks (b), (c) and (d) carries
+    (`E16_DIR=` for parts A and B, `E16C_DIR=` for part C), which stay
     verbatim because §1 says those blocks are verbatim."""
     text = DOC.read_text()
     assert text.startswith("# E16 — secrets redaction, measured\n")
     stray = [ln for ln in text.splitlines()
-             if ("/mnt/" in ln or "/home/" in ln) and "E16_DIR=" not in ln]
+             if ("/mnt/" in ln or "/home/" in ln)
+             and not any(pin in ln for pin in ("E16_DIR=", "E16C_DIR="))]
     assert stray == [], stray

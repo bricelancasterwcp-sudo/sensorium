@@ -68,6 +68,7 @@ record](#install-and-record), under Rust.
     sensorium flow last --object build_key:record # what happened to that object
     sensorium diff RUN_A RUN_B                    # where two runs part
     sensorium refocus last --focus fog:compute    # re-run deeper, verified
+    sensorium redact --all --dry-run              # what an older store still holds
 
 Per-line state is opt-in at record time, so a predicate over locals needs a
 run that captured them:
@@ -366,9 +367,9 @@ compared: both carry secrets. **What rule v1 does not reach is stored as it
 was** — a secret in a variable named `x` or a bare `key`, one no content
 pattern knows, the command line, a token split across two `write()`s,
 anything under `SENSORIUM_NO_REDACT`, every mode bit on Windows, and every
-trace already on disk, which a later version's retrofit reaches. Treat a
-trace as you would a core dump or a `.env`: sharing one shares all of the
-above, and `SENSORIUM_DIR` is the only control over where it lands.
+trace already on disk until `sensorium redact` runs over it. Treat a trace as
+you would a core dump or a `.env`: sharing one shares all of the above, and
+`SENSORIUM_DIR` is the only control over where it lands.
 
 ## What sensorium sees at all
 

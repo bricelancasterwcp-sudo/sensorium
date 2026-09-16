@@ -51,6 +51,16 @@ the dry-run/real pair, the bench numbers and their lens.
 - **Versions expected:** `recorder` reads `sensorium 0.16.0`, `sensorium-rt 0.7.0`, `sensorium-ts 0.6.0`; `driver_version` `cargo-sensorium 0.8.0`; §3 records what they were.
 - **Kill rules:** the driver rebuild 1800 s, the baseline worktree build 600 s, each recording 600 s, each bench table 1200 s, the part 60 min; a kill is an infrastructure event, rerun from zero with a fresh token.
 
+### 2026-09-15 — Part C's pre-registration (amendment, beside the locked text above)
+
+- **Part C's cell is H4 in full**, on a COPY of this box's `~/.sensorium/traces` — the store §9 names, 273 traces when §9 was written; the copy's own count is recorded in §4 and H4 is read over every trace the copy holds. H1, H2, H3 and H6 were parts A's and B's (measured, DONE); H5 was part B's. Each is written into the results file as `dropped` with the part that owns it. §9's H4 row stands: PASS iff `redact --all --dry-run` on the copy reports every trace holding `CLAUDE_CODE_MESSAGING_TOKEN` plaintext, `redact --all` on the copy leaves `grep -c` of that token's value at 0 across every file, every trace still opens (`info` exit 0), and the count line matches the dry run; STOP on any residue, any trace that no longer opens, or dry-run ≠ real.
+- **The token is not minted.** It is the value of `CLAUDE_CODE_MESSAGING_TOKEN` in the copy's own traces, read by the instrument from the first trace's `meta.env` through a read-only connection, held in memory, never printed and never written by the instrument anywhere but its own `grep` argument; the record cites its `sha256` first 8 hex. The rehearsal (`E16_DRY=1`) runs the same phases on a fabricated store of three synthetic traces carrying `dry-` + 4 characters in the same variable, one `str` RETURN, one output row and one `children` element, and never touches the live store's copy.
+- **H4's reading, clause by clause:** (1) the dry run's stdout parsed line by line — `run <id>: env <n> redacted (<names>); values <n>; mode <a> -> <b>` — and the set of `<id>` whose `<names>` contains `CLAUDE_CODE_MESSAGING_TOKEN` must equal the set of `*.db` stems in the copy; (2) `grep -rc --binary-files=text -F <value>` over `store-c/` after the real run, per file, every count 0 (a `-wal`/`-shm` that no longer exists is 0 by absence; `redaction.key` and `invocations.jsonl` are in the sweep); (3) `sensorium info <id>` for every stem, exit 0 and the `redaction:` line containing `by retrofit`; (4) the two captured stdouts compared as bytes. The count-before phase is a PRECONDITION: every `*.db` in the copy must hold the value at least once before the run, else the copy is not the store §9 describes and the run refuses.
+- **Reported, not gated:** the copy's trace count beside §9's 273; the summary line verbatim (it carries no path); every file's mode after (`stat -c %a`) and `traces/`'s; the number of `-wal`/`-shm` files before and after; the wall time of the dry run and the real run; `values` totals summed over the dry-run lines.
+- **Locations** are the record's §4 pin table only: `E16C_DIR=/mnt/extra/sensorium-rung2/e16c`, the copy `$E16C_DIR/store-c`, transcripts `$E16C_DIR/c-transcripts/`, instrument output `$E16C_DIR/c-out/`, the rehearsal's own root `$E16C_DIR-dry`. Part A's and B's trees under `/mnt/extra/sensorium-rung2/e16` were freed 2026-09-15 (evidence archived) and are not read.
+- **Versions expected:** the venv's `sensorium` reads **0.17.0** (`importlib.metadata`), and every retrofitted trace's `redaction.by` reads `retrofit`; the traces' own `recorder` strings are whatever they were and §4 records their distribution (§13(a): 251 `sensorium-rt`, 19 Python, 3 `sensorium-ts`).
+- **Kill rules:** the copy 600 s, each `redact` run 900 s, the `info` sweep 900 s, each grep 300 s, the part 45 min; a kill is an infrastructure event, rerun from zero on a FRESH copy.
+
 ## 2. Part A
 
 ### measured 2026-09-14
@@ -727,3 +737,109 @@ Never gated (§9, and rust/HONESTY.md §10: cost is reported, never gated). An o
 | grep-values | 0.276 |
 | bench-baseline | 37.656 |
 | bench-head | 44.6 |
+
+## 4. Part C
+
+### measured 2026-09-16
+
+Measured once, on this box, under `e16c.sh`. **Part C: DONE** — H4 PASS. The subject was a COPY of `~/.sensorium/traces` and its `redaction.key`: 273 traces against §9's 273, copied into the work root and retrofitted there, so the live store was read and never written (the retrofit of it is a post-merge chore, C18). The token was NOT minted (P10) and it is not one value: the traces already held 4 distinct value(s) of `CLAUDE_CODE_MESSAGING_TOKEN` (the token rotated over the store's life), each read from its own trace's `meta.env` through a read-only connection and swept one at a time (R15, amended below), never printed and never written anywhere but `grep`'s own argument — `sha256(value)[:8]` = `41285dda` (254 trace(s)), `61e4ad5f` (11 trace(s)), `876f167c` (5 trace(s)), `426ae10d` (3 trace(s)). 28.8s wall clock.
+
+| cell | word | §9's rule | what was read |
+|---|---|---|---|
+| H4 | **PASS** | all | 273 traces, every one named in the dry run; 0 occurrences in 275 files after; 273/273 info exit 0, by retrofit; stdouts identical |
+| H1-env | dropped | -- | part A |
+| H1-values | dropped | -- | part B |
+| H2 | dropped | -- | part A |
+| H3 | dropped | -- | part A |
+| H5 | dropped | -- | part B |
+| H6-env | dropped | -- | part A |
+| H6-values | dropped | -- | part B |
+
+#### Pins
+
+| pin | path |
+|---|---|
+| work root | `E16C_DIR=/mnt/extra/sensorium-rung2/e16c` |
+| the copy (the subject) | `$E16C_DIR/store-c/` |
+| transcripts | `$E16C_DIR/c-transcripts/` |
+| instrument output | `$E16C_DIR/c-out/` |
+| copied out of (never written to) | `~/.sensorium` |
+
+#### The dry run
+
+Before the measurement, on a FABRICATED store of three synthetic traces carrying a `dry-` decoy that no content pattern matches (P11), with each `redact` pass capped at 90 s, the `info` sweep at 90 s, each grep at 30 s and the part at 270 s (a tenth of the measurement's 2700 s), into a work root of its own that was deleted afterwards. What it found, and what changed in the instrument between it and the run above:
+
+- e16a._run merges stderr into stdout, so clause 4 could never have matched under part A's runner; part C added _run_split, which keeps the streams apart and compares stdout as bytes.
+- The traces/ directory clause prints in BOTH passes (P3), so --all's directory tightening does not break dry/real byte-identity; confirmed on the rehearsal, not assumed.
+- The first fabricated store carried no -wal/-shm (TraceWriter.close checkpoints), so the sidecar arithmetic was rehearsed at zero on both sides and a suffix bug went unseen; the second rehearsal holds a reader open so the store carries sidecars, and counts by name: 3+3 before, 0 after.
+- The before and after file counts are not one-for-one: the before sweep counts the sidecars apply later unlinks, and the after sweep counts the invocations.jsonl the command wrote into the copy; the Before and after table says so.
+- R15 (pre-launch amendment, beside the locked block): the live store holds FOUR distinct CLAUDE_CODE_MESSAGING_TOKEN values (the token rotated: 254/11/5/3 of 273 traces), so the instrument sweeps every distinct value found in the copy -- each trace must hold its own value before, every value must read 0 in every file after -- and the record cites each value's sha8 and the count, never a value; the second rehearsal swept two decoy values.
+
+#### Amendments, beside §1
+
+- **R15, the token is a SET of values, not one.** §1's amendment pre-registers the token as "the value of `CLAUDE_CODE_MESSAGING_TOKEN` in the copy's own traces, read by the instrument from the first trace's `meta.env`", and makes it a precondition that "every `*.db` in the copy must hold the value at least once before the run". Measured read-only before the run, this box's store holds FOUR distinct values of that variable across its 273 traces (254 / 11 / 5 / 3 — the token rotated over the store's life), and the first `*.db` in sorted order carries the one held by 11. Read literally, the precondition therefore refuses 262 of 273 traces for a reason that has nothing to do with the retrofit. Corrected clause: **the instrument reads every trace's own value, sweeps the DISTINCT set one value at a time, and requires each trace to hold ITS OWN value at least once before the run; clause 2 requires every one of the values to read 0 in every file after it.** That is strictly stronger than the pre-registered single-value reading — it makes clause 2 a claim about all 273 traces instead of 11 — and it cannot pass where the pre-registered one would. The record cites each value's `sha256[:8]` with the number of traces holding it; no value is ever printed.
+
+#### Versions
+
+| version | read | §1 expected |
+|---|---|---|
+| `sensorium` (the venv the command ran from) | 0.17.0 | 0.17.0 |
+| `recorder:` on 19 trace(s) | (none recorded — a Python trace) | -- |
+| `recorder:` on 76 trace(s) | sensorium-rt 0.1.0 | -- |
+| `recorder:` on 81 trace(s) | sensorium-rt 0.3.0 | -- |
+| `recorder:` on 94 trace(s) | sensorium-rt 0.4.0 | -- |
+| `recorder:` on 3 trace(s) | sensorium-ts 0.4.0 | -- |
+
+#### H4 — the four clauses
+
+| # | the clause | what was read | word |
+|---|---|---|---|
+| 1 | every `*.db` in the copy has a dry-run line naming CLAUDE_CODE_MESSAGING_TOKEN | 273 traces, every one named in the dry run | **PASS** |
+| 2 | every `grep -rc` count over the copy is 0 after the real run | 0 occurrences in 275 files after | **PASS** |
+| 3 | `sensorium info` exits 0 on every trace and reads `by retrofit` | 273/273 info exit 0, by retrofit | **PASS** |
+| 4 | the dry run's stdout is the real run's, byte for byte | stdouts identical | **PASS** |
+
+#### The count line
+
+| pass | exit | seconds | the summary line |
+|---|---|---|---|
+| `--dry-run` | 0 | 6.619 | `redacted 273 of 273 traces (0 already clean, 0 skipped, 0 refused); spools under target/ and the TypeScript spool dirs are not reached; traces/ mode 775 -> 700` |
+| real | 0 | 7.982 | `redacted 273 of 273 traces (0 already clean, 0 skipped, 0 refused); spools under target/ and the TypeScript spool dirs are not reached; traces/ mode 775 -> 700` |
+
+The two stdouts were byte-identical: `sha256(dry) = f73437dcc1f03e5e`, `sha256(real) = f73437dcc1f03e5e`. `--dry-run` said on stderr: `dry run: nothing was written`.
+
+#### Before and after
+
+| reading | before | after |
+|---|---|---|
+| traces in the copy (`*.db`), against §9's 273 | 273 | -- |
+| traces whose environment held `CLAUDE_CODE_MESSAGING_TOKEN` | 273 | -- |
+| distinct values of it, each swept on its own (R15) | 4 | 4 |
+| files holding any of those values' bytes | 273 | 0 |
+| occurrences of them, summed | 273 | -- |
+| files whose count could not be read | -- | 0 |
+| files swept | 820 | 275 |
+| `-wal` files | 273 | 0 |
+| `-shm` files | 273 | 0 |
+| files at mode 0600 | -- | 275 of 275 |
+| `traces/` mode | -- | 700 |
+| occurrences of `41285dda` after | -- | 0 |
+| occurrences of `426ae10d` after | -- | 0 |
+| occurrences of `61e4ad5f` after | -- | 0 |
+| occurrences of `876f167c` after | -- | 0 |
+
+The two file counts are not one-for-one: the sweep before the pass counted the `-wal`/`-shm` sidecars that `apply` then unlinked with the inode it replaced (C7), and the sweep after it counts the `invocations.jsonl` the command wrote into the copy as it ran. Both sweeps are the same function over the same root, so every file present at the time is in the count.
+
+#### Phases
+
+| phase | seconds |
+|---|---|
+| preflight | 0.128 |
+| copy | 0.155 |
+| count-before | 0.142 |
+| dry-run | 6.62 |
+| real | 7.983 |
+| compare | 0.0 |
+| grep-after | 0.139 |
+| info | 13.584 |
+| modes | 0.006 |

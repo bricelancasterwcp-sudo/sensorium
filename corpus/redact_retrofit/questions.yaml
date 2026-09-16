@@ -1,0 +1,124 @@
+program: main.py
+record: {focus: ["main:handle"]}
+env: {SENSORIUM_NO_REDACT: "1", SENSORIUM_CORPUS_TOKEN: tok_corpus_PtHKeOz8TWTS0t6Bedc7DPycBpE0J}
+questions:
+  - id: what-would-the-retrofit-take
+    ask: >
+      This trace was recorded with SENSORIUM_NO_REDACT set, so it holds
+      plaintext the way every trace made before rule v1 existed does. What
+      does redact --dry-run say it would take?
+    truth: >
+      FOUR values, all by NAME, at the same four sites secret_in_env
+      records live -- secret()'s RETURN (taken by the callee's own name,
+      B7), the token local's LINE delta, the headers dict's value under
+      its authorization key (the map VALUE fires under its key), and
+      send's CALL argument token. --dry-run is plan() alone (P1): it names
+      what would change and changes nothing, so a second dry run over the
+      same store would print the identical line.
+    why_logs_fail: >
+      This program's one addition over secret_in_env's shape is
+      print(token), and it already put the token in this trace's own
+      stored output row -- the content rule the retrofit runs cannot see a
+      tok_corpus_ value (no pattern matches it, B19), so that row holds
+      the token before AND after redact runs. That is the documented
+      limit, not a bug this case is hiding: it is why expect_absent holds
+      here only because redact itself prints no output row, and why no
+      question in this case runs frame over handle -- frame would render
+      the very output chunk print(token) wrote, putting the live token in
+      this transcript to "confirm" a limit the tool already states in its
+      own docstring. The honest way to see what the retrofit took is to
+      ask redact and info what they did, never to print the value back.
+    command: ["redact", "$RUN", "--dry-run"]
+    expect_line:
+      - ["run ", ": env ", " redacted (", "SENSORIUM_CORPUS_TOKEN", "); values 4; mode 600"]
+    expect_exit: 0
+    expect_absent: ["tok_corpus_PtHKeOz8TWTS0t6Bedc7DPycBpE0J"]
+
+  - id: the-retrofit-rewrites-once
+    ask: >
+      Running redact for real (no --dry-run) on the same plaintext trace --
+      what does it do and say?
+    truth: >
+      The same line --dry-run printed, because --dry-run's stdout is
+      byte-identical to the real run's (C10): an env line naming
+      SENSORIUM_CORPUS_TOKEN among however many variables the launching
+      shell made fire, then values 4; mode 600. This time the rewrite
+      actually happens -- the env line is redacted under the store's key,
+      the four captured values become markers, the redaction stamp is
+      rewritten by: "retrofit", mode: "on", and the file is left at 0600
+      (C11) -- a plaintext trace made before the rule existed now reads
+      the way a trace recorded under it would.
+    why_logs_fail: >
+      Same reason as the first question: the stored output row already
+      holds the token from print(token), so nothing in this case may print
+      it again to double-check the rewrite. redact's own line and info's
+      answer (asked next) are the honest way to confirm what changed.
+    command: ["redact", "$RUN"]
+    expect_line:
+      - ["run ", ": env ", " redacted (", "SENSORIUM_CORPUS_TOKEN", "); values 4; mode 600"]
+    expect_exit: 0
+    expect_absent: ["tok_corpus_PtHKeOz8TWTS0t6Bedc7DPycBpE0J"]
+
+  - id: a-second-pass-finds-nothing
+    ask: >
+      Run redact a second time on the now-retrofitted trace. What happens?
+    truth: >
+      Nothing to redact: the trace is already mode: "on" and this pass
+      finds no more plaintext to take, so P5 holds -- a trace already on
+      whose pass finds nothing is not rewritten, and the line says so
+      rather than repeating the first pass's counts. redact exits 1 on a
+      trace with nothing to do (the epilog's own words), distinct from 0
+      (something changed or would) and 2 (a refusal).
+    why_logs_fail: >
+      Same reason again: the output row still holds print(token)'s value,
+      so confirming "nothing changed" by inspecting output would mean
+      printing it a third time. The line redact prints is the honest
+      answer -- it says nothing to redact without needing to show what
+      that nothing is relative to.
+    command: ["redact", "$RUN"]
+    expect_contains: ["nothing to redact; mode 600"]
+    expect_exit: 1
+    expect_absent: ["tok_corpus_PtHKeOz8TWTS0t6Bedc7DPycBpE0J"]
+
+  - id: info-says-whose-hand
+    ask: >
+      info on the retrofitted trace -- does it say a recorder redacted this
+      at birth, or something else?
+    truth: >
+      Something else: the redaction: line names by retrofit, not a
+      recorder, because this trace was born plaintext (SENSORIUM_NO_REDACT
+      held for the recording) and only became redacted when redact ran
+      over it afterward. It reports values redacted: 4 -- the same four
+      sites the dry run and the real run counted -- and the env: field
+      names SENSORIUM_CORPUS_TOKEN among the redacted variables, so a
+      reader can tell this trace's history apart from a trace the rule
+      protected from the start.
+    why_logs_fail: >
+      info answers this from the stamp the retrofit wrote, not by
+      re-reading the plaintext -- the output row still holds print(token)'s
+      value, so a question that tried to confirm "it really was redacted"
+      by printing a value instead of asking info would put the live token
+      in this transcript for nothing info's own line does not already say.
+    command: ["info", "$RUN"]
+    expect_contains: ["by retrofit", "values redacted: 4", "SENSORIUM_CORPUS_TOKEN"]
+    expect_absent: ["tok_corpus_PtHKeOz8TWTS0t6Bedc7DPycBpE0J"]
+
+  - id: the-return-is-a-marker-now
+    ask: >
+      grep the trace for secret's RETURN event. Does it still hold the
+      token, or the marker the retrofit wrote?
+    truth: >
+      The marker -- <redacted #xxxxxxxx>, a digest keyed to this store's
+      redaction.key, never the token itself. secret()'s RETURN was one of
+      the four sites the retrofit took by the callee's own name (B7), so a
+      grep for the function that minted the token now finds only the
+      marker it left behind, the same as a trace the rule redacted at
+      birth would show.
+    why_logs_fail: >
+      grep reads the marker the retrofit already wrote; nothing here needs
+      the plaintext to answer, and printing the token to compare it against
+      the marker would put it back in this transcript to "confirm" what
+      grep's own exit already shows.
+    command: ["grep", "$RUN", "secret", "--kind", "RETURN"]
+    expect_contains: ["<redacted #"]
+    expect_absent: ["tok_corpus_PtHKeOz8TWTS0t6Bedc7DPycBpE0J"]

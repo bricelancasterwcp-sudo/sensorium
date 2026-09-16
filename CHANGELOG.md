@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.17.0 — 2026-09-16
+
+**The retrofit.** Parts A and B took the environment and the values at the
+writer; this reaches every trace already on disk. `sensorium redact <run>` and
+`sensorium redact --all` do to a stored trace what a recorder would have done
+to it at birth — the environment through the NAME rule under the store's key,
+every captured value the writers reach, the stamp rewritten `by: "retrofit"`
+and `mode: "on"`, the file left at 0600 — while `--dry-run` says what a pass
+would take and writes nothing. Python **0.17.0** alone; no runtime, converter
+or probe changed and `TRACE_FORMAT` stays **4**. This is PART C, the last of
+the three.
+
+- **One judgement, one writer.** `redact_store.plan()` decides a whole trace in
+  memory — environment and hash, the changed rows, the stamp, the counts, the
+  refusal or the skip — and writes nothing; `apply()` alone writes. `--dry-run`
+  is `plan()` alone, so its stdout is byte-identical to the real run's (`dry
+  run: no trace was changed` goes to STDERR — a dry run still logs its own
+  invocation and still creates an absent store on its way to globbing it).
+- **What a pass takes.** The environment takes the NAME rule and nothing else;
+  the values are what the three writers reach — `args`/`deltas` bindings, a map
+  sample's value under its key, a RETURN under its callee's last qualname
+  segment, messages, `unwind_exc`, `output` rows, `meta.children`. `env_hash`
+  must reproduce under the trace's own formula, or the trace is refused by
+  name.
+- **The knobs are the CALLER's**, read from the environment `redact` runs in
+  and stamped; **`SENSORIUM_NO_REDACT` is ignored**, since running the command
+  IS the decision. A second pass takes nothing, a trace keyed under ANOTHER key
+  is refused rather than mixed, an UNKEYED `on` trace becomes keyed under a
+  keyed store, and `values` is ADDITIVE, a content hit leaving text rather than
+  a marker.
+- **backup → rewrite → checkpoint → fsync → rename → sidecars.** The trace is
+  copied with `Connection.backup` into `.<run>.db.redact.<pid>.tmp`, not
+  byte-copied (that loses uncheckpointed `-wal` rows), rewritten in one
+  transaction, fsynced and renamed; the ORIGINAL's `-wal`/`-shm` go last, or
+  SQLite recovers that plaintext log over the redacted database. A kill leaves
+  the original whole and a tmp, swept or refused by the next pass.
+- **The lines, the exits, the modes, the sweep.** One line per trace and one
+  summary; exit 0 when something changed or would, 1 when nothing did, 2 on a
+  refusal (the walk continuing, an `incomplete` trace skipped). A rewritten
+  trace is 0600 by creation, a clean one at another mode tightened in place,
+  `traces/` set 0700 under `--all`, and a dead writer's
+  `redaction.key.<pid>.tmp` swept once per pass.
+- **H4 is pre-registered, not claimed here**: the acceptance record's part C
+  measures this over a copy of the box's own store, in a later commit —
+  measured 2026-09-16, **H4 PASS** on all four clauses over a `cp -a` copy of
+  the box's 273-trace store (the record's §4).
+  `corpus/redact_retrofit` is this one's end-to-end case — a plaintext
+  recording, retrofitted and read back with the token in no answer.
+
 ## 0.16.0 — 2026-09-14
 
 **And now the values.** Part A took the environment; this takes everything a
@@ -635,165 +684,4 @@ guard list is narrowed) and **R29** (§2.2's `Closest:` clause gains the case
 where only `<anonymous>` qualnames are eligible). `docs/CARRIED-DEBT.md` closes
 five rung-3 debts and opens this rung's.
 
-## 0.11.0 — 2026-09-11
-
-**The catch-all gets a name.** S5 rung 3 closes rung 2's Gap 4: the
-seventeen blocks reading *"no rule of this recorder reaches a verdict
-here"* now read a reason, `untraced catcher`, in three variants — `its
-caller f<n> returned; not followed`, `later unwound with <exc>: a
-translation by untraced code, or a later failure, indistinguishable`, and
-`had not closed at the end of the recording; not followed` — each
-predicted by a human from source before this code existed. Rule 4's
-absorbing conjunct is now window-scoped, not trace-global, so a logged
-rethrow to the harness reads `PROPAGATED` where rung 2 read this same
-catch-all (`corpus/typescript/logged_rethrow_to_harness`); a second tally
-line prints only when non-empty — `ambiguous by reason: escaped 21,
-untraced catcher 32` on the kept lens. Python **0.11.0** (the reason, the
-window scope, the site-bearing TypeScript key — the verdict's own words
-under a mask `\b[ef]\d+\b` that exempts nothing, closing Gap 1's borrowed
-Rust float-type exclusion; the origin site enters only where the verdict
-names none of its own); **`sensorium-ts` stays 0.2.0**, no runtime,
-transform or wire change. `TRACE_FORMAT` stays **4**, wire **v1**; nothing
-is recorded this rung — one re-read of the kept rung-2 invocation, hashed
-before and after, against a pre-registration byte-locked first
-(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3.md` §1).
-
-Four new corpus cases and the `translated` re-pin bring
-`corpus/typescript/` to **32**; one new probe marker,
-`callback_bare_rethrow` (`.catch((e) => { throw e })` → `catch_callback`),
-closes a rung-2 debt with no probe pin; every acceptance script resolves
-`<repo root>/.venv/bin/sensorium` and refuses outside it, only `lens.py`
-stamps the `lens` label, and the E7 checker prints its matching rule.
-
-**All eight endpoints ran once, none fired its rule's failure word — the
-rung ships DONE** (record §3, §5): **E6-TS‴** 0 false names over 20
-blocks, 17 of 17 rows named, `unnamed` 0; **E6-TS′-fence** 0 differences
-over 29 gated lines; **E-places** 28 of 28 SWALLOWED blocks; **E6-TS** 21
-of 21 corpus cases; **E8‴** 33 of 33 markers; **E7‴** 0 over 9 needles;
-**E-legacy**/**E-branch** intact. Left open, none a stop: a block can cover
-origins from two rows sharing one parent frame; `[×3 …]` was unprintable,
-its arithmetic conserved instead (`[×132 over 11 processes …]`,
-130+1+1); and `tests/test_exceptions_python*.py` matched no file, the
-fence holding on intent regardless. `HONESTY.md` §4 and blind spot 27 are
-amended; `docs/query.md` gains the reason line; `CARRIED-DEBT.md` closes
-Gap 1, Gap 4, the neighbour and the probe-marker debt, dated to this
-record, and gains new debts.
-
-## 0.10.0 — 2026-09-10
-
-**`exceptions` answers on a TypeScript trace.** S5 rung 2 gives the throw-flow
-rows rung 1 recorded a rule to be read by: the same five dispositions
-`exceptions` has always printed — `swallowed`, `uncaught`, `re-raised`,
-`propagated`, `ambiguous` — computed over JavaScript's own shapes, per trace
-and across a whole `sensorium ts run` invocation. Python **0.10.0** (a third
-rules module, the per-member invocation dispatch, four vectors, seventeen new
-corpus cases); **`sensorium-ts 0.2.0`** (the escape rule, the rejection-callback
-wrapper, the `finally` sink, `capabilities.err_flow: true`). The Rust crates do
-not move. `TRACE_FORMAT` stays **4** and the wire stays **v1**: the BOOT record
-gains `capabilities`, HANDLED gains `how`, and nothing else changes shape —
-every Python and Rust `exceptions` output, every existing vector and every
-Python and Rust corpus case is byte-identical, which is what the suites that
-did not move are the evidence for.
-
-Everything below is measured on one lens — the tabletop VTT frontend at
-`0091e97`, **372 test files, 4,278 tests**, under vitest 4.1.9, vite 6.4.3,
-jsdom 29.1.1, node v24.16.0, 16 cores — against a pre-registration byte-locked
-before any of this code existed
-(`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §1). **Every
-one of the nine endpoints ran, once, and not one fired its rule's failure
-word.** No row reads PASS and neither does the rung, because no rule of this
-pre-registration supplies that word: six name only a failure word, three name
-none at all. **The rung ships DONE** — the DONE-WITH-STOP branch §1 spells out
-is the one not taken.
-
-- **The recorder classifies a catch binding where the syntax is, and says so
-  in `how`** (`sensorium-ts 0.2.0`, spec §2.1–§2.5). A clause's word is decided
-  at transform time from its own AST: **`catch`** when the body never mentions
-  the binding or mentions it only as an argument of a `console.*` call
-  (log-and-continue is the archetypal swallow), **`catch_escaped`** when it
-  appears anywhere else, **`sink_empty_catch`** for an empty block. Rejection
-  handlers get the same rule applied to their parameter —
-  **`catch_callback`**, **`catch_callback_escaped`**,
-  **`sink_empty_catch_callback`** (now for the `function` spelling too, closing
-  blind spot 11), and **`catch_callback_opaque`** for a handler defined
-  somewhere else, whose parameter's fate is not this splice's to say. A
-  `finally` block that `return`s, `break`s or `continue`s discards an in-flight
-  throw and records **`sink_finally_return`**, read from a one-slot mark per
-  frame that carries the real serial (blind spot 3 closes). Nine `how` words in
-  all, and the enumeration is the declaration: a shape outside it produced no
-  record, and `typescript/HONESTY.md` §4 lists what still produces none.
-- **A bare rethrow is a traced exit, not an escape** (`68015dd`, `43e1fbd`,
-  spec §2.1's dated amendment). `throw e;` whose operand is the binding itself
-  leaves the way it arrived and carries the same serial, so it does not count
-  towards `catch_escaped`: `catch (e) { console.error(e); throw e }` reads
-  `catch`, while `catch (e) { list.push(e); throw e }` and
-  `catch (e) { throw new Wrapped(e) }` stay `catch_escaped`. The exclusion
-  holds at closure depth 0 only, and applies to rejection callbacks by the same
-  rule. It was found and fixed **before any endpoint was measured**: the
-  literal reading barred every `throw e` hop from SWALLOWED and made §1's
-  locked `rethrow_hop` count unreachable by construction (record §2.3).
-- **The capability is the gate, and an old trace still refuses.**
-  `capabilities.err_flow` is **true** on a 0.2.0 recording and the converter
-  passes the BOOT record's own capabilities through untouched. A trace a 0.1.x
-  runtime wrote declares `false` and is refused at exit **3** by the capability
-  sentence — naming the recorder and saying nothing was checked — because what
-  it lacks is a record and not a rule. Re-recording is the fix; the cost was
-  pre-committed at rung 1, not discovered here. Vector
-  `v32-err-flow-typescript-capability-refusal` pins that sentence, and the old
-  language refusal is gone: `TYPESCRIPT.exceptions_refusal` is now `None`.
-- **SWALLOWED is claimed only where the recording establishes it.** A HANDLED
-  whose `how` is in the absorbing set, in a frame that later closed by
-  `return`, with no later raise of the serial and **no** escaping handler for
-  it anywhere. Everything else is `ambiguous` with its reason printed —
-  an escaped or opaque handler, a handler frame still suspended, a primitive
-  rethrow, a frame that unwound with a different serial. Nothing reaches
-  SWALLOWED by falling through, and an UNWIND is never itself a verdict.
-- **`sensorium exceptions <invocation-id>` answers for a whole TypeScript run**
-  (spec §4). Every member trace is opened, dispatched on its own `lang`, and
-  merged on a shape key the language module supplies, so one clause swallowing
-  in 40 processes prints once with `[×N over N processes]` beside it. The
-  grouper Rust has used since 0.8.2 is now generalised over a per-language
-  renderer, and every Rust caller and test is byte-unchanged.
-- **A swallow corpus that runs itself.** `corpus/typescript/` grows from
-  thirteen cases to **28** — one shape per case, each with an `exceptions`
-  question pinning the verdict line and the tally, and a `why_logs_fail` naming
-  all three channels. `exceptions_refused` is renamed **`silent_swallow`**: the
-  refusal it recorded is one no recorder produces any more, and it is a vector
-  now.
-- **What the endpoints read** (record §3). **E6-TS** — the corpus's verdicts,
-  **17 of 17** equal to the locked table. **E6-TS′** — the gate that decides
-  the shipping word: **0 false SWALLOWED of 30** hand-adjudicated shapes on a
-  consumer's own suite, every line's adjudication written into
-  `-e6tsp-adjudication.md` under a protocol fixed before any of them was read;
-  the tally over that run is `swallowed 261, ambiguous 53` across 314 raises in
-  53 of 372 processes. **E2″** — **287 spliced of 287** eligible sites
-  (177 catch clauses, 108 `.catch`, 2 `.then`, 0 completing `finally`) over 741
-  files, ratio **1.0000**, zero named exclusions needed. **E8″** — **32 of 32**
-  probe markers. **E3-TS″** — **0/19** false DIVERGED over twenty recordings of
-  one file. **E5″** — both harnesses green. **E7″** — **0** occurrences of nine
-  Python/Rust leak needles over both transcripts. **E1‴** — `off/plain`
-  **1.0608** and `call/plain` **1.1266** (n=5 per arm, interleaved, every load
-  reading under 4.0), against rung 1's 1.0587 / 1.1324. **E10″** — the fresh
-  372-spool set converts in **16.0715 s** (n=5), beside slice 2's 16.3859 s.
-- **Four gaps, none of them an endpoint's rule** (record §5). **Gap 1** — the
-  shape key's id mask carries Rust's float-type exclusion (`f32` and its
-  siblings are Rust type names) onto TypeScript FRAME ids, so the lens's 30
-  SWALLOWED shapes are **28 distinct places**; no verdict and no tally moves.
-  **Gap 2** — `arms.sh`, `e3.sh` and `e7.sh` hard-coded the global `sensorium`,
-  which is an editable install of `main`: three reused instruments were
-  measuring the wrong binary, fixed before any of the three ran here. **Gap 3**
-  — E7″'s needle list cannot be applied as written, because `Err` as a
-  case-insensitive substring is matched by every `Error('…')` an answer prints;
-  the three identifier needles are matched word-bounded and case-sensitively,
-  fixed before the count was taken. **Gap 4** — on real code the modal
-  AMBIGUOUS reason is the classifier's catch-all (**17** of 30 ambiguous
-  shapes), and the shape behind it is an untraced catcher sitting *inside* a
-  traced frame. The rules decline instead of guessing, which is what keeps the
-  gate at 0.
-- **Documents.** `typescript/HONESTY.md` §4 is rewritten against the shipped
-  runtime and its blind-spot list restruck, with the list split to
-  `typescript/HONESTY-BLIND-SPOTS.md`; `docs/query.md` gains the TypeScript
-  paragraph under `exceptions`; `docs/CARRIED-DEBT.md` gains the rung's section
-  after cutting rung 1's to [`docs/CARRIED-DEBT-ARCHIVE-6.md`](docs/CARRIED-DEBT-ARCHIVE-6.md),
-  drafted and measured first the way the ledger's own lesson asks; this rung's
-  design gains a §14 naming every place its own text moved and why.
+Earlier entries: [`CHANGELOG-ARCHIVE-2.md`](CHANGELOG-ARCHIVE-2.md) (0.8.7–0.11.0), [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) (older).

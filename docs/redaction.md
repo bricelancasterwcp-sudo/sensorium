@@ -520,11 +520,94 @@ advisory there.
   in Rust and TypeScript, which hash the U+FFFD they stored in its place.
   This is the same per-recorder rule `env_hash` already carries in
   [`TRACE-FORMAT.md`](TRACE-FORMAT.md) §4, for the same reason.
-- **A trace that predates the rule is not covered by it.** Nothing rewrites
-  a stored trace in this version.
+- **A trace that predates the rule holds plaintext until `sensorium redact`
+  is run over it**, which is the retrofit the next section describes.
 
-## Coming in later versions
+## The retrofit: `sensorium redact`
 
-- **`sensorium redact`**, a retrofit that applies the rule to traces already
-  in the store and tightens their modes when asked. Nothing in this version
-  rewrites a trace that is already on disk.
+The rule is at the three recorders' writers; `redact` is what reaches the
+traces already on disk, doing to each what a recorder would have done at birth:
+
+    sensorium redact last              # one trace
+    sensorium redact --all             # every trace in this store
+    sensorium redact --all --dry-run   # what it would take, written nowhere
+
+One flushed line per trace in sorted run-id order, then one summary:
+
+```
+run 20260916-093012-a1b2c3: env 2 redacted (GITHUB_TOKEN, SLACK_TOKEN); values 12; mode 644 -> 600
+run 20260916-094155-c3d4e5: nothing to redact; mode 600
+run 20260916-095001-e5f607: in flight (incomplete), skipped
+run 20260916-095744-071829: REFUSED: env_hash does not reproduce under the python formula
+redacted 1 of 4 traces (1 already clean, 1 skipped, 1 refused); spools under target/ and the TypeScript spool dirs are not reached
+```
+
+`nothing to redact` belongs to a trace that is NOT rewritten — one already
+`mode: "on"` whose pass finds nothing. A pre-rule or `mode: "off"` trace whose
+pass finds nothing is stamped all the same, so its file changes and it is
+counted among the redacted: it prints the counted form with the counts it took,
+`run <id>: env 0 redacted (); values 0; mode 600`, and the line, the summary
+and the exit then agree.
+
+Names are capped at eight and then counted, `info`'s own cap; the lines are
+pinned to the character in `tests/test_redact_cmd.py`. Exit **0** when
+something changed or would, **1** when nothing needed doing, **2** when a trace
+was refused — the others still ran, and a judgement that RAISES is a refusal
+too (`REFUSED: cannot judge: …`) and not a traceback (ruling R10).
+
+- **What one pass takes.** The environment takes the NAME rule alone, never the
+  content rule; the values are exactly what the writers reach — `args`/`deltas`
+  bindings by name, a map sample's value under its key, a RETURN under its
+  callee's last qualname segment, messages, `unwind_exc`, `output` rows and
+  `meta.children`; `argv`, `cwd` and `source_hashes` stay.
+- **`env_hash` is reproduced before it is recomputed**, under that trace's own
+  formula (JSON for Python, the sorted `k=v` join for Rust and TypeScript): a
+  pass that cannot reproduce the OLD hash refuses the trace by name.
+- **The knobs are the CALLER's** — `SENSORIUM_REDACT_NAMES` and
+  `SENSORIUM_REDACT_ALLOW` read from the environment `redact` itself runs in,
+  and stamped. **`SENSORIUM_NO_REDACT` is ignored**: running the command IS the
+  decision, `mode` is always `on`, and the judgement forces the knob off.
+- **A second pass takes nothing**: a name already in `redaction.env` keeps its
+  digest and marker; only one absent from it that fires now is taken. A trace
+  keyed under ANOTHER key is refused (`digests under key <id>, the store's is
+  <id>; nothing rewritten`); an UNKEYED one becomes keyed under a keyed store.
+- **`by: "retrofit"`, and an ADDITIVE `values`**: `info` reads `by retrofit`
+  rather than `by recorder`, and the count is the previous stamp's plus this
+  pass's — a content hit leaves text, not a marker, so it cannot be recounted.
+- **The rewrite is a copy; the original is whole until one rename.**
+  `Connection.backup` into `.<run>.db.redact.<pid>.tmp` (`O_EXCL`, 0600 — a
+  byte copy would lose committed rows still in the `-wal`), one transaction,
+  `TRUNCATE` checkpoint, fsync, rename, directory fsync. The ORIGINAL's
+  `-wal`/`-shm` go LAST, or SQLite recovers that plaintext log over the
+  redacted database. A kill leaves the original whole and a tmp, swept by the
+  next pass once that pid is dead and refusing the trace while it lives — also
+  how two `--all` passes stay apart.
+- **An in-flight trace is skipped, never raced**: one still marked `incomplete`
+  is open in WAL mode elsewhere, and `.<run>.db.tmp` files are never walked.
+- **Modes.** A rewritten trace is 0600 by creation; one needing no rewrite but
+  at another mode is tightened in place with its sidecars and counts as
+  CHANGED. `--all` also tightens `traces/` to 0700 and says so — itself a
+  change, so a pass that tightened it and redacted nothing still exits 0
+  (ruling R11); `redact <run>` never touches the directory.
+- **The stale key tmp sweep** runs once per invocation, before any trace: every
+  `redaction.key.<pid>.tmp` whose writer is dead — 32 bytes of a secret nobody
+  will finish writing (ruling R15) — is unlinked and counted.
+- **`--dry-run` prints the real run's stdout, byte for byte** — same lines,
+  summary, order and exit, with `dry run: no trace was changed` on STDERR — for
+  it runs the judgement alone, the function the real pass applies. The line
+  says TRACE, and means it: no trace's bytes and no trace's mode change, and
+  no `redaction.key` is minted — but the call is logged to
+  `invocations.jsonl` like every other, the stale-key sweep is real, and a
+  store that did not exist is created by the walk that went looking for its
+  traces (the root and `traces/` at 0700, `redacted 0 of 0 traces`). Two
+  corners:
+  an unkeyed store's dry run READS a key where a real run MINTS one, so the
+  other-key refusal says `none` in the first and a key id in the second; and
+  the sweep is real in both modes, so a dry run consumes litter a later real
+  run would have counted. It also opens each trace read-write to judge it — a
+  WAL database needs a writable `-shm` even to read — so SQLite may leave a
+  `-wal`/`-shm` beside a trace whose CONTENT nothing touched.
+- **What it does not reach**: the spools (named on every summary rather than
+  left out of its count), another store, `invocations.jsonl`, the recorded
+  command line, whatever else the limits above place outside rule v1. It never
+  re-keys a store, and nothing reverses it.
