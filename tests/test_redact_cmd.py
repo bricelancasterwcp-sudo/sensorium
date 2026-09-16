@@ -1,0 +1,428 @@
+"""`sensorium redact` -- the retrofit's command, through the real CLI.
+
+Every assertion here is made on a SUBPROCESS's stdout, stderr, exit status
+and the files it left behind, because that is the whole of what this
+command is: the judgement is `redact_store.plan`'s (tested in
+`tests/test_redact_store_plan.py`) and the writing is `apply`'s (tested in
+`tests/test_redact_store_apply.py`). What is under test below is the part
+a reader and a script actually meet -- the LINES (C12), the exits (§7),
+the byte-identity of `--dry-run` (C10), the modes (C11), the stale-key
+sweep in BOTH modes (C13, P3) -- and the three commands that have to be
+able to read a retrofitted trace afterwards.
+
+The spellings are pinned to the character on purpose. `corpus/redact_retrofit`
+and E16 part C both PARSE these lines: a line reworded here is an
+instrument that reads nothing there, and the failure mode of an instrument
+that reads nothing is a green run over an unmeasured claim.
+
+Traces are built synthetically (C15) by Task 2's `_python`, into a scratch
+directory and then COPIED into the store under the run id each test needs
+-- `_python` writes one fixed run id, and `--all` has nothing to say
+unless the store holds more than one trace.
+"""
+import json
+import re
+import shutil
+import sqlite3
+import stat
+from pathlib import Path
+
+from sensorium import redact, redact_key, redact_store
+from sensorium.store import db
+from tests.helpers import record_script, run_cli
+from tests.refocus_programs import LOOP
+from tests.test_redact_store_plan import (ENV, KNOBS, RUN, _dead_pid, _key,
+                                          _python, _rewrite, _set_meta)
+
+#: The one line the whole command exists to print, exactly as C12 spells it
+#: and as `_python`'s trace makes it true: one firing env name, six values
+#: (a bound argument, a map value, a RETURN, a RAISE message, an unwind
+#: message, one output row), and the mode every trace in the store sits at.
+ONE = re.compile(
+    r"^run \S+: env 1 redacted \(API_KEY\); values 6; mode 644 -> 600$", re.M)
+
+SUMMARY_TAIL = ("); spools under target/ and the TypeScript spool dirs are "
+                "not reached")
+
+
+def _cli(tmp_path, args, **kw):
+    return run_cli(args, cwd=tmp_path, sensorium_dir=Path(tmp_path) / "sdir",
+                   **kw)
+
+
+def _traces(tmp_path) -> Path:
+    d = Path(tmp_path) / "sdir" / "traces"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _plant(tmp_path, stem, *, mode=0o644, settled=False, key=None, **kw):
+    """One `_python` trace in the store under `stem`, sidecars and all.
+
+    Built in a scratch directory of its own and copied in, because
+    `_python` writes one run id and `--all` needs several. `settled` runs
+    Task 2's in-place rewrite first, which is the only way to state the
+    trace a SECOND pass meets: everything already taken, under the store's
+    own key.
+    """
+    src = _python(Path(tmp_path) / f"build-{stem}",
+                  env=kw.pop("env", None) or dict(ENV), **kw)
+    if settled:
+        _rewrite(src, redact_store.plan(src, key, KNOBS))
+    dst = _traces(tmp_path) / f"{stem}.db"
+    for suffix in ("", "-wal", "-shm"):
+        beside = src.with_name(src.name + suffix)
+        if beside.exists():
+            shutil.copy(beside, dst.with_name(dst.name + suffix))
+    dst.chmod(mode)
+    return dst
+
+
+def _mode(path) -> int:
+    return stat.S_IMODE(Path(path).stat().st_mode)
+
+
+def _meta(path) -> dict:
+    conn = sqlite3.connect(path)
+    try:
+        return db.all_meta(conn)
+    finally:
+        conn.close()
+
+
+# -- one trace ------------------------------------------------------------
+
+def test_one_trace_line_and_exit_zero(tmp_path):
+    _key(tmp_path)
+    _plant(tmp_path, RUN)
+
+    r = _cli(tmp_path, ["redact", RUN])
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ONE.search(r.stdout), r.stdout
+
+
+def test_dry_run_stdout_is_byte_identical_and_writes_nothing(tmp_path):
+    """C10, the clause H4 is a diff of two stdouts. A dry run that printed
+    even one character the real run does not would turn that measurement
+    into a judgement about wording.
+
+    The store starts with NO `redaction.key`, so "writes nothing" is
+    tested at its strongest: minting the key is a write, and a dry run
+    that minted one would leave a 32-byte secret in a store whose owner
+    had asked for nothing to change (ruling R1). It is also what makes
+    C10 unconditional -- the lines carry names, counts and modes, none of
+    which a key decides, so an unkeyed dry run and a keyed real run print
+    the same bytes.
+    """
+    path = _plant(tmp_path, RUN)
+    before = path.read_bytes()
+
+    dry = _cli(tmp_path, ["redact", RUN, "--dry-run"])
+
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    assert path.read_bytes() == before
+    assert _mode(path) == 0o644
+    assert dry.stderr.splitlines() == ["dry run: nothing was written"]
+    assert not (Path(tmp_path) / "sdir" / redact_key.KEY_FILE).exists()
+
+    real = _cli(tmp_path, ["redact", RUN])
+
+    assert real.stdout == dry.stdout
+    assert (Path(tmp_path) / "sdir" / redact_key.KEY_FILE).exists()
+    assert "dry run" not in real.stderr
+    assert path.read_bytes() != before
+    assert _mode(path) == 0o600
+
+    settled = path.read_bytes()
+    after = _cli(tmp_path, ["redact", RUN, "--dry-run"])
+
+    assert f"run {RUN}: nothing to redact; mode 600" in after.stdout
+    assert path.read_bytes() == settled
+
+
+def test_the_second_run_says_nothing_to_redact_and_exits_one(tmp_path):
+    """P5's other half: a trace already `on` whose pass finds nothing is
+    not rewritten and not a change, so a script can ask "is there anything
+    left to do here" and read the answer off the exit status."""
+    _key(tmp_path)
+    _plant(tmp_path, RUN)
+    assert _cli(tmp_path, ["redact", RUN]).returncode == 0
+
+    r = _cli(tmp_path, ["redact", RUN])
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert f"run {RUN}: nothing to redact; mode 600" in r.stdout
+
+
+# -- the whole store ------------------------------------------------------
+
+def test_all_processes_every_trace_in_sorted_order_and_prints_the_summary(
+        tmp_path):
+    key = _key(tmp_path)
+    _plant(tmp_path, "a-run")
+    _plant(tmp_path, "b-run")
+    _plant(tmp_path, "c-run", settled=True, key=key, mode=0o600)
+
+    r = _cli(tmp_path, ["redact", "--all"])
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    lines = [ln for ln in r.stdout.splitlines() if ln.startswith("run ")]
+    assert [ln.split(":")[0] for ln in lines] == [
+        "run a-run", "run b-run", "run c-run"]
+    assert lines[0].endswith("env 1 redacted (API_KEY); values 6; "
+                             "mode 644 -> 600")
+    assert lines[2] == "run c-run: nothing to redact; mode 600"
+    assert f"redacted 2 of 3 traces (1 already clean, 0 skipped, " \
+           f"0 refused{SUMMARY_TAIL}" in r.stdout
+
+
+def test_all_tightens_the_traces_directory_and_says_so(tmp_path):
+    """C11. A store whose directory is 0755 hands every trace in it to
+    anyone on the box, whatever the files themselves are set to -- and
+    `--dry-run` says so without doing it, which is the only way a reader
+    can find out before deciding."""
+    _key(tmp_path)
+    _plant(tmp_path, RUN)
+    traces = _traces(tmp_path)
+    traces.chmod(0o755)
+
+    dry = _cli(tmp_path, ["redact", "--all", "--dry-run"])
+
+    assert dry.returncode == 0, dry.stdout + dry.stderr
+    assert dry.stdout.rstrip("\n").endswith("; traces/ mode 755 -> 700")
+    assert _mode(traces) == 0o755
+
+    real = _cli(tmp_path, ["redact", "--all"])
+
+    assert real.stdout == dry.stdout
+    assert _mode(traces) == 0o700
+
+
+def test_a_refused_trace_is_named_and_the_run_exits_two_with_the_others_done(
+        tmp_path):
+    """C9. One refusal ends the trace it names and nothing else: an `--all`
+    pass that stopped at the first unreadable file would leave a store
+    half-retrofitted and say so only by what it did not print."""
+    _key(tmp_path)
+    good = _plant(tmp_path, "a-run")
+    bad = _plant(tmp_path, "b-run")
+    _set_meta(bad, trace_format=5)
+    bad_bytes = bad.read_bytes()
+
+    r = _cli(tmp_path, ["redact", "--all"])
+
+    assert r.returncode == 2, r.stdout + r.stderr
+    refusal = next(ln for ln in r.stdout.splitlines()
+                   if ln.startswith("run b-run: "))
+    assert refusal.startswith("run b-run: REFUSED: ")
+    assert "newer than this sensorium reads" in refusal
+    assert bad.read_bytes() == bad_bytes
+    assert "run a-run: env 1 redacted (API_KEY)" in r.stdout
+    assert _mode(good) == 0o600
+    assert f"redacted 1 of 2 traces (0 already clean, 0 skipped, " \
+           f"1 refused{SUMMARY_TAIL}" in r.stdout
+
+
+def test_an_incomplete_trace_is_skipped(tmp_path):
+    """C8. The Python recorder writes in place, so an incomplete trace is
+    a file another process is holding open in WAL mode right now."""
+    _key(tmp_path)
+    path = _plant(tmp_path, RUN)
+    _set_meta(path, incomplete=True)
+    before = path.read_bytes()
+
+    r = _cli(tmp_path, ["redact", "--all"])
+
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert f"run {RUN}: in flight (incomplete), skipped" in r.stdout
+    assert f"redacted 0 of 1 traces (0 already clean, 1 skipped, " \
+           f"0 refused{SUMMARY_TAIL}" in r.stdout
+    assert path.read_bytes() == before
+    assert _mode(path) == 0o644
+
+
+# -- the caller's knobs ---------------------------------------------------
+
+def test_no_redact_in_the_callers_environment_is_ignored(tmp_path):
+    """C4. Running the command IS the decision (§7), so the one knob that
+    could quietly turn it into a no-op does not reach it: a retrofit that
+    obeyed `SENSORIUM_NO_REDACT` would leave a shell's stale export
+    standing between a user and the secrets they asked to be taken out."""
+    _key(tmp_path)
+    path = _plant(tmp_path, RUN)
+
+    r = _cli(tmp_path, ["redact", RUN],
+             env_extra={redact.OFF_VAR: "1"})
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ONE.search(r.stdout), r.stdout
+    stamp = _meta(path)["redaction"]
+    assert stamp["mode"] == "on"
+    assert stamp["by"] == "retrofit"
+    assert _meta(path)["env"]["API_KEY"] == redact.REDACTED
+
+
+def test_the_callers_names_and_allow_knobs_are_read_and_stamped(tmp_path):
+    """C4's other half. The two knobs that SHAPE the pass are the caller's
+    own environment, read now -- the recording's knobs described a shell
+    that has since ended, and the person asking is the one in front of the
+    store."""
+    _key(tmp_path)
+    path = _plant(tmp_path, RUN, env={"MYCO_DSN": "postgres://u:pw@h/db",
+                                      "API_KEY": ENV["API_KEY"],
+                                      "HOME": "/tmp/u"})
+
+    r = _cli(tmp_path, ["redact", RUN],
+             env_extra={redact.NAMES_VAR: "myco_dsn",
+                        redact.ALLOW_VAR: "api_key"})
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert f"run {RUN}: env 1 redacted (MYCO_DSN); values 6; " \
+           f"mode 644 -> 600" in r.stdout
+    meta = _meta(path)
+    assert meta["env"]["MYCO_DSN"] == redact.REDACTED
+    assert meta["env"]["API_KEY"] == ENV["API_KEY"]
+    assert meta["redaction"]["names"] == [redact.normalise("myco_dsn")]
+    assert meta["redaction"]["allow"] == [redact.normalise("api_key")]
+
+
+# -- the call itself ------------------------------------------------------
+
+def test_a_bad_reference_exits_two_before_touching_anything(tmp_path):
+    _key(tmp_path)
+    path = _plant(tmp_path, RUN)
+    before = path.read_bytes()
+
+    r = _cli(tmp_path, ["redact", "nope"])
+
+    assert r.returncode == 2
+    assert r.stdout == ""
+    assert r.stderr.startswith("error: ")
+    assert path.read_bytes() == before
+    assert _mode(path) == 0o644
+
+
+def test_run_and_all_are_exclusive_and_one_is_required(tmp_path):
+    _key(tmp_path)
+    _plant(tmp_path, RUN)
+
+    neither = _cli(tmp_path, ["redact"])
+    both = _cli(tmp_path, ["redact", RUN, "--all"])
+
+    assert (neither.returncode, both.returncode) == (2, 2)
+    assert (neither.stdout, both.stdout) == ("", "")
+    # Named, not merely rejected: "invalid choice" would mean the command
+    # is not registered at all and this test is passing on absence.
+    assert neither.stderr.rstrip().endswith(
+        "error: give a run reference or --all")
+    assert both.stderr.rstrip().endswith(
+        "error: give a run reference or --all, not both")
+
+
+def test_the_stale_key_tmp_is_swept_and_counted(tmp_path):
+    """C13, P3. The sweep runs under `--dry-run` too: a dead process's
+    32-byte leftover is not a trace, and keeping the sweep out of the dry
+    run would make the two stdouts differ exactly when a reader is
+    comparing them."""
+    _key(tmp_path)
+    _plant(tmp_path, RUN)
+    litter = (Path(tmp_path) / "sdir"
+              / f"{redact_key.KEY_FILE}.{_dead_pid()}.tmp")
+    litter.write_bytes(b"x" * 32)
+
+    dry = _cli(tmp_path, ["redact", RUN, "--dry-run"])
+
+    assert "; swept 1 stale key tmp file(s)" in dry.stdout
+    assert not litter.exists()
+
+    litter.write_bytes(b"x" * 32)
+    real = _cli(tmp_path, ["redact", RUN])
+
+    assert "; swept 1 stale key tmp file(s)" in real.stdout
+    assert not litter.exists()
+
+
+def test_the_invocation_is_logged_argv_only(tmp_path):
+    _key(tmp_path)
+    _plant(tmp_path, RUN)
+
+    _cli(tmp_path, ["redact", RUN])
+
+    lines = (Path(tmp_path) / "sdir" / "invocations.jsonl").read_text()
+    entry = json.loads(lines.splitlines()[-1])
+    assert entry["argv"] == ["redact", RUN]
+    assert entry["exit"] == 0
+    assert set(entry) == {"utc", "argv", "exit", "error"}
+
+
+# -- what the three readers say about a retrofitted trace -----------------
+
+def test_info_on_the_result_says_by_retrofit_and_counts(tmp_path):
+    """§4.3's LAST hand. A reader who is told a trace is redacted and not
+    told by whom cannot tell a recording made under the rule from one
+    brought under it afterwards -- and only the second kind has a window
+    in which the plaintext was on disk."""
+    key = _key(tmp_path)
+    _plant(tmp_path, RUN)
+    assert _cli(tmp_path, ["redact", RUN]).returncode == 0
+
+    r = _cli(tmp_path, ["info", RUN])
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (f"redaction: rule v1, keyed (key {key.key_id}), by retrofit; "
+            f"values redacted: 6") in r.stdout
+    env_line = next(ln for ln in r.stdout.splitlines() if "env:" in ln)
+    assert "1 redacted: API_KEY" in env_line
+
+
+def test_grep_on_the_result_shows_the_marker_and_never_the_value(tmp_path):
+    _key(tmp_path)
+    _plant(tmp_path, RUN)
+    assert _cli(tmp_path, ["redact", RUN]).returncode == 0
+
+    r = _cli(tmp_path, ["grep", RUN, "get_api_key", "--kind", "RETURN"])
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "<redacted #" in r.stdout
+    assert "tok_plain_value" not in r.stdout
+
+
+def test_refocus_compares_the_retrofitted_env_by_name(tmp_path):
+    """The retrofit's digests are what `refocus` compares afterwards, so a
+    variable it took is still checkable by NAME on a re-run: equal holds
+    the licence, rotated withholds it and names the variable.
+
+    Both halves, because only the pair discriminates. A test that showed
+    the granted run alone could not tell a digest that was compared and
+    agreed from one that was never looked at -- and "never looked at"
+    granting a full licence over a rotated secret is the failure §6.2
+    exists to refuse.
+    """
+    live = "MY_API_KEY"
+    secret = "sk-live-0123456789abcdef0123"
+    run_id, _trace, rec = record_script(
+        tmp_path, LOOP, env_extra={live: secret, redact.OFF_VAR: "1"})
+    assert run_id, rec.stderr + rec.stdout
+    sdir = Path(tmp_path) / "sdir"
+    assert _cli(tmp_path, ["redact", run_id]).returncode == 0
+    assert _meta(sdir / "traces" / f"{run_id}.db")["env"][live] == \
+        redact.REDACTED
+
+    same = _cli(tmp_path, ["refocus", run_id, "--focus", "prog:accumulate"],
+                env_extra={live: secret, redact.OFF_VAR: "1"})
+    rotated = _cli(tmp_path, ["refocus", run_id, "--focus", "prog:accumulate"],
+                   env_extra={live: "rotated", redact.OFF_VAR: "1"})
+
+    assert same.returncode == 0, same.stdout + same.stderr
+    unchanged = next(ln for ln in same.stdout.splitlines()
+                     if ln.startswith("env: "))
+    assert unchanged.startswith("env: unchanged ("), unchanged
+    assert live not in unchanged
+    assert "licence: WITHHELD" not in same.stdout
+
+    changed = next(ln for ln in rotated.stdout.splitlines()
+                   if ln.startswith("env: "))
+    assert "env: CHANGED since the original run -- 1 variable(s) differ: " \
+           f"{live}" in changed
+    assert "licence: WITHHELD" in rotated.stdout

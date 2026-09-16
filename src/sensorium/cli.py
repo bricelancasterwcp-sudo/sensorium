@@ -13,13 +13,14 @@ import sys
 
 from sensorium import invocations, paths
 from sensorium.query import (diff_cmd, exceptions_cmd, flow_cmd, fmt,
-                             frame_cmd, grep_cmd, info_cmd, refocus_cmd,
-                             runs_cmd, tree_cmd, watch_cmd)
+                             frame_cmd, grep_cmd, info_cmd, redact_cmd,
+                             refocus_cmd, runs_cmd, tree_cmd, watch_cmd)
 from sensorium.store import db
 from sensorium.ts import cli as ts_cli
 
 _QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
-                  exceptions_cmd, flow_cmd, watch_cmd, diff_cmd, refocus_cmd]
+                  exceptions_cmd, flow_cmd, watch_cmd, diff_cmd, refocus_cmd,
+                  redact_cmd]
 
 
 def _add_run_parser(sub):
