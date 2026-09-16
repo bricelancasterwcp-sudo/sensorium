@@ -1147,3 +1147,183 @@ the reading):
 | C18 | **The live retrofit of `~/.sensorium` is NOT in the PR.** It runs on this box after the merge, with the reinstalled 0.17.0 tool, as a recorded chore — Brice's pre-authorisation is conditional on §4 reading H4 PASS, and a chore on one box is not a repository change. | destructive actions are Brice's; the condition is the record |
 | C19 | **Versions:** Python **0.17.0**; `sensorium-rt`, `cargo-sensorium`, `sensorium-ts`, `sensorium-transform` untouched (no runtime, converter or probe changes). `TRACE_FORMAT` stays 4 (`by: "retrofit"` was §4.3's from PR A). The CHANGELOG (799 lines) takes the 0.17.0 entry only after `0.11.0` and `0.10.0` (162 lines) move to `CHANGELOG-ARCHIVE-2.md` (479 → 641) on the numbered-volume rule. README (796) is edited net-zero; `docs/query.md` (798) and `docs/TRACE-FORMAT.md` (797) are not touched — the command's documentation is `docs/redaction.md`'s new section *The retrofit: `sensorium redact`*, which replaces *Coming in later versions* and the limit "A trace that predates the rule is not covered by it". | the ceilings, measured |
 | C20 | **What `redact` does not do, named:** it does not reach spools (§11), other stores (§11), `invocations.jsonl`, or the command lines §2 keeps; it does not re-key a store; it does not reverse anything (`seal` is §11's); it holds no lock across traces, so two concurrent `--all` runs contend per trace through C7's tmp and each refuses what the other holds. | §11, restated where a reader of C looks |
+
+### 2026-09-16 — PR C shipped: the plan's decisions, the controller's rulings, and where the code differs
+
+PR C (`docs/superpowers/plans/2026-09-15-sensorium-redaction-c.md`, Tasks
+0–9) is the last of the three. Nothing in §§1–12 above is edited; this
+section says what shipped, what was ruled while it shipped, and every place
+the code and the sections above disagree. Where they disagree, **the code as
+landed is what the docs describe**. The `PR C designed` section's C1–C20 are
+the decisions this one reports against.
+
+#### (a) The plan's decisions P1–P14, as shipped
+
+| # | as shipped |
+|---|---|
+| P1 | `plan()` is the whole judgement and `--dry-run` is `plan()` alone. Shipped as written: `Plan` carries `path`, `run`, `lang`, `refused`, `skipped`, `env_names`, `values`, `meta`, `payloads`, `unwinds`, `outputs` and `mode_before`, with `rewrites`/`tightens`/`changes` derived from them; `apply()` touches no row the plan did not name, and the command's two modes are one loop with a single branch around `apply`. |
+| P2 | The stamp's `values` is ADDITIVE — the previous stamp's count (0 when absent) plus what this run took. Shipped as written, and it is the first entry in (c): C6 as written says the stamp holds what the trace HOLDS, and a content hit leaves text rather than a marker, so the sum of the hands' counts is the honest number. `Plan.values` is THIS run's; `meta["redaction"]["values"]` is the sum. |
+| P3 | The stale-key sweep and the `traces/` mode clause both run under `--dry-run`. Shipped as written — which is what makes C10's byte-identity unconditional rather than conditional on the flags, and E16's clause 4 a diff of two byte strings. **R12** named its two corners, in (c). |
+| P4 | A value already equal to the marker is never digested. Shipped as written: `_env_pass` skips a stored value equal to `redact.REDACTED`, and `redact_values.named` already returns a capture carrying `redacted` untouched. |
+| P5 | The stamp is rewritten only when something else changed OR the trace was not already `mode: "on"`. Shipped as written (`if writes or payloads or unwinds or outputs or not already_on`): an already-`on` trace whose pass finds nothing prints `nothing to redact` and is not rewritten, even where the caller's knobs differ from the recorded ones. |
+| P6 | An UNKEYED `mode: "on"` trace under a keyed store proceeds — null digests stay null, new ones are the store's, the stamp becomes `keyed: true` with the store's `key_id`. Shipped as written. The nuance is not in `docs/redaction.md`, which is true as it stands (a Task 6 minor, in CARRIED-DEBT). |
+| P7 | The RETURN name rule reads `code_objects.qualname` for the event's `code_id`; a RETURN with no `code_id` takes `value()` only. Shipped as written. |
+| P8 | Events are walked in id order in one pass, unchanged rows are never written, and equality is on the PARSED object (`new != obj`), not the text. Shipped as written; the parsed-vs-text half has no discriminating test (a Task 2 minor, in CARRIED-DEBT). |
+| P9 | The corpus case records under `env: {SENSORIUM_NO_REDACT: "1", SENSORIUM_CORPUS_TOKEN: …}` and cannot pin the env line's `N`. Shipped as written, with **R13** moving the case's `truth` prose off a count and onto the variable's name. |
+| P10 | The token is not minted: it is read from the copy's own traces through a read-only connection, never printed, and the record cites `sha256[:8]`. Shipped, **amended by R15**: it is read from EVERY trace, not the first, because the store holds four distinct values of it. |
+| P11 | The rehearsal (`E16_DRY=1`) runs on a FABRICATED store and never on the live store's copy. Shipped, **amended by R14**: the `dry-` decoy is planted only where the NAME rule reaches it. |
+| P12 | The measurement's copy is `cp -a` of `traces/` and `redaction.key`, sidecars included, refused if anything is in flight. Shipped as written — 273 traces, 273 `-wal` and 273 `-shm` copied, none in flight, 0.155 s. |
+| P13 | H4's four clauses are four rows of one cell, PASS iff all four, `273` reported beside the copy's count and never gated. Shipped as written, with **R17** making clause 4 compare BYTES and a STOP outrank a drop in the verdict's read sentence. |
+| P14 | The live retrofit is a post-merge chore, not a task (C18), conditional on §4 reading H4 PASS. Shipped as written: the condition is met, the chore is not yet run, and CARRIED-DEBT carries it. |
+
+#### (b) The controller's rulings R1–R17
+
+Each was ruled during execution and is in the plan's gitignored ledger with
+its evidence. The third column is the cost the ruling was taken at.
+
+| R | the ruling | cost if wrong |
+|---|---|---|
+| R1 | (pre-flight) `--dry-run` must not create `redaction.key`: `run()` uses `Key.load(root)` under `--dry-run` and `Key.load_or_create(root)` on a real run, because §7 says a dry run changes nothing and a key file is a store change. | on a keyless store the dry run's stamp would be unkeyed and the real run's keyed; the printed lines carry no digest, so stdout identity (C10) holds either way |
+| R2 | The CHANGELOG's volume-2 pointer line reads `(0.8.7–0.11.0)` — the plan's literal was wrong (volume 2 holds 0.8.7 from the sixth cut), and a reader-facing range must be true. | none beyond a one-line docs edit |
+| R3 | Box paths in a PLAN file under `docs/superpowers/plans` are allowed — plan B carries the same; the constraint binds code, living docs and the record outside its pin table, and plans are dated history that name where a measurement ran. No change. | a plan that names a box path nobody else has, which the pin table already does on purpose |
+| R4 | `sweep_stale`: a middle that is not a POSITIVE int is treated like a non-int name and left alone, and anything `os.kill` raises other than `ProcessLookupError` reads as ALIVE (the file is kept) — liveness of a name we cannot check is unknown, and keeping a file is the safe direction. | a garbage tmp with an impossible pid is never swept (harmless; named in no output) |
+| R5 | The plan's "≤ 300 lines at this task" is met in intent at 301 — no further trimming; the binding limits are the 800 ceiling and "no new file past 600 at creation". | one line |
+| R6 | `plan()` catches `OSError` around `db.open_trace`/`all_meta` and a `ValueError` from a corrupt meta JSON as refusals (`cannot open: …` / `meta is not JSON: …`), so no exception escapes a `--all` walk (C9). | a refusal line where a traceback would have been |
+| R7 | Task 3's own concern is to be CLOSED, not parked — a stale `-wal` serving plaintext back is the loud failure this slice exists to prevent, so the directory fsync is wrapped and the sidecar unlink runs after a successful replace whatever the fsync does; the 450-line cap is relaxed to 480 for it (R5's spirit). | no cost was recorded: the ruling buys a closed plaintext window for thirty lines of module |
+| R8 | `run()` passes `Knobs.from_environ(os.environ)` as read; `plan()` already forces `off=False`, so the brief's second `replace(off=False)` in `run()` is dropped as duplication and its mutation retargeted to `test_off_knobs_are_ignored_and_the_stamp_is_on`. R1 stands. | none — C4 is enforced at the one place that produces the stamp |
+| R9 | Task 4's two deviations are ACCEPTED: the summary prints on EVERY invocation (the reading of C12 that gives the sweep count a home), and `redacted N` excludes refused and skipped plans (which keeps the summary's arithmetic true). | one extra line on single-trace runs |
+| R10 | The per-target `plan()` call is wrapped in the same `except (OSError, sqlite3.Error, ValueError)` as `apply`, yielding `REFUSED: cannot judge: <e>`, so C9's "the others continue" holds for the residual escapes sqlite discovers lazily; `_dir_mode`'s stat/chmod `OSError` becomes a printed note and never a traceback. | a refusal line where a traceback was |
+| R11 | The exit is ANSWERED when the directory was (or would be) tightened even if no plan changed; the plan's exit rule is amended. | exit 0 on a run that only `chmod`'ed a directory, which the epilog already promises |
+| R12 | C10's byte-identity has two named corners, folded in as wording repairs: a keyless store (the dry run reads a key where the real run mints one, so a C5 refusal's key id says `none` in the first and an id in the second) and two CONSECUTIVE invocations (the dry run's sweep consumes the litter the real run would have counted). `cli.py`'s docstring hole is deferred to the debt list. | none; they are sentences |
+| R13 | Task 5's prose minor rides with Task 6 (a docs task): the case's `truth` says "the env line names `SENSORIUM_CORPUS_TOKEN` among however many variables the launching shell made fire" rather than a count. | none |
+| R14 | The rehearsal's fabricated store plants the `dry-` decoy only where the NAME rule reaches it — the env, a `str` RETURN under a code named `secret`, a LINE delta named `token` — and NOT in an output row or a `children` element, because the content rule cannot see `dry-` and those would survive the retrofit and read as residue. **P11 is amended accordingly.** | the rehearsal exercises fewer sites than the measurement; the measurement is what counts |
+| R15 | **Pre-launch amendment, recorded BESIDE §1 on the house pattern** (the locked block stays as written; the measured section's *Amendments, beside §1* names it): the instrument sweeps EVERY distinct value of `CLAUDE_CODE_MESSAGING_TOKEN` found across the copy's traces — `count-before` records the number of distinct values and requires each trace to hold ITS OWN value at least once, `grep-after` requires every value at 0 in every file, and the record cites each value's sha8 and its count, never a value. Strictly stronger than the pre-registered single-value reading, and the only honest one for a store whose token rotated. | none — a single-valued store is the special case |
+| R16 | `e16c.py` at 553 lines is accepted (the 400 was a hint; the ceiling is 800; part B's `e16b.py` is 537). | none; it stands at 727 after R15 and R17, still under the gate |
+| R17 | The fix round also takes four of Task 7's minors: clause 4 compares BYTES (capture bytes, decode only for parsing); a STOP outranks a drop in `h4`'s read sentence, naming both; a non-dict `env` is a `copy` refusal; a no-op conditional goes. The three docstring/test-pin repairs ride with them, the same functions being open. | none beyond the diff |
+
+#### (c) Where the shipped code differs from §7 and C1–C20
+
+Fifteen. Each is a place a reader of the sections above would be told
+something the code does not do.
+
+1. **C6's `values` is ADDITIVE** (decision **P2**). C6 says the stamp's
+   `values` is "what the trace HOLDS after the pass … every capture
+   carrying `redacted`, every output row and `unwind_exc`/`exc` with a
+   content hit, every `children` element with a hit". A content hit leaves
+   TEXT, not a marker, so that quantity is not recoverable from the trace;
+   shipped, the stamp carries the PREVIOUS stamp's `values` plus this
+   run's count, and the per-trace line prints this run's alone. Where:
+   `redact_store._judge`, `docs/redaction.md`.
+2. **C10's identity holds unconditionally, and has two corners**
+   (**P3**, **R12**). The sweep and the `traces/` clause run in BOTH
+   modes, so the two stdouts do not differ exactly when a reader is
+   comparing them. Named rather than left to be discovered: on a store with
+   no `redaction.key` the dry run READS a key where the real run MINTS one,
+   so a C5 refusal naming the store's key says `none` in one and an id in
+   the other; and across two CONSECUTIVE invocations the dry run's sweep
+   consumes the litter the run after it would have counted. Where:
+   `redact_cmd`'s docstring, `docs/redaction.md`.
+3. **The summary prints on EVERY invocation** (**R9**). C12's summary sits
+   under an `--all` example; shipped, `redact <run>` prints it too, because
+   the sweep count has nowhere else to go. Where: `redact_cmd.run`.
+4. **`redacted N` excludes refused and skipped plans** (**R9**). A plan
+   whose `apply` raised carries both the rows it wanted to write and the
+   sentence saying it could not; counting it as done AND refused would
+   leave C12's four numbers unable to add up to the traces walked. Where:
+   `redact_cmd.summary`, and its docstring says so.
+5. **A judgement that RAISES is a refusal** (**R6**, **R10**). C9 names
+   seven foreseen refusals; sqlite reads pages lazily, so a corrupt row, a
+   payload that is not JSON or a file another process moved can surface
+   from inside the walk. Shipped, `plan()` is wrapped in the command in the
+   same `except (OSError, sqlite3.Error, ValueError)` as `apply`, printing
+   `REFUSED: cannot judge: <e>`; `plan()` itself names `cannot open: …` and
+   `meta is not JSON: …`. Where: `redact_cmd.run`, `redact_store.plan`.
+6. **A tightened DIRECTORY alone exits 0** (**R11**). C11 makes a
+   mode-only tightening a CHANGE for a trace and says nothing about a store
+   of settled traces whose `traces/` was 0755. Shipped, the exit predicate
+   is `dir_mode or any(p.changes)`: exit 1 there would tell a script the
+   pass was a no-op on the run it had just tightened. Where:
+   `redact_cmd.run`, and the parser epilog promises it.
+7. **A dry run loads the key and never creates it** (**R1**). Neither §7
+   nor C7 says which; shipped, `Key.load` under `--dry-run` and
+   `Key.load_or_create` on a real run, a key file being a store change.
+   Where: `redact_cmd.run`.
+8. **`plan()` forces `off=False`, and the command does not repeat it**
+   (**R8**). C4 says `SENSORIUM_NO_REDACT` is ignored without saying where.
+   Shipped, at the one point the knobs enter the judgement — so the
+   judgement is incapable of obeying it, and a stale export in somebody's
+   shell profile cannot turn a retrofit into a no-op that still prints
+   lines. Where: `redact_store.plan`, with `redact_cmd`'s docstring saying
+   why it is not repeated.
+9. **`sweep_stale` reads a non-positive middle as a name, not a pid**
+   (**R4**). C13 says "every `redaction.key.<pid>.tmp` whose pid is not
+   alive"; `os.kill` treats a negative number as a process GROUP, so a
+   middle that is not a POSITIVE int is left alone exactly as `abc` is,
+   and every exception but `ProcessLookupError` reads as ALIVE. Where:
+   `redact_key.sweep_stale`, `_pid_alive`.
+10. **The sidecar unlink is in a `finally` after the rename** (**R7**).
+    C7's order is backup → rewrite → checkpoint → fsync → rename →
+    sidecars; shipped, the directory fsync between the last two is wrapped,
+    because a raise there (or a Ctrl-C, `except BaseException` catching it)
+    would leave the displaced inode's `-wal` beside the rewritten file for
+    the next reader to recover plaintext out of. The cleanup handler
+    unlinks the tmp BEFORE its sidecars, so a failure in the second cannot
+    leave the first. Where: `redact_store.apply`.
+11. **The rehearsal plants the decoy at NAME-rule sites only** (**R14**,
+    amending **P11**). The content rule cannot see `dry-`, so a decoy in an
+    output row or a `children` element would survive the retrofit and make
+    the rehearsal's `grep-after` read as residue. Where:
+    `tests/acceptance_e16/e16c.py::fabricate`.
+12. **The instrument sweeps a SET of token values** (**R15**, amending
+    **P10** and §1's pre-registration). C16 and P13 read the token as one
+    value from one trace; the store holds four, the token having rotated
+    over its life, and the first `*.db` in sorted order carries the one
+    held by 11 of 273 traces. Where: `e16c.py`'s `copy`, `count_before`
+    and `grep_after`, and the record's *Amendments, beside §1*.
+13. **File sizes accepted over the plan's hints** (**R5**, **R16**).
+    `src/sensorium/redact_store.py` is 462 lines against a ≤300 hint at
+    Task 2 and a 480 cap at Task 3; `tests/acceptance_e16/e16c.py` is 727
+    against a 400 hint. The binding limits are the 800 ceiling and "no new
+    file past 600 at creation", and both are met.
+14. **C19's CHANGELOG arithmetic moved** (**R2**). The cut ran as
+    designed — 0.11.0 and 0.10.0 out before the 0.17.0 entry was written —
+    but `CHANGELOG-ARCHIVE-2.md` came to **644** rather than the planned
+    641, the live file to **684**, the pointer range to **0.8.7–0.11.0**
+    rather than the plan's 0.9.0, and the entry itself to 46 lines against
+    a 40-line hint.
+15. **The corpus case runs FIVE questions, not C15's four.** A second
+    `redact $RUN` pass was added, pinning `nothing to redact; mode 600` at
+    exit 1 — idempotence (**C5**, **P5**) proved end to end rather than
+    only in a unit test. Where: `corpus/redact_retrofit/questions.yaml`.
+
+#### (d) E16 part C's outcome
+
+Measured **once**, 2026-09-16, 28.8 s wall clock, under `e16c.sh` after two
+rehearsals on fabricated stores: **DONE** — **H4 PASS**, all four clauses,
+on a `cp -a` COPY of `~/.sensorium/traces` and its `redaction.key`. The
+copy held **273** traces against §9's 273; the live store was read and
+never written, its own retrofit being a post-merge chore (**C18**).
+
+| clause | what was read | word |
+|---|---|---|
+| 1 — every `*.db` has a dry-run line naming `CLAUDE_CODE_MESSAGING_TOKEN` | 273 traces, every one named in the dry run | **PASS** |
+| 2 — every `grep -rc` count over the copy is 0 after the real run | 0 occurrences in 275 files | **PASS** |
+| 3 — `info` exits 0 on every trace and reads `by retrofit` | 273/273 | **PASS** |
+| 4 — the dry run's stdout is the real run's, byte for byte | `sha256` `f73437dcc1f03e5e` both | **PASS** |
+
+The token was not minted (**P10**) and it is not one value: the traces held
+**four** distinct values of that variable — `sha256[:8]` `41285dda` (254
+traces), `61e4ad5f` (11), `876f167c` (5), `426ae10d` (3) — the token having
+rotated over the store's life. Each was read from its own trace's
+`meta.env` through a read-only connection, swept one at a time, never
+printed and never written anywhere but `grep`'s own argument (**R15**). Both
+passes exited 0 and printed the same summary: `redacted 273 of 273 traces
+(0 already clean, 0 skipped, 0 refused); spools under target/ and the
+TypeScript spool dirs are not reached; traces/ mode 775 -> 700` — the dry
+run in 6.619 s, the real run in 7.982 s. Before the pass the copy held 273
+`-wal` and 273 `-shm` files; after it, none, and 275 of 275 files at 0600
+with `traces/` at 0700. The reading is in
+`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §4, with
+the four-clause table, the count lines, the before-and-after table, the
+phase timings and the dry runs' five findings, and **R15** recorded as an
+amendment beside §1's locked text rather than edited into it.
