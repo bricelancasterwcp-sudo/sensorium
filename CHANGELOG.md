@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.17.0 — 2026-09-16
+
+**The retrofit.** Parts A and B took the environment and the values at the
+writer; this reaches every trace already on disk. `sensorium redact <run>` and
+`sensorium redact --all` do to a stored trace what a recorder would have done
+to it at birth — the environment through the NAME rule under the store's key,
+every captured value the writers reach, the stamp rewritten `by: "retrofit"`
+and `mode: "on"`, the file left at 0600 — while `--dry-run` says what a pass
+would take and writes nothing. Python **0.17.0** alone; no runtime, converter
+or probe changed and `TRACE_FORMAT` stays **4**. This is PART C, the last of
+the three.
+
+- **One judgement, one writer.** `redact_store.plan()` decides a whole trace in
+  memory — environment and hash, the changed rows, the stamp, the counts, the
+  refusal or the skip — and writes nothing; `apply()` alone writes. `--dry-run`
+  is `plan()` alone, so its stdout is byte-identical to the real run's (`dry
+  run: nothing was written` goes to STDERR).
+- **What a pass takes.** The environment takes the NAME rule and nothing else;
+  the values are what the three writers reach — `args`/`deltas` bindings, a map
+  sample's value under its key, a RETURN under its callee's last qualname
+  segment, messages, `unwind_exc`, `output` rows, `meta.children`. `env_hash`
+  must reproduce under the trace's own formula, or the trace is refused by
+  name.
+- **The knobs are the CALLER's**, read from the environment `redact` runs in
+  and stamped; **`SENSORIUM_NO_REDACT` is ignored**, since running the command
+  IS the decision. A second pass takes nothing, a trace keyed under ANOTHER key
+  is refused rather than mixed, an UNKEYED `on` trace becomes keyed under a
+  keyed store, and `values` is ADDITIVE, a content hit leaving text rather than
+  a marker.
+- **backup → rewrite → checkpoint → fsync → rename → sidecars.** The trace is
+  copied with `Connection.backup` into `.<run>.db.redact.<pid>.tmp`, not
+  byte-copied (that loses uncheckpointed `-wal` rows), rewritten in one
+  transaction, fsynced and renamed; the ORIGINAL's `-wal`/`-shm` go last, or
+  SQLite recovers that plaintext log over the redacted database. A kill leaves
+  the original whole and a tmp, swept or refused by the next pass.
+- **The lines, the exits, the modes, the sweep.** One line per trace and one
+  summary; exit 0 when something changed or would, 1 when nothing did, 2 on a
+  refusal (the walk continuing, an `incomplete` trace skipped). A rewritten
+  trace is 0600 by creation, a clean one at another mode tightened in place,
+  `traces/` set 0700 under `--all`, and a dead writer's
+  `redaction.key.<pid>.tmp` swept once per pass.
+- **H4 is pre-registered, not claimed here**: the acceptance record's part C
+  measures this over a copy of the box's own store, in a later commit.
+  `corpus/redact_retrofit` is this one's end-to-end case — a plaintext
+  recording, retrofitted and read back with the token in no answer.
+
 ## 0.16.0 — 2026-09-14
 
 **And now the values.** Part A took the environment; this takes everything a

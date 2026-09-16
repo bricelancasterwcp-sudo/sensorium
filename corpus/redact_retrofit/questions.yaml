@@ -40,8 +40,9 @@ questions:
       what does it do and say?
     truth: >
       The same line --dry-run printed, because --dry-run's stdout is
-      byte-identical to the real run's (C10): env 1 redacted
-      (SENSORIUM_CORPUS_TOKEN); values 4; mode 600. This time the rewrite
+      byte-identical to the real run's (C10): an env line naming
+      SENSORIUM_CORPUS_TOKEN among however many variables the launching
+      shell made fire, then values 4; mode 600. This time the rewrite
       actually happens -- the env line is redacted under the store's key,
       the four captured values become markers, the redaction stamp is
       rewritten by: "retrofit", mode: "on", and the file is left at 0600
