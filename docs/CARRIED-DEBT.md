@@ -399,12 +399,12 @@ Measured at this slice's last commit against the 800-line gate
 - **Unchanged and still at the gate:** `rust/HONESTY-BLIND-SPOTS.md`
   **800** — zero headroom, as PR B left it; the next blind spot needs the
   file cut first.
-- **This file 514** after the fourteenth cut — see the pointer paragraph
+- **This file 525** after the fourteenth cut — see the pointer paragraph
   above, which measured the move before it was made (the section was 342
-  lines when the cut was decided and **354** as it stands, this bullet and
-  the one below it being the difference). A section of this size does not
-  fit beside another one, so the next slice cuts again; that is the rule
-  working rather than a surprise.
+  lines when the cut was decided and **365** as it stands; these last two
+  bullets and the corpus-setup half of the second process lesson are the
+  difference). A section of this size does not fit beside another one, so
+  the next slice cuts again; that is the rule working, not a surprise.
 - **What this list does NOT cover.** Twenty-odd tracked files sit between
   770 and 800 and are not named above, because PR C touched none of them
   and none is its seam — the four documents PR B named (`docs/query.md`,
@@ -487,7 +487,18 @@ for would read as one somebody did.
   the other direction, and it recurred one PR later. **Rebuild the PATH
   driver from `main` after every runtime bump**, and treat a corpus
   failure in a fresh worktree as a question about the binary before it is
-  a question about the diff.
+  a question about the diff. The same gap has THREE more mouths, found at
+  this slice's own full-green run: `corpus/typescript/node_modules` and
+  `typescript/node_modules` are both untracked, so a fresh worktree
+  SKIPS all 48 TypeScript cases silently until the first is installed and
+  FAILS all 48 until the second is — `npm ci` under `corpus/typescript`
+  and under `typescript`, the recorder's own error naming the second by
+  path. A skip that reads as a pass is worse than the
+  failure under it: the count line said *115 cases (48 skipped)* and
+  *0 failures* in the same breath. **A fresh worktree is green only after
+  the venv, the driver and both Node installs** — and a corpus total that
+  moved (157 questions to 253) is the tell that a language was not being
+  asked anything.
 - **An instrument's premise about a LIVE subject must be censused before
   the run, not assumed.** Part C pre-registered the token as *the* value
   of `CLAUDE_CODE_MESSAGING_TOKEN`, read from the first trace's
