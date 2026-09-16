@@ -27,10 +27,14 @@ part's path into this section.
 
 WHAT PART C'S SECTION SAYS THAT THE OTHERS DO NOT
 -------------------------------------------------
-* **the token is not this instrument's.** It was in the traces already
-  (P10), so the versions block cites `sha256(value)[:8]` and the recorder
-  distribution of the traces the copy held -- what WROTE the secrets, not
-  what the measurement minted.
+* **the token is not this instrument's, and it is not one value.** The
+  values were in the traces already (P10) and this box's token rotated, so
+  §4 cites EVERY distinct value's `sha256[:8]` beside the number of traces
+  holding it (R15), plus the recorder distribution of the traces the copy
+  held -- what WROTE the secrets, not what the measurement minted.
+* **the amendments come out of the RAW record**, as part B's do: what §4
+  says the run was amended by is then what the run was actually made under,
+  and not prose this module carries on its own.
 * **H4's four clauses get a table of their own.** §9 states one claim in
   four parts and the cell decides it as four (P13); a verdict word with no
   clause table beside it cannot show a reader which of the four carried it.
@@ -198,12 +202,15 @@ def before_after(raw: dict) -> list[str]:
          copied.get("n_db"), "--"),
         (f"traces whose environment held `{TOKEN_VAR}`",
          copied.get("traces_holding_the_variable"), "--"),
-        ("distinct values of it in the copy",
-         len(copied.get("token_census") or {}) or None, "--"),
-        ("files holding the value's bytes",
-         before.get("files_holding_the_value"),
-         after.get("files_holding_the_value")),
-        ("occurrences of it, summed", before.get("occurrences_total"), "--"),
+        ("distinct values of it, each swept on its own (R15)",
+         copied.get("distinct_tokens"), after.get("values_swept")),
+        ("files holding any of those values' bytes",
+         before.get("files_holding_a_value"),
+         after.get("files_holding_a_value")),
+        ("occurrences of them, summed", before.get("occurrences_total"),
+         "--"),
+        ("files whose count could not be read", "--",
+         len(after.get("unreadable") or [])),
         ("files swept", len(before.get("files") or []) or None,
          after.get("files_examined")),
         ("`-wal` files", copied.get("n_wal"), after.get("n_wal")),
@@ -212,9 +219,12 @@ def before_after(raw: dict) -> list[str]:
          f"{modes.get('files_at_600')} of {modes.get('files')}"),
         ("`traces/` mode", "--", modes.get("traces_dir_mode")),
     ]
+    per_value = (after.get("per_value") or {})
     return (["| reading | before | after |", "|---|---|---|"]
             + [f"| {name} | {_cell(b)} | {_cell(a)} |"
                for name, b, a in rows]
+            + [f"| occurrences of `{sha8}` after | -- | {total} |"
+               for sha8, total in sorted(per_value.items())]
             + ["", "The two file counts are not one-for-one: the sweep "
                "before the pass counted the `-wal`/`-shm` sidecars that "
                "`apply` then unlinked with the inode it replaced (C7), and "
@@ -224,10 +234,37 @@ def before_after(raw: dict) -> list[str]:
                "the time is in the count."])
 
 
+def _token_digests(raw: dict) -> str:
+    """Every distinct value as `sha256[:8] (N traces)`, in one clause.
+
+    Digests and counts, never a value and never a length that would narrow
+    one: this is the whole of what §4 is allowed to say about the secret it
+    is a claim about.
+    """
+    rows = raw.get("token_sha8") or []
+    if not rows:
+        return "no digest was recorded"
+    return ("`sha256(value)[:8]` = "
+            + ", ".join(f"`{row['sha8']}` ({row['traces']} trace(s))"
+                        for row in rows))
+
+
 def _cell(value) -> str:
     """A reading, or `--`. Never a blank and never a zero for a number
     nobody took: `None` is what a phase that did not run leaves."""
     return "--" if value is None else str(value)
+
+
+def amendments(raw: dict) -> list[str]:
+    """The pre-registration amendments, from `raw["amendments"]`.
+
+    §1's block is LOCKED and stays as written; an amendment is recorded
+    beside it, stating the clause it corrects and why, so that a reader can
+    check the difference rather than having to trust that nobody edited the
+    pre-registration after the fact. Read from the raw record rather than
+    from this module, so the section says what the run was made under.
+    """
+    return [line for line in (raw.get("amendments") or [])]
 
 
 def dry_timer_phrase() -> str:
@@ -280,17 +317,22 @@ def render(raw: dict, date: str, suffix: str = "") -> str:
         f"{raw.get('n_db')} traces against §9's {EXPECTED_TRACES}, copied "
         f"into the work root and retrofitted there, so the live store was "
         f"read and never written (the retrofit of it is a post-merge chore, "
-        f"C18). The token was NOT minted (P10) — it is the value the "
-        f"traces already held under `{TOKEN_VAR}`, read from the first "
-        f"trace's `meta.env` through a read-only connection, never printed "
-        f"and never written anywhere but `grep`'s own argument: "
-        f"`sha256(value)[:8] = {raw.get('token_sha8')}`. "
+        f"C18). The token was NOT minted (P10) and it is not one value: "
+        f"the traces already held {raw.get('distinct_tokens')} distinct "
+        f"value(s) of `{TOKEN_VAR}` (the token rotated over the store's "
+        f"life), each read from its own trace's `meta.env` through a "
+        f"read-only connection and swept one at a time (R15, amended "
+        f"below), never printed and never written anywhere but `grep`'s "
+        f"own argument — {_token_digests(raw)}. "
         f"{raw['seconds']}s wall clock.",
         "",
     ]
     body += verdict_table(raw) + ["", "#### Pins", ""]
     body += pin_table_c(raw["lens"])
     body += dry_run_block(raw)
+    block = amendments(raw)
+    if block:
+        body += ["", "#### Amendments, beside §1", ""] + block
     body += ["", "#### Versions", ""] + versions_table(raw)
     body += ["", "#### H4 — the four clauses", ""] + clause_table(raw)
     body += ["", "#### The count line", ""] + count_lines(raw)

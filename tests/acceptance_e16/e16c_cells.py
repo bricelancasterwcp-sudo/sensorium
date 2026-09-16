@@ -53,7 +53,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from e16a_cells import Refused                              # noqa: E402,F401
 
 #: The variable §9's H4 row names. Not minted and not a probe (P10): it is
-#: the value this box's own traces already hold, read out of the copy.
+#: the value this box's own traces already hold -- values, plural, since
+#: the token rotated over the store's life, so the instrument reads EVERY
+#: distinct value out of the copy and sweeps the set (R15, `AMENDMENTS`).
 TOKEN_VAR = "CLAUDE_CODE_MESSAGING_TOKEN"
 
 #: §9's PASS/STOP column for the one row part C decides, copied from the
@@ -246,8 +248,22 @@ def _clause_two(after_counts: list[dict]) -> dict:
 def _clause_three(stems: list[str], infos: list[dict]) -> dict:
     """Every trace still opens, and says which hand took its secrets. Both
     halves: an `info` that exits 0 on a trace still stamped `recorder` would
-    mean the file survived a pass that never reached it."""
+    mean the file survived a pass that never reached it.
+
+    A KILLED reading is a hole and not a failure. `e16a._run` returns
+    `rc: None` with `killed: true` when a call hit the phase's timer, and
+    reading that `None` as "did not exit 0" would publish an infrastructure
+    event -- a loaded box, a sweep that ran out of budget -- as a trace the
+    retrofit broke. The same rule `_clause_two` applies to a count the
+    sweep could not take.
+    """
     seen = {row["run"]: row for row in infos}
+    killed = [stem for stem in stems if (seen.get(stem) or {}).get("killed")]
+    if killed:
+        return {"word": "dropped",
+                "read": f"{len(killed)} info call(s) were killed on the "
+                        f"phase's own timer, so whether the trace opens was "
+                        f"never read: {_named(killed)}"}
     bad = []
     for stem in stems:
         row = seen.get(stem)
@@ -297,17 +313,57 @@ def h4(stems: list[str] | None, dry_rows: dict[str, dict] | None,
     clauses = [{"clause": n, "what": what, "read": row["read"],
                 "word": row["word"]}
                for (n, what), row in zip(CLAUSES, rows)]
+    stop = next((c for c in clauses if c["word"] == "STOP"), None)
     held = next((c for c in clauses if c["word"] == "dropped"), None)
+    # A STOP OUTRANKS A DROP, and the sentence names both. A clause that
+    # actually failed is a finding about the retrofit; a clause nobody could
+    # read is a hole in the instrument. Reporting the hole and swallowing
+    # the finding would turn a measured failure into "we did not look" --
+    # and reporting the finding without the hole would let a reader think
+    # the other three clauses had all been read.
+    if stop:
+        read = f"clause {stop['clause']}: {stop['read']}"
+        if held:
+            read += (f" (and clause {held['clause']} could not be read: "
+                     f"{held['read']})")
+        return {"word": "STOP", "clauses": clauses, "read": read}
     if held:
         out = _dropped(f"clause {held['clause']}: {held['read']}")
         out["clauses"] = clauses
         return out
-    first = next((c for c in clauses if c["word"] == "STOP"), None)
-    if first:
-        return {"word": "STOP", "clauses": clauses,
-                "read": f"clause {first['clause']}: {first['read']}"}
     return {"word": "PASS", "clauses": clauses,
             "read": "; ".join(c["read"] for c in clauses)}
+
+
+#: The pre-registration amendments this run was measured under, recorded
+#: BESIDE §1's locked text and never edited into it (part B's `AMENDMENTS`
+#: pattern). Each entry states §1's own clause, what was run instead, and
+#: why -- an amendment a reader cannot check against the locked text is
+#: indistinguishable from a changed mind. These are DATA in the raw record,
+#: so what §4 renders is what the run was actually made under and not prose
+#: the assembler carries on its own.
+AMENDMENTS = [
+    "- **R15, the token is a SET of values, not one.** §1's amendment "
+    "pre-registers the token as \"the value of `CLAUDE_CODE_MESSAGING_TOKEN` "
+    "in the copy's own traces, read by the instrument from the first "
+    "trace's `meta.env`\", and makes it a precondition that \"every `*.db` "
+    "in the copy must hold the value at least once before the run\". "
+    "Measured read-only before the run, this box's store holds FOUR "
+    "distinct values of that variable across its 273 traces (254 / 11 / 5 / "
+    "3 — the token rotated over the store's life), and the first `*.db` in "
+    "sorted order carries the one held by 11. Read literally, the "
+    "precondition therefore refuses 262 of 273 traces for a reason that has "
+    "nothing to do with the retrofit. Corrected clause: **the instrument "
+    "reads every trace's own value, sweeps the DISTINCT set one value at a "
+    "time, and requires each trace to hold ITS OWN value at least once "
+    "before the run; clause 2 requires every one of the values to read 0 in "
+    "every file after it.** That is strictly stronger than the "
+    "pre-registered single-value reading — it makes clause 2 a claim about "
+    "all 273 traces instead of 11 — and it cannot pass where the "
+    "pre-registered one would. The record cites each value's "
+    "`sha256[:8]` with the number of traces holding it; no value is ever "
+    "printed.",
+]
 
 
 def part_word(cells: dict) -> str:

@@ -42,9 +42,9 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "tests" / "acceptance_e16"))
 
 import e16c_cells                                                 # noqa: E402
-from e16c_cells import (CLEAN, DRY_TIMERS, EXPECTED_TRACES,       # noqa: E402
-                        EXPECTED_VERSION, LINE, RULES, SUMMARY,
-                        TIMERS, TOKEN_VAR, h4, parse_lines,
+from e16c_cells import (AMENDMENTS, CLEAN, DRY_TIMERS,            # noqa: E402
+                        EXPECTED_TRACES, EXPECTED_VERSION, LINE, RULES,
+                        SUMMARY, TIMERS, TOKEN_VAR, h4, parse_lines,
                         part_word)
 from sensorium.query.redact_cmd import line_for, summary          # noqa: E402
 from sensorium.redact_store import Plan                           # noqa: E402
@@ -68,8 +68,9 @@ def _after(*paths, count=0):
                                 "store-c/redaction.key"))]
 
 
-def _infos(*, over=STEMS, exit=0, by="retrofit"):
-    return [{"run": stem, "exit": exit, "by": by} for stem in over]
+def _infos(*, over=STEMS, exit=0, by="retrofit", killed=False):
+    return [{"run": stem, "exit": exit, "by": by, "killed": killed}
+            for stem in over]
 
 
 def _pass():
@@ -138,7 +139,7 @@ def test_a_file_still_holding_the_value_stops_clause_two():
 
 def test_an_info_that_did_not_exit_zero_stops_clause_three():
     rows = _infos()
-    rows[2] = {"run": STEMS[2], "exit": 1, "by": None}
+    rows[2] = {"run": STEMS[2], "exit": 1, "by": None, "killed": False}
     out = h4(list(STEMS), _dry(), _after(), rows, True)
     assert out["word"] == "STOP"
     assert out["read"] == f"clause 3: run {STEMS[2]}: info exit 1"
@@ -148,7 +149,7 @@ def test_a_trace_that_opens_but_says_another_hand_stops_clause_three():
     """Exit 0 alone is not the clause: a trace stamped `recorder` after a
     pass that was meant to rewrite it is a file the retrofit never reached."""
     rows = _infos()
-    rows[0] = {"run": STEMS[0], "exit": 0, "by": "recorder"}
+    rows[0] = {"run": STEMS[0], "exit": 0, "by": "recorder", "killed": False}
     out = h4(list(STEMS), _dry(), _after(), rows, True)
     assert out["word"] == "STOP"
     assert out["read"] == (f"clause 3: run {STEMS[0]}: by recorder, "
@@ -159,6 +160,21 @@ def test_a_trace_with_no_info_reading_at_all_stops_clause_three():
     out = h4(list(STEMS), _dry(), _after(), _infos(over=STEMS[:2]), True)
     assert out["word"] == "STOP"
     assert out["read"] == f"clause 3: run {STEMS[2]}: no info reading"
+
+
+def test_a_killed_info_call_drops_the_cell_and_never_stops_it():
+    """`e16a._run` leaves `rc: None, killed: True` when a call hit the
+    phase's timer. Reading that as "did not exit 0" would publish an
+    infrastructure event -- a loaded box, an exhausted sweep budget -- as a
+    trace the retrofit broke, which is the one direction this instrument
+    must never fail in."""
+    rows = _infos()
+    rows[2] = {"run": STEMS[2], "exit": None, "by": None, "killed": True}
+    out = h4(list(STEMS), _dry(), _after(), rows, True)
+    assert out["word"] == "dropped"
+    assert "info call(s) were killed" in out["read"]
+    assert STEMS[2] in out["read"]
+    assert out["read"].startswith("clause 3:")
 
 
 def test_two_stdouts_that_differ_stop_clause_four():
@@ -179,6 +195,24 @@ def test_the_stop_names_the_first_failing_clause():
                                                    "PASS", "STOP"]
 
 
+def test_a_stop_outranks_a_hole_and_the_sentence_names_both():
+    """A clause that actually failed is a finding about the retrofit; a
+    clause nobody could read is a hole in the instrument. The word is the
+    finding's -- swallowing it into `dropped` would turn a measured failure
+    into "we did not look" -- and the sentence names the hole too, so a
+    reader cannot take the other three clauses as read."""
+    rows = _dry()
+    rows[STEMS[1]]["names"] = ["SSH_AUTH_SOCK"]
+    after = _after() + [{"path": "store-c/traces/odd.db", "count": None}]
+    out = h4(list(STEMS), rows, after, _infos(), True)
+    assert out["word"] == "STOP"
+    assert out["read"].startswith("clause 1: 1 trace(s) without the name")
+    assert "and clause 2 could not be read" in out["read"]
+    assert "store-c/traces/odd.db" in out["read"]
+    assert [c["word"] for c in out["clauses"]] == ["STOP", "dropped",
+                                                   "PASS", "PASS"]
+
+
 # -- a hole is never a pass ------------------------------------------------
 @pytest.mark.parametrize("missing,phase", [
     (0, "copy"), (1, "dry-run"), (2, "grep-after"), (3, "info"),
@@ -197,7 +231,7 @@ def test_a_phase_that_did_not_run_drops_the_cell(missing, phase):
     (3, "no trace was opened after the real run")])
 def test_an_empty_input_is_dropped_and_never_vacuously_passed(empty, why):
     args = [list(STEMS), _dry(), _after(), _infos(), True]
-    args[empty] = [] if empty else []
+    args[empty] = []
     out = h4(*args)
     assert out["word"] == "dropped"
     assert out["read"] == why
@@ -276,11 +310,18 @@ def test_parse_lines_keeps_a_skipped_or_refused_sentence_and_counts_nothing():
 
 
 def test_parse_lines_reads_the_cap_as_a_cap():
-    stdout = (f"run {STEMS[0]}: env 11 redacted (A, B, C, D, E, F, G, H, "
-              "+3 more); values 1; mode 644 -> 600\n")
-    row = parse_lines(stdout)[STEMS[0]]
-    assert row["capped"] == 3
-    assert row["names"] == ["A", "B", "C", "D", "E", "F", "G", "H"]
+    """The `+N more` form is `refocus_world._capped`'s, so it is pinned
+    against a line `line_for` BUILDS from nine names rather than a string
+    typed here: the cap is the command's spelling, and a typed copy of it
+    would go on passing the day the command changed it -- which is the day
+    a capped line would start reading as a token that did not fire."""
+    names = tuple(f"NAME{i}_TOKEN" for i in range(9))
+    text = line_for(_plan(env_names=names, values=1, mode_before=0o644,
+                          meta={"env": {}}))
+    assert text.endswith("+1 more); values 1; mode 644 -> 600"), text
+    row = parse_lines(text + "\n")[STEMS[0]]
+    assert row["capped"] == 1
+    assert row["names"] == list(names[:8])
 
 
 def test_parse_lines_passes_none_through():
@@ -360,6 +401,28 @@ def test_dropped_names_every_other_cell_and_its_part():
         "H3": "part A", "H5": "part B", "H6-env": "part A",
         "H6-values": "part B"}
     assert set(e16c_cells.CELL_TITLES) == set(RULES)
+
+
+def test_the_amendment_names_the_clause_it_corrects_and_the_correction():
+    """R15 is a PRE-LAUNCH amendment: §1's block stays as written and the
+    correction is recorded beside it, stating the pre-registered clause, the
+    measured reason it cannot be met, and what was run instead. An amendment
+    a reader cannot check against the locked text is indistinguishable from
+    a changed mind, so the prose is DATA the instrument writes into the raw
+    record rather than something the assembler carries."""
+    assert len(AMENDMENTS) == 1
+    text = AMENDMENTS[0]
+    assert "R15" in text
+    # the pre-registered clause, quoted
+    assert "from the first trace's `meta.env`" in text
+    assert "every `*.db` in the copy must hold the value at least once" \
+        in text
+    # the measured reason and the correction
+    assert "FOUR" in text and "273" in text
+    assert "ITS OWN value" in text
+    assert "strictly stronger" in text
+    # and never a value
+    assert TOKEN_VAR in text
 
 
 def test_the_token_variable_is_the_one_section_nine_names():

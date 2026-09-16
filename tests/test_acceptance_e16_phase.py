@@ -227,6 +227,29 @@ def test_part_cs_phases_are_accounted_for_too():
         assert name in calls, name
 
 
+def test_part_c_counts_sidecars_by_the_name_they_actually_have(tmp_path):
+    """`Path("x.db-wal").suffix` is `".db-wal"`, not `"-wal"`, so the
+    obvious `p.suffix == "-wal"` counts zero over any store there is.
+
+    It shipped that way: §4 would have reported a copy of a 273-sidecar
+    store as holding none, and the rehearsal could not catch it because a
+    fabricated store had no sidecars either. Both halves of the fix are
+    pinned -- the rehearsal's store now carries them, and this holds the
+    counter against names a real store has.
+    """
+    traces = tmp_path / "traces"
+    traces.mkdir()
+    for name in ("20260101-000001-aaaaaa.db",
+                 "20260101-000001-aaaaaa.db-wal",
+                 "20260101-000001-aaaaaa.db-shm",
+                 "20260102-000002-bbbbbb.db",
+                 "20260102-000002-bbbbbb.db-wal"):
+        (traces / name).write_text("")
+    assert e16c._sidecars(traces, "-wal") == 2
+    assert e16c._sidecars(traces, "-shm") == 1
+    assert e16c._sidecars(tmp_path / "nothing", "-wal") == 0
+
+
 def test_part_c_derives_its_copy_without_touching_the_box(tmp_path):
     """`PartC.__init__` derives paths and nothing else -- which is what lets
     this module construct one -- and the two locations §1's amendment pins
@@ -238,5 +261,6 @@ def test_part_c_derives_its_copy_without_touching_the_box(tmp_path):
     assert part.store.name == "store-c"
     assert part.transcripts.name == "c-transcripts"
     assert part.timers == e16c.DRY_TIMERS
-    assert part.stems is None and part.token == ""
+    assert part.stems is None and part.tokens == []
+    assert part.token == "" and part.token_of == {}
     assert not (tmp_path / "work").exists()
