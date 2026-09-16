@@ -34,6 +34,15 @@ wording. Both modes run the same loop with a single branch around `apply`,
 so the two cannot drift. Exit codes are the real run's: 0 if anything
 changed or would.
 
+Identical for the SAME store in the SAME state -- H4's case, since it
+copies a store once and runs both passes over it. Two corners, named rather
+than left to be discovered: on a store with no `redaction.key` yet the dry
+run reads `Key.load` and the real run mints one, so a C5 refusal naming the
+store's key says `none` in the first and a key id in the second (every
+other line carries names, counts and modes, which no key decides); and
+across two CONSECUTIVE invocations the sweep is real in both modes (P3), so
+a dry run consumes the litter and the run after it counts none.
+
 **Modes** (C11): a rewritten trace is 0600 by creation, and a trace that
 needs no rewrite but sits at another mode is tightened in place and counts
 as changed -- a 0644 trace is readable by everyone on the box whatever its
@@ -159,13 +168,24 @@ def summary(plans: list[Plan], swept: int,
 def _dir_mode(dry: bool) -> tuple[int, int] | None:
     """`traces/`'s mode change, applied unless this is a dry run, and
     reported either way (C11, P3). `--all` only: a pass over one trace was
-    not asked about the store."""
-    d = paths.traces_dir()
-    before = stat.S_IMODE(d.stat().st_mode)
-    if before == DIR_TIGHT:
+    not asked about the store.
+
+    A directory whose mode cannot be read or set is a note on stderr and no
+    clause at all (R10): the traces themselves are already done and their
+    lines already printed, so raising here would end a pass that succeeded
+    -- and printing `traces/ mode 755 -> 700` for a `chmod` that failed
+    would be a claim about a mode nobody set.
+    """
+    try:
+        d = paths.traces_dir()
+        before = stat.S_IMODE(d.stat().st_mode)
+        if before == DIR_TIGHT:
+            return None
+        if not dry:
+            os.chmod(d, DIR_TIGHT)
+    except OSError as e:
+        print(f"traces/ mode: {e}", file=sys.stderr)
         return None
-    if not dry:
-        os.chmod(d, DIR_TIGHT)
     return (before, DIR_TIGHT)
 
 
@@ -199,15 +219,26 @@ def run(args) -> int:
     swept = len(sweep_stale(root))
     plans = []
     for path in _targets(args):
-        p = redact_store.plan(path, key, knobs)
-        if not args.dry_run:
-            try:
-                redact_store.apply(p)
-            except (OSError, sqlite3.Error) as e:
-                # The original is untouched (C7), so this is a refusal
-                # like any other: named on its own line, the rest of the
-                # pass continuing, the call ending at exit 2.
-                p = replace(p, refused=f"the rewrite failed: {e}")
+        try:
+            p = redact_store.plan(path, key, knobs)
+        except (OSError, sqlite3.Error, ValueError) as e:
+            # `plan` names every condition it FORESEES as a sentence on
+            # the Plan, but sqlite reads pages lazily: a corrupt row, a
+            # payload that is not JSON, a file another process moved
+            # under it can all surface from inside the walk. C9 says the
+            # others continue, so an unforeseen one is a refusal too
+            # rather than a traceback that ends the pass (R10).
+            p = Plan(path, Path(path).stem, "",
+                     refused=f"cannot judge: {e}")
+        else:
+            if not args.dry_run:
+                try:
+                    redact_store.apply(p)
+                except (OSError, sqlite3.Error) as e:
+                    # The original is untouched (C7), so this is a
+                    # refusal like any other: named on its own line, the
+                    # rest of the pass continuing, exit 2 at the end.
+                    p = replace(p, refused=f"the rewrite failed: {e}")
         plans.append(p)
         print(line_for(p), flush=True)
     dir_mode = _dir_mode(args.dry_run) if args.all else None
@@ -217,4 +248,10 @@ def run(args) -> int:
         print("dry run: nothing was written", file=sys.stderr)
     if any(p.refused for p in plans):
         return BAD_CALL
-    return ANSWERED if any(p.changes for p in plans) else NEGATIVE
+    # The directory joins the predicate (R11): a store of settled traces
+    # whose `traces/` was 0755 HAS something to change, and the epilog
+    # promises 0 when something changed or would. Exit 1 there would tell
+    # a script the pass was a no-op on the run it just tightened.
+    if dir_mode or any(p.changes for p in plans):
+        return ANSWERED
+    return NEGATIVE

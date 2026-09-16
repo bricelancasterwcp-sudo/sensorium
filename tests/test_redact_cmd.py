@@ -20,6 +20,7 @@ directory and then COPIED into the store under the run id each test needs
 -- `_python` writes one fixed run id, and `--all` has nothing to say
 unless the store holds more than one trace.
 """
+import argparse
 import json
 import re
 import shutil
@@ -28,6 +29,7 @@ import stat
 from pathlib import Path
 
 from sensorium import redact, redact_key, redact_store
+from sensorium.query import redact_cmd
 from sensorium.store import db
 from tests.helpers import record_script, run_cli
 from tests.refocus_programs import LOOP
@@ -51,9 +53,24 @@ def _cli(tmp_path, args, **kw):
 
 
 def _traces(tmp_path) -> Path:
+    """The store's `traces/`, at the 0700 `paths.traces_dir` would have
+    created it at. Explicit because `mkdir` without a mode takes the
+    umask, which would leave every `--all` test below quietly exercising
+    C11's directory tightening -- and after R11 quietly exiting 0 for it.
+    A test that wants a loose directory says so."""
     d = Path(tmp_path) / "sdir" / "traces"
     d.mkdir(parents=True, exist_ok=True)
+    d.chmod(0o700)
     return d
+
+
+def _args(**kw) -> argparse.Namespace:
+    """`run`'s parsed arguments, for the two cases that cannot be driven
+    through `run_cli`: an `apply` and a `plan` that RAISE are reachable
+    only by substitution, and the CLI runs in a subprocess where this
+    process's monkeypatches are not."""
+    return argparse.Namespace(**{"run": None, "all": False,
+                                 "dry_run": False, **kw})
 
 
 def _plant(tmp_path, stem, *, mode=0o644, settled=False, key=None, **kw):
@@ -160,9 +177,13 @@ def test_the_second_run_says_nothing_to_redact_and_exits_one(tmp_path):
 def test_all_processes_every_trace_in_sorted_order_and_prints_the_summary(
         tmp_path):
     key = _key(tmp_path)
+    # Planted in REVERSE, so `sorted` is what puts them in order rather
+    # than the order they were created in: a directory walk returns
+    # whatever the filesystem holds, and a test that plants a, b, c and
+    # reads back a, b, c cannot tell the two apart.
+    _plant(tmp_path, "c-run", settled=True, key=key, mode=0o600)
     _plant(tmp_path, "a-run")
     _plant(tmp_path, "b-run")
-    _plant(tmp_path, "c-run", settled=True, key=key, mode=0o600)
 
     r = _cli(tmp_path, ["redact", "--all"])
 
@@ -178,23 +199,33 @@ def test_all_processes_every_trace_in_sorted_order_and_prints_the_summary(
 
 
 def test_all_tightens_the_traces_directory_and_says_so(tmp_path):
-    """C11. A store whose directory is 0755 hands every trace in it to
-    anyone on the box, whatever the files themselves are set to -- and
-    `--dry-run` says so without doing it, which is the only way a reader
-    can find out before deciding."""
-    _key(tmp_path)
-    _plant(tmp_path, RUN)
+    """C11 and R11. A store whose directory is 0755 hands every trace in
+    it to anyone on the box, whatever the files themselves are set to --
+    and `--dry-run` says so without doing it, which is the only way a
+    reader can find out before deciding.
+
+    Every trace here is already settled at 0600, so the DIRECTORY is the
+    only thing this pass changes and the exit status has nowhere else to
+    come from: R11 says a tightened directory is a change, and exit 1
+    would tell a script the pass was a no-op on the store it just shut.
+    """
+    key = _key(tmp_path)
+    _plant(tmp_path, RUN, settled=True, key=key, mode=0o600)
     traces = _traces(tmp_path)
     traces.chmod(0o755)
 
     dry = _cli(tmp_path, ["redact", "--all", "--dry-run"])
 
     assert dry.returncode == 0, dry.stdout + dry.stderr
+    assert f"run {RUN}: nothing to redact; mode 600" in dry.stdout
+    assert f"redacted 0 of 1 traces (1 already clean, 0 skipped, " \
+           f"0 refused{SUMMARY_TAIL}" in dry.stdout
     assert dry.stdout.rstrip("\n").endswith("; traces/ mode 755 -> 700")
     assert _mode(traces) == 0o755
 
     real = _cli(tmp_path, ["redact", "--all"])
 
+    assert real.returncode == 0, real.stdout + real.stderr
     assert real.stdout == dry.stdout
     assert _mode(traces) == 0o700
 
@@ -222,6 +253,97 @@ def test_a_refused_trace_is_named_and_the_run_exits_two_with_the_others_done(
     assert _mode(good) == 0o600
     assert f"redacted 1 of 2 traces (0 already clean, 0 skipped, " \
            f"1 refused{SUMMARY_TAIL}" in r.stdout
+
+
+def test_a_clean_trace_at_0644_is_tightened_and_counted_clean(tmp_path):
+    """C11's second sentence, which has no other test at this level: a
+    trace with nothing left to redact but sitting at 0644 is readable by
+    everyone on the box, so tightening it IS the change -- and it is
+    still "already clean" in the count, because nothing was redacted."""
+    key = _key(tmp_path)
+    path = _plant(tmp_path, RUN, settled=True, key=key, mode=0o644)
+
+    r = _cli(tmp_path, ["redact", RUN])
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert f"run {RUN}: nothing to redact; mode 644 -> 600" in r.stdout
+    assert f"redacted 0 of 1 traces (1 already clean, 0 skipped, " \
+           f"0 refused{SUMMARY_TAIL}" in r.stdout
+    assert _mode(path) == 0o600
+
+
+def test_a_failed_rewrite_is_refused_and_the_walk_continues(
+        tmp_path, monkeypatch, capsys):
+    """C7's promise on the one path no store can be made to take on
+    demand: `apply` raised, so the original is whole, the trace is
+    refused by sentence, the REST of the pass still happens and the call
+    ends at exit 2.
+
+    Driven in process, because the only lever is substitution and
+    `run_cli` runs the CLI in a subprocess where a monkeypatch is not.
+    It also pins R9's count: this plan carries its rows AND a refusal, and
+    counting it as redacted would claim a rewrite that did not happen.
+    """
+    key = _key(tmp_path)
+    first = _plant(tmp_path, "a-run")
+    second = _plant(tmp_path, "b-run")
+    before = second.read_bytes()
+    monkeypatch.setenv("SENSORIUM_DIR", str(Path(tmp_path) / "sdir"))
+    whole = redact_store.apply
+
+    def failing(p):
+        if p.path == second:
+            raise OSError("boom")
+        whole(p)
+
+    monkeypatch.setattr(redact_store, "apply", failing)
+
+    status = redact_cmd.run(_args(all=True))
+
+    out = capsys.readouterr().out
+    assert status == 2
+    assert "run b-run: REFUSED: the rewrite failed: boom" in out
+    assert "run a-run: env 1 redacted (API_KEY); values 6; " \
+           "mode 644 -> 600" in out
+    assert f"redacted 1 of 2 traces (0 already clean, 0 skipped, " \
+           f"1 refused{SUMMARY_TAIL}" in out
+    assert _meta(first)["redaction"]["by"] == "retrofit"
+    assert second.read_bytes() == before
+    assert _mode(second) == 0o644
+    assert key.key_id
+
+
+def test_a_judgement_that_raises_is_refused_and_named(
+        tmp_path, monkeypatch, capsys):
+    """R10. `plan` answers every condition it foresees with a sentence on
+    the Plan, but sqlite reads pages lazily: a corrupt row can surface
+    from inside the walk, after the file opened cleanly. C9 says the
+    others continue, so an unforeseen condition is a refusal too and not
+    a traceback that ends a pass over 273 traces at the second one.
+    """
+    _key(tmp_path)
+    first = _plant(tmp_path, "a-run")
+    second = _plant(tmp_path, "b-run")
+    monkeypatch.setenv("SENSORIUM_DIR", str(Path(tmp_path) / "sdir"))
+    whole = redact_store.plan
+
+    def failing(path, key, knobs):
+        if path == second:
+            raise sqlite3.DatabaseError("database disk image is malformed")
+        return whole(path, key, knobs)
+
+    monkeypatch.setattr(redact_store, "plan", failing)
+
+    status = redact_cmd.run(_args(all=True))
+
+    out = capsys.readouterr().out
+    assert status == 2
+    assert ("run b-run: REFUSED: cannot judge: database disk image is "
+            "malformed") in out
+    assert "run a-run: env 1 redacted (API_KEY)" in out
+    assert _mode(first) == 0o600
+    assert f"redacted 1 of 2 traces (0 already clean, 0 skipped, " \
+           f"1 refused{SUMMARY_TAIL}" in out
 
 
 def test_an_incomplete_trace_is_skipped(tmp_path):
@@ -289,8 +411,13 @@ def test_the_callers_names_and_allow_knobs_are_read_and_stamped(tmp_path):
 
 # -- the call itself ------------------------------------------------------
 
-def test_a_bad_reference_exits_two_before_touching_anything(tmp_path):
-    _key(tmp_path)
+def test_a_bad_reference_exits_two_without_touching_a_trace(tmp_path):
+    """A TRACE, which is what §7's "change nothing" is about -- not the
+    whole store. The key is minted and the sweep has already run by the
+    time `find_trace` refuses, both deliberately (R1's ruling is about
+    the DRY run, and P3's sweep is not a trace); naming the test after
+    "anything" promised more than it checked.
+    """
     path = _plant(tmp_path, RUN)
     before = path.read_bytes()
 
@@ -301,6 +428,7 @@ def test_a_bad_reference_exits_two_before_touching_anything(tmp_path):
     assert r.stderr.startswith("error: ")
     assert path.read_bytes() == before
     assert _mode(path) == 0o644
+    assert (Path(tmp_path) / "sdir" / redact_key.KEY_FILE).exists()
 
 
 def test_run_and_all_are_exclusive_and_one_is_required(tmp_path):
