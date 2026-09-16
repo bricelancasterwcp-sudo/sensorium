@@ -377,9 +377,10 @@ def apply(p: Plan) -> None:
     What a kill leaves: before the create, nothing; between it and the
     rename, the original whole and a tmp this pid owns, swept by the next
     `redact` to reach the trace once the pid is dead (C7); after it, the
-    redacted trace and at worst the old inode's sidecars, which the next
-    pass unlinks. A failure this process sees rather than dies from
-    clears its own tmp and is raised to the caller.
+    redacted trace, the displaced inode's sidecars gone in a `finally` so
+    that only a signal ending the process outright can leave them. A
+    failure this process sees rather than dies from clears its own tmp
+    and is raised to the caller.
     """
     if p.refused or p.skipped or not p.changes:
         return
@@ -403,12 +404,23 @@ def apply(p: Plan) -> None:
         _fsync(tmp)
         os.chmod(tmp, TIGHT)
         os.replace(tmp, p.path)
-        _fsync(p.path.parent)
+        try:
+            _fsync(p.path.parent)
+        finally:
+            # In a `finally` and not after the `try`: past the rename the
+            # displaced inode's log is a file of plaintext pages beside a
+            # redacted database, and SQLite will recover it OVER that
+            # database -- serving the secrets back, or refusing the trace
+            # as malformed. A directory fsync that fails, or a Ctrl-C
+            # during an `--all` pass, must not be what leaves it there.
+            _unlink_sidecars(p.path)
     except BaseException:
-        _unlink_sidecars(tmp)
+        # The database first: `_unlink_sidecars` raises on an OSError that
+        # is not absence, and a tmp holding a whole plaintext copy must
+        # not survive because its `-wal` could not be removed.
         tmp.unlink(missing_ok=True)
+        _unlink_sidecars(tmp)
         raise
-    _unlink_sidecars(p.path)
 
 
 def _copy_and_rewrite(p: Plan, tmp: Path) -> None:

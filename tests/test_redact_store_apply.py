@@ -53,6 +53,19 @@ def _boom(*_a, **_kw):
     raise OSError("boom")
 
 
+#: `apply`'s own fsync, captured before any test replaces it.
+_REAL_FSYNC = redact_store._fsync
+
+
+def _no_directory_fsync(path):
+    """An `_fsync` that fails on the DIRECTORY and nowhere else: the last
+    step of the rewrite, and the only place a failure can arrive after the
+    original has already been replaced."""
+    if Path(path).is_dir():
+        raise OSError("boom")
+    _REAL_FSYNC(path)
+
+
 # -- the rewrite ------------------------------------------------------------
 
 def test_apply_rewrites_only_the_planned_rows(tmp_path):
@@ -162,6 +175,46 @@ def test_a_failure_mid_rewrite_leaves_the_original_whole_and_no_tmp(
     assert _tmps(path) == []
     for suffix in SIDECARS:
         assert not (path.with_name(path.name + suffix)).exists()
+
+
+def test_a_failing_directory_fsync_after_the_rename_still_removes_the_old_sidecars(
+        tmp_path, monkeypatch):
+    """The window the crash contract does not cover on its own: the rename
+    has already happened, so there is no tmp left to clean up, and the
+    displaced inode's `-wal` is sitting beside a redacted database holding
+    the plaintext pages it just removed. SQLite recovers that log over the
+    new file -- which is how a retrofit can appear to have done nothing --
+    so the unlink is in a `finally` and runs whether the fsync raised or
+    not. A Ctrl-C during an `--all` pass over 273 traces takes the same
+    path; only a signal that ends the process outright can leave them."""
+    key = _key(tmp_path)
+    path = _python(tmp_path, env=ENV)
+    reader = sqlite3.connect(path)
+    try:
+        reader.execute("SELECT count(*) FROM meta").fetchone()
+        p = redact_store.plan(path, key, KNOBS)
+        assert all((path.with_name(path.name + s)).exists() for s in SIDECARS)
+        monkeypatch.setattr(redact_store, "_fsync", _no_directory_fsync)
+
+        try:
+            redact_store.apply(p)
+        except OSError as e:
+            assert str(e) == "boom"
+        else:
+            raise AssertionError("apply swallowed the failure")
+
+        for suffix in SIDECARS:
+            assert not (path.with_name(path.name + suffix)).exists()
+        assert _tmps(path) == []
+        after = Trace.open(path)                   # the rewrite still landed
+        try:
+            assert after.meta["redaction"]["by"] == "retrofit"
+            assert after.event(E_CALL).payload["args"]["token"]["v"] == (
+                redact.REDACTED)
+        finally:
+            after._c.close()
+    finally:
+        reader.close()
 
 
 # -- the mode-only path (C11) ----------------------------------------------
