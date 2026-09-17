@@ -8,6 +8,16 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pyyaml>=6", "pytest-cov>=5"]
+# The official MCP Python SDK, installed for ONE test file
+# (`tests/test_mcp_conformance.py`) and never imported under `src/`:
+# it is the conformance oracle for `sensorium mcp`, the one client
+# that cannot share our reading of the protocol. Its own dependency
+# tree is large (pydantic, anyio, starlette, httpx, ...), which is
+# exactly why it is a separate extra from `dev` rather than part of
+# it: every other job installs `.[dev]` alone, and the test file
+# skips itself BY NAME there. Pinned to the 2.x major -- the SDK's
+# 2.x line is the one that speaks 2026-07-28's per-request envelope.
+conformance = ["mcp>=2.2,<3"]
 
 [project.scripts]
 sensorium = "sensorium.cli:main"
