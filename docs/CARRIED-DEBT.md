@@ -158,381 +158,441 @@ taken it to **934**, so the oldest section was cut rather than the ceiling
 discovered. This file keeps the newest section, and the next slice's section
 is appended here.
 
-## 2026-09-16 — secrets redaction, PR C (the retrofit: `sensorium redact`)
+**PR C's section moved 2026-09-17** — the retrofit, `sensorium redact`, is
+[`docs/CARRIED-DEBT-ARCHIVE-15.md`](CARRIED-DEBT-ARCHIVE-15.md), wording,
+order and strikes unchanged, so a deferred item there is still open unless it
+is struck; the MCP stdio slice touched none of PR C's subject matter and
+closed nothing it carried, so every item travels open. Measured before it was
+made, the way the rule asks: the MCP stdio slice's section below was drafted
+at **425** lines against a live file of **538**, which would have taken it to
+**963**, so the oldest section was cut rather than the ceiling discovered.
+This file keeps the newest section, and the next slice's section is appended
+here.
 
-The last of the design's three PRs
-(`docs/superpowers/specs/2026-09-13-sensorium-secrets-redaction-design.md`
-§7): A took the recorded environment, B took everything a recording
-CAPTURES, and this takes the traces that were already on disk when the rule
-shipped — on this box, **all 273 of them**, every one predating rule v1 and
-holding a live token in `meta.env` at 0644. Fourteen plan decisions
-(**P1–P14**), twenty decisions written before any code (**C1–C20**) and
-nineteen rulings (**R1–R19**) are in the design's **§13** with what each
-costs if wrong, beside every place the shipped code differs from §§1–12.
-**DONE** — E16 part C was measured **once**, on 2026-09-16
-(`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §4):
-**H4 PASS**, all four clauses, on a COPY of `~/.sensorium/traces`. The live
-store's own retrofit is a post-merge chore (**C18**, **P14**), not a
-repository change.
+## 2026-09-17 — sensorium as an MCP server, the local stdio slice
+
+The first slice of the product direction Brice ruled on 2026-09-13
+(`docs/superpowers/specs/2026-09-16-sensorium-mcp-stdio-design.md`): sensorium
+offered as an MCP service, with the free tier shipped as it will be used —
+one process, `sensorium mcp`, over the developer's own store, speaking the
+Model Context Protocol on stdio, and the exact process a hosted deployment
+will later run per tenant. Thirty-four design decisions (**D1–D34**), thirty
+plan decisions (**P1–P30**) and nineteen rulings (**R1–R19**) are in that
+spec's **§13** with what each costs if wrong, beside every place the shipped
+code differs from §§2–10. **DONE** — E17 was measured **once**, 2026-09-17
+(`docs/superpowers/acceptance/2026-09-16-sensorium-e17-mcp.md` §2), 251.2 s
+wall clock: **H1 parity PASS · H2 conformance PASS · H3 the cap PASS · H4 the
+gate PASS · H5 liveness PASS · H6 secrecy PASS · H7 the deploy target
+reported (n = 1) · latency measured**.
 
 ### Settled — closed here
 
-- **`sensorium redact [<run>|--all] [--dry-run]` exists, and a trace that
-  predates the rule can be brought under it.** One pass does to an old
-  trace what a recorder would have done at its birth: the environment
-  through the NAME rule with digests under the store's key, every captured
-  value the writers reach, the `redaction` stamp rewritten `by:
-  "retrofit"` / `mode: "on"`, and the file left at 0600.
-  `src/sensorium/query/redact_cmd.py` (`caa1a46`, `f0f54f2`), registered in
-  `cli._QUERY_MODULES` after `refocus_cmd`. The limit
-  `docs/redaction.md` carried since PR A — *a trace that predates the rule
-  is not covered by it* — is gone, replaced by the section *The retrofit:
-  `sensorium redact`* (`2ff1908`).
-- **One judgement, one writer** (**C14**, **P1**). `redact_store.plan()`
-  decides a whole trace in memory — the new environment and its hash,
-  every changed payload row, `unwind_exc`, output row and `children`
-  element, the stamp, the counts, the refusal or the skip, the original's
-  mode — and writes nothing; `redact_store.apply()` is the only hand that
-  writes and touches no row the plan did not name. `--dry-run` is `plan()`
-  alone, so the dry run is not a different code path making a different
-  claim. `ece24d1`, `7f85dbb`, `f73f387`, `49b5498`.
-- **The rewrite is backup → rewrite → checkpoint → fsync → rename →
-  sidecars** (**C7**). The original is copied with
-  `sqlite3.Connection.backup` (not a byte copy — the backup API carries
-  committed-but-uncheckpointed WAL pages) into
-  `.<run>.db.redact.<pid>.tmp` created `O_CREAT|O_EXCL|0o600`; the copy is
-  rewritten in one transaction, `wal_checkpoint(TRUNCATE)`ed, fsynced,
-  `os.replace`d, the directory fsynced, and only then the DISPLACED
-  inode's `-wal`/`-shm` unlinked — in a `finally`, so a directory fsync
-  that raises cannot leave a stale `-wal` beside the rewritten file for
-  the next reader to recover plaintext out of (**R7**, the fix round's
-  finding: "self-healing" was never verified, and WAL recovery of old
-  frames over new pages can yield a database `plan()` refuses and never
-  repairs). A killed retrofit leaves the original whole and a tmp.
-  `49b5498`.
-- **`env_hash` is reproduced before it is recomputed** (**C3**). The
-  STORED hash must come back out of the STORED environment under the
-  trace's own language formula — the JSON one for a Python trace with no
-  `lang`, the sorted `k=v` join for `rust`/`typescript` — or the trace is
-  refused by name (`env_hash does not reproduce under the <lang>
-  formula`). A retrofit that cannot get the old hash out of the old
-  environment cannot claim the new one is the same formula. It held in
-  **273 of 273** traces on the day.
-- **A second pass is idempotent, and two keys never share a stamp**
-  (**C5**, **P4**, **P6**). Names already in `redaction.env` keep their
-  digests and their marker; a value already equal to the marker is never
-  digested (a digest of `<redacted>` is a wrong digest); captures already
-  carrying `redacted` come back as they are. An UNKEYED `mode: "on"` trace
-  under a keyed store proceeds — its null digests stay null, new ones are
-  the store's, and the stamp becomes keyed — because the fallback loses
-  comparability and never safety. A trace keyed under ANOTHER key is
-  REFUSED (`digests under key <id>, the store's is <id>; nothing
-  rewritten`).
-- **The stamp's `values` is ADDITIVE** (**P2**, amending **C6**): the
-  previous stamp's count plus what this run took. A content hit leaves
-  TEXT rather than a marker, so what a trace HOLDS cannot be recounted
-  from the trace; the sum of the hands' counts is the honest number, and
-  the per-trace line prints what THIS run did.
-- **`--dry-run`'s stdout is the real run's, byte for byte** (**C10**,
-  **P3**) — the same per-trace lines, the same summary, in the same order,
-  with `dry run: no trace was changed` on STDERR (**R19**: no trace's bytes
-  and no trace's mode change and no key is minted, but the call is logged
-  and an absent store is created by the walk that looks for its traces; the
-  measurement's transcript quotes the earlier wording, `dry run: nothing was
-  written`, and clause 4 reads STDOUT, which this did not touch). Both modes
-  run one loop
-  with a single branch around `apply`, so the two cannot drift, and the
-  stale-key sweep and the `traces/` mode clause run in BOTH. That is what
-  makes H4's fourth clause a diff of two byte strings rather than a
-  judgement about wording: the measurement read
-  `sha256(dry) = sha256(real) = f73437dcc1f03e5e` over 274 lines.
-- **Modes, when asked** (**C11**, §5.5). A rewritten trace is 0600 by
-  creation; a trace needing no rewrite but sitting at another mode is
-  `chmod`ed in place with its sidecars and COUNTS as changed (`run <id>:
-  nothing to redact; mode 644 -> 600`); `--all` also tightens `traces/` to
-  0700 and says so on the summary. `redaction.key`'s mode stays `info`'s
-  to report.
-- **A stale `redaction.key.<pid>.tmp` is swept** (**C13**) —
-  `redact_key.sweep_stale(root)`, pure, never raising, called once per
-  `redact` invocation before any trace and counted on the summary. It
-  closes PR A's **R15** hazard, the one this ledger's *PR C — the
-  retrofit* bullet carried: a process killed between `_write_key` and
-  `load_or_create`'s `finally` left 32 bytes of key material nothing would
-  ever remove. A middle that is not a POSITIVE int is left alone, and a
-  pid `os.kill` cannot check reads as ALIVE (**R4**) — `PermissionError`
-  is somebody else's live process and `OverflowError` is a number no pid
-  ever is; keeping a file is the safe direction. Recorders do not sweep.
-  `67a5355`, `fd23a43`.
-- **Nothing escapes an `--all` walk** (**C9**). Seven foreseen refusals
-  are sentences on the `Plan` — a newer `trace_format`, a format-4 trace
-  missing meta, an unknown `lang`, a non-reproducing hash, another key, a
-  live tmp, a database SQLite cannot open — and the residual surprises
-  sqlite reads lazily (a corrupt page, a payload that is not JSON, a file
-  another process moved) are caught around BOTH `plan` and `apply` as
-  `REFUSED: cannot judge: …` / `REFUSED: the rewrite failed: …`
-  (**R10**). An in-flight trace is skipped and named (**C8**). One
-  refusal costs one trace, never the pass.
-- **A retrofitted trace is still comparable by NAME.** `refocus` reads the
-  digests the retrofit wrote, so a variable it took is still checkable on
-  a later run: equal holds the licence, rotated withholds it and names the
-  variable. Both halves are asserted in one test, because only the pair
-  discriminates — a granted run alone cannot tell a digest that was
-  compared and agreed from one that was never looked at, and "never looked
-  at" granting a full licence over a rotated secret is the failure §6.2
-  exists to refuse.
-  `tests/test_redact_cmd.py::test_refocus_compares_the_retrofitted_env_by_name`.
-- **The end-to-end proof is a corpus case.** `corpus/redact_retrofit`
-  records under `SENSORIUM_NO_REDACT=1` so the trace holds plaintext with a
-  two-key `mode: "off"` stamp, then asks the questions a person would:
-  `redact $RUN --dry-run`, `redact $RUN`, `redact $RUN` again (exit 1,
-  `nothing to redact`), `info` (`by retrofit`, `values redacted: 4`) and
-  `grep --kind RETURN` (the marker, never the value). The harness's
-  `expect_absent` sweep holds the token off every output. `d890399`.
-- **E16 part C, measured once, 28.8 s wall clock — H4 PASS.** A `cp -a`
-  copy of `~/.sensorium/traces` and its `redaction.key`: **273** traces
-  against §9's 273, retrofitted in the work root so the live store was
-  read and never written. All four clauses: every one of the 273 traces
-  named `CLAUDE_CODE_MESSAGING_TOKEN` in the dry run; **0 occurrences in
-  275 files** after the real run; **273/273** `info` exit 0 reading `by
-  retrofit`; the two stdouts byte-identical. `273` `-wal` and `273`
-  `-shm` files before, **0** after; 275 of 275 files at 0600 and
-  `traces/` at 0700. The token was not minted (**P10**) and it was not
-  one value: the store held **four** distinct values of that variable
-  (`sha256[:8]` `41285dda` ×254, `61e4ad5f` ×11, `876f167c` ×5,
-  `426ae10d` ×3 — it had rotated over the store's life), each read from
-  its own trace through a read-only connection, swept one at a time, never
-  printed (**R15**). `92d31e9`, `54012d6`, `159be82`.
+- **`sensorium mcp` exists: a dependency-free JSON-RPC 2.0 server on stdio,
+  eleven tools, nothing under `src/` importing anything outside the standard
+  library.** Nine query tools always — `runs`, `info`, `tree`, `frame`,
+  `grep`, `exceptions`, `flow`, `watch`, `diff` — and `record` (the CLI's
+  `run`, **D2**) and `refocus` only under `--allow-run`. `redact` is never a
+  tool (**D1**): it rewrites the store, and the tool tables are EXPLICIT
+  rather than derived from `cli._QUERY_MODULES`, which carries `redact_cmd`
+  (**P1**). `test_every_query_module_is_placed` closes the three tuples over
+  that list, so a new command fails the suite until somebody places it.
+  `src/sensorium/mcp/` in eight modules (`7caabf0`, `123303a`, `720f56c`,
+  `27932ef`, `3361cdd`, `171c1e1`).
+- **A tool's fields are DERIVED from its argparse parser at boot, and a
+  field with no help refuses the boot.** `schema.derive()` builds a private
+  subparsers object, calls each query module's own `add_parser`, and reads
+  the actions through §2.3's closed table (**D4**); `help` empty or `None` is
+  exit 2 naming command and field. Seventeen fields that had no help have one
+  now, in `src/sensorium/query/help.py` and the parsers (`f82a6d9`), so
+  `sensorium <cmd> --help` gained the same eleven description sentences the
+  tool descriptions are made of (**D3**) — one source, two surfaces, and a
+  CLI flag added later is a tool field with no MCP change. `record` is the
+  one hand-written schema (**D7**, a `REMAINDER` positional), and its own
+  drift guard asserts every non-suppressed option of `_add_run_parser`
+  appears in it. `run` defaults to `last` (**D5**); a required option is in
+  `required` (**P2**), which the spec's table had omitted.
+- **Every call is a child process in its own session, and the kill is
+  SINGLE-READER** (**R9**). `sys.executable -m sensorium <argv>` with
+  `stdin=DEVNULL`, `start_new_session=True` (`child.py`). `kill_group` is
+  `killpg(SIGTERM)` → poll the GROUP and the leader for 2 s →
+  **unconditionally** `killpg(SIGKILL)`, every `ProcessLookupError`
+  suppressed; a cancel SIGNALS and never reads, waits on the worker's `_done`
+  event, and only then shuts the pipes. Two threads reading one `Popen` is
+  undefined in CPython's own design — the plan had mandated that shape
+  without seeing it, and Task 3's review found the rebound
+  `_fileobj2output`. `7367d90`.
+- **Both lifecycles, four versions.** `server/discover` (2026-07-28) answers
+  a per-request session with `resultType`, `ttlMs` and `cacheScope`;
+  `initialize` answers a legacy one and echoes the offered version iff it is
+  a LEGACY one, else `2025-11-25` (**P27**, amending D12 — 2026-07-28 has no
+  `initialize`). A `_meta` version outside the list is `-32022` carrying
+  `{supported, requested}`; a per-request request is recognised by the
+  PRESENCE of the protocolVersion key and must carry `clientCapabilities` too
+  (**P5** tightening D13, whose falsifier fired at design time). Argument
+  validation is a RESULT with `isError`, never a protocol error; only
+  `Unknown tool: <name>` stays `-32602` (**P30**). `3361cdd`.
+- **The result is the CLI's own text under an exit header, and nothing
+  else.** The header is `exit.MEANING`'s sentence for the exit (**P3**, one
+  dict, one source, the words `INSTRUCTIONS` teaches); a signal reads
+  `exit -S: killed by SIG…` and an unguessable signal number reads
+  `signal 35` rather than raising (**R11**); no exit reads
+  `no answer: <cause>`. `--- stderr ---` labels stderr whenever it is
+  non-empty (**P4**), on its own line so the corpus client's split is
+  lossless (**R10**). The cap is head + tail at 65536 bytes with one marker
+  line naming the tool's own narrowing fields (**D23**, **D24**, **P28**);
+  `isError` is true exactly when the exit is 2 or there is no exit.
+  `720f56c`, `4660517`.
+- **`structuredContent` and `outputSchema` LEFT THE WIRE** (**R18**,
+  `4b8a63a`). The deploy target — Claude Code 2.1.258 — passes the model ONLY
+  a result's structured content when one is present and drops the text for
+  every non-error result; H7's first run recorded a session that reached the
+  right answer by probing exit codes, 40 sensorium calls to do it, the model
+  itself writing that it never saw sensorium's SWALLOWED verdict line. So the
+  header line is the exit's machine-readable carrier (`^exit (-?\d+): ` /
+  `^no answer: `), `isError` stays, and a client that wanted the exit as JSON
+  parses one line instead. The re-measured session made **5** calls.
+- **`<store>/mcp.jsonl`, 0600, one line per call and per rejection**
+  (**D27**), and **the arguments pass the content rule before they are
+  written** (**D28**) — a secret typed into `grep`'s pattern or `watch`'s
+  expression leaves the marker, not the value, and so do a rejection's tool
+  name, field names and message (**R11**). Never the environment, never
+  `cwd`, never the result text: `bytes` says how much was shown and
+  `truncated` whether all of it. `SENSORIUM_NO_INVOCATION_LOG` disables this
+  file too (**D29**) and the server says so once on stderr. The rejection
+  shapes are a census the hosted slice reads (**P16**). `720f56c`.
+- **The whole corpus is asked through the wire, and diffed against the CLI.**
+  `corpus/run_corpus.py --via mcp` replaces the one seam every question
+  already passes through with `corpus/mcp_client.py`, one server per case;
+  `--compare-cli` re-runs the read-only tools through the CLI AFTER the MCP
+  path and compares stdout and exit (**P26** — a second `refocus` rerun would
+  add a third trace to two cases and move every `last`-addressed question
+  after it). A question whose command word is not a tool is asked through the
+  CLI path and NAMED, never skipped (**P7**): `redact_retrofit`'s two tool
+  questions are only true after its three `redact` questions rewrote the
+  store. `1990ab7`, `25422b0`.
+- **The official SDK is the conformance oracle, and it is a DEV extra.**
+  `mcp>=2.2,<3` in `pyproject`'s `conformance` extra, imported only by
+  `tests/test_mcp_conformance.py` (`pytest.importorskip`), ten tests over the
+  real server on a pipe, a CI job of its own on 3.14 (**P17**), and
+  `--via mcp --compare-cli` joined the gate list in `docs/corpus.md` and in
+  the `test`, `rust` and `typescript` jobs (**P18**). `a54de01`, `25422b0`.
+- **The documentation says what the wire does.** `docs/mcp.md` (new, 330) —
+  what a tool is, the eleven, the header, the cap, the gate, the audit,
+  registration, what the server refuses; a `## MCP` section in the README
+  (**R15**) and a row in *Use*; `CHANGELOG.md` 0.18.0; `docs/overhead.md`
+  carved out of the README first so the slice had room to write (`fa2fe8d`).
+  `tests/test_mcp_docs.py` holds the docs to the code. `daf0cdb`, `efb243f`,
+  `6dbbb95`, `29467d0`.
+- **E17, measured once, 251.2 s wall clock — DONE.** H1: 115 cases / 253
+  questions against the locked census, 0 failures, 0 harness errors, 0
+  skipped, **0 MCP/CLI differences** over every read-only question, `via_cli`
+  exactly the locked three. H2: pytest 0, **10 passed / 0 skipped** against a
+  floor of 9. H3: 65135 bytes after the header against the 65536 bound, the
+  marker naming `depth, limit, around`, a 306-line head and a 32-line tail,
+  the audit line `truncated: true` — the same call through the CLI wrote
+  28,514,015 bytes. H4: nine tools without the flag and `-32602 Unknown tool:
+  record`, eleven with it, a real `record` answering `exit 0:` and its trace
+  answering that case's question. H5: 10 pings, the slowest answered in
+  **0.8 ms**, the cancelled child's group gone **0.10 s** after the cancel
+  with no response for that id, the timeout arm's header exact and its group
+  gone 3.06 s after the send. H6: **0 occurrences** of the minted token in
+  the result texts, in `mcp.jsonl` and in the server's stderr, with H6b's
+  audit line reading `<redacted>`. H7 (reported, n = 1): Claude Code 2.1.258
+  on `claude-opus-5` used `record`, `info`, `exceptions`, `tree` and `frame`
+  over 5 calls, passed `record` `['main.py']`, and named `load_all` — the
+  case's own `truth` frame. Latency: the wire's median `runs` 3704.9 ms
+  against the CLI's 3709.1 ms, a ratio of **1.00×**; spawn to the
+  `server/discover` answer 49.5 ms.
 
 ### Deferred by ruling
 
-- **The live store is still plaintext until the chore runs** (**C18**,
-  **P14**). H4 was measured on a COPY; `~/.sensorium/traces`'s own 273
-  traces are unchanged, at 0644, with four token values in them. Brice
-  pre-authorised the retrofit conditional on §4 reading H4 PASS, which it
-  does: after the merge and the tool's reinstall at 0.17.0, `sensorium
-  redact --all --dry-run` then `sensorium redact --all`, transcripts kept
-  beside the record's work root and the outcome recorded here next slice.
-  *Cost if wrong:* the box this was built on is the one store the slice
-  did not fix.
-- **`argv`, `invocations.jsonl` and the command lines §2 keeps are not
-  reached** (**C2**, **C20**), exactly as PR B left them. A token passed
-  as a command-line argument is in the trace's own argv and in
-  `invocations.jsonl` untouched; `cwd`, `exe`, `cargo_args`,
-  `harness_command`/`harness_args`, `sites` and `source_hashes` are
-  likewise as the recorders left them. The retrofit reaches what the
-  WRITERS reach and no further, which is what keeps it one rule rather
-  than two. *Cost if wrong:* a secret on a command line, which `ps`
-  already publishes to every process on the box.
-- **Every limit PR B carries travels into a retrofitted trace**, because
-  the retrofit re-uses the writers' own `redact_values`/`redact_content`:
-  the output-chunk boundary, **B8**'s Python-only map-key rule, the
-  `exceptions` grouping on redacted text, the Rust `?`-hop message, the
-  content rule's nineteen patterns. A retrofit cannot be BETTER than the
-  rule it applies; it can only be as good. The list is
-  [`docs/CARRIED-DEBT-ARCHIVE-14.md`](CARRIED-DEBT-ARCHIVE-14.md)'s, open
-  unless struck there. *Cost if wrong:* an old trace as covered as a new
-  one, which is the promise, and no more.
-- **Spools and other stores stay out of reach** (**C20**, §11). `redact`
-  walks `*.db` under ONE store's `traces/`: the Rust spool tree under
-  `<target>/sensorium/`, the TypeScript spool dirs and any second
-  `SENSORIUM_DIR` are named on every summary line as not reached rather
-  than silently excluded. A user with two stores runs it twice. *Cost if
-  wrong:* a reader taking `redacted 273 of 273` for a claim about the
-  disk, which the line itself refuses.
-- **`seal` is still §11's, and `redact` reverses nothing.** The command
-  applies rule v1 and does not re-key a store, un-redact a trace, or hold
-  a lock across traces — two concurrent `--all` runs contend per trace
-  through **C7**'s tmp and each refuses what the other holds. *Cost if
-  wrong:* two passes over one store print refusals a single pass would
-  not.
-- **Recorders do not sweep** (**C13**). Only `redact` unlinks a dead
-  writer's key tmp, so a box that never runs the command keeps its litter;
-  a recorder deleting files at boot is a different threat model and was
-  declined rather than overlooked. *Cost if wrong:* 32 bytes of unfinished
-  key material per killed writer, until the next `redact`.
-- **`live_tmp` stops at the FIRST live pid** (Task 2's minor 5): a trace
-  with two leftover tmps, one alive and one dead, keeps the dead one until
-  a later pass. The refusal is right; the cleanup is partial. *Cost if
-  wrong:* one extra file, and one extra pass to remove it.
-- **The `except ValueError` guarding `db.open_trace` has no falsifier**
-  (Task 2's completion note): a test corrupting `trace_format` or `lang`
-  into non-JSON would pin the refusal that branch prints. *Cost if wrong:*
-  a foreseen refusal that is not pinned, which is how a refusal becomes a
-  traceback under a later edit.
-- **`db.open_trace` orphans a connection on `sqlite3.DatabaseError`** —
-  pre-existing, found by Task 2's review, outside this PR's diff and
-  therefore not fixed in it. *Cost if wrong:* one leaked connection per
-  unopenable trace, on a path that ends the call anyway.
-- **Brice owed: free the part C work root.** `$E16C_DIR` holds a whole
-  second copy of the store — 273 retrofitted traces, a `redaction.key`,
-  the transcripts and the instrument's output — on the same disk the box
-  runs short of. *Cost if wrong:* a few hundred MB, and a second copy of
-  a store that used to hold live tokens.
+- **The hosted slice — streamable HTTP, authentication, tenants, upload,
+  name lists, tier gating — is not here** (spec §11). What shipped is
+  deliberately the process that slice runs per tenant: the tool surface, the
+  header, the cap and the audit line do not change when a transport is put in
+  front of them. *Cost if wrong:* a surface designed for one store that turns
+  out to need a different shape per tenant, discovered a slice later with
+  eleven tools and a corpus already pinned to it.
+- **Traces as MCP resources, prompts, tool-list-changed notifications,
+  progress notifications, streaming output** (spec §11). None is demanded
+  yet; the audit file is where the demand would show. *Cost if wrong:* a
+  client that wanted to browse traces without calling a tool does without,
+  and a long `record` shows no progress until it answers.
+- **A per-call timeout field, with its falsifier named** (**D17**).
+  `--timeout` (60 s) and `--run-timeout` (600 s) are the server's, set at
+  launch; a model cannot ask for longer. *The falsifier is written into the
+  audit:* `mcp.jsonl` lines carrying `"timeout": true` are the census that
+  adds the field, and a slice that finds none has its answer too. *Cost if
+  wrong:* a long `record` that the launcher's flag cannot accommodate is
+  killed and re-asked, costing one run's wall time per occurrence.
+- **No `env` field on `record`** (spec §11). It is a secret-into-trace vector
+  left out on purpose: the child inherits the server's environment and
+  nothing a model types. *Cost if wrong:* a model that needs a variable set
+  for the recording asks the user to restart the server with it, which is the
+  trade the redaction rule was built to protect.
+- **`seal` and scanner parity stay where the redaction spec left them**, and
+  `redact` is still not a tool. *Cost if wrong:* nothing this slice changed —
+  the items travel open from PR C's section
+  ([`docs/CARRIED-DEBT-ARCHIVE-15.md`](CARRIED-DEBT-ARCHIVE-15.md)).
+- **The invocation log's argv still does not pass the content rule**
+  (**D28**), an asymmetry older than this slice: the audit file scrubs a
+  model's arguments string by string, and the `invocations.jsonl` row the
+  child writes for the same call holds the same argv unscrubbed. Named here
+  rather than changed, because `invocations.jsonl`'s four-key shape is a
+  contract the E4 instruments read (**D30**). *Cost if wrong:* a secret a
+  model typed into a pattern is redacted in one file on the same disk and
+  plaintext in the other, which is worse than either alone because the first
+  reads as a promise.
+- **Calls are serialized, one worker, in order** (**D18**, spec §11). A
+  client that fans out two `tools/call`s gets them one after the other; the
+  reader thread answers `ping` immediately so a two-minute `record` never
+  looks dead. *Cost if wrong:* a client that fans out is slower, never wrong
+  — and concurrency across calls is the hosted slice's problem, where the
+  store is not one developer's.
+- **Windows is not supported and does not refuse to start** (spec §11). The
+  process-group kill and the 0600 file modes are POSIX; `docs/mcp.md` says
+  which behaviour is advisory there. *Cost if wrong:* a Windows user gets a
+  server whose cancel may leave a child, with nothing at boot to say so.
+- **The three `debugging-*-with-sensorium` skills have no *through MCP*
+  paragraph yet** (**D34**) — a ruling AFTER H7, not before it, and H7 is now
+  measured: the deploy target opened LEGACY, rendered only the structured
+  twin until **R18** removed it, and reached the right answer in 5 calls once
+  it could read the text. The skills are local files outside the repo, so the
+  paragraph is a post-merge chore, not a repository change. *Cost if wrong:* a
+  model driving sensorium through MCP is taught the shell's spelling, which
+  works, and is not taught that `record` needs `--allow-run`.
+- **Three files stand over the plan's per-file budgets, each parked with its
+  split named** — the budgets are hints under the binding 800-line gate, and
+  every one of the three is well under it. `src/sensorium/mcp/schema.py`
+  **360** against a ≤260 hint (**R5**; seam: describe vs translate);
+  `src/sensorium/mcp/server.py` **488** against ≤400 (**R14**; seam:
+  `lifecycle.py` — the constants, `Session`, the era check and both handshake
+  results); `tests/acceptance_e17/e17_cells.py` **530** against ≤300
+  (**R19**; seam: one module per cell family). *Cost if wrong:* three split
+  commits, one each, none of which changes behaviour — and a reader of the
+  plan's file table who takes its numbers for gates.
+
+### Deferred minors, per module
+
+None of these blocks the merge. The list is flat, by the module each touches;
+the wording is the ledger's own.
+
+- **`schema.py` (T1).** `exit.py` grew +14 against a +6 hint (a five-line
+  comment); `help.py:9`'s docstring names an import form nobody uses;
+  `Rejection.fields` is the CALLER's dict order for unknown and bad fields
+  (`schema.py:257,270`) while the docstring says schema order; four branches
+  are unexercised — a plural `unknown fields`, multiple bad-value clauses,
+  and the two command-level `SchemaError`s (a missing description, a missing
+  command help); `from_argv`'s `except` swallows `-h` and argparse writes
+  help to STDOUT while only stderr is redirected (`schema.py:318`) —
+  `from_argv` is never called inside the server process, but redirect stdout
+  too before any caller-supplied argv reaches it.
+- **`tools.py` (T2).** `kind`/`required` for `record`'s four flags are
+  retyped at `tools.py:106-109` where `schema._kind(action)` and
+  `action.required` are readable; `command_argv` dispatches on
+  `tool.schema is not RECORD` by IDENTITY, so an off-table `Tool` would fall
+  into `to_argv` and embed the command list as one argv word; `window: ""`
+  passes validation as a string (`cwd: ""` and `python: ""` are handled —
+  **R8** treats them as absent); `table()` re-derives nine parsers per call
+  while `RECORD` is built at import; the three module tuples are not asserted
+  disjoint. **Closed by R18:** the `OUTPUT_SCHEMA`-shared-by-reference minor
+  — the constant is gone, and a test asserts its absence.
+- **`child.py` (T3).** `_reap` expiry returns `""` rather than what was read,
+  and the timeout path's recovery through the second `_reap` is unpinned;
+  `cancel()` holds the `Child` lock up to `GRACE + REAP` on the caller, so
+  the server's reader thread stalls that long on a deaf grandchild
+  (acceptable, documented); a non-cancel `communicate` `OSError` yields a
+  fourth `cause` shape the renderer will meet (it falls under
+  `no answer: <cause>`); an `assert` sits inside `running()`'s `finally`;
+  `ms` starts at `run()` entry and so includes the lock wait.
+- **`result.py` / `audit.py` (T4, T8).** `scrub` runs before the `disabled()`
+  guard; `call_result`'s narrowing wiring is pinned only by Task 5's e2e
+  test; the audit writes `"cause": null` beside a header reading
+  `no answer: unknown`. **Stale docstring:** `audit.py:111-113`'s
+  `record_rejection` still says `tool` is None for a malformed request — that
+  path never reaches `record_rejection` (the server writes NO audit line for
+  a malformed call), so the sentence describes a case that cannot occur.
+- **`corpus/mcp_client.py` (T5a).** `_die` after a plain `close_stdin`
+  reports `server exited (rc=None)`; the reader's broad `except` reports any
+  reader bug as `server exited`; `initialize` sends no `_meta` (the legacy
+  `"_meta": {}` request is covered by a 5b test); the file is at **329**
+  against a ≤330 budget. **Instrument limit accepted:** mutant M11b — a plain
+  unlocked id mint — survives under the GIL; the lock stays and the test pins
+  the invariant.
+- **`server.py` (T5b).** A post-write audit failure (a `scrub` →
+  `redact_content` raising, outside `audit._write`'s own `try`) would produce
+  a `-32603` for an ALREADY-ANSWERED id — wrap the post-write audit calls, or
+  skip `-32603` when the id is answered; the reader loop has no exception
+  boundary around `record_cancel`;
+  `test_cancel_sent_immediately_after_the_call_still_kills`' kill clause is
+  vacuous in practice (assert the disjunction: a queued cancel OR a pgid that
+  existed and is gone); the boot line and the `exit 0 (…)` lines are pinned
+  by no test; `_discover` hand-builds its `_meta` instead of calling
+  `_modern()`; `_listing`'s docstring says eleven; `test_instructions` takes
+  unused fixtures; `session.discovered` is never read; `test_vocab`'s import
+  placement. **Stale prose, reachable by `--help`:** `cmd.DESCRIPTION` (P19's
+  literal) still reads *every query command is a tool* — false of `redact`,
+  and the one place the corrected sentence did not land when `efb243f` fixed
+  the README and `docs/mcp.md`.
+- **`corpus/via_mcp.py` and the runner (T6).** `_first_differing_line` falls
+  through to `<end of output>` when two stdouts differ only in trailing
+  newlines (the record still exits 1; make the printed line name the tails);
+  `0 MCP/CLI difference(s)` prints even when nothing was comparable (name how
+  many were compared); `_report_json` imports `corpus.via_mcp` even in `cli`
+  mode; `differences(results)` is computed twice; `compare` covers stdout and
+  exit only (plan-mandated); the `rust` and `typescript` CI jobs now record
+  the corpus twice (**P18**).
+- **The conformance job (T7).** Its `fetch-depth` comment borrows the
+  byte-lock rationale; a skipped file in that job still exits 0 (H2's
+  0-skipped is asserted by the instrument, not by CI); `hand()` uses the full
+  `os.environ` while the SDK's servers get the filtered six; the `extra_env`
+  knob is unused. ⚠️ `mcp` 2.2.0 on CPython 3.14 is first exercised by the CI
+  job itself.
+- **The E17 instrument (T0, T9).** `tests/test_acceptance_e17_lock.py:482-483`
+  writes and reads without `encoding="utf-8"` while the record holds `§ × µ ≥`
+  (consistent with e16, but the write is new); the three lock-reader helpers
+  now exist in triplicate across e15/e16/e17 (a plan-mandated copy, known
+  duplication); the timeout-exit clause shows PASS beside a STOP cell when no
+  result came; the part cap is checked only between phases; a `RuntimeError`
+  in `_h5_cancel` can leave the 30 s sleeper (bounded); the instrument's "no
+  box path" constraint should read "no path" (the forbidden-prefix literal
+  and fixture fragments match the grep); `CELLS` has 8 entries by design
+  (latency).
+- **The R18 follow-through (T12).** `docs/mcp.md:111-112` says the exit is
+  read off the header's *first token* (it is the second); the absence-matrix
+  test builds unreal `Outcome`s (exit 0 with cause `cancelled`);
+  `STRUCTURED_LEGACY` and the `structured` parameter now mean "knows
+  `Tool.title`" and should be renamed.
+- **★ The H7 cell counts tools that are not sensorium's** — a rendering
+  defect in the measured record, caught by the controller the same day and
+  written as an **erratum** beside §2 rather than edited away. The row reads
+  *7 sensorium tool(s) used* because the cell counted every distinct name in
+  `h7.json`'s `tools_used`, Claude Code's own `Skill` and `ToolSearch`
+  included; the true count is **5** (`record`, `info`, `exceptions`, `tree`,
+  `frame`), which `h7.json`'s `sensorium_tool_calls` also says, and the
+  locked "≥ 3" holds either way. The measured value is untouched; the CELL is
+  what needs the fix. *Cost if wrong:* a reader of the row takes a number
+  about Claude Code for a number about sensorium — which is exactly what the
+  erratum exists to stop, and why the fix belongs in `e17_cells.h7` before
+  the next slice reuses it.
 
 ### Files near the ceiling
 
 Measured at this slice's last commit against the 800-line gate
-(`tests/test_ceiling.py`, `LIMIT = 800`, tracked `*.py *.rs *.sh *.md
-*.mjs *.ts *.tsx` outside the three record directories). What PR C moved:
+(`tests/test_ceiling.py`, `LIMIT = 800`, tracked `*.py *.rs *.sh *.md *.mjs
+*.ts *.tsx` outside the record directories). What this slice moved:
 
-- **`README.md` 797** (was 796) and **`docs/redaction.md` 600** (was 518)
-  — the two documents the command's shipping had to touch. README took the
-  `redact` row and one line of prose; `redaction.md` took the whole
-  section *The retrofit: `sensorium redact`* in place of *Coming in later
-  versions*. `docs/query.md` **798** and `docs/TRACE-FORMAT.md` **797**
-  were deliberately NOT touched: the command's documentation lives in
-  `redaction.md` on **B25**'s pattern.
-- **`CHANGELOG.md` 684** after 0.17.0, because the cut was made BEFORE the
-  entry was written rather than discovered at 800 (**C19**): 0.11.0 and
-  0.10.0 (162 lines) moved to **`CHANGELOG-ARCHIVE-2.md` 644** (was 479)
-  under a dated note, and the live file's pointer names **0.8.7–0.11.0**,
-  volume 2's true range (**R2** — the plan's literal said 0.9.0 and was
-  wrong).
-- **`tests/acceptance_e16/e16c.py` 727** — the part C instrument, the
-  largest file this slice created and the one to watch. **R16** accepted
-  553 at the implementer (the 400 in the brief was a hint; part B's
-  `e16b.py` is 537), and **R15**'s four-value sweep plus **R17**'s repairs
-  took it to 727. The next phase added to it needs the file split first;
-  `assemble_e16c.py` **426** and `e16c_cells.py` **374** are where its
-  reading and its cells already live.
-- **New and clear:** `src/sensorium/redact_store.py` **462** (**R5**
-  accepted 301 at Task 2 against a ≤300 hint, **R7** relaxed 450 to 480 at
-  Task 3 to close the stale-sidecar window — the binding limits are the
-  800 ceiling and "no new file past 600 at creation"),
-  `src/sensorium/query/redact_cmd.py` **257**,
-  `src/sensorium/redact_key.py` **317** (was 262).
-- **Unchanged and still at the gate:** `rust/HONESTY-BLIND-SPOTS.md`
-  **800** — zero headroom, as PR B left it; the next blind spot needs the
-  file cut first.
-- **This file 525** after the fourteenth cut — see the pointer paragraph
-  above, which measured the move before it was made (the section was 342
-  lines when the cut was decided and **365** as it stands; these last two
-  bullets and the corpus-setup half of the second process lesson are the
-  difference). A section of this size does not fit beside another one, so
-  the next slice cuts again; that is the rule working, not a surprise.
-- **What this list does NOT cover.** Twenty-odd tracked files sit between
-  770 and 800 and are not named above, because PR C touched none of them
-  and none is its seam — the four documents PR B named (`docs/query.md`,
-  `docs/TRACE-FORMAT.md`, `typescript/HONESTY.md`,
-  `rust/tests/mechanics.sh`) and the test modules around them are where
-  they were. `tests/test_ceiling.py`'s by-pattern enumeration is the list;
-  this section is only what the next editor of the files PR C touched
-  needs to know before adding a paragraph.
-
-### Deferred minors, per task
-
-None of these blocks the merge. The list is flat: an order nobody argued
-for would read as one somebody did.
-
-- **T0 (record, lock, CHANGELOG cut):** the lock test's box-path guard was
-  widened from `E16_DIR=` to the two sanctioned pins — necessary for part
-  C's `E16C_DIR=`, and outside the brief's edit list.
-- **T1 (the sweep):** the re-review's full-suite count moved 4944→4947
-  against two tests added, unreconciled and non-blocking (the file-scoped
-  run 8/8 is the evidence); a negative middle in a tmp name signals a
-  process GROUP to `os.kill` and is refused like `abc`, which no test
-  distinguishes from the zero case.
-- **T2 (the judgement):** `live_tmp` stops at the first live pid; **P8**'s
-  parsed-object half (`new != obj` on the decoded object, not the text) is
-  unpinned by a discriminating test; the `plan()`-level `except
-  ValueError` has no falsifier. The dry run's read-write open — a WAL
-  database needs a writable `-shm` even to read — may leave a `-wal`/`-shm`
-  beside a trace whose content nothing touched; **closed in Task 6**,
-  stated in `docs/redaction.md`.
-- **T3 (the writer):** the failed-replace test does not pin "the original
-  keeps its sidecars"; sidecar-path construction is spelled twice
-  (`_sidecar_paths` when the ceiling allows).
-- **T4 (the command):** `cli.py`'s docstring understates the
-  argparse-after-dispatch hole — `parser.error` inside `run()` ends the
-  call with no `invocations.jsonl` row, as every argparse error does
-  (**R12**); `_dir_mode`'s `except OSError` branch is not
-  mutation-coverable as the owning user. The degenerate `env 0 redacted
-  ()` line form is **closed** by the final fix wave (**R19**): it is the
-  line a pre-rule or `mode: "off"` trace with nothing to take now prints,
-  and `test_a_trace_rewritten_only_for_its_stamp_prints_the_counted_form`
-  pins it against `e16c_cells.LINE`. The test helper's
-  `_traces()` now creates `traces/` at 0700 — every `--all` test had been
-  exercising the directory clause silently until the fix round.
-- **T5 (the corpus case):** the case leaves the `print` chunk plaintext —
-  the content rule's documented floor, the rule and not a defect
-  (pre-flight scan, adjudicated). `questions.yaml`'s `truth` now names the
-  variable instead of a count (**R13**), because **P9** says the env
-  line's `N` is the launching shell's and not a test's.
-- **T6 (docs, 0.17.0):** the CHANGELOG entry is 46 lines against a 40-line
-  hint (accepted — the ceiling is the rule); **P6**'s null-digest nuance
-  (an unkeyed `mode: "on"` trace keeps null digests and gains keyed ones)
-  is omitted from the docs, which are true as they stand.
-- **T7 (the instrument):** `assemble_e16c.py` renders `0` unreadable files
-  when `grep-after` DROPPED (harmless on a complete run); `AMENDMENTS`
-  hard-codes the census prose "FOUR … 254/11/5/3", which must be re-read
-  at run time; `fabricate` returns a decoy map only to be popped; the
-  None-sticky merge branch, the byte comparison and the `env`-not-a-dict
-  refusal have no unit test; `TIMERS["grep"]`/`["copy"]` are pinned but
-  unenforced; `offenders_c` screens part A's token SHAPE rather than the
-  live values (nothing writes one). The grep phases run four times over
-  282 MB and `_grep_counts` polices no timeout of its own.
-- **T8 (the measurement):** the record's §4 is complete; the only box path
-  in any committed artifact is the sanctioned `E16C_DIR=` pin.
+- **`README.md` 727** — 797 before the slice, and the cut was taken FIRST
+  (`fa2fe8d`): `## Overhead`, 88 lines, moved whole to **`docs/overhead.md`
+  95**, wording unchanged, the README keeping three lines and a link on the
+  `query.md`/`corpus.md` precedent. Then it took `## MCP` (12 lines), a *Use*
+  row and the corrected corpus census (**P13**). Seventy-three lines of room,
+  where the slice found three.
+- **`docs/query.md` 798** and **`docs/TRACE-FORMAT.md` 797** — deliberately
+  NOT touched, on **B25**'s pattern: the command's documentation lives in
+  `docs/mcp.md`. Both are where PR C left them, and either one needs a cut
+  before it takes a paragraph.
+- **`CHANGELOG.md` 750** after the 0.18.0 entry (60 lines, 11 bullets)
+  against 687 before — fifty lines of room, so the next entry is the one that
+  decides whether volume 3 of the archive gets cut.
+- **New and clear:** `docs/mcp.md` **330** at its own budget,
+  `corpus/mcp_client.py` **329**, `corpus/run_corpus.py` **711** (the mode's
+  body lives in `corpus/via_mcp.py` **220**, which is the ceiling working as
+  intended), `src/sensorium/mcp/` at 360 / 488 / 240 / 220 / 184 / 139 / 135
+  / 100 (`schema`, `server`, `child`, `tools`, `result`, `jsonrpc`, `audit`,
+  `cmd`), `tests/acceptance_e17/` at 530 / 435 / 412 / 323 / 220.
+- **The largest new test modules:** `tests/test_acceptance_e17_cells.py`
+  **751** — the one to watch, 49 lines of room, and the next cell family
+  added to E17 needs it split first — then `tests/test_vocab.py` **639**
+  (was 637), `tests/test_mcp_server.py` **588** and
+  `tests/test_mcp_client.py` **586**.
+- **Unchanged and still at the gate:** `rust/HONESTY-BLIND-SPOTS.md` **800**
+  — zero headroom, exactly as PR B and PR C left it — and the four test
+  modules at 790+ (`tests/test_flow_identity.py` **797**,
+  `tests/test_refocus_typescript.py` **794**, `tests/test_runs_info.py`
+  **790**, `tests/test_ts_ingest_meta.py` **789**), which this slice added
+  nothing to.
+- **This file 598** after the fifteenth cut — see the pointer paragraph
+  above, which measured the move before it was made (the section was 425 lines
+  when the cut was decided and **427** as it stands, this bullet's own number
+  being the difference). Two hundred and two lines of room.
+- **What this list does NOT cover.** The twenty-odd tracked files between 770
+  and 800 that this slice did not touch are not named here;
+  `tests/test_ceiling.py`'s by-pattern enumeration is the list. This section
+  is what the next editor of the files THIS slice touched needs before adding
+  a paragraph.
 
 ### Process lessons
 
-- **A hotfix cherry-picked onto a feature branch conflicts with itself
-  when it lands on `main`.** PR A's **R4** put `main`'s hotfix (PR #41)
-  onto `feat/redaction-b` so every task's whole-suite gate would be green
-  from Task 0; #41 then merged to `main` separately, and this branch
-  edited the same hunks again. The fix is not to avoid the cherry-pick —
-  a red suite under every task is worse — but to MERGE `main` into the
-  branch the day the hotfix lands there, so the two histories meet once,
-  deliberately, instead of at the PR. *A cherry-pick is a promise to
-  merge later.*
-- **A driver on `PATH` answers about the binary somebody built, not the
-  tree.** Task 0's whole-suite run showed one failure,
-  `test_corpus_harness::test_corpus_passes`, on six `rust/*` cases — the
-  `cargo-sensorium` on `PATH` embedded `sensorium-rt` 0.6.0 while `main`'s
-  `Cargo.toml` pinned 0.7.0. Nothing on the branch was wrong; the fresh
-  worktree had simply never rebuilt the driver. PR B's own lesson (*a
-  stale binary on PATH called PR A's corpus green*) is the same failure in
-  the other direction, and it recurred one PR later. **Rebuild the PATH
-  driver from `main` after every runtime bump**, and treat a corpus
-  failure in a fresh worktree as a question about the binary before it is
-  a question about the diff. The same gap has THREE more mouths, found at
-  this slice's own full-green run: `corpus/typescript/node_modules` and
-  `typescript/node_modules` are both untracked, so a fresh worktree
-  SKIPS all 48 TypeScript cases until the first is installed and
-  FAILS all 48 until the second is — `npm ci` under `corpus/typescript`
-  and under `typescript`, the recorder's own error naming the second by
-  path. The runner is not the quiet one here: it marks each skipped case
-  `skip`, names every distinct reason on the count line (*115 cases (48
-  skipped: …), 157 questions, 0 failures*) and has carried
-  `--require-driver` — exit 1 if any case could not run — all along. What
-  read as a pass was a *reader* taking `0 failures` for an answer about
-  48 cases nobody asked. So the pre-merge gate has a spelling, and it is
-  the flag: **`corpus/run_corpus.py --require-driver`**, which turns a
-  skip into a verdict on the run. **A fresh worktree is green only after
-  the venv, the driver and both Node installs** — and a corpus total that
-  moved (157 questions to 253) is the tell that a language was not being
-  asked anything.
-- **An instrument's premise about a LIVE subject must be censused before
-  the run, not assumed.** Part C pre-registered the token as *the* value
-  of `CLAUDE_CODE_MESSAGING_TOKEN`, read from the first trace's
-  `meta.env`, with "every trace holds it" as the precondition. The store
-  held FOUR values — the token had rotated, 254/11/5/3 across 273 traces —
-  and the first trace in sorted order carried the one held by 11, so the
-  pre-registered reading would have refused 262 of 273 traces for a reason
-  that has nothing to do with the retrofit. The rehearsal could not have
-  caught it: it runs on a FABRICATED store, where the premise is whatever
-  the fabricator wrote. The controller's own read-only census of the live
-  store did, hours before launch, and **R15** amended the clause beside
-  the locked text into something strictly stronger — sweep the DISTINCT
-  set, every trace must hold ITS OWN value, every value must read 0
-  everywhere after. *A dry run proves the plumbing; only a census proves
-  the premise.*
-- **An artifact beside a record goes through the assembler, or not at
-  all.** The instrument's raw results file contains the work root's own
-  paths; `assemble_e16c.py` scrubs them on its way into the repository.
-  After the measurement the controller `cp`'d the raw file over the
-  assembler's scrubbed copy to "refresh" it, putting five box-path lines
-  back into a committed artifact, and caught it only on the box-path
-  audit. Regenerating through `--artifacts` fixed it. *A scrubber that can
-  be bypassed by a copy is a convention, not a control — so audit the
-  committed bytes, every time.*
+- **A spec's line counts go stale between the spec and the branch, and one
+  of them was load-bearing.** §10 said `docs/CARRIED-DEBT.md` is at **795**
+  and planned an archive cut at Task 0 to make room. The file was **538** —
+  795 was PR A's number, read while PR C's own cut was still ahead of it — so
+  the plan replaced the scheduled cut with a measurement (**P12**: draft the
+  section, measure `538 + len(section)`, cut only if the sum exceeds 800),
+  which is the rule this file has carried since the fourteenth volume. The
+  same spec put the README at 797 (true) and `CHANGELOG.md` at 684 (687).
+  *A number copied from a sibling document is a number nobody measured; the
+  plan's job is to re-read it, and a scheduled cut is a decision made on a
+  number, not a chore.*
+- **A list you derive a surface from may already hold something that must not
+  be on it.** D31 said the tool table is derived from `cli._QUERY_MODULES`,
+  which is right about where commands live and wrong about what they are:
+  that list has eleven entries and one of them is `redact_cmd`, which
+  REWRITES the store. Derivation would have put it on an execution-capable
+  surface silently. **P1** made the three tuples explicit and put a closure
+  test over the list instead, so the automation that matters — field
+  derivation — stays, and the one judgement a human owes (is this new command
+  a tool?) fails the suite until somebody makes it. *Derive the parts nobody
+  should have to restate; never derive a permission.*
+- **A falsifier that fires at DESIGN time is the cheapest one you will ever
+  write.** D13 tolerated a `_meta` carrying the protocol version without
+  `clientCapabilities` and attached a falsifier: *if H2's official client
+  sends `clientCapabilities` on every request, the next slice tightens.* The
+  plan's own reading of the SDK answered it before any code existed — it
+  stamps both keys on every modern request — so **P5** tightened the rule at
+  design time and H2 test (h) pins the `-32602`. *Write the falsifier even
+  when you expect to answer it yourself, and read it before you implement the
+  leniency.*
+- **Two readers on one `Popen` is undefined, and a plan can mandate it
+  without noticing.** The plan's kill sequence ended `proc.communicate()`
+  inside `kill_group`, called from the cancelling thread while the worker was
+  already inside its own `communicate`. CPython 3.13 rebinds
+  `_fileobj2output` for the second entrant (`subprocess.py:1239, 2116-2121`),
+  so a cancelled call's output is split or dropped and one thread's `close()`
+  can `EBADF` the other. Task 3's review found it in the diff, not in a test
+  — no test was going to. **R9** made the contract single-reader: the worker
+  owns every byte, `cancel()` signals and waits on an event. *When a plan
+  spells a concurrency primitive verbatim, the review of that diff is the
+  only place the language's own contract gets checked.*
+- **A wire field that is not a COMPLETE representation is a field that hides
+  the product.** `structuredContent: {"exit": N}` was a small, correct,
+  spec-blessed convenience. The deploy target renders structured content
+  INSTEAD of the text for every non-error result, so a session got
+  `{"exit":0}` and nothing else: the model found the right answer by probing
+  exit codes over 40 calls and said in its own words that it never saw
+  sensorium's verdict line. Every unit test, the SDK oracle and the whole
+  corpus were green on that server — **only H7, the real client, could see
+  it** — and the fix (**R18**) was to take both keys off the wire and make
+  the header the machine-readable carrier. The same task re-measured at 5
+  calls. *A conformance oracle proves you speak the protocol; only the deploy
+  target proves the client shows the user what you said. Ship the smoke test
+  that runs the real client, and run it BEFORE the docs are written.*
+- **A plan review can cost more than the plan.** The 6-lens review of this
+  plan was dispatched as a wide ultracode fan-out — 192 agents — and burned
+  the day's Fable budget before Task 0 started. The work was good (50 applied
+  findings, and the D13 falsifier above came out of it), but the shape was
+  not: the rule now is implementers and task reviewers on opus, scoped
+  re-reviews of small fix diffs on sonnet, the controller doing the final
+  whole-branch review itself, and NO parallel fan-out. *Review depth is
+  bought with a budget somebody else needs later in the same day; pick the
+  model per seat, not per ambition.*
+- **Two implementers in one worktree sweep each other's staged files, and the
+  defence is `git add` by PATHSPEC.** Task 9's fix round and Task 12's
+  implementer were live in the same tree at once; every commit in that window
+  named its paths explicitly and `git show --stat` was read after each, so
+  Task 12's eleven uncommitted files survived Task 9's two commits intact.
+  The lesson is a memory note older than this slice; what is new is that it
+  held under a deliberate overlap rather than an accidental one. *A second
+  worktree is better; by-path commits plus `--stat` after every one is what
+  makes the single tree survivable.*
