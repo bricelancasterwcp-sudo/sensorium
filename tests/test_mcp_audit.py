@@ -34,6 +34,8 @@ catches it:
 import json
 import os
 import stat
+import threading
+import time
 
 from sensorium import invocations
 from sensorium.mcp import audit
@@ -211,6 +213,105 @@ def test_cancel_line(tmp_path, monkeypatch):
     assert ran["arguments"] == {"command": ["p.py"], "focus": ["<redacted>"]}
     assert (ran["cancelled"], ran["queued"], ran["ms"]) == (True, False, 3001)
     assert (queued["queued"], queued["ms"]) == (True, None)
+
+
+# -- the file's mode, and two threads on it --------------------------------
+def test_an_existing_audit_file_is_retightened_to_0600(tmp_path, monkeypatch):
+    """M3. `os.open(..., 0o600)` applies the mode on CREATE only, so an
+    `mcp.jsonl` that already exists keeps whatever it has -- 0644 from
+    an older build, from a restore, from a copy made under a different
+    umask -- while `docs/mcp.md` says the file is 0600. This file names
+    every call and its arguments, and the promise has to hold for the
+    file that is there, not only for the one we made.
+    """
+    root = _store(tmp_path, monkeypatch)
+    root.mkdir(parents=True)
+    existing = root / "mcp.jsonl"
+    existing.write_text('{"utc":"before","tool":"runs"}\n')
+    os.chmod(existing, 0o644)
+    assert _mode(existing) == 0o644
+
+    audit.record_call("grep", {"pattern": "x"}, _o(0), 10, False)
+
+    assert _mode(existing) == 0o600
+    assert [ln["tool"] for ln in _lines(root)] == ["runs", "grep"]
+
+
+class _HalfFile:
+    """A handle that writes each string in two `write()` calls.
+
+    Why the real file is not enough on its own: a whole line handed to
+    one `write()` on a REGULAR file reaches the disk in one `write(2)`,
+    and `O_APPEND` makes that atomic whether or not a lock is held -- so
+    an unlocked writer passes a plain two-thread test forever. This is
+    `tests/test_mcp_jsonrpc.py`'s `HalfWriter` argument, applied to the
+    file: a stream that can block mid-write (a pipe, a full buffer, a
+    line past the 8 KiB text buffer) is what the lock is there for, and
+    this is that stream. The bytes still go to the real `mcp.jsonl`
+    through the real `O_APPEND` fd.
+    """
+
+    def __init__(self, handle) -> None:
+        self._handle = handle
+
+    def write(self, s: str) -> int:
+        half = len(s) // 2
+        self._handle.write(s[:half])
+        self._handle.flush()
+        time.sleep(0.0005)
+        self._handle.write(s[half:])
+        return len(s)
+
+    def __enter__(self) -> "_HalfFile":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._handle.close()
+
+
+class _HalfOs:
+    """`audit`'s view of `os`, with `fdopen` handing back a `_HalfFile`.
+    Patched onto the module, not onto `os` itself: nothing outside this
+    module should write in halves for the length of one test."""
+
+    def __init__(self) -> None:
+        self.fdopen = lambda *a, **kw: _HalfFile(os.fdopen(*a, **kw))
+
+    def __getattr__(self, name):
+        return getattr(os, name)
+
+
+def test_two_threads_writing_at_once_never_split_a_line(tmp_path, monkeypatch):
+    """M4. `record_cancel` runs on the server's READER thread while
+    `record_call` runs on the worker, and each opens an fd of its own:
+    two lines whose halves interleave are two lines no census can parse,
+    and the census is what a future policy argument stands on. One
+    module-level lock around the write closes it.
+    """
+    root = _store(tmp_path, monkeypatch)
+    monkeypatch.setattr(audit, "os", _HalfOs())
+
+    def run(tag: str) -> None:
+        for i in range(200):
+            audit.record_call(f"{tag}{i}", {"pattern": "x" * 200}, _o(0),
+                              10, False)
+
+    threads = [threading.Thread(target=run, args=(tag,))
+               for tag in ("a", "b")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(120)
+
+    raw = (root / "mcp.jsonl").read_text().splitlines()
+    assert len(raw) == 400, len(raw)
+    for line in raw:
+        try:
+            json.loads(line)
+        except ValueError as broken:            # two halves on one line
+            raise AssertionError(f"{broken}: {line[:120]}...") from None
+    assert sorted(json.loads(ln)["tool"] for ln in raw) == sorted(
+        [f"a{i}" for i in range(200)] + [f"b{i}" for i in range(200)])
 
 
 # -- the knob (D29) --------------------------------------------------------

@@ -198,7 +198,7 @@ class Server:
         for line in self._stdin:
             message = parse_line(line)
             if message is None:
-                continue                      # a blank line is not a message
+                continue       # a blank line or a dropped notification
             if not isinstance(message, Incoming):
                 code, text, id_ = message     # parse_line's own refusal
                 self.writer.error(id_, code, text)

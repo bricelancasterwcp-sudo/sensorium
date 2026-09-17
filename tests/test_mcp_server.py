@@ -507,6 +507,27 @@ def test_an_internal_error_is_32603_and_the_worker_survives(
     assert seen == ["runs"]
 
 
+def test_a_notification_with_bad_params_gets_no_reply(sdir, tmp_path):
+    """M2, JSON-RPC 2.0 §4.1. `notifications/cancelled` with a `params`
+    that is not an object used to draw a `-32602` carrying `id: null`:
+    a line on stdout that no client is waiting on, which a strict one
+    either errors over or files as an unsolicited response. The ping
+    after it is the ordering: the reader handles both, in order, so by
+    the time the ping is answered the notification has been seen."""
+    with spawn(sdir, tmp_path) as client:
+        client.notify("notifications/cancelled", 5)
+        client.notify("notifications/initialized", "nope")
+        assert client.ping() >= 0
+        assert client.unaddressed == []
+        assert client.bad_lines == []
+        # ...and a REQUEST with the same bad params still gets its
+        # -32602: a client blocked on that id must not be left waiting.
+        _raw(client, '{"jsonrpc":"2.0","id":77,"method":"ping","params":5}')
+        answer = client.wait(77, 60)
+        assert answer["error"]["code"] == -32602
+        assert answer["error"]["message"] == "params must be an object"
+
+
 def test_a_pattern_that_begins_with_a_hyphen_reaches_the_cli(sdir, tmp_path):
     """I2, end to end. `grep {"pattern": "-x"}` used to come back
     `exit 2 ... the following arguments are required: pattern` -- the

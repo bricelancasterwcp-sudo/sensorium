@@ -187,6 +187,27 @@ def test_params_that_is_not_an_object_is_invalid_params_with_its_id():
         INVALID_PARAMS, "params must be an object", "a")
 
 
+def test_a_notification_with_bad_params_is_answered_with_nothing():
+    """M2, JSON-RPC 2.0 §4.1: a Request object WITHOUT an `id` member is
+    a Notification and the server must not reply to one -- not even to
+    refuse it. The refusal used to be built with `obj.get("id")`, which
+    cannot tell "no id key" from `"id": null`, and the reader wrote an
+    error carrying `id: null` for a message nobody was waiting on.
+
+    An object with no string METHOD is a different case and keeps its
+    reply: the specification's own example answers that one with a null
+    id, because a thing that is not a Request cannot be a Notification
+    either."""
+    assert parse_line('{"jsonrpc":"2.0","method":"notifications/cancelled",'
+                      '"params":5}') is None
+    assert parse_line('{"method":"ping","params":[1]}') is None
+    # `"id": null` IS a key that is present: that one is answered.
+    assert parse_line('{"id":null,"method":"ping","params":5}') == (
+        INVALID_PARAMS, "params must be an object", None)
+    assert parse_line('{"jsonrpc":"2.0"}') == (INVALID_REQUEST, NO_METHOD,
+                                               None)
+
+
 def test_a_blank_line_is_nothing_at_all():
     """The reader skips these rather than answering -32700: a trailing
     newline on a client's last write is not a malformed message."""

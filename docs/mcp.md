@@ -199,12 +199,16 @@ as: `"7"` is not the call whose id is `7`.
 ## The audit file
 
 `mcp.jsonl` sits beside `invocations.jsonl` at the store root, created 0600
-under a 0700 directory, and is invisible to every trace lookup -- `runs` and
-`find_trace` glob `traces/*.db`, and this file is not under `traces/`. One
-compact JSON line per answered call, per cancel, and per REFUSED call -- one
-naming a tool this server does not have, or one whose arguments were rejected.
-A malformed `tools/call` and every transport-level refusal are answered and
-NOT audited: no tool was named, so there is nothing to record them under.
+under a 0700 directory -- and re-tightened to 0600 whenever it is opened with
+group or other bits on it, so a file left readable by an older build, a
+restore or a copy under another umask does not stay that way (the DIRECTORY
+keeps whatever mode it has, as it always did) -- and is invisible to every
+trace lookup: `runs` and `find_trace` glob `traces/*.db`, and this file is not
+under `traces/`. One compact JSON line per answered call, per cancel, and per
+REFUSED call -- one naming a tool this server does not have, or one whose
+arguments were rejected. A malformed `tools/call` and every
+transport-level refusal are answered and NOT audited: no tool was named, so
+there is nothing to record them under.
 
 | line | fields |
 |---|---|

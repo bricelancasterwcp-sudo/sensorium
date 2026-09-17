@@ -126,7 +126,10 @@ def cap(text: str, limit: int, narrowing: tuple[str, ...]
     # max(1, ...): under limit 4, `limit // 4` is 0, `raw[-0:]` the WHOLE
     # buffer -- a "cap" emitting everything it claimed to cut.
     keep_tail = max(1, min(KEEP_TAIL, limit // 4))
-    keep_head = limit - keep_tail
+    # max(0, ...): at limit 0 the floor above makes `limit - keep_tail`
+    # -1, and `raw[:-1]` is all but one byte of the body the marker has
+    # just declared omitted -- the same inversion one step further down.
+    keep_head = max(0, limit - keep_tail)
     head = raw[:keep_head]
     head = head[:head.rfind(b"\n") + 1] if b"\n" in head else head
     tail = raw[-keep_tail:]

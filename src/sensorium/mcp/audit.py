@@ -36,10 +36,20 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 from sensorium import invocations, paths, redact_content
 from sensorium.mcp.child import Outcome
+
+#: One writer at a time, because there are two: `record_cancel` runs on
+#: the server's READER thread while `record_call` runs on the worker,
+#: and each opens an fd of its own. `O_APPEND` makes ONE `write(2)`
+#: atomic, which covers a short line on a regular file and nothing else
+#: -- a line past the 8 KiB text buffer, or a store on a filesystem that
+#: writes short, leaves in several. This lock is this PROCESS's: two
+#: servers on one store still rely on `O_APPEND` alone.
+_WRITING = threading.Lock()
 
 
 def path() -> Path:
@@ -78,12 +88,21 @@ def _write(line: dict) -> None:
         # 0700 on the root and 0600 on the file: `invocations.record`'s
         # two-half rule, for its reason -- this file names every call and
         # its arguments, and `p.open("a")` would create it 0666-under-the-
-        # umask. An EXISTING directory or file keeps its own mode.
+        # umask. An EXISTING DIRECTORY keeps its own mode.
         p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-        with os.fdopen(fd, "a", encoding="utf-8") as f:
-            f.write(json.dumps(line, separators=(",", ":"),
-                               ensure_ascii=False) + "\n")
+        with _WRITING:
+            fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            # ...but the file does NOT. `os.open`'s mode applies on
+            # CREATE only, so an `mcp.jsonl` left 0644 by an older build,
+            # a restore or a copy under another umask would keep it while
+            # `docs/mcp.md` promised 0600. Re-tightened on the fd we just
+            # opened, which is the one file we know we are about to write
+            # -- never by path, which is a different file by then.
+            if hasattr(os, "fchmod") and os.fstat(fd).st_mode & 0o077:
+                os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as f:
+                f.write(json.dumps(line, separators=(",", ":"),
+                                   ensure_ascii=False) + "\n")
     except (OSError, RuntimeError, ValueError) as e:
         # OSError: the usual "can't write there". RuntimeError: `path()`
         # -> `trace_root()` -> `Path.home()` raises THAT, not OSError,

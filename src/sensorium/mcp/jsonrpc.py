@@ -25,6 +25,15 @@ the reader skips it. A trailing newline on a client's last write is not
 a malformed request, and answering `-32700` to one would put a line on
 stdout that no client is waiting for.
 
+`None` IS ALSO "NOTHING TO ANSWER". A message with a string `method` and
+no `id` KEY is a Notification, and JSON-RPC 2.0 §4.1 says a server must
+not reply to one -- so a notification whose `params` is not an object is
+refused by being dropped, not by a `-32602` carrying `id: null`. That is
+the one place `obj.get("id")` could not tell "no id key" from
+`"id": null`. An object with no string `method` is NOT a notification,
+because it is not a Request at all, and it keeps its null-id answer:
+that is the specification's own worked example.
+
 IDS KEEP THEIR JSON TYPE (P21). `Incoming.id` is the parsed value --
 `7` stays an int, `"7"` stays a string, and `Writer` echoes back what it
 was handed. Normalising to `str` would let a `notifications/cancelled`
@@ -91,10 +100,12 @@ class Incoming:
 
 
 def parse_line(line: str) -> Incoming | tuple[int, str, object] | None:
-    """`Incoming`, or `(code, message, id)`, or `None` for a blank line.
+    """`Incoming`, or `(code, message, id)`, or `None` for nothing.
 
     The tuple is exactly `Writer.error`'s first three arguments, so the
     reader loop never has to decide anything: it writes what it got.
+    `None` is "there is nothing to answer" -- a blank line, or a
+    notification this parser refuses (§4.1).
     """
     if not line.strip():
         return None
@@ -114,7 +125,9 @@ def parse_line(line: str) -> Incoming | tuple[int, str, object] | None:
     if params is None:
         params = {}
     elif not isinstance(params, dict):
-        return INVALID_PARAMS, _BAD_PARAMS, obj.get("id")
+        if "id" not in obj:
+            return None      # a NOTIFICATION: §4.1, no reply, not even this
+        return INVALID_PARAMS, _BAD_PARAMS, obj["id"]
     return Incoming(obj.get("id"), method, params, "id" not in obj)
 
 

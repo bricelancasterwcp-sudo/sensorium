@@ -244,6 +244,31 @@ def test_cap_with_a_tiny_limit_still_truncates():
     assert body == marker_line + "\n"            # no child output survived
 
 
+def test_cap_at_limit_zero_does_not_invert(tmp_path):
+    """M1. `keep_tail` has a floor of 1 and `keep_head` was
+    `limit - keep_tail`: at limit 0 that is `-1`, and `raw[:-1]` is all
+    but one byte of the body the cap had just declared omitted. The
+    marker said `20 lines (100 bytes) omitted` above 99 bytes of the
+    text it was naming.
+
+    Unreachable through `sensorium mcp` -- `cmd.MIN_OUTPUT` is 4096 and
+    a smaller `--max-output` is refused at boot -- but `cap` is a
+    public function whose docstring states the opposite invariant, and
+    `Options(max_output=...)` is constructible directly. Clamped here
+    rather than only at the CLI, because the CLI is not the only caller
+    the docstring promises this to.
+    """
+    head_line = "exit 0: fine"
+    body = "line\n" * 20
+    for limit in (0, -1, -4096):
+        text, truncated, lines, nbytes = result.cap(
+            head_line + "\n" + body, limit, ("limit",))
+        assert truncated is True, limit
+        assert (lines, nbytes) == (20, 100), limit
+        assert text == (head_line + "\n[... 20 lines (100 bytes) omitted; "
+                        "narrow with: limit ...]\n"), limit
+
+
 def test_cap_under_limit_is_identity():
     """Nothing is added to a text that fits -- not a marker, not a
     newline -- and a text with no newline at all has an empty body."""
