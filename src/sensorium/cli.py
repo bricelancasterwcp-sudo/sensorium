@@ -12,6 +12,7 @@ import argparse
 import sys
 
 from sensorium import invocations, paths
+from sensorium.mcp import cmd as mcp_cmd
 from sensorium.query import (diff_cmd, exceptions_cmd, flow_cmd, fmt,
                              frame_cmd, grep_cmd, info_cmd, redact_cmd,
                              refocus_cmd, runs_cmd, tree_cmd, watch_cmd)
@@ -93,6 +94,7 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     _add_run_parser(sub)
     ts_cli.add_parser(sub)
+    mcp_cmd.add_parser(sub)
     for mod in _QUERY_MODULES:
         mod.add_parser(sub)
     args = parser.parse_args(argv)
