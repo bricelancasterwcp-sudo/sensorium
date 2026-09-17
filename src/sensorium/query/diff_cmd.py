@@ -85,6 +85,7 @@ from collections import Counter
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, NEGATIVE, UNSETTLED
+from sensorium.query.help import RUN_A_HELP, RUN_B_HELP
 from sensorium.query.moves import (Moves, desc, detect_moves, for_b,
                                    modulo_location, print_key_line,
                                    print_moves_section, project, task_hashes)
@@ -699,9 +700,13 @@ def print_task_comparison(trace_a, trace_b, res, name_a, name_b, task,
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "diff", help="first causal divergence between two runs",
+        description="Aligns the two causal streams and names the first "
+                    "event where they part, with drill-in commands; "
+                    "MATCH or DIVERGED, or REFUSED when no verdict "
+                    "exists.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run_a")
-    p.add_argument("run_b")
+    p.add_argument("run_a", help=RUN_A_HELP)
+    p.add_argument("run_b", help=RUN_B_HELP)
     p.add_argument("--context", type=int, default=3,
                    help="common causal steps to show before a divergence")
     p.add_argument("--task", default=None, metavar="NAME",

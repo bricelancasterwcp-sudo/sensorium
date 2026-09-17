@@ -18,6 +18,8 @@ from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, UNSETTLED
 from sensorium.query.caps import none_status, print_incomplete
 from sensorium.query.fmt import fmt_event, more_note, parse_eref
+from sensorium.query.help import (KIND_HELP, LIMIT_HELP, PATTERN_HELP,
+                                  RUN_HELP)
 from sensorium.store.reader import Trace
 
 KINDS = ("CALL", "RETURN", "RAISE", "HANDLED", "LINE")
@@ -26,14 +28,20 @@ KINDS = ("CALL", "RETURN", "RAISE", "HANDLED", "LINE")
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "grep", help="search events by name or value",
+        description="Every CALL, RETURN, RAISE, HANDLED or LINE event "
+                    "whose name or rendered value contains the pattern; "
+                    "`--after` resumes from an event id a previous "
+                    "answer showed.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
-    p.add_argument("pattern")
-    p.add_argument("--kind", default=None, choices=KINDS)
+    p.add_argument("run", help=RUN_HELP)
+    p.add_argument("pattern", help=PATTERN_HELP)
+    p.add_argument("--kind", default=None, choices=KINDS,
+                   help=KIND_HELP)
     p.add_argument("--fn", default=None,
                    help="qualname filter: exact match first, else substring")
     p.add_argument("--after", default=None, help="event ref to resume from")
-    p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--limit", type=int, default=50,
+                   help=LIMIT_HELP)
     p.set_defaults(func=run)
 
 

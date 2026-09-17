@@ -3,6 +3,7 @@ from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
                                  parse_fref, unread_marker)
+from sensorium.query.help import RUN_HELP
 from sensorium.query.tree_cmd import (frame_line, kind_marker,
                                       unframed_kind, unframed_line)
 from sensorium.query.vocab import terms
@@ -12,8 +13,12 @@ from sensorium.store.reader import Trace
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "frame", help="one activation in full",
+        description="Arguments, return or raise, and the per-line locals "
+                    "timeline when the run was recorded with `--focus`; "
+                    "frame ids fN come from `exceptions`, `tree` and "
+                    "`grep`.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
+    p.add_argument("run", help=RUN_HELP)
     p.add_argument("frame", nargs="?", default=None, help="frame ref (f12)")
     p.add_argument("--fn", default=None,
                    help="qualname of the function: exact match first, else "
