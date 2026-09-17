@@ -31,6 +31,9 @@ catches it:
 * reorder `NARROWING` (`limit` before `depth`) ->
   `test_narrowing_fields` (P28: `tree`'s trailer reads `depth, limit,
   around`).
+* drop `_record_schema`'s boot refusals ->
+  `test_record_refuses_to_boot_on_a_blank_flag_help` and
+  `test_record_refuses_to_boot_on_a_blank_description`.
 """
 import argparse
 
@@ -122,6 +125,49 @@ def test_record_schema_carries_every_non_suppressed_run_option():
         assert js["properties"][name]["type"] == "string"
         assert name not in js["required"]
         assert js["properties"][name]["description"]
+
+
+def _blanking(**edit):
+    """`cli._add_run_parser`, with one thing it says taken away.
+
+    A `help=` or a `description=` deleted upstream is the failure these
+    two tests exist for, and the only honest way to stage it is to
+    delete one -- a fixture parser of our own would prove the guard
+    works on a parser nobody ships."""
+    original = cli._add_run_parser
+
+    def blanked(sub):
+        original(sub)
+        p = sub.choices["run"]
+        for dest, value in edit.items():
+            if dest == "description":
+                p.description = value
+                continue
+            (action,) = [a for a in p._actions if a.dest == dest]
+            action.help = value
+    return blanked
+
+
+def test_record_refuses_to_boot_on_a_blank_flag_help(monkeypatch):
+    """`RECORD` is hand-written, which is exactly why it must not be the
+    one schema that can ship a field saying nothing: without this,
+    `record`'s `inputSchema` reaches the model as `"description": null`
+    for a flag it is being asked to use."""
+    monkeypatch.setattr(cli, "_add_run_parser", _blanking(focus=None))
+    with pytest.raises(schema.SchemaError) as excinfo:
+        tools._record_schema()
+    assert str(excinfo.value) == (
+        "run: field 'focus' has no help; the server refuses to boot")
+
+
+def test_record_refuses_to_boot_on_a_blank_description(monkeypatch):
+    """...and the same for the sentence the tool itself says, in the
+    words `derive` uses for every other command."""
+    monkeypatch.setattr(cli, "_add_run_parser", _blanking(description=""))
+    with pytest.raises(schema.SchemaError) as excinfo:
+        tools._record_schema()
+    assert str(excinfo.value) == (
+        "run: the command has no description; the server refuses to boot")
 
 
 def test_record_fields_the_run_parser_does_not_have_say_what_they_are():

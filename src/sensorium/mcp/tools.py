@@ -6,16 +6,14 @@ CLI's commands a client is offered at all, which of those may execute,
 what each tool is called, and what sentence it says about itself.
 
 THE TABLES ARE EXPLICIT (P1). `QUERY_MODULES` names nine; `refocus` is
-the one query that runs a program, so it sits in `EXECUTE_MODULES` and
-appears only under `--allow-run`; `redact` rewrites a stored trace,
-which is not a question anyone asks a debugger, so it is in
-`NOT_TOOLS`. Deriving the table from `cli._QUERY_MODULES` instead would
-have shipped `redact` as a tool the day it was written, and would make
-the NEXT command a tool the day IT is written -- a silent default this
-surface cannot afford, because two of its tools execute. Field
-derivation stays automatic; only placement is by hand, and
-`test_every_query_module_is_placed` fails the suite until a new command
-is placed.
+the one query that runs a program, so it appears only under
+`--allow-run`; `redact` rewrites a stored trace, which is not a
+question anyone asks a debugger, so it is in `NOT_TOOLS`. Deriving the
+table from `cli._QUERY_MODULES` instead would have made `redact` a tool
+the day it was written, and the NEXT command a tool the day IT is
+written -- a silent default a surface with two executing tools cannot
+afford. Field derivation stays automatic; only placement is by hand,
+and `test_every_query_module_is_placed` fails until one is placed.
 
 `record` IS THE CLI'S `run` (D2). As a tool name `run` reads as
 "execute" in every client's prior and collides with the `run` FIELD
@@ -75,9 +73,8 @@ OUTPUT_SCHEMA = {"type": "object",
                  "properties": {"exit": {"type": ["integer", "null"]}},
                  "required": ["exit"]}
 
-#: The three sentences `_add_run_parser` cannot supply. `target` is a
-#: `REMAINDER` with no help (argv after `--` is not a flag), and the
-#: other two describe the child's process, not its command line.
+#: The three sentences `_add_run_parser` cannot supply: `target` is a
+#: `REMAINDER` with no help, and the other two are the child's process.
 _COMMAND_HELP = ("the program to record, as its own argv: a .py file, `-m` "
                  "and a module, or a console script, followed by its "
                  "arguments; never `python`")
@@ -90,11 +87,12 @@ _PYTHON_HELP = ("interpreter to record under; must import sensorium and the "
 def _record_schema() -> ToolSchema:
     """`record`'s schema, read off `sensorium run`'s parser (D7).
 
-    The parser is built here the way `derive` builds one -- a private
-    subparsers object -- so the read does not depend on a live CLI.
-    `focus`, `include`, `exclude` and `window` say what the flags say;
-    `command`, `cwd` and `python` say the three sentences above, because
-    there is nothing on the parser to read for them.
+    Built the way `derive` builds one -- a private subparsers object --
+    so the read does not depend on a live CLI, and REFUSED the way
+    `derive` refuses. A hand-written table must not be the one that can
+    ship a field saying nothing: a `help=` deleted from
+    `_add_run_parser` would otherwise reach a client as `"description":
+    null`, and the three sentences below would be all `record` said.
     """
     parser = argparse.ArgumentParser(prog="sensorium", exit_on_error=False)
     sub = parser.add_subparsers(dest="cmd")
@@ -103,10 +101,18 @@ def _record_schema() -> ToolSchema:
     said = {a.dest: a.help for a in p._actions}
     flag = {a.dest: a.option_strings[0] for a in p._actions
             if a.option_strings}
+    spec = (("focus", "array"), ("include", "array"),
+            ("exclude", "array"), ("window", "string"))
+    if not p.description:
+        raise schema.SchemaError("run: the command has no description; "
+                                 "the server refuses to boot")
+    for name, _ in spec:
+        if not said.get(name):
+            raise schema.SchemaError(f"run: field {name!r} has no help; "
+                                     "the server refuses to boot")
     flags = [Field(name=name, kind=kind, required=False,
                    description=said[name], option=flag[name])
-             for name, kind in (("focus", "array"), ("include", "array"),
-                                ("exclude", "array"), ("window", "string"))]
+             for name, kind in spec]
     fields = (
         Field(name="command", kind="array", required=True,
               description=_COMMAND_HELP, positional=True),
