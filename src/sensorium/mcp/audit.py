@@ -111,12 +111,17 @@ def record_rejection(tool: str | None, code: int, reason: str, message: str,
     """A call that was refused (P16). `tool` is None for a malformed
     request that named none; `fields` is written only when there are
     fields to name, an empty list reading to a census as "some field was
-    named", which is not what happened."""
+    named", which is not what happened.
+
+    Tool name, field names and message are model-typed text like any
+    argument, so they pass the content rule too: a secret misspelt into a
+    field name must not survive here because the call was REFUSED.
+    """
     rejected: dict = {"code": code, "reason": reason}
     if fields:
-        rejected["fields"] = list(fields)
-    rejected["message"] = message
-    _write({"utc": invocations._utc_now(), "tool": tool,
+        rejected["fields"] = scrub(list(fields))
+    rejected["message"] = scrub(message)
+    _write({"utc": invocations._utc_now(), "tool": scrub(tool),
             "rejected": rejected})
 
 

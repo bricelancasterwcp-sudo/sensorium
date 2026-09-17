@@ -27,10 +27,12 @@ and it is the whole of the loss.
 THE CAP KEEPS A HEAD AND A TAIL (D24), not a head. `diff` and `refocus`
 print their verdict and their drill-in commands LAST; a model handed
 only the head of a DIVERGED answer has the exit and not the fork. Both
-ends are cut back to a line boundary so neither half starts or stops
-mid-record, and the marker between them names the fields this tool can
-be narrowed by -- the cut is ours and named, which is the reason
-`--max-output` sits under the client's own silent cap at all (D23).
+ends are cut back to a line boundary when the kept window holds a
+newline; a window without one is a raw byte cut and may begin or end in
+U+FFFD (the invariant can then be exceeded by the width of one replaced
+character at each cut). The marker names the fields this tool narrows
+by -- the cut is ours and named, the reason `--max-output` sits under
+the client's own silent cap at all (D23).
 
 This module renders. `audit.py` records; the two never import each
 other, and the server is what calls both.
@@ -61,12 +63,22 @@ _RECORDED = ("the recorded command's own status (2 and no trace when "
 _OFF_CONTRACT = "an exit outside the query contract"
 
 
+def _signal_name(n: int) -> str:
+    """`SIGTERM` for a signal CPython names, `signal 35` for one it does
+    not: `Signals` covers 1-34 and 64 only while Linux's `WTERMSIG`
+    reaches 64, so `SIGRTMIN+1` would raise out of `header` (R11)."""
+    try:
+        return signal.Signals(n).name
+    except ValueError:
+        return f"signal {n}"
+
+
 def header(tool: Tool, o: Outcome) -> str:
     """The first line of every result: what happened, in one sentence."""
     if o.exit is None:
         return f"no answer: {o.cause or 'unknown'}"
     if o.exit < 0:
-        return f"exit {o.exit}: killed by {signal.Signals(-o.exit).name}"
+        return f"exit {o.exit}: killed by {_signal_name(-o.exit)}"
     if tool.schema.command == "run":                       # the tool `record`
         return f"exit {o.exit}: {_RECORDED}"
     return f"exit {o.exit}: {ex.MEANING.get(o.exit, _OFF_CONTRACT)}"
@@ -95,18 +107,22 @@ def cap(text: str, limit: int, narrowing: tuple[str, ...]
 
     The header line is never cut: the cap applies to everything after
     the first newline, so a limit smaller than the header still leaves a
-    result a model can branch on. Both kept halves end and begin on a
-    line boundary -- the head back to its last newline, the tail forward
-    past its first -- and the marker line between them is not counted
-    against the limit, being the cap's own sentence rather than the
-    child's output.
+    result a model can branch on. Both kept halves are cut back to a line
+    boundary when the kept window holds a newline -- the head back to its
+    last, the tail forward past its first; a window without one is a raw
+    byte cut and may begin or end in U+FFFD (the invariant can then be
+    exceeded by the width of one replaced character at each cut). The
+    marker line is not counted against the limit: it is the cap's own
+    sentence, not the child's output.
     """
     nl = text.find("\n")
     head_line, body = (text, "") if nl < 0 else (text[:nl], text[nl + 1:])
     raw = body.encode("utf-8")
     if len(raw) <= limit:
         return text, False, 0, 0
-    keep_tail = min(KEEP_TAIL, limit // 4)
+    # max(1, ...): under limit 4, `limit // 4` is 0, `raw[-0:]` the WHOLE
+    # buffer -- a "cap" emitting everything it claimed to cut.
+    keep_tail = max(1, min(KEEP_TAIL, limit // 4))
     keep_head = limit - keep_tail
     head = raw[:keep_head]
     head = head[:head.rfind(b"\n") + 1] if b"\n" in head else head

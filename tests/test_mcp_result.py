@@ -29,6 +29,14 @@ catches it:
   before P4) -> `test_text_of_labels_stderr_whenever_non_empty`. An
   argparse refusal prints to stderr alone and would arrive unlabelled,
   which the corpus client cannot split back.
+* `_signal_name` without its guard (a bare `signal.Signals(n).name`) ->
+  `test_header_for_a_real_time_signal_does_not_raise`. `Signals` names
+  1-34 and 64 only; a child killed by `SIGRTMIN+1` raises `ValueError`
+  out of `header`, and the whole `tools/call` fails to render (R11).
+* `keep_tail` without its `max(1, ...)` floor ->
+  `test_cap_with_a_tiny_limit_still_truncates`. Under a limit of 4,
+  `limit // 4` is 0 and `raw[-0:]` is the WHOLE buffer: the cap emits
+  everything it claimed to cut, with the marker glued mid-line.
 """
 import re
 import signal
@@ -91,6 +99,21 @@ def test_header_for_record():
     # status of its own to report.
     assert result.header(tool, _o(-signal.SIGKILL)) == ("exit -9: killed by "
                                                         "SIGKILL")
+
+
+def test_header_for_a_real_time_signal_does_not_raise():
+    """R11. `signal.Signals` names 1-34 and 64; `WTERMSIG` on Linux
+    reaches 64, so 35 and 40 are statuses a real child can come back
+    with. A header that raised on one would take the whole call down."""
+    for tool in (TABLE["grep"], TABLE["record"]):
+        assert result.header(tool, _o(-35)) == "exit -35: killed by signal 35"
+        assert result.header(tool, _o(-40)) == "exit -40: killed by signal 40"
+        # the named ones are unchanged at either end of the range
+        assert result.header(tool, _o(-1)) == "exit -1: killed by SIGHUP"
+        assert result.header(tool, _o(-64)) == "exit -64: killed by SIGRTMAX"
+    # ...and it renders all the way out, not just in `header`
+    d, _ = result.call_result(TABLE["grep"], _o(-35), 65536, True, True)
+    assert d["content"][0]["text"] == "exit -35: killed by signal 35\n"
 
 
 def test_header_for_no_answer():
@@ -188,6 +211,32 @@ def test_cap_never_cuts_the_header_line():
     assert text.split("\n")[0] == head_line
     assert text.startswith(head_line + "\nline\nline\n[... ")
     assert (lines, nbytes) == (18, 90)
+
+
+def test_cap_with_a_tiny_limit_still_truncates():
+    """A limit below 4 is the case `limit // 4 == 0` broke: `raw[-0:]` is
+    the whole buffer, so the "cap" re-emitted every byte it had just
+    reported as omitted, with the marker glued onto a partial line.
+
+    With the floor, limit 1 gives keep_tail 1 and keep_head 0: the head
+    is empty, the tail's single byte is the body's last newline and is
+    consumed by the forward cut, so all 100 bytes and all 20 lines are
+    omitted and the body is the marker line alone -- 0 bytes of child
+    output under a 1-byte limit.
+    """
+    head_line = "exit 0: fine"
+    text, truncated, lines, nbytes = result.cap(
+        head_line + "\n" + "line\n" * 20, 1, ("limit",))
+
+    assert truncated is True
+    assert (lines, nbytes) == (20, 100)          # every byte accounted for
+    assert text == (head_line + "\n[... 20 lines (100 bytes) omitted; "
+                    "narrow with: limit ...]\n")
+    body = text.split("\n", 1)[1]
+    marker_line = body.splitlines()[0]
+    # the brief's invariant, at its tightest: nothing but the marker
+    assert len(body.replace(marker_line + "\n", "").encode()) == 0
+    assert body == marker_line + "\n"            # no child output survived
 
 
 def test_cap_under_limit_is_identity():

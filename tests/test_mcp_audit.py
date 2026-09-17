@@ -26,6 +26,10 @@ catches it:
   `test_record_call_writes_one_line_with_the_fields_and_0600`. The file
   names every call and its (redacted) arguments; world-readable is the
   wrong default for it, exactly as for the invocation log.
+* `record_rejection` scrubs nothing (the content rule on `arguments`
+  only) -> `test_rejection_lines_by_reason`'s last case. A field NAME is
+  model-typed text too, and a secret misspelt into one would survive in
+  the file precisely because the call carrying it was refused.
 """
 import json
 import os
@@ -178,6 +182,18 @@ def test_rejection_lines_by_reason(tmp_path, monkeypatch):
     # a malformed call that named no tool still gets its line
     audit.record_rejection(None, -32602, "unknown_tool", "no name")
     assert _lines(root)[-1]["tool"] is None
+
+    # ...and a rejection is scrubbed WHOLE: the field name a model
+    # misspelt is model-typed text, and `to_argv` quotes it back into the
+    # message, so a secret typed there reaches both places.
+    audit.record_rejection("grep", -32602, "unknown_fields",
+                           f"unknown field '{SECRET}' for grep; fields: run",
+                           (SECRET,))
+    last = _lines(root)[-1]
+    assert last["rejected"]["fields"] == ["<redacted>"]
+    assert last["rejected"]["message"] == ("unknown field '<redacted>' for "
+                                           "grep; fields: run")
+    assert SECRET not in (root / "mcp.jsonl").read_text()
 
 
 # -- the cancel line -------------------------------------------------------
