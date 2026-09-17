@@ -37,7 +37,7 @@ and `TRACE_FORMAT` stays **4**.
 - **`mcp.jsonl`, beside `invocations.jsonl`.** One 0600 line per call, per
   rejection and per cancel — the census a future policy argument has to stand
   on. `reason` is data, not prose; arguments pass the redaction content rule;
-  the environment, the working directory and the result text are never
+  the environment, the server's working directory and the result text are never
   written; and `SENSORIUM_NO_INVOCATION_LOG` disables this file too.
 - **Two lifecycles on one process**, over **2026-07-28**, **2025-11-25**,
   **2025-06-18** and **2025-03-26**. A request carrying `_meta`
