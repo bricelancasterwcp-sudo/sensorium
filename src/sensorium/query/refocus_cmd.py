@@ -154,6 +154,7 @@ from pathlib import Path
 from sensorium import paths, redact
 from sensorium.exit import BAD_CALL
 from sensorium.query.caps import require
+from sensorium.query.help import RUN_HELP
 from sensorium.query.refocus_env import is_env_rule_note
 from sensorium.query.vocab import terms
 from sensorium.query.diff_cmd import compare
@@ -181,8 +182,12 @@ def add_parser(sub) -> None:
     p = sub.add_parser(
         "refocus",
         help="re-run a recorded command with deeper capture, verified",
+        description="Executes the recorded command again with the added "
+                    "`--focus` and reports whether it was the same "
+                    "execution — MATCH, DIVERGED or REFUSED; the "
+                    "licence names what was compared.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
+    p.add_argument("run", help=RUN_HELP)
     p.add_argument(
         "--focus", action="append", default=[], required=True,
         help="pkg.module or pkg.module:qualname; repeatable. Added to the "

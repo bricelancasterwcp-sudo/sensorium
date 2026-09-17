@@ -134,6 +134,17 @@ class CaseResult:
     # kept distinct from a failed question -- "the tool answered wrong" and
     # "the harness could not ask" are different facts.
     error: str | None = None
+    # Under `--via mcp`: the id of every question this case had to ask the
+    # CLI because its command word is not a tool (P7 -- `redact` is the only
+    # one today). Named rather than skipped: a question asked through the
+    # other seam is still a question asked, and a run that quietly dropped
+    # it would report a coverage it does not have.
+    via_cli: list = field(default_factory=list)
+    # Under `--compare-cli`: one record per field the two seams answered
+    # differently. A difference is a finding about the server, never a
+    # failed question -- what the expectations were checked against is the
+    # MCP answer, and this says whether the CLI would have said the same.
+    differences: list = field(default_factory=list)
 
 
 # -- loading and validation -------------------------------------------------

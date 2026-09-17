@@ -1,0 +1,8 @@
+sensorium mcp: serving 11 tools (allow_run=True) store=$E17_DIR/h6/store
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: child 1794215 pgid 1794215 tool info
+sensorium mcp: child 1794216 pgid 1794216 tool frame
+sensorium mcp: child 1794217 pgid 1794217 tool watch
+sensorium mcp: child 1794218 pgid 1794218 tool flow
+sensorium mcp: child 1794219 pgid 1794219 tool grep
+sensorium mcp: exit 0 (eof)

@@ -69,6 +69,7 @@ from sensorium.query.expr import (CLIPPED, CONTAINER, NO_LENGTH, NO_VALUE,
                                   compile_expr, resolve)
 from sensorium.query.dbg_dialects import for_trace
 from sensorium.query.fmt import fmt_event, fmt_value, more_note, parse_eref
+from sensorium.query.help import LIMIT_HELP, RUN_HELP
 from sensorium.query.sites import (  # noqa: F401  (re-exported)
     _qual_matches, rerun_command, spell_site)
 from sensorium.query.sites import site_matches as _site_matches
@@ -97,14 +98,19 @@ CLAIM = (
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "watch", help="predicate over captured state",
+        description="A gdb-style watchpoint evaluated after the fact at "
+                    "every recorded site of one function; needs a "
+                    "`--focus` recording, and NOTHING WAS CHECKED is a "
+                    "refusal, never a pass.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
+    p.add_argument("run", help=RUN_HELP)
     p.add_argument("--at", required=True, help="module:qualname or qualname")
     p.add_argument("--expr", required=True,
                    help="names, literals, one comparison, and/or/not, "
                         "arithmetic, len(name)")
     p.add_argument("--after", default=None, help="event ref to resume from")
-    p.add_argument("--limit", type=int, default=20)
+    p.add_argument("--limit", type=int, default=20,
+                   help=LIMIT_HELP)
     p.add_argument("--misses", type=int, default=5, dest="misses",
                    help="how many near-misses to show when nothing hit")
     p.set_defaults(func=run)

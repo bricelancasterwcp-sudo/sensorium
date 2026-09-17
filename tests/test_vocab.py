@@ -32,6 +32,7 @@ import pytest
 from sensorium import cli
 from tests.rust_traces import focused_trace
 
+from sensorium.mcp import cmd as mcp_cmd
 from sensorium.query.vocab import (PYTHON, RUST, TYPESCRIPT, Terms,
                                    exit_brief, exit_phrase, terms)
 from sensorium.store.reader import Trace
@@ -155,6 +156,7 @@ def test_no_python_word_reaches_a_subcommand_s_own_help():
     sub = parser.add_subparsers(dest="cmd", required=True)
     cli._add_run_parser(sub)
     ts_cli.add_parser(sub)
+    mcp_cmd.add_parser(sub)
     for mod in cli._QUERY_MODULES:
         mod.add_parser(sub)
     scanned = dict(_every_parser(sub))

@@ -1,0 +1,10 @@
+exit 0: the trace answered affirmatively
+f2 main.py:handle  [e2..e9]  thread 1  depth 1  closed: return
+args: (none)
+timeline:
+  e5 LINE    handle L21  token=<redacted #83031e7c>
+  e6 LINE    handle L22  headers=dict[1]={'authorization': <redacted #83031e7c>}
+return: 1
+children (2):
+  f3 e3 secret() -> <redacted #83031e7c>
+  f4 e7 send(token=<redacted #83031e7c>) -> None

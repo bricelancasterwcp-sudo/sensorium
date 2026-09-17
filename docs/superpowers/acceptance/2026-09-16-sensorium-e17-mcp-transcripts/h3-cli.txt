@@ -1,0 +1,55 @@
+$ $REPO/.venv/bin/python -m sensorium tree 20260901-210520-7f8854 --depth 50 --limit 100000
+# cwd $E17_DIR  exit 0  1.205s
+f1 e1 <module>() -> None
+f2 e3 <module>() -> None
+f3 e5 <module>() -> None
+  f4 e6 <module>() -> None
+    f5 e7 <module>() -> None
+    f6 e9 <module>() -> None
+    f7 e11 <module>() -> None
+      f8 e12 <module>() -> None
+        f9 e13 <module>() -> None
+          f10 e14 <module>() -> None
+            f11 e15 GateFixture() -> None
+            f12 e17 load_gate_fixtures(path=PosixPath#137034096557216) -> list[20]=[GateFixture#137034094807760, GateFixture#137034096440208, GateFixture#137034096440528, GateFixture#137034096295136, GateFixture#137034096295440, GateFixture#137034096472528, GateFixture#137034096342384, GateFixture#137034096335040, ...]
+            f13 e19 _extract_filenames_and_stems(fixtures=list[20]=[GateFixture#137034094807760, GateFixture#137034096440208, GateFixture#137034096440528, GateFixture#137034096295136, GateFixture#137034096295440, GateFixture#137034096472528, GateFixture#137034096342384, GateFixture#137034096335040, ...]) -> frozenset[40]=['support', 'countdown', 'serve.conf', 'inventory.py', 'changelog', 'firstlast', 'cart', 'cart.py', ...]
+            f14 e21 _extract_function_names(fixtures=list[20]=[GateFixture#137034094807760, GateFixture#137034096440208, GateFixture#137034096440528, GateFixture#137034096295136, GateFixture#137034096295440, GateFixture#137034096472528, GateFixture#137034096342384, GateFixture#137034096335040, ...]) -> frozenset[13]=['cart_total', 'discounted_price', 'register', 'greeting', 'restock_needed', 'countdown_labels', 'greeting_for', 'first_and_last', ...]
+          f15 e68 <module>() -> None
+            f16 e69 <module>() -> None
+            f17 e71 Task() -> None
+            f18 e73 RefusalTask() -> None
+          f19 e76 Report() -> None
+        f20 e79 GateOverlapTooDenseError() -> None
+        f21 e81 RejectionSampler() -> None
+      f22 e84 <module>() -> None
+        f23 e85 <module>() -> None
+        f24 e87 <module>() -> None
+          f25 e88 <module>() -> None
+            f26 e89 Joined() -> None
+            f27 e91 JoinReport() -> None
+      f28 e98 <module>() -> None
+        f29 e99 <module>() -> None
+          f30 e100 <module>() -> None
+            f31 e101 <module>() -> None
+            f32 e103 <module>() -> None
+              f33 e104 Theme() -> None
+          f34 e108 <module>() -> None
+          f35 e110 <module>() -> None
+          f36 e112 <module>() -> None
+            f37 e113 <module>() -> None
+            f38 e115 <module>() -> None
+            f39 e117 <module>() -> None
+            f40 e119 <module>() -> None
+          f41 e124 <module>() -> None
+            f42 e125 Probe() -> None
+            f43 e127 _run_verified(probe=Probe[2]=['(?:highest|lowest)_\\w+', '[3, 1, 4, 1, 5]'], fn=function#137034095504224) -> function#137034095677248
+            f44 e129 _run_verified(probe=Probe[2]=['first_and_last_\\w+', '[7, 8, 9]'], fn=function#137034095504064) -> function#137034095677408
+            f45 e131 _run_verified(probe=Probe[2]=['\\w+_checkpoints', '3'], fn=function#137034095504384) -> function#137034095677728
+            f46 e133 _run_verified(probe=Probe[2]=['scaled_\\w+', '8'], fn=function#137034095504544) -> function#137034095677888
+            f47 e135 _run_verified(probe=Probe[2]=['(?:is_ready|is_eligible|meets_criteria|qualifies|is_within_range|is_acceptable|passes_check|is_cleared)', '0, True'], fn=function#137034095504704) -> function#137034095678048
+            f48 e137 _run_verified(probe=Probe[2]=['combined_\\w+', '3, 5'], fn=function#137034095504864) -> function#137034095677568
+            f49 e139 _run_verified(probe=Probe[2]=['describe_\\w+', '3, 5'], fn=function#137034095505024) -> function#137034095678528
+            f50 e141 _run_verified(probe=Probe[2]=['\\w+_value', "{'primary': 1, 'secondary': 2, 'fallback': 3, 'override': 4, 'baseline': 5, 'candidate': 6, 'nominal': 7, 'adjusted': 8}"], fn=function#137034095505184) -> function#137034095678208
+          f51 e144 <module>() -> None
+          f52 e146 <lambda>(item=tuple[2]=['p
+[... 28514015 bytes in all ...]

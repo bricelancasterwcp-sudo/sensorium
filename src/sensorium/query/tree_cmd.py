@@ -23,6 +23,7 @@ from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
 from sensorium.query.caps import none_status, print_incomplete
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,
                                  parse_fref, unread_marker)
+from sensorium.query.help import DEPTH_HELP, LIMIT_HELP, RUN_HELP
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -30,12 +31,18 @@ from sensorium.store.reader import Trace
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "tree", help="call-tree slice",
+        description="Parentage derived from the event stream; `--around` "
+                    "centres the slice on an event id, `--root` on a "
+                    "frame id; nested dict contents are elided, `frame` "
+                    "prints them.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
+    p.add_argument("run", help=RUN_HELP)
     p.add_argument("--root", default=None, help="frame ref (f12)")
     p.add_argument("--around", default=None, help="event ref (e40)")
-    p.add_argument("--depth", type=int, default=4)
-    p.add_argument("--limit", type=int, default=200)
+    p.add_argument("--depth", type=int, default=4,
+                   help=DEPTH_HELP)
+    p.add_argument("--limit", type=int, default=200,
+                   help=LIMIT_HELP)
     p.set_defaults(func=run)
 
 

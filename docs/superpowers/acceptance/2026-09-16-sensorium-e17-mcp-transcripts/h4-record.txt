@@ -1,0 +1,4 @@
+exit 0: the recorded command's own status (2 and no trace when recording was refused)
+total: 35 from 3 rows
+run: 20260917-092446-76f719
+trace: $E17_DIR/h4/store/traces/20260917-092446-76f719.db

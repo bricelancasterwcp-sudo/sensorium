@@ -1,0 +1,4 @@
+$ $REPO/.venv/bin/python -m sensorium run --focus main:handle -- main.py
+# cwd $E17_DIR/h6/case  exit 0  0.102s
+run: 20260917-092457-aa3e4a
+trace: $E17_DIR/h6/store/traces/20260917-092457-aa3e4a.db

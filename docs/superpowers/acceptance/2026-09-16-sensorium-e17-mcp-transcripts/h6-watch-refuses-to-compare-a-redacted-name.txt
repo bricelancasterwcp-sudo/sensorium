@@ -1,0 +1,19 @@
+exit 3: the trace cannot settle it -- change the recording and re-record
+watch "token == 'x'" at handle in 20260917-092457-aa3e4a
+  a site is one RECORDED event in a matching frame: a CALL (its arguments)
+  or a LINE (that frame's locals, folded forward and dropped again when a
+  name goes out of scope). Whatever ran between two recorded sites
+  was not checked, and code this run never recorded is not in this trace.
+sites: 3   evaluated: 0   hits: 0   not-captured: 3   errors: 0
+verdict: NOTHING WAS CHECKED -- the predicate could not be evaluated at any of the 3 recorded site(s)
+  'hits: 0' here means 'could not evaluate', NOT 'the invariant held'
+not captured at 3 of 3 site(s) -- the predicate could not be checked there:
+  token: redacted by rule v1; no comparable value   [2 site(s)]
+      the redaction rule took it at the recorder, before anything reached disk, so no re-reading of this trace holds a value; a state line shows such a name as <redacted; no comparable value>
+      re-record with that name allowed, where its value is not a secret: export SENSORIUM_REDACT_ALLOW=token && cd $E17_DIR/h6/case && sensorium run --focus main:handle --focus main:handle -- main.py
+  token: not in scope at this site   [1 site(s)]
+      recorded at other sites in these frames, so this is scope, not capture depth:
+      at those sites it was not bound yet, or had gone out of scope again (`del`, or the
+      implicit unbind that ends an `except E as e:` block)
+no near-misses: a near-miss distance is only defined for a single numeric ordering comparison
+  ("token == 'x'" has no boundary to approach; try one of < <= > >= over numbers)

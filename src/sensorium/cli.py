@@ -12,6 +12,7 @@ import argparse
 import sys
 
 from sensorium import invocations, paths
+from sensorium.mcp import cmd as mcp_cmd
 from sensorium.query import (diff_cmd, exceptions_cmd, flow_cmd, fmt,
                              frame_cmd, grep_cmd, info_cmd, redact_cmd,
                              refocus_cmd, runs_cmd, tree_cmd, watch_cmd)
@@ -24,12 +25,23 @@ _QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
 
 
 def _add_run_parser(sub):
-    p = sub.add_parser("run", help="record one execution",
-                        epilog="exit: the target's own status")
+    p = sub.add_parser(
+        "run", help="record one execution",
+        description="Runs the command under the recorder from `cwd` and "
+                    "writes one trace; only code under `cwd` is recorded; "
+                    "the command is a .py file, a `-m` module or a console "
+                    "script, never `python` itself.",
+        epilog="exit: the target's own status")
     p.add_argument("--focus", action="append", default=[],
                    help="pkg.module or pkg.module:qualname; repeatable")
-    p.add_argument("--include", action="append", default=[])
-    p.add_argument("--exclude", action="append", default=[])
+    p.add_argument("--include", action="append", default=[],
+                   help="glob matched against each file's path relative "
+                        "to the working directory; when given, only the "
+                        "files it matches are recorded; repeatable")
+    p.add_argument("--exclude", action="append", default=[],
+                   help="glob matched against each file's path relative "
+                        "to the working directory; a file it matches is "
+                        "never recorded; repeatable")
     p.add_argument("--window", default=None,
                    help="limit --focus line capture to what runs inside this "
                         "function's activations; MODULE:QUALNAME scopes to one "
@@ -82,6 +94,7 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     _add_run_parser(sub)
     ts_cli.add_parser(sub)
+    mcp_cmd.add_parser(sub)
     for mod in _QUERY_MODULES:
         mod.add_parser(sub)
     args = parser.parse_args(argv)

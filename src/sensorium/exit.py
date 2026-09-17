@@ -17,3 +17,17 @@ BAD_CALL = 2
 
 UNSETTLED = 3
 """The trace cannot settle the question -- record again with what it lacks."""
+
+#: Each status as the sentence a caller is told, for a surface
+#: that hands back a status instead of printing this module's
+#: docstring: an MCP client shows the four words, never the
+#: convention. Keyed by the constants, so a status that moved
+#: takes its sentence with it.
+MEANING = {
+    ANSWERED: "the trace answered affirmatively",
+    NEGATIVE: "the trace answered negatively -- no match, no frame, "
+              "no exception, none",
+    BAD_CALL: "the call is wrong -- fix the arguments and ask again",
+    UNSETTLED: "the trace cannot settle it -- change the recording "
+               "and re-record",
+}

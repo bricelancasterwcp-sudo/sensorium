@@ -120,6 +120,7 @@ from dataclasses import dataclass
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.fmt import fmt_event, fmt_exc, more_note, parse_eref
+from sensorium.query.help import LIMIT_HELP
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -129,12 +130,17 @@ TAG_ORDER = ("swallowed", "uncaught", "re-raised", "propagated", "ambiguous")
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "exceptions", help="raises, handles, swallows",
+        description="Every raise classified swallowed, uncaught, "
+                    "re-raised, propagated or ambiguous, with the "
+                    "reason; SWALLOWED is claimed only when the "
+                    "recording proves it.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run", help="a run id (or a unique prefix), 'last', or "
                                 "an invocation id as `runs` prints it; "
                                 "--after is refused for an invocation")
     p.add_argument("--after", default=None, help="event ref to resume from")
-    p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--limit", type=int, default=50,
+                   help=LIMIT_HELP)
     p.set_defaults(func=run)
 
 

@@ -1,0 +1,23 @@
+sensorium mcp: serving 9 tools (allow_run=False) store=$E17_DIR/store
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: child 1794224 pgid 1794224 tool runs
+sensorium mcp: child 1794284 pgid 1794284 tool runs
+sensorium mcp: child 1794372 pgid 1794372 tool runs
+sensorium mcp: child 1794457 pgid 1794457 tool runs
+sensorium mcp: child 1794551 pgid 1794551 tool runs
+sensorium mcp: child 1794608 pgid 1794608 tool runs
+sensorium mcp: child 1794722 pgid 1794722 tool runs
+sensorium mcp: child 1794814 pgid 1794814 tool runs
+sensorium mcp: child 1794906 pgid 1794906 tool runs
+sensorium mcp: child 1794940 pgid 1794940 tool runs
+sensorium mcp: child 1795037 pgid 1795037 tool runs
+sensorium mcp: child 1795140 pgid 1795140 tool runs
+sensorium mcp: child 1795197 pgid 1795197 tool runs
+sensorium mcp: child 1795284 pgid 1795284 tool runs
+sensorium mcp: child 1795405 pgid 1795405 tool runs
+sensorium mcp: child 1795477 pgid 1795477 tool runs
+sensorium mcp: child 1795529 pgid 1795529 tool runs
+sensorium mcp: child 1795634 pgid 1795634 tool runs
+sensorium mcp: child 1795726 pgid 1795726 tool runs
+sensorium mcp: child 1795825 pgid 1795825 tool runs
+sensorium mcp: exit 0 (eof)

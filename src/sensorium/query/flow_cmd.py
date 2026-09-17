@@ -142,6 +142,7 @@ from sensorium.query.flow_report import (  # noqa: F401
 from sensorium.query.flow_values import (  # noqa: F401  (re-exported)
     CONTAINER_KINDS, ObjTarget, _walk, find_in_value, matches,
     parse_literal)
+from sensorium.query.help import LIMIT_HELP, RUN_HELP
 from sensorium.query.rust_debug import debug_text
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
@@ -612,8 +613,13 @@ def continue_cmd(args, ref: str | None, last: int) -> str:
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "flow", help="provenance of a value or an object",
+        description="`--value` follows a literal by equality through "
+                    "captured arguments, locals and returns; `--object` "
+                    "follows one identity from the event that captured "
+                    "it; one of the two is required, and each refuses by "
+                    "name what the recording did not capture.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
+    p.add_argument("run", help=RUN_HELP)
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--value", default=None,
                    help="literal matched by equality; quote to force a "
@@ -626,7 +632,8 @@ def add_parser(sub) -> None:
                         "ARGUMENTS -- plus <qualname>:return for what that "
                         "activation returned")
     p.add_argument("--after", default=None, help="event ref to resume from")
-    p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--limit", type=int, default=50,
+                   help=LIMIT_HELP)
     p.set_defaults(func=run)
 
 

@@ -13,6 +13,7 @@ from sensorium import paths, redact
 from sensorium.exit import ANSWERED
 from sensorium.query.caps import witness_gap
 from sensorium.query.fmt import fmt_exc
+from sensorium.query.help import RUN_HELP
 from sensorium.query.info_rust import rust_lines
 from sensorium.query.info_typescript import (interp_suffix,
                                              typescript_lines)
@@ -30,8 +31,12 @@ from sensorium.store.reader import Trace
 def add_parser(sub) -> None:
     p = sub.add_parser(
         "info", help="summarize one trace",
+        description="Recorder, language, the capabilities the trace "
+                    "declares, what was recorded and what was not, focus, "
+                    "the redaction stamp; read it before any other "
+                    "question on a run.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
-    p.add_argument("run")
+    p.add_argument("run", help=RUN_HELP)
     p.set_defaults(func=run)
 
 

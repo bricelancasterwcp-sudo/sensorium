@@ -1,0 +1,17 @@
+$ $REPO/.venv/bin/python corpus/run_corpus.py --via mcp --compare-cli --json --require-driver
+# cwd $REPO  exit 0  81.25s
+{
+  "cases": 115,
+  "questions": 253,
+  "skipped": [],
+  "failures": [],
+  "errors": [],
+  "require_driver": true,
+  "via": "mcp",
+  "via_cli": [
+    "redact_retrofit/what-would-the-retrofit-take",
+    "redact_retrofit/the-retrofit-rewrites-once",
+    "redact_retrofit/a-second-pass-finds-nothing"
+  ],
+  "mcp_differences": []
+}
