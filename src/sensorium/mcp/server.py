@@ -399,12 +399,17 @@ class Server:
             # P30: an argument the model can fix comes back as a RESULT
             # in the CLI's exit-2 words -- an error response is swallowed
             # by the client, field names and all.
-            answer = result.rejection_result(rejected, modern)
-            self.writer.result(message.id,
-                               self._modern(answer) if modern else answer)
+            #
+            # The audit runs BEFORE the write, as it does for an unknown
+            # tool above: a failure here is then the request's only
+            # answer (`_work`'s -32603), where after the write it was a
+            # SECOND response for an id that already had its result.
             audit.record_rejection(tool.name, jsonrpc.INVALID_PARAMS,
                                    rejected.reason, rejected.message,
                                    rejected.fields)
+            answer = result.rejection_result(rejected, modern)
+            self.writer.result(message.id,
+                               self._modern(answer) if modern else answer)
             return None
         return _Call(tool, arguments, Child(
             argv, cwd=extras.get("cwd"), python=extras.get("python"),

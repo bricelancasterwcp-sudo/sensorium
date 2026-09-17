@@ -64,6 +64,7 @@ import time
 import pytest
 
 from corpus.mcp_client import META_CAPS, META_VERSION, McpClient, McpError
+from sensorium.mcp import audit
 from sensorium.mcp import server as mcp_server
 from sensorium.mcp import tools
 from sensorium.mcp.result import STDERR_LABEL
@@ -504,6 +505,118 @@ def test_an_internal_error_is_32603_and_the_worker_survives(
     assert [t["name"] for t in answers[1]["result"]["tools"]] == list(NINE)
     assert "internal error on tools/call id 1: RuntimeError: " in err.getvalue()
     assert seen == ["runs"]
+
+
+def _raw(client, line: str) -> None:
+    """One line straight onto the server's stdin.
+
+    Not `client.send`: that one serialises with `ensure_ascii=False` and
+    could not encode a lone surrogate onto the pipe either. The line
+    below is ASCII -- `\\ud800` as its six JSON characters -- which is
+    exactly how a real client's serialiser would send one.
+    """
+    client.proc.stdin.write(line + "\n")
+    client.proc.stdin.flush()
+
+
+def test_a_lone_surrogate_is_answered_exactly_once_on_every_route(
+        sdir, tmp_path):
+    """C2 and I1 together: one request, one response, always.
+
+    A tokenizer that splits an emoji emits half a surrogate pair, and a
+    method name, a tool name and a field name are all model-typed text
+    echoed back in a refusal. Three routes carried one:
+
+    * `Method not found: \\ud800` -- the write raised
+      `UnicodeEncodeError`, the writer's `except ValueError` swallowed
+      it as a gone pipe, and NOTHING was written on any channel: the
+      client waited on that id until its own timeout.
+    * `Unknown tool: \\ud800` -- the same, with the audit line lost too.
+    * a surrogate in a FIELD name -- the audit write raised AFTER the
+      result had been sent, unwound into `_work`, and a second response
+      (`-32603`) went out for an id that already had one.
+
+    `wait` pops an answer, so a duplicate arriving later re-files it:
+    the assertion after each route is that `_answers` holds nothing for
+    that id once a LATER worker-served call has been answered, which is
+    the point at which the worker has finished the request entirely.
+    """
+    store = own(sdir, tmp_path)
+    with spawn(store, tmp_path, mode="legacy") as client:
+        _raw(client, '{"jsonrpc":"2.0","id":901,'
+                     '"method":"logging/\\ud800","params":{}}')
+        answer = client.wait(901, 60)
+        assert answer["error"]["code"] == -32601
+        assert answer["error"]["message"] == "Method not found: logging/\ud800"
+
+        _raw(client, '{"jsonrpc":"2.0","id":902,"method":"tools/call",'
+                     '"params":{"name":"\\ud800","arguments":{}}}')
+        answer = client.wait(902, 60)
+        assert answer["error"]["code"] == -32602
+        assert answer["error"]["message"] == "Unknown tool: \ud800"
+
+        _raw(client, '{"jsonrpc":"2.0","id":903,"method":"tools/call",'
+                     '"params":{"name":"grep","arguments":'
+                     '{"\\ud800bad":"x","run":"last","pattern":"p"}}}')
+        answer = client.wait(903, 60)
+        assert "error" not in answer, answer
+        text = answer["result"]["content"][0]["text"]
+        assert answer["result"]["isError"] is True
+        assert text.startswith("exit 2: the call is wrong")
+        # `_reject_unknown` names the field with `repr`, which escapes a
+        # surrogate: the MESSAGE is ASCII and it is the AUDIT's `fields`
+        # -- the name itself, unrepr'd -- that carries the real one.
+        assert "unknown field '\\ud800bad' for grep" in text
+
+        # A later worker turn: by the time this is answered the three
+        # requests above are finished, seconds responses included.
+        assert client.call("runs", {}).exit == 0
+        assert [id for id in (901, 902, 903) if id in client._answers] == []
+        assert client.bad_lines == [] and client.unaddressed == []
+
+    # The rejections that could be recorded were; the two that hold a
+    # surrogate cost one stderr line each and no second response.
+    audited = [json.loads(line) for line
+               in (store / "mcp.jsonl").read_text().splitlines()]
+    assert [line.get("tool") for line in audited] == ["runs"]
+    dropped = [line for line in (tmp_path / "server.stderr")
+               .read_text().splitlines()
+               if line.startswith("sensorium mcp: audit: ")]
+    assert len(dropped) == 2, dropped
+
+
+def test_a_rejection_is_audited_BEFORE_it_is_answered(
+        sdir, tmp_path, monkeypatch, keep_sigterm):
+    """I1's ordering half: the audit runs where a failure can still be
+    the request's ONLY answer.
+
+    Written after the result, an audit that raised for any reason at all
+    unwound into `_work`, which wrote a `-32603` for an id that already
+    carried an `isError` result -- two responses to one request, and a
+    strict client either errors or mis-routes the second. Written first,
+    the same failure is one `-32603` and the session continues: request
+    2 below is the proof that the worker is still serving.
+    """
+    monkeypatch.setenv("SENSORIUM_DIR", str(sdir))
+
+    def boom(*a, **kw):
+        raise RuntimeError("the census blew up")
+
+    monkeypatch.setattr(audit, "record_rejection", boom)
+    out, err = io.StringIO(), io.StringIO()
+    meta = {META_VERSION: "2026-07-28", META_CAPS: {}}
+    lines = [json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                         "params": {"name": "grep", "_meta": meta,
+                                    "arguments": {"regex": "x"}}}) + "\n",
+             json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list",
+                         "params": {"_meta": meta}}) + "\n"]
+    server = mcp_server.Server(mcp_server.Options(), _Stdin(lines, out), out,
+                               err, tools.table(False))
+    assert server.serve() == 0
+    answers = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert [a["id"] for a in answers] == [1, 2], out.getvalue()
+    assert answers[0]["error"]["code"] == -32603
+    assert [t["name"] for t in answers[1]["result"]["tools"]] == list(NINE)
 
 
 class _Stdin:

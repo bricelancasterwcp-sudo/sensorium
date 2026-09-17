@@ -84,10 +84,18 @@ def _write(line: dict) -> None:
         with os.fdopen(fd, "a", encoding="utf-8") as f:
             f.write(json.dumps(line, separators=(",", ":"),
                                ensure_ascii=False) + "\n")
-    except (OSError, RuntimeError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
         # OSError: the usual "can't write there". RuntimeError: `path()`
         # -> `trace_root()` -> `Path.home()` raises THAT, not OSError,
         # when no home can be determined and SENSORIUM_DIR is unset.
+        # ValueError: `UnicodeEncodeError` is one, and a LONE SURROGATE
+        # in a field name, a tool name or an argument -- all model-typed
+        # text -- cannot be encoded onto this UTF-8 file. That one used
+        # to walk out of here into the server's `_work`, which answered
+        # `-32603` for an id that already held a result: two responses
+        # to one request, out of a logger that promises to raise none.
+        # The census loses the line and says so on stderr, which is the
+        # bargain this module already makes for every unwritable case.
         print(f"sensorium mcp: audit: {e}", file=sys.stderr)
 
 

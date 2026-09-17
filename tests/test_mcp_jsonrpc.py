@@ -239,13 +239,48 @@ def test_the_writer_echoes_an_id_with_its_json_type():
                                  '{"jsonrpc":"2.0","id":7,"result":{}}\n')
 
 
-def test_non_ascii_goes_out_as_itself_not_as_an_escape():
+def test_non_ascii_goes_out_as_an_escape_and_decodes_back_to_itself():
+    """`ensure_ascii=True` (C2): the wire is ASCII and what the client
+    reads back is the string we sent, escape or no escape."""
     stream = io.StringIO()
     Writer(stream).result(1, {"text": "café ✓ 日本語"})
     line = stream.getvalue()
-    assert "café ✓ 日本語" in line
-    assert "\\u" not in line
+    assert line.isascii()
     assert json.loads(line)["result"]["text"] == "café ✓ 日本語"
+
+
+def test_a_lone_surrogate_reaches_the_client_as_an_escape(tmp_path):
+    """C2. A method name and a tool name are model-typed text, and a
+    tokenizer that split an emoji hands us half a surrogate pair.
+    Serialised with `ensure_ascii=False` that string cannot be encoded
+    onto a UTF-8 stdout; the `UnicodeEncodeError` (a `ValueError`) was
+    swallowed as if the pipe had gone, and the client waited on that id
+    forever. Escaped, it is six ASCII characters and the answer goes."""
+    stream = io.StringIO()
+    w = Writer(stream)
+    w.result(2, {"text": "Method not found: \ud800"})
+    line = stream.getvalue()
+    assert line == ('{"jsonrpc":"2.0","id":2,'
+                    '"result":{"text":"Method not found: \\ud800"}}\n')
+    assert line.isascii() and w.closing is False
+    assert json.loads(line)["result"]["text"] == "Method not found: \ud800"
+    # And it survives a real UTF-8 stream, which is what stdout is.
+    handle = tmp_path / "wire.txt"
+    handle.write_text(line, encoding="utf-8")
+    assert json.loads(handle.read_text(encoding="utf-8"))["id"] == 2
+
+
+def test_an_encoding_failure_on_an_OPEN_stream_is_raised_not_swallowed():
+    """C2's other half: `closing` is for a client that has gone. A
+    `ValueError` off a stream that is not closed is OUR bug and must
+    reach the worker's `-32603`, as an unserialisable result does."""
+    stream = Exploder(UnicodeEncodeError("utf-8", "\ud800", 0, 1, "surrogate"))
+    w = Writer(stream)
+    with pytest.raises(UnicodeEncodeError):
+        w.result(1, {})
+    assert w.closing is False
+    with pytest.raises(ValueError):
+        Writer(Exploder(ValueError("something else entirely"))).result(1, {})
 
 
 def test_every_write_is_flushed_and_is_exactly_one_line():

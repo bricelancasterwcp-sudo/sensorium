@@ -253,3 +253,31 @@ def test_a_write_failure_never_raises(tmp_path, monkeypatch, capsys):
     assert len(err) == 3
     assert all(ln.startswith("sensorium mcp: audit: ") for ln in err)
     assert not (blocker / "sub").exists()
+
+
+def test_a_lone_surrogate_in_a_line_never_raises(tmp_path, monkeypatch,
+                                                 capsys):
+    """I1. `_write` said "Never raises" and did: a lone surrogate in a
+    field name, a tool name or an argument cannot be encoded onto the
+    UTF-8 file, and `UnicodeEncodeError` -- a `ValueError`, not an
+    `OSError` -- walked out of the audit and into the server's `_work`,
+    which then answered `-32603` for an id that already had its result.
+    One stderr line each, no exception, and the file stays a file."""
+    root = _store(tmp_path, monkeypatch)
+    audit.record_call("grep", {"pattern": "fine"}, _o(0), 10, False)
+
+    assert audit.record_rejection("grep", -32602, "unknown_fields",
+                                  "unknown field '\ud800bad' for grep",
+                                  ("\ud800bad",)) is None
+    assert audit.record_call("grep", {"pattern": "\ud800"}, _o(0), 10,
+                             False) is None
+    assert audit.record_cancel("grep", {"pattern": "\ud800"}, False,
+                               1) is None
+
+    err = [ln for ln in capsys.readouterr().err.splitlines() if ln]
+    assert len(err) == 3, err
+    assert all(ln.startswith("sensorium mcp: audit: ") for ln in err)
+    # The census loses those three lines and says so on stderr; the one
+    # written before them is intact, which is what a half-written line
+    # would have destroyed.
+    assert [ln["tool"] for ln in _lines(root)] == ["grep"]

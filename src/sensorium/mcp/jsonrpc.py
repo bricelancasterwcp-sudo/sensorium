@@ -39,7 +39,22 @@ and a server that raised out of its writer would abandon a live child
 instead of running its shutdown. Everything else -- a result holding an
 object `json` cannot serialise, say -- is OUR bug and is raised, so the
 worker's `except` can answer `-32603` rather than lose the request.
-`json.dumps` therefore runs outside the `try` and outside the lock.
+`json.dumps` therefore runs outside the `try` and outside the lock, and
+the `ValueError` clause asks the stream whether it is CLOSED: a
+`ValueError` off a healthy stream is not a gone client and swallowing
+it would lose the response it belongs to.
+
+THE WIRE IS ASCII (`ensure_ascii=True`). Not aesthetics -- a text a
+model can put in front of us may hold a LONE SURROGATE (a tokenizer
+splitting an emoji is the usual cause), and a method name, a tool name
+and a rejection message are all echoed back to the client. Written raw,
+such a string cannot be encoded onto a UTF-8 stdout at all: the write
+raised `UnicodeEncodeError` -- a `ValueError` -- the response was
+dropped on a perfectly healthy pipe, and the client waited on that id
+until its own timeout. Escaped, it is `\\ud800` on the wire and
+`json.loads` hands the client back the same string. Legitimate
+non-ASCII pays six characters per character for that; an answer that
+arrives is worth more than an answer that is pretty.
 """
 from __future__ import annotations
 
@@ -129,11 +144,16 @@ class Writer:
         self._write({"jsonrpc": "2.0", "id": id, "error": err})
 
     def _write(self, obj: dict) -> None:
-        line = json.dumps(obj, separators=(",", ":"),
-                          ensure_ascii=False) + "\n"
+        line = json.dumps(obj, separators=(",", ":")) + "\n"
         with self._lock:
             try:
                 self._stream.write(line)
                 self._stream.flush()
-            except (BrokenPipeError, ValueError):
+            except BrokenPipeError:
+                self.closing = True
+            except ValueError:
+                # ONLY the closed-file one. Anything else off an open
+                # stream is our bug and belongs to the worker's -32603.
+                if not getattr(self._stream, "closed", False):
+                    raise
                 self.closing = True
