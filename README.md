@@ -69,6 +69,7 @@ record](#install-and-record), under Rust.
     sensorium diff RUN_A RUN_B                    # where two runs part
     sensorium refocus last --focus fog:compute    # re-run deeper, verified
     sensorium redact --all --dry-run              # what an older store still holds
+    sensorium mcp --allow-run                     # serve all of the above to a model (MCP, stdio)
 
 Per-line state is opt-in at record time, so a predicate over locals needs a
 run that captured them:
@@ -131,6 +132,19 @@ names one of its **arguments** (`<qualname>:return` follows the same
 activation to what it handed back). A name that was not captured at the
 event a spec resolves to is refused, with the names that *were* captured
 there listed.
+
+## MCP
+
+`sensorium mcp` serves the same store to a model over the Model Context
+Protocol — one process on stdio, no runtime dependency, every query command
+above a tool; `record` and `refocus`, the two that execute your program, only
+under `--allow-run`. Register the project's own venv, since that is the
+interpreter a recording runs under:
+
+    claude mcp add sensorium -- <venv>/bin/sensorium mcp --allow-run
+
+The tools, the result header, the cap, the audit file and what the server
+refuses: [`docs/mcp.md`](docs/mcp.md).
 
 ## Exit statuses
 
@@ -401,7 +415,7 @@ beside them.
 
 Recording overhead and read-back cost, measured on this machine with `python corpus/run_corpus.py --bench` and reported table by
 table, are [`docs/overhead.md`](docs/overhead.md), moved there 2026-09-16 so this file stays under 800 lines, wording unchanged.
-The headline: 2.9× on the corpus's typical workloads, up to 194× on the call-dense one; record failing tests, never benchmarks.
+The headline: 2.9× on the corpus's typical workloads, up to 194× on the call-dense one under `--focus`; record failing tests, never benchmarks.
 
 ## Corpus
 
@@ -416,10 +430,10 @@ Small programs with deliberately planted bugs, and questions registered
 ground truth, the exact invocation expected to yield it, and why a `print()`
 cannot answer it. Ground truth is known because the bugs were planted. This is
 the regression suite, and it includes the honesty cases — the ones whose
-pinned answer is a REFUSAL. **105 cases and 220 questions**: twenty Python
-programs with thirty-nine questions, forty-three Rust cases and forty-two
-TypeScript cases, ten of the last recorded under a `--focus`. All of them case
-by case in [`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this
+pinned answer is a REFUSAL. **115 cases and 253 questions**: twenty-two Python
+programs with forty-eight questions, forty-five Rust cases and forty-eight
+TypeScript cases, thirteen of the last recorded under a `--focus`. All of them
+case by case in [`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this
 file stays under 800 lines, wording unchanged. A case whose recorder is not built is
 reported skipped BY NAME and counted apart from the passes, never as them;
 `--require-driver` turns such a skip into exit 1, which is what CI passes.
@@ -702,7 +716,7 @@ What each slice deferred, and the ruling each deferral is waiting on, is
 resolved items struck through rather than deleted.
 
 Subprocess following, attach-to-live-server flight recording, native (rr)
-substrates, MCP wrapper. See
+substrates. See
 `docs/superpowers/specs/2026-08-21-sensorium-arc2-inspectable-coroutines-design.md`
 (extends `2026-08-21-sensorium-async-design.md`, arc 1's spec).
 
