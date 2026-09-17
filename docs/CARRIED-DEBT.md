@@ -502,6 +502,14 @@ the wording is the ledger's own.
   erratum exists to stop, and why the fix belongs in `e17_cells.h7` before
   the next slice reuses it.
 
+- **docs (Task 8's review):** the prose in `docs/mcp.md` and the README's MCP
+  section spells the dash as ASCII ` -- ` in places where the rest of the docs
+  use `—`. Cosmetic; fix when either file is next edited.
+- ~~**README.md:404 (Task 0's review):** the Overhead headline mixed tiers (2.9×
+  default vs 194× focused call-dense; 136× is the default-tier max).~~ Closed at
+  Task 8 by R15: the headline keeps 194× and says it is the call-dense workload
+  under `--focus`.
+
 ### Files near the ceiling
 
 Measured at this slice's last commit against the 800-line gate
