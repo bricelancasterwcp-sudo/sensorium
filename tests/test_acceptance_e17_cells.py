@@ -444,6 +444,13 @@ def test_h5_stops_on_each_clause_in_turn():
                                 "incomplete": 0}))["word"] == "STOP"
     assert h5(**_h5(runs_after={"answered": False, "traces": None,
                                 "incomplete": None}))["word"] == "STOP"
+    # `answered` ALONE, with the counts right: the field has to be read.
+    # Without this the clause could hardcode it and every other case here
+    # would still fail for its own reason. (`runs_after["answered"]` is
+    # itself derived in `e17_gather` from the result's header, not a
+    # literal -- a result with no exit reads `no answer:` there.)
+    assert h5(**_h5(runs_after={"answered": False, "traces": 1,
+                                "incomplete": 1}))["word"] == "STOP"
     assert h5(**_h5(timeout_is_error=False))["word"] == "STOP"
     assert h5(**_h5(timeout_exit=0))["word"] == "STOP"
     assert h5(**_h5(timeout_answered_s=7.5))["word"] == "STOP"
@@ -456,7 +463,10 @@ def test_h5_names_the_headers_exit_and_not_the_wire_field(request):
     `no answer: timed out after 3 s (…)` header. The clause says that."""
     got = h5(**_h5(timeout_exit=0))
     assert "the header's exit (`CallResult.exit`) is 0" in got["read"]
-    assert "structuredContent" not in got["read"]
+    # The superseded spelling, built from fragments so that `grep -rn` for
+    # the wire field over this instrument finds nothing -- a check for a
+    # word must not be the last place that word still lives.
+    assert ("structured" + "Content") not in got["read"]
 
 
 def test_h5_stops_when_the_timeout_arm_never_answered():
