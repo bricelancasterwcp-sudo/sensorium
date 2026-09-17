@@ -234,29 +234,49 @@ def validate(ts: ToolSchema, arguments: dict) -> None:
 
 
 def to_argv(ts: ToolSchema, arguments: dict) -> list[str]:
-    """`[command, *positionals, *options]` for a validated call."""
+    """`[command, *options, "--", *positionals]` for a validated call.
+
+    THE SHAPE IS THE ESCAPE A TOOL CALLER DOES NOT HAVE. Emitted as two
+    words (`["--fn", value]`) with the positionals bare, ANY value
+    beginning with `-` was read by the child's argparse as an option:
+    `grep {"pattern": "-x"}` came back *the following arguments are
+    required: pattern*, naming the one field the model HAD supplied.
+    A shell user types `sensorium grep last -- -x`; a model has no
+    field and no spelling to reach for, and `-1` happened to work
+    (argparse matches negative numbers), which made the dead end look
+    arbitrary rather than structural.
+
+    So: `--name=value`, which cannot be mistaken for a flag-plus-value,
+    and one `--` before the positional block, which ends option parsing
+    for good. The `--` is omitted when there are no positionals (`runs`
+    has no fields at all) rather than emitted as a word with nothing
+    after it. `record`'s argv is `tools.command_argv`'s, not this one:
+    its `--` separates the TARGET's argv and means something else.
+    """
     validate(ts, arguments)
-    argv = [ts.command]
-    for f in ts.fields:
-        if not f.positional:
-            continue
-        if f.name in arguments:
-            argv.append(_word(f, arguments[f.name]))
-        elif f.default is not None:
-            argv.append(str(f.default))                        # D5
+    options: list[str] = []
     for f in ts.fields:
         if f.positional or f.name not in arguments:
             continue
         value = arguments[f.name]
         if f.kind == "boolean":
             if value:
-                argv.append(f.option)
+                options.append(f.option)
         elif f.kind == "array":
-            for item in value:
-                argv.extend([f.option, item])
+            options.extend(f"{f.option}={item}" for item in value)
         else:
-            argv.extend([f.option, _word(f, value)])
-    return argv
+            options.append(f"{f.option}={_word(f, value)}")
+    positionals: list[str] = []
+    for f in ts.fields:
+        if not f.positional:
+            continue
+        if f.name in arguments:
+            positionals.append(_word(f, arguments[f.name]))
+        elif f.default is not None:
+            positionals.append(str(f.default))                 # D5
+    if not positionals:
+        return [ts.command, *options]
+    return [ts.command, *options, "--", *positionals]
 
 
 def _word(f: Field, value) -> str:

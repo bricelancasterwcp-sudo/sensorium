@@ -53,7 +53,8 @@ from sensorium.mcp.schema import (Rejection, SchemaError,  # noqa: E402
                                   derive, from_argv, json_schema, parser_for,
                                   to_argv, validate)
 from sensorium.query import (diff_cmd, flow_cmd, frame_cmd,  # noqa: E402
-                             grep_cmd, redact_cmd, refocus_cmd, watch_cmd)
+                             grep_cmd, redact_cmd, refocus_cmd,
+                             runs_cmd, watch_cmd)
 
 
 class _ToyModule:
@@ -166,24 +167,58 @@ def test_empty_help_refuses_to_boot():
 
 # -- a call becomes argv ----------------------------------------------------
 def test_to_argv_rebuilds_grep():
+    """Options first, as `--name=value`, then `--`, then the
+    positionals (I2). The shape is the one that survives a value
+    beginning with `-`; the test below is why it has to."""
     schema = derive(grep_cmd)
     assert to_argv(schema, {"pattern": "compute", "kind": "RETURN"}) == [
-        "grep", "last", "compute", "--kind", "RETURN"]
+        "grep", "--kind=RETURN", "--", "last", "compute"]
 
 
 def test_to_argv_true_boolean_is_a_bare_flag_false_is_omitted():
     schema = derive(diff_cmd)
     call = {"run_a": "r1", "run_b": "r2"}
     assert to_argv(schema, {**call, "ignore_moves": True}) == [
-        "diff", "r1", "r2", "--ignore-moves"]
+        "diff", "--ignore-moves", "--", "r1", "r2"]
     assert to_argv(schema, {**call, "ignore_moves": False}) == [
-        "diff", "r1", "r2"]
+        "diff", "--", "r1", "r2"]
 
 
 def test_to_argv_array_repeats_the_option():
     schema = derive(refocus_cmd)
     assert to_argv(schema, {"run": "r1", "focus": ["a", "b"]}) == [
-        "refocus", "r1", "--focus", "a", "--focus", "b"]
+        "refocus", "--focus=a", "--focus=b", "--", "r1"]
+
+
+def test_a_value_that_begins_with_a_hyphen_reaches_the_parser():
+    """I2. `["grep", "last", "-x"]` had argparse read `-x` as an option
+    and tell the model `pattern` was required -- a field it HAD
+    supplied, with no escape a tool caller can reach for (a shell user
+    types `sensorium grep last -- -x`). `-1` happened to work, because
+    argparse matches negative numbers, which made the dead end look
+    arbitrary rather than structural. Every one of these now parses to
+    the value the call asked for, option and positional alike.
+    """
+    schema = derive(grep_cmd)
+    parser = parser_for(schema)
+    for value in ("-x", "-1", "--limit", "-", "--", "-x -y"):
+        argv = to_argv(schema, {"pattern": value})
+        assert parser.parse_args(argv[1:]).pattern == value, value
+    argv = to_argv(schema, {"pattern": "ok", "fn": "-x", "limit": 3})
+    parsed = parser.parse_args(argv[1:])
+    assert (parsed.pattern, parsed.fn, parsed.limit) == ("ok", "-x", 3)
+    focus = derive(refocus_cmd)
+    rebuilt = parser_for(focus).parse_args(
+        to_argv(focus, {"run": "r1", "focus": ["-a", "b"]})[1:])
+    assert rebuilt.focus == ["-a", "b"]
+
+
+def test_to_argv_omits_the_separator_when_there_are_no_positionals():
+    """`runs` has no fields at all, and a bare `--` on its argv would be
+    a word the CLI has to explain away."""
+    runs = derive(runs_cmd)
+    assert not [f for f in runs.fields if f.positional]
+    assert to_argv(runs, {}) == ["runs"]
 
 
 def test_validate_is_what_to_argv_runs_first():
@@ -263,6 +298,20 @@ def test_to_argv_rejects_an_empty_required_array():
 
 
 # -- argv becomes a call ----------------------------------------------------
+def test_from_argv_accepts_both_spellings_with_and_without_the_separator():
+    """P25's inverse has to read what the CLI reads, not only what
+    `to_argv` writes: a corpus question is hand-written argv in the
+    two-word spelling, and `to_argv` now emits the `=` one. Both, with
+    and without a `--`, are the same call."""
+    schema = derive(grep_cmd)
+    call = {"run": "r1", "pattern": "x", "kind": "RETURN", "limit": 3}
+    for argv in (["r1", "x", "--kind", "RETURN", "--limit", "3"],
+                 ["r1", "x", "--kind=RETURN", "--limit=3"],
+                 ["--kind", "RETURN", "--limit", "3", "--", "r1", "x"],
+                 ["--kind=RETURN", "--limit=3", "--", "r1", "x"]):
+        assert from_argv(schema, argv) == call, argv
+
+
 def test_from_argv_drops_defaults():
     """P25: argparse cannot tell "given as the default" from "defaulted",
     and the answer does not depend on the difference."""

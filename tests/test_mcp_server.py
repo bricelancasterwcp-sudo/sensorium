@@ -507,6 +507,27 @@ def test_an_internal_error_is_32603_and_the_worker_survives(
     assert seen == ["runs"]
 
 
+def test_a_pattern_that_begins_with_a_hyphen_reaches_the_cli(sdir, tmp_path):
+    """I2, end to end. `grep {"pattern": "-x"}` used to come back
+    `exit 2 ... the following arguments are required: pattern` -- the
+    one field the model HAD supplied -- because the value was emitted
+    bare and argparse read it as an option. There is no field and no
+    escape a tool caller can reach for (a shell user types `sensorium
+    grep last -- -x`), so a dead end here is a dead end for good.
+    """
+    with spawn(sdir, tmp_path) as client:
+        for pattern in ("-x", "-1", "--limit"):
+            answer = client.call("grep", {"pattern": pattern})
+            assert "required" not in answer.text, (pattern, answer.text)
+            assert answer.exit == 1, (pattern, answer.text)
+            assert answer.is_error is False, pattern
+        answer = client.call("grep", {"pattern": "leaf", "fn": "-x"})
+        assert "expected one argument" not in answer.text, answer.text
+        assert answer.exit == 1, answer.text
+        assert client.call("grep", {"pattern": "leaf"}).exit == 0
+    assert client.bad_lines == []
+
+
 def _raw(client, line: str) -> None:
     """One line straight onto the server's stdin.
 

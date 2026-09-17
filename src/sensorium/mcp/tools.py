@@ -210,11 +210,14 @@ def command_argv(tool: Tool, arguments: dict) -> tuple[list[str], dict]:
         if f.option is None or f.name not in arguments:
             continue
         value = arguments[f.name]
+        # `--name=value`, as `schema.to_argv` emits (I2): a `--focus`
+        # whose value began with `-` was read as the next flag, and the
+        # `--` below cannot help -- it separates the TARGET's argv and
+        # everything here is before it.
         if f.kind == "array":
-            for item in value:
-                argv.extend([f.option, item])
+            argv.extend(f"{f.option}={item}" for item in value)
         else:
-            argv.extend([f.option, value])
+            argv.append(f"{f.option}={value}")
     argv.extend(["--", *arguments["command"]])
     return argv, {"cwd": arguments.get("cwd"),
                   "python": arguments.get("python")}

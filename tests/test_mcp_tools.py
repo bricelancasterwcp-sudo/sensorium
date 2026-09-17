@@ -271,7 +271,7 @@ def test_command_argv_for_record():
     assert tools.command_argv(record, {"command": ["main.py", "-x"],
                                        "focus": ["main:handle"],
                                        "cwd": "/w"}) == (
-        ["run", "--focus", "main:handle", "--", "main.py", "-x"],
+        ["run", "--focus=main:handle", "--", "main.py", "-x"],
         {"cwd": "/w", "python": None})
 
 
@@ -284,11 +284,25 @@ def test_command_argv_for_record_repeats_arrays_in_field_order():
         "command": ["-m", "pytest", "--include", "x"],
         "focus": ["a", "b"], "include": ["src/*"], "exclude": ["tests/*"],
         "window": "main:handle", "python": "/v/bin/python"})
-    assert argv == ["run", "--focus", "a", "--focus", "b",
-                    "--include", "src/*", "--exclude", "tests/*",
-                    "--window", "main:handle",
+    assert argv == ["run", "--focus=a", "--focus=b",
+                    "--include=src/*", "--exclude=tests/*",
+                    "--window=main:handle",
                     "--", "-m", "pytest", "--include", "x"]
     assert extras == {"cwd": None, "python": "/v/bin/python"}
+
+
+def test_command_argv_for_record_survives_an_option_value_that_looks_like_a_flag():  # noqa: E501 - the name is the assertion
+    """I2's other builder. `record`'s own `--` separates the TARGET's
+    argv and always did; what it never covered is the options BEFORE
+    it, where a value beginning with `-` was read as the next flag.
+    `--name=value` is the same escape `schema.to_argv` now uses, and
+    the target's argv after the `--` is untouched either way."""
+    record = tools.table(allow_run=True)["record"]
+    argv, _ = tools.command_argv(record, {"command": ["main.py"],
+                                          "focus": ["-x"],
+                                          "window": "--limit"})
+    assert argv == ["run", "--focus=-x", "--window=--limit",
+                    "--", "main.py"]
 
 
 def test_command_argv_for_record_refuses_by_the_same_rules():
@@ -315,7 +329,7 @@ def test_command_argv_for_a_query_has_no_extras():
     argv cannot carry."""
     grep = tools.table(allow_run=False)["grep"]
     assert tools.command_argv(grep, {"pattern": "compute"}) == (
-        ["grep", "last", "compute"], {})
+        ["grep", "--", "last", "compute"], {})
     refocus = tools.table(allow_run=True)["refocus"]
     assert tools.command_argv(refocus, {"run": "r1", "focus": ["a"]}) == (
-        ["refocus", "r1", "--focus", "a"], {})
+        ["refocus", "--focus=a", "--", "r1"], {})
