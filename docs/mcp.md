@@ -2,11 +2,11 @@
 
 One process over your own store, speaking the Model Context Protocol on stdio;
 no runtime dependency was added to serve it, and every query command the
-README teaches is a tool with the same words on it.
+README teaches except `redact` is a tool with the same words on it.
 
 This page is what a client is offered, what a result means, what the server
-refuses and what it does not do yet. The tool table below is generated from
-`sensorium.mcp.tools.table(True)` and pinned against it by
+refuses and what it does not do yet. The tool table below is pasted from
+`sensorium.mcp.tools.table(True)` and pinned to it cell by cell by
 `tests/test_mcp_docs.py`: a reworded command changes both or neither.
 
 ## Registering
@@ -68,8 +68,9 @@ the CLI.
 | `refocus` | `--allow-run` | re-run a recorded command with deeper capture, verified. Executes the recorded command again with the added `--focus` and reports whether it was the same execution — MATCH, DIVERGED or REFUSED; the licence names what was compared. |
 | `record` | `--allow-run` | record one execution. Runs the command under the recorder from `cwd` and writes one trace; only code under `cwd` is recorded; the command is a .py file, a `-m` module or a console script, never `python` itself. |
 
-`redact` is a command and deliberately not a tool: it rewrites a stored trace,
-which is not a question anyone asks a debugger.
+`redact` is a query command too, and deliberately NOT a tool: it rewrites
+a stored trace, which is not a question anyone asks a debugger, and the store's
+owner runs it from a shell. A call to it answers `-32602 Unknown tool: redact`.
 
 ## Reading a result
 
@@ -197,13 +198,16 @@ as: `"7"` is not the call whose id is `7`.
 `mcp.jsonl` sits beside `invocations.jsonl` at the store root, created 0600
 under a 0700 directory, and is invisible to every trace lookup -- `runs` and
 `find_trace` glob `traces/*.db`, and this file is not under `traces/`. One
-compact JSON line per call, per rejection and per cancel:
+compact JSON line per answered call, per cancel, and per REFUSED call -- one
+naming a tool this server does not have, or one whose arguments were rejected.
+A malformed `tools/call` and every transport-level refusal are answered and
+NOT audited: no tool was named, so there is nothing to record them under.
 
 | line | fields |
 |---|---|
 | a call | `utc`, `tool`, `arguments`, `exit`, `bytes`, `truncated`, `ms`; `timeout: true` when it expired; `cause` when there was no exit and it was not a cancel |
-| a rejection | `utc`, `tool` (null when the request named none), `rejected: {code, reason, fields, message}` -- `fields` only when there were fields to name |
-| a cancel | `utc`, `tool`, `arguments`, `cancelled: true`, `queued` (whether it was still in the queue), `ms` (null when nothing was spawned) |
+| a rejection | `utc`, `tool`, `rejected: {code, reason, fields, message}` -- `fields` only when there were fields to name |
+| a cancel | `utc`, `tool` (null when the cancelled request was not a `tools/call`), `arguments`, `cancelled: true`, `queued` (whether it was still in the queue), `ms` (null when nothing was spawned) |
 
 `reason` is data, not prose -- `unknown_tool`, `unknown_fields`, `bad_fields`,
 `missing_fields` -- because a census that had to parse English would stop
@@ -252,7 +256,7 @@ rest are protocol errors:
 
 | code | when |
 |---|---|
-| `-32602` | an unknown tool; `tools/call needs a string name and an object arguments`; `server/discover` without `_meta` protocolVersion; a legacy request before `initialize` |
+| `-32602` | an unknown tool; `tools/call needs a string name and an object arguments`; `server/discover` without `_meta` protocolVersion; a modern request without `_meta` `io.modelcontextprotocol/clientCapabilities`; a legacy request before `initialize` |
 | `-32022` | a `_meta` protocolVersion this server does not speak; the data carries `supported` and `requested` |
 | `-32601` | an unknown method |
 | `-32603` | our bug -- one stderr line naming the class, and `{"type": "<ClassName>"}` in the data; the request is answered rather than lost |
@@ -305,7 +309,10 @@ three-minute `record` does not report the server dead while it is working;
 * **A per-call timeout field** -- waiting on the timeout census.
 * **An `env` field on `record`** -- a secret-into-trace vector, left out on
   purpose.
-* **`redact` as a tool, and `seal`** -- as the redaction work left them.
+* **`redact` as a tool, `seal` and scanner parity** -- as the redaction work
+  left them.
+* **Rewriting the debugging skills to prefer MCP over the shell** -- a ruling
+  after E17's H7, not before it.
 * **Concurrent calls** -- serialized by design: the store is SQLite and a call
   is a child process, so the honest offer is one question at a time. A client
   that fans out is slower, not wrong.

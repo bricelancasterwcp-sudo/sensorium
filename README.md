@@ -137,9 +137,9 @@ there listed.
 
 `sensorium mcp` serves the same store to a model over the Model Context
 Protocol — one process on stdio, no runtime dependency, every query command
-above a tool; `record` and `refocus`, the two that execute your program, only
-under `--allow-run`. Register the project's own venv, since that is the
-interpreter a recording runs under:
+above except `redact` a tool, and `record` and `refocus` only under
+`--allow-run`. Register the project's own venv, the interpreter a recording
+runs under:
 
     claude mcp add sensorium -- <venv>/bin/sensorium mcp --allow-run
 
