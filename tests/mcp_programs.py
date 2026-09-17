@@ -105,6 +105,25 @@ Path("child.pid").write_text(str(os.getpid()))
 time.sleep(30)
 """
 
+#: The line `TALKING_SLEEPER` prints before it sleeps.
+SAID = "the child said this before it slept"
+
+#: A sleeper that SPEAKS FIRST. Everything it says is written and
+#: flushed before the pid file exists, so by the time a test cancels the
+#: bytes are in the pipe waiting to be read -- and whether the outcome
+#: still carries them is the whole question about who reads the pipes
+#: (R9: a cancel that reaped could take them into a buffer nobody reads,
+#: or split them with the worker).
+TALKING_SLEEPER = f"""
+import os, sys, time
+from pathlib import Path
+
+print({SAID!r})
+sys.stdout.flush()
+Path("child.pid").write_text(str(os.getpid()))
+time.sleep(30)
+"""
+
 #: Says what the child's stdin held. `''` is the whole assertion.
 READER = """
 import sys

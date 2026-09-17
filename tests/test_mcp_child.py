@@ -20,9 +20,12 @@ PRE-REGISTERED MUTATIONS (task 3, step 5), each with the test that
 catches it:
 
 * `start_new_session=False` ->
-  `test_timeout_kills_the_group_and_reports_timed_out`. Without a new
-  session the child joins the TEST RUNNER's process group, `killpg`
-  signals pytest itself, and `sleep 30` survives.
+  `test_timeout_kills_the_group_and_reports_timed_out`. The child stays
+  in the test runner's process group, so `os.killpg(proc.pid, ...)`
+  names a group id nothing holds: ESRCH, suppressed as "already gone",
+  and NOTHING is signalled -- not the sleeper, which survives with its
+  `sleep 30` (this is what the mutant run showed), and not pytest,
+  whose group has a different id.
 * skip the SIGTERM step (straight to SIGKILL) ->
   `test_sigterm_is_tried_before_sigkill`. `term.txt` is never written,
   because SIGKILL cannot be handled.
@@ -39,6 +42,16 @@ catches it:
 * format the timeout with `{timeout}` instead of `{timeout:g}` ->
   `test_timeout_kills_the_group_and_reports_timed_out`'s `cause`
   clause, which reads `1 s` and not `1.0 s`.
+* `cancel` reaps (`kill_group(proc)` instead of `reap=False`) ->
+  `test_cancel_never_reads_the_pipes_and_the_worker_keeps_its_output`.
+  Two threads in one `communicate` split the child's output between
+  them, and whichever reaches EOF first closes the file object the other
+  is reading (R9). It is a RACE, so the mutant does not fail every run:
+  the count over five runs is in the task report.
+* drop the `_done` no-op guard in `cancel` ->
+  `test_a_late_cancel_after_run_returned_is_a_noop`. A cancel that
+  arrives after `run` returned signals a reaped pid, which by then may
+  belong to somebody else.
 """
 from __future__ import annotations
 
@@ -51,7 +64,8 @@ import threading
 import time
 from pathlib import Path
 
-from sensorium.mcp.child import Child
+from sensorium.mcp import child as child_mod
+from sensorium.mcp.child import GRACE, Child
 from tests import mcp_programs as progs
 
 #: Long enough that a sleeper never ends on its own, short enough that a
@@ -348,11 +362,84 @@ def test_a_grandchild_that_ignores_sigterm_is_killed_and_run_returns(tmp_path):
         grandchild = wait_for_pid(tmp_path / "grandchild.pid")
         started = time.monotonic()
         child.cancel()
-        thread.join(3.0)
+        thread.join(GRACE + 1.0)
         elapsed = time.monotonic() - started
         assert not thread.is_alive()
 
-    assert elapsed < 3.0, f"run() took {elapsed:.2f} s to return"
+    assert elapsed < GRACE + 1.0, f"run() took {elapsed:.2f} s to return"
     assert pid_gone(grandchild), f"grandchild {grandchild} survived"
     assert box["out"].cancelled
     assert group_gone(box["out"].pgid)
+
+
+def test_cancel_never_reads_the_pipes_and_the_worker_keeps_its_output(
+        tmp_path, monkeypatch):
+    """R9: `cancel` signals, and that is all it does.
+
+    The sleeper says its line and flushes before it writes its pid, so
+    the bytes are sitting in the pipe when the cancel lands. A cancel
+    that reaped would enter `Popen.communicate` while the worker is
+    already inside it: the second entrant rebinds `_fileobj2output`, the
+    two threads split the reads, and the first to see EOF closes the
+    file object the other is about to read from -- so the output ends up
+    half in a buffer nobody returns, or gone altogether behind an EBADF.
+    The cancelled outcome is discarded by the server, but the same two
+    threads are one `_shut` away from the timeout path, where it is not.
+
+    Which thread does the reading is checked directly, and not only
+    through the output. Whether the SPLIT loses a line is a race: the
+    worker reads each line as it is written, long before any cancel, and
+    it keeps the list it captured -- so on this box the reaping mutant
+    took the output away in 0 of 5 runs. What is not a race is that a
+    second thread entered `communicate` at all, and `_reap` is the only
+    way in.
+    """
+    progs.write(tmp_path, "sleeper.py", progs.TALKING_SLEEPER)
+    child = Child(["run", "--", "sleeper.py"], str(tmp_path), None,
+                  env_for(tmp_path / "sdir"), PATIENCE)
+    readers: list[str] = []
+    real_reap = child_mod._reap
+
+    def spy(proc):
+        readers.append(threading.current_thread().name)
+        return real_reap(proc)
+
+    monkeypatch.setattr(child_mod, "_reap", spy)
+
+    with running(child) as (box, thread):
+        wait_for_pid(tmp_path / "child.pid")
+        child.cancel()
+        thread.join(5.0)
+        assert not thread.is_alive()
+
+    out = box["out"]
+    assert out.cancelled
+    assert out.exit is None
+    assert progs.SAID in out.stdout, repr(out.stdout)
+    assert threading.main_thread().name not in readers, readers
+    assert group_gone(out.pgid)
+
+
+def test_a_late_cancel_after_run_returned_is_a_noop(tmp_path, monkeypatch):
+    """A cancel that loses the race sends no signal at all (R9).
+
+    `run` has returned, so the leader has been reaped -- and a reaped
+    pid is a number the kernel may have handed to somebody else's
+    process by the time the reader thread gets to it. `_done` is how
+    `cancel` knows, and the flag is still set for `run`'s own reading.
+    """
+    child = Child(["runs"], str(tmp_path), None, env_for(tmp_path / "sdir"),
+                  PATIENCE)
+    out = child.run()
+    assert out.exit == 1
+
+    signalled: list[tuple[int, int]] = []
+    monkeypatch.setattr(child_mod, "_signal_group",
+                        lambda pgid, sig: signalled.append((pgid, sig)))
+    started = time.monotonic()
+    child.cancel()
+    elapsed = time.monotonic() - started
+
+    assert signalled == []
+    assert elapsed < 1.0, f"cancel() waited {elapsed:.2f} s"
+    assert child._done.is_set()

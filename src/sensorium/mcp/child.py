@@ -19,16 +19,21 @@ THE KILL ORDER, and why SIGKILL is unconditional. `start_new_session`
 puts the child in a session and a process group of its own, whose id is
 the child's pid, so one `killpg` reaches everything the call spawned --
 never `pkill -f`, which self-matches and leaves the survivors. The
-sequence is SIGTERM, then up to `GRACE` seconds of polling for the
-GROUP to empty (the leader is reaped as we go: a zombie leader keeps its
-group alive and would read as a survivor), then SIGKILL -- sent whether
-or not anything answered. A leader that exited politely on SIGTERM can
-leave a grandchild that ignored it holding the inherited pipes, and a
-kill that asked "is the leader still alive?" would never send the signal
-that ends it. `communicate(timeout=REAP)` then bounds the read either
-way: a descendant that escaped the session with its own `setsid` can
-still hold a pipe, and the timeout is how that returns instead of
-hanging the worker thread forever.
+sequence is SIGTERM, then up to `GRACE` seconds of polling for the GROUP
+to empty (the leader is reaped as we go: a zombie leader keeps its group
+alive and would read as a survivor), then SIGKILL -- sent whether or not
+anything answered, because a leader that exited politely can leave a
+grandchild that ignored SIGTERM holding the inherited pipes, and a kill
+that asked "is the leader still alive?" would never send the signal that
+ends it. `communicate(timeout=REAP)` bounds the read: a descendant that
+escaped the session with its own `setsid` can still hold a pipe.
+
+ONE READER (R9). Only `run`'s thread touches the pipes. Two threads
+inside one `Popen.communicate` are not two readers of one buffer: the
+second rebinds `_fileobj2output`, so each sees half the output, and the
+first to reach EOF closes a file object the other is about to read from
+BY NUMBER, which a concurrent spawn may since have reused. So `cancel`
+signals with `reap=False` and waits for `run` to come out on its own.
 
 CANCEL IS NEVER LOST. `run` spawns under the Child's one lock and, still
 holding it, re-reads the cancelled flag and kills the group it has just
@@ -36,10 +41,10 @@ created. That closes the window the server cannot close from outside:
 the reader thread can call `cancel` after the worker popped the request
 but before `Popen` returned, and a cancel that only killed `_proc` would
 find it `None` and do nothing. `cancel` takes the same lock, so the two
-can happen in one order only, and it runs the kill on the CALLING thread
-(`Popen.wait` is safe from a second thread): the worker's `communicate`
-returns because the pipes closed, reads the flag, and reports
-`cancelled` with no exit status at all.
+can happen in one order only; the worker's `communicate` then returns
+because the pipes closed, reads the flag, and reports `cancelled` with
+no exit status. A cancel after `run` has finished is a no-op -- the pid
+is reaped, and may already be somebody else's.
 """
 from __future__ import annotations
 
@@ -64,9 +69,9 @@ REAP = 2.0
 @dataclass(frozen=True)
 class Outcome:
     """What one call produced. `exit` is `Popen.returncode` (negative
-    for a signal) and is None whenever no exit was PRODUCED -- a
-    timeout, a cancel, a spawn that never happened -- which the server
-    renders as `no answer` rather than as a status."""
+    for a signal) and is None whenever no exit was PRODUCED -- a timeout,
+    a cancel, a spawn that never happened -- which the server renders as
+    `no answer` rather than as a status."""
 
     exit: int | None
     stdout: str
@@ -86,8 +91,7 @@ def _signal_group(pgid: int, sig: int) -> None:
 
 
 def _shut(proc: subprocess.Popen) -> None:
-    """Close what we will not finish reading, so the fds do not leak
-    into the next call."""
+    """Close what we will not finish reading, so no fd leaks."""
     for pipe in (proc.stdout, proc.stderr):
         if pipe is not None:
             try:
@@ -98,10 +102,8 @@ def _shut(proc: subprocess.Popen) -> None:
 
 def _reap(proc: subprocess.Popen) -> tuple[str, str]:
     """Collect the child and its streams, without hanging on either.
-
-    `Popen` keeps what each `communicate` read, so calling this again
-    after `kill_group` has been through adds no wait -- the pipes are at
-    EOF or closed -- and hands back the whole of it decoded."""
+    `Popen` keeps what each `communicate` read, so a second call after
+    `kill_group` adds no wait and hands back the whole of it."""
     try:
         out, err = proc.communicate(timeout=REAP)
     except subprocess.TimeoutExpired:
@@ -113,18 +115,23 @@ def _reap(proc: subprocess.Popen) -> tuple[str, str]:
     return "", ""
 
 
-def kill_group(proc: subprocess.Popen, grace: float = GRACE) -> None:
+def kill_group(proc: subprocess.Popen, grace: float = GRACE,
+               reap: bool = True) -> None:
     """SIGTERM the child's group, wait `grace` for it to empty, SIGKILL
     it anyway, then reap. See the module docstring for why every step is
     where it is. `ProcessLookupError` at any step means "already gone"
-    and is never an error."""
+    and is never an error.
+
+    `reap=False` signals ONLY: no `communicate`, no `close`, nothing
+    that touches a pipe -- what a caller on a second thread passes (R9)."""
     if not hasattr(os, "killpg"):            # pragma: no cover - Windows
         proc.terminate()                     # advisory, untested here
         try:
             proc.wait(timeout=grace)
         except subprocess.TimeoutExpired:
             proc.kill()
-        _reap(proc)
+        if reap:
+            _reap(proc)
         return
     pgid = proc.pid               # start_new_session: the child leads
     _signal_group(pgid, signal.SIGTERM)
@@ -137,7 +144,8 @@ def kill_group(proc: subprocess.Popen, grace: float = GRACE) -> None:
             break                 # the whole group has gone
         time.sleep(POLL)
     _signal_group(pgid, signal.SIGKILL)
-    _reap(proc)
+    if reap:
+        _reap(proc)
 
 
 class Child:
@@ -146,10 +154,8 @@ class Child:
     `name` is the tool the server was asked for, which is not always
     `argv[0]` (`record` is the CLI's `run`); it appears in the one log
     line and nowhere else. `cwd` and `python` arrive from a JSON object
-    where the empty string is a valid string, and an empty one means
-    what an absent one means -- `Popen(cwd="")` raises and `[""]` is not
-    an interpreter.
-    """
+    where "" is a valid string, and an empty one means what an absent
+    one means -- `Popen(cwd="")` raises and `[""]` is no interpreter."""
 
     def __init__(self, argv: list[str], cwd: str | None, python: str | None,
                  env: dict, timeout: float, log=None,
@@ -164,6 +170,7 @@ class Child:
         self._lock = threading.Lock()
         self._proc: subprocess.Popen | None = None
         self._cancelled = False
+        self._done = threading.Event()   # `run` has left `communicate`
 
     def run(self) -> Outcome:
         started = time.monotonic()
@@ -184,15 +191,23 @@ class Child:
                           f"tool {self._name}")
             if self._cancelled:
                 kill_group(proc)  # a cancel that landed before the spawn
-        timed_out, broke = False, None
+        timed_out, broke, out, err = False, None, "", ""
         try:
             out, err = proc.communicate(timeout=self._timeout)
         except subprocess.TimeoutExpired:
             timed_out = True
-            kill_group(proc)
-            out, err = _reap(proc)
         except (OSError, ValueError) as exc:
-            out, err, broke = "", "", str(exc)   # a cancel closed the pipes
+            broke = str(exc)      # a cancel closed the pipes to unblock us
+        finally:
+            self._done.set()      # from here the pipes are nobody's
+        if timed_out:
+            kill_group(proc)      # the worker IS the single reader here
+            out, err = _reap(proc)
+        elif broke is not None:
+            try:
+                proc.wait(timeout=REAP)   # never leave the leader unreaped
+            except subprocess.TimeoutExpired:
+                pass
         with self._lock:
             cancelled = self._cancelled
         if cancelled:
@@ -207,12 +222,17 @@ class Child:
                              pgid=proc.pid)
 
     def cancel(self) -> None:
-        """Kill the call, from whichever thread noticed. Idempotent: a
-        second cancel signals a group that is already gone."""
+        """Kill the call, from whichever thread noticed -- by SIGNAL
+        only, never a read (R9, and the module docstring). Idempotent,
+        and a no-op once `run` has finished."""
         with self._lock:
             self._cancelled = True
-            if self._proc is not None:
-                kill_group(self._proc)
+            if self._done.is_set() or self._proc is None:
+                return            # nothing running, or nothing yet to kill
+            proc = self._proc
+            kill_group(proc, reap=False)
+        if not self._done.wait(REAP):
+            _shut(proc)           # a pipe held from outside the session
 
     def _outcome(self, started: float, exit_: int | None, out: str, err: str,
                  cause: str | None, **flags) -> Outcome:
