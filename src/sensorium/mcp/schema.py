@@ -217,15 +217,25 @@ def _property(f: Field) -> dict:
 
 
 # -- a call becomes argv ----------------------------------------------------
-def to_argv(ts: ToolSchema, arguments: dict) -> list[str]:
-    """`[command, *positionals, *options]` for a validated call.
+def validate(ts: ToolSchema, arguments: dict) -> None:
+    """Raise the `Rejection` this call has earned, or return.
 
-    Validation first and whole: a caller told of one bad field at a time
-    needs one round trip per mistake."""
+    Whole and in this order: a caller told of one bad field at a time
+    needs one round trip per mistake, and a missing field reported ahead
+    of a misspelt one sends the retry after the wrong thing. Public
+    because `record` (`mcp.tools`) is refused by these rules and then
+    builds argv of its own -- `run --focus … -- <command>` is not the
+    shape `to_argv` makes -- and two copies of a refusal drift.
+    """
     by_name = {f.name: f for f in ts.fields}
     _reject_unknown(ts, arguments, by_name)
     _reject_bad_values(ts, arguments, by_name)
     _reject_missing(ts, arguments)
+
+
+def to_argv(ts: ToolSchema, arguments: dict) -> list[str]:
+    """`[command, *positionals, *options]` for a validated call."""
+    validate(ts, arguments)
     argv = [ts.command]
     for f in ts.fields:
         if not f.positional:

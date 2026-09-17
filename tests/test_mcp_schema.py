@@ -51,7 +51,7 @@ from corpus.cases import load_cases                        # noqa: E402
 from sensorium import cli                                  # noqa: E402
 from sensorium.mcp.schema import (Rejection, SchemaError,  # noqa: E402
                                   derive, from_argv, json_schema, parser_for,
-                                  to_argv)
+                                  to_argv, validate)
 from sensorium.query import (diff_cmd, flow_cmd, frame_cmd,  # noqa: E402
                              grep_cmd, redact_cmd, refocus_cmd, watch_cmd)
 
@@ -184,6 +184,22 @@ def test_to_argv_array_repeats_the_option():
     schema = derive(refocus_cmd)
     assert to_argv(schema, {"run": "r1", "focus": ["a", "b"]}) == [
         "refocus", "r1", "--focus", "a", "--focus", "b"]
+
+
+def test_validate_is_what_to_argv_runs_first():
+    """`to_argv` rebuilds and validates; `record` (`mcp.tools`) validates
+    without rebuilding, because its argv is not the one these rules
+    build. One function, so the two surfaces refuse the same calls in the
+    same words rather than drifting apart."""
+    ts = derive(grep_cmd)
+    assert validate(ts, {"pattern": "x", "kind": "RETURN"}) is None
+    with pytest.raises(Rejection) as from_validate:
+        validate(ts, {"pattern": "x", "regex": "y"})
+    with pytest.raises(Rejection) as from_to_argv:
+        to_argv(ts, {"pattern": "x", "regex": "y"})
+    assert from_validate.value.reason == from_to_argv.value.reason
+    assert from_validate.value.fields == from_to_argv.value.fields
+    assert from_validate.value.message == from_to_argv.value.message
 
 
 def test_to_argv_rejects_unknown_field_naming_all_fields():
