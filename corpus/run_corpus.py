@@ -113,6 +113,7 @@ is checked at run time instead, against the ids the recording actually
 produced.
 """
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -497,6 +498,7 @@ def _copy_ts_project(case: Case, wd: Path) -> None:
 
 def run_case(case: Case, workdir: Path,
              driver: str | None = None) -> CaseResult:
+    from corpus import via_mcp       # at use: `--bench` runs without it
     res = CaseResult(case.name)
     if case.is_cargo and driver is None:
         driver = cargo_driver()
@@ -522,25 +524,35 @@ def run_case(case: Case, workdir: Path,
     # neither exists, and a question that uses it then fails by name.
     run_id = first[0]
     run_id2 = second[0] if second else (first[1] if len(first) > 1 else None)
-    for spec in case.questions:
-        res.asked += 1
-        if "$RUN2" in str(spec) and run_id2 is None:
-            res.failures.append(
-                f"{case.name}/{spec['id']}: uses $RUN2, but this case "
-                f"declares no second_run and the recording produced "
-                f"{len(first)} trace(s)")
-            continue
-        q = sub_run_ids(spec, run_id, run_id2)
-        cmd = [str(a) for a in q["command"]]
-        out = _cli(cmd, wd, sdir)
-        text = out.stdout + out.stderr
-        bad = check_question(q, text, out.returncode)
-        if bad:
-            res.failures.append(
-                f"{case.name}/{q['id']}: " + "; ".join(bad)
-                + f"\n    ask: {q['ask']}"
-                + f"\n    cmd: sensorium {' '.join(cmd)}"
-                + f"\n    got: {text[:_EXCERPT]}")
+    with (via_mcp.CaseServer(wd, sdir) if via_mcp.VIA == "mcp"  # per case
+          else contextlib.nullcontext()) as server:            # None in cli
+        for spec in case.questions:
+            res.asked += 1
+            if "$RUN2" in str(spec) and run_id2 is None:
+                res.failures.append(
+                    f"{case.name}/{spec['id']}: uses $RUN2, but this case "
+                    f"declares no second_run and the recording produced "
+                    f"{len(first)} trace(s)")
+                continue
+            q = sub_run_ids(spec, run_id, run_id2)
+            cmd = [str(a) for a in q["command"]]
+            if server is not None and via_mcp.is_tool(cmd[0]):
+                out = via_mcp.ask(server, cmd)
+                if via_mcp.COMPARE and not via_mcp.executes(cmd[0]):
+                    res.differences += via_mcp.compare(
+                        case.name, q, out, _cli(cmd, wd, sdir))
+            else:
+                out = _cli(cmd, wd, sdir)
+                if server is not None:
+                    res.via_cli.append(q["id"])      # P7: named, not skipped
+            text = out.stdout + out.stderr
+            bad = check_question(q, text, out.returncode)
+            if bad:
+                res.failures.append(
+                    f"{case.name}/{q['id']}: " + "; ".join(bad)
+                    + f"\n    ask: {q['ask']}"
+                    + f"\n    cmd: sensorium {' '.join(cmd)}"
+                    + f"\n    got: {text[:_EXCERPT]}")
     return res
 
 
@@ -576,6 +588,12 @@ def _parser() -> argparse.ArgumentParser:
                     help="report recording overhead and exit 0")
     ap.add_argument("--require-driver", action="store_true",
                     help="exit 1 if any case could not be run")
+    ap.add_argument("--via", choices=("cli", "mcp"), default="cli", help=(
+        "ask every tool question through a sensorium mcp server started per "
+        "case; non-tool questions still go through the CLI and are named"))
+    ap.add_argument("--compare-cli", action="store_true", help=(
+        "with --via mcp: also run each read-only question through the CLI "
+        "and report any stdout or exit difference"))
     return ap
 
 
@@ -602,6 +620,7 @@ def _run_all(cases, show: bool) -> list:
 
 
 def _report_json(results, failures, skipped, errors, args, unrun) -> None:
+    from corpus import via_mcp
     doc = {"cases": len(results),
            "questions": sum(r.asked for r in results),
            "skipped": [{"case": r.name, "reason": r.skipped}
@@ -609,14 +628,16 @@ def _report_json(results, failures, skipped, errors, args, unrun) -> None:
            "failures": failures,
            "errors": [{"case": r.name, "error": r.error} for r in errors],
            "require_driver": args.require_driver}
-    # Present only when the flag actually decided the exit code: a key that
-    # is always there says nothing about whether it mattered.
+    # Present only when the flag actually decided the exit code, and so are
+    # the three below: a key always there says nothing about whether it did.
     if unrun:
         doc["exit_reason"] = unrun
+    doc.update(via_mcp.json_keys(results, args.via, args.compare_cli))
     print(json.dumps(doc, indent=2))
 
 
-def _report_text(results, failures, skipped, errors, unrun) -> None:
+def _report_text(results, failures, skipped, errors, args, unrun) -> None:
+    from corpus import via_mcp
     for r in results:
         mark = ("ERR" if r.error else "skip" if r.skipped
                 else "FAIL" if r.failures else "ok")
@@ -626,6 +647,10 @@ def _report_text(results, failures, skipped, errors, unrun) -> None:
             print(f"        harness error: {r.error}")
     for f in failures:
         print("  " + f)
+    named, diffs = via_mcp.cli_questions(results), via_mcp.differences(results)
+    for d in diffs:
+        print(f"  diff {d['case']}/{d['id']}: {d['field']}"
+              f" mcp={d['mcp']} cli={d['cli']}")
     # Every distinct reason, named. "13 skipped" alone would leave a reader
     # to guess whether the cases are broken or the toolchain is absent.
     why = ", ".join(sorted({r.skipped for r in skipped}))
@@ -633,11 +658,19 @@ def _report_text(results, failures, skipped, errors, unrun) -> None:
           + (f" ({len(skipped)} skipped: {why})" if skipped else "")
           + f", {sum(r.asked for r in results)} questions, "
           f"{len(failures)} failures, {len(errors)} error(s)"
-          + (f"; {unrun}" if unrun else ""))
+          + (f"; {unrun}" if unrun else "")
+          + (f"; {len(named)} question(s) asked through the CLI (not tools)"
+             if named else "")
+          + (f"; {len(diffs)} MCP/CLI difference(s)"
+             if args.compare_cli else ""))
 
 
 def main(argv=None) -> int:
     args = _parser().parse_args(argv)
+    if args.compare_cli and args.via != "mcp":
+        print("--compare-cli needs --via mcp: there is no second seam to "
+              "compare against", file=sys.stderr)
+        return 2
     if args.bench:
         # Reports, never gates: overhead is a tracked fact about a machine
         # and a workload, so there is no number here that can fail.
@@ -645,6 +678,8 @@ def main(argv=None) -> int:
         from corpus._bench import bench
         bench.report()
         return 0
+    from corpus import via_mcp
+    via_mcp.VIA, via_mcp.COMPARE = args.via, args.compare_cli
     cases = [c for c in load_cases(only_dir=args.only_dir)
              if args.only is None or c.name == args.only]
     if not cases:
@@ -664,11 +699,12 @@ def main(argv=None) -> int:
     # needs no second flag to be caught.
     unrun = (f"--require-driver was given and {len(skipped)} case(s) "
              "could not run") if args.require_driver and skipped else None
+    differences = via_mcp.differences(results)   # a finding, not a pass
     if args.json:
         _report_json(results, failures, skipped, errors, args, unrun)
     else:
-        _report_text(results, failures, skipped, errors, unrun)
-    return 1 if (failures or errors or unrun) else 0
+        _report_text(results, failures, skipped, errors, args, unrun)
+    return 1 if (failures or errors or unrun or differences) else 0
 
 
 if __name__ == "__main__":
