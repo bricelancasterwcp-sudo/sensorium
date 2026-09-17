@@ -15,6 +15,10 @@ wire facts) `modern` is `server/discover` then `_meta` -- version,
 keyed off the version key's ABSENCE); `none` spawns and reads.
 `STDERR_LABEL` is imported, never copied: a copy would go stale.
 
+A CALL'S EXIT IS READ OFF THE HEADER LINE (R18), never off
+`structuredContent`: this server sends none, and one that did would not
+be believed over the text the model itself is reading.
+
 Three threads -- the caller's writes, one resolving futures off stdout,
 one that ALWAYS drains stderr (into `stderr_path`, else into memory)
 because a pipe nobody reads fills up and blocks the server inside
@@ -55,6 +59,10 @@ CHILD_LINE = re.compile(r"sensorium mcp: child (\d+) pgid (\d+) tool \S+")
 LOG_PREFIX = "sensorium mcp: "
 HANDSHAKE = LOG_PREFIX + "handshake "
 GONE = -32000
+
+#: The header form that reports a status (D19). Everything else -- a
+#: `no answer:` line, or a first line that is neither -- is no exit.
+EXIT_HEADER = re.compile(r"exit (-?\d+): ")
 
 
 class McpError(Exception):
@@ -290,9 +298,10 @@ class McpClient:
                               {"name": name, "arguments": arguments}, timeout)
         text = result["content"][0]["text"]
         header, out, err = split_text(text)
+        status = EXIT_HEADER.match(header)
         return CallResult(
             raw=result, text=text, header=header, stdout=out, stderr=err,
-            exit=(result.get("structuredContent") or {}).get("exit"),
+            exit=int(status.group(1)) if status else None,
             is_error=bool(result.get("isError")))
 
     def cancel(self, id: object) -> None:

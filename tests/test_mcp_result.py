@@ -37,6 +37,11 @@ catches it:
   `test_cap_with_a_tiny_limit_still_truncates`. Under a limit of 4,
   `limit // 4` is 0 and `raw[-0:]` is the WHOLE buffer: the cap emits
   everything it claimed to cut, with the marker glued mid-line.
+* re-add `structuredContent` to `call_result` (`out["structuredContent"]
+  = {"exit": o.exit}`) -> `test_call_result_never_carries_structured_
+  content_and_result_type_only_when_modern` (task 12, R18). The deploy
+  target passes the model a result's structured content INSTEAD of its
+  text, so a server that sends both sends the exit and hides the answer.
 """
 import re
 import signal
@@ -112,7 +117,7 @@ def test_header_for_a_real_time_signal_does_not_raise():
         assert result.header(tool, _o(-1)) == "exit -1: killed by SIGHUP"
         assert result.header(tool, _o(-64)) == "exit -64: killed by SIGRTMAX"
     # ...and it renders all the way out, not just in `header`
-    d, _ = result.call_result(TABLE["grep"], _o(-35), 65536, True, True)
+    d, _ = result.call_result(TABLE["grep"], _o(-35), 65536, True)
     assert d["content"][0]["text"] == "exit -35: killed by signal 35\n"
 
 
@@ -268,46 +273,48 @@ def test_call_result_is_error_iff_exit_two_or_none():
     the trace; a signal is not a bad call either. No exit at all is."""
     tool = TABLE["grep"]
     for status in (0, 1, 3, -15):
-        d, _ = result.call_result(tool, _o(status), 65536, True, True)
+        d, _ = result.call_result(tool, _o(status), 65536, True)
         assert "isError" not in d, status
     for o in (_o(2), _o(None, cause="cancelled", cancelled=True),
               _o(None, cause=TIMED_OUT, timed_out=True)):
-        d, _ = result.call_result(tool, o, 65536, True, True)
+        d, _ = result.call_result(tool, o, 65536, True)
         assert d["isError"] is True
 
 
-def test_call_result_structured_only_when_asked_and_result_type_only_when_modern():
-    """Four independent switches on one dict, and the `_meta` the server
-    alone adds (R1) is never among them."""
+def test_call_result_never_carries_structured_content_and_result_type_only_when_modern():  # noqa: E501 - the name is the assertion
+    """R18: the exit rides the header line and nowhere else.
+
+    The deploy target (Claude Code 2.1.258) passes the model a result's
+    `structuredContent` INSTEAD of its text whenever one is present, so
+    a `{"exit": N}` beside the answer is not a second copy of the exit:
+    it is what the model reads in place of the answer. No revision and
+    no exit gets one. `resultType` is still modern-only, and the `_meta`
+    the server alone adds (R1) is on none of them.
+    """
     tool = TABLE["grep"]
     o = _o(1, "a line\n", "a warning\n")
     text = result.text_of(tool, o)
 
-    plain, truncated = result.call_result(tool, o, 65536, False, False)
+    plain, truncated = result.call_result(tool, o, 65536, False)
     assert truncated is False
     assert plain == {"content": [{"type": "text", "text": text}]}
 
-    structured, _ = result.call_result(tool, o, 65536, True, False)
-    assert structured["structuredContent"] == {"exit": 1}
-    assert "resultType" not in structured
-
-    modern, _ = result.call_result(tool, o, 65536, False, True)
+    modern, _ = result.call_result(tool, o, 65536, True)
+    assert set(modern) == {"content", "resultType"}
     assert modern["resultType"] == "complete"
-    assert "structuredContent" not in modern
+    assert "_meta" not in modern
 
-    both, _ = result.call_result(tool, o, 65536, True, True)
-    assert set(both) == {"content", "structuredContent", "resultType"}
-    assert "_meta" not in both
-
-    # a no-answer still carries its structured exit: `null`, as the
-    # output schema declares.
-    none, _ = result.call_result(tool, _o(None, cause="cancelled",
-                                          cancelled=True), 65536, True, True)
-    assert none["structuredContent"] == {"exit": None}
+    # every exit the four-way contract has, plus a signal and no answer
+    # at all, on both eras: none of them carries the key.
+    for status in (0, 1, 2, 3, -15, None):
+        for is_modern in (False, True):
+            d, _ = result.call_result(tool, _o(status, cause="cancelled"),
+                                      65536, is_modern)
+            assert "structuredContent" not in d, (status, is_modern)
 
     # ...and `truncated` is the cap's, reported back to the caller that
     # writes the audit line.
-    long, cut = result.call_result(tool, _o(0, "line\n" * 20), 16, True, True)
+    long, cut = result.call_result(tool, _o(0, "line\n" * 20), 16, True)
     assert cut is True
     assert "[... " in long["content"][0]["text"]
 
@@ -319,12 +326,12 @@ def test_rejection_result_is_an_is_error_exit_two_carrying_the_message():
         tools.command_argv(tool, {"regex": "x"})
     r = caught.value
 
-    d = result.rejection_result(r, True, True)
+    d = result.rejection_result(r, True)
 
     assert d["isError"] is True
-    assert d["structuredContent"] == {"exit": 2}
+    assert "structuredContent" not in d          # R18, as for every result
     assert d["resultType"] == "complete"
-    assert set(d) == {"content", "structuredContent", "isError", "resultType"}
+    assert set(d) == {"content", "isError", "resultType"}
     assert "_meta" not in d
     text = d["content"][0]["text"]
     assert text == f"exit 2: {ex.MEANING[2]}\n{r.message}"
@@ -332,5 +339,5 @@ def test_rejection_result_is_an_is_error_exit_two_carrying_the_message():
                            "and ask again\nunknown field 'regex' for grep; "
                            "fields: ")
 
-    legacy = result.rejection_result(r, False, False)
+    legacy = result.rejection_result(r, False)
     assert set(legacy) == {"content", "isError"}     # isError is not optional

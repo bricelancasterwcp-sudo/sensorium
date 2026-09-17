@@ -67,12 +67,6 @@ ANNOTATIONS_QUERY = {"readOnlyHint": True, "destructiveHint": False,
 ANNOTATIONS_EXECUTE = {"readOnlyHint": False, "destructiveHint": False,
                        "idempotentHint": False, "openWorldHint": True}
 
-#: Every tool answers the same structured content: the child's exit
-#: status, `null` when it was killed before it had one.
-OUTPUT_SCHEMA = {"type": "object",
-                 "properties": {"exit": {"type": ["integer", "null"]}},
-                 "required": ["exit"]}
-
 #: The three sentences `_add_run_parser` cannot supply: `target` is a
 #: `REMAINDER` with no help, and the other two are the child's process.
 _COMMAND_HELP = ("the program to record, as its own argv: a .py file, `-m` "
@@ -176,16 +170,17 @@ def table(allow_run: bool) -> dict[str, Tool]:
 def to_wire(tool: Tool, structured: bool) -> dict:
     """The `tools/list` entry for one tool.
 
-    `title` and `outputSchema` both arrived in 2025-06-18, so a
-    2025-03-26 client is sent neither: an unknown key is a validation
-    failure in some clients and noise in the rest."""
+    `title` arrived in 2025-06-18, so a 2025-03-26 client is not sent
+    one: an unknown key is a validation failure in some clients and
+    noise in the rest. NO revision gets an `outputSchema` (R18):
+    declaring one asks for the structured content the deploy target
+    shows a model INSTEAD of the answer. The exit is the header line."""
     wire = {"name": tool.name,
             "description": tool.description,
             "inputSchema": schema.json_schema(tool.schema),
             "annotations": tool.annotations}
     if structured:
         wire["title"] = tool.name
-        wire["outputSchema"] = OUTPUT_SCHEMA
     return wire
 
 

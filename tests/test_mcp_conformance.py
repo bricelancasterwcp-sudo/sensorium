@@ -7,9 +7,11 @@ those tests, so they cannot catch one. This file is the one client that
 cannot share it: the official Python SDK (`mcp`, installed by the
 `conformance` extra), which under a modern session hard-fails a
 `tools/call` result without `resultType` and a `tools/list` without
-`ttlMs`/`cacheScope`, reads `serverInfo` out of `_meta`, revalidates
-`structuredContent` against the tool's own `outputSchema`, and probes
-`server/discover` before it will fall back to `initialize`.
+`ttlMs`/`cacheScope`, reads `serverInfo` out of `_meta`, and probes
+`server/discover` before it will fall back to `initialize`. It would
+also revalidate a result's structured content against the tool's own
+declared output schema -- this server declares none and sends none
+(R18), which is itself what the call test below reads back.
 
 THE CONSTANTS BELOW ARE LITERALS ON PURPOSE. `SUPPORTED` and `NINE`
 are spelled out, never imported from `sensorium.mcp.server`: an oracle
@@ -145,12 +147,15 @@ def test_list_tools_nine_then_eleven(sdir):
     assert closed.tools[0].annotations.read_only_hint is True
 
 
-def test_call_runs_has_header_and_structured_exit(sdir):
-    """One whole answer, revalidated by the SDK against our own
-    schema: `call_tool` re-checks `structured_content` against the
-    tool's declared `outputSchema` and raises when a tool that declares
-    one returns none, so reaching the assertions below is itself part
-    of what this test proves.
+def test_call_runs_has_the_header_and_no_structured_content(sdir):
+    """One whole answer, through the SDK's own result model: the exit is
+    the HEADER line and nothing else carries it (R18).
+
+    `structured_content` is what the deploy target shows the model
+    INSTEAD of the text, so the oracle is asked for it by name and must
+    find none -- and since the SDK raises when a tool DECLARES an output
+    schema and returns nothing structured, a `None` here that reached
+    the assertion also says the tool declared no schema.
     """
     async def go():
         async with Client(params(sdir)) as client:
@@ -158,7 +163,7 @@ def test_call_runs_has_header_and_structured_exit(sdir):
 
     result = anyio.run(go)
     assert re.match(r"^exit [0-3]: ", result.content[0].text.splitlines()[0])
-    assert isinstance(result.structured_content["exit"], int)
+    assert result.structured_content is None
     assert result.is_error is False
 
 

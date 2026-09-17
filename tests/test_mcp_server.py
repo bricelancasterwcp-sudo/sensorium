@@ -38,8 +38,7 @@ catches it:
   `test_legacy_handshake_echoes_a_legacy_version_and_answers_2025_11_25_
   to_an_unknown_one` (its `2026-07-28` row, P27).
 * omit `resultType` on a modern `tools/call` ->
-  `test_runs_through_the_wire_has_the_header_structured_exit_and_no_
-  error`.
+  `test_runs_through_the_wire_has_the_header_and_no_error`.
 * answer a `Rejection` as `-32602` instead of an `isError` result ->
   `test_unknown_field_is_an_is_error_result_naming_the_fields_and_
   audited`.
@@ -181,7 +180,7 @@ def test_modern_handshake_lists_nine_tools_with_cache_fields_and_server_info_in_
     assert listed["_meta"] == {mcp_server.META_SERVER: SERVER_INFO}
     first = listed["tools"][0]
     assert first["title"] == "runs"                 # 2025-06-18 and later
-    assert first["outputSchema"]["properties"]["exit"]
+    assert all("outputSchema" not in t for t in listed["tools"])   # R18
     assert client.handshake_line() == "handshake discover 2026-07-28"
     assert client.bad_lines == []
 
@@ -280,16 +279,22 @@ def test_modern_ping_carries_result_type_and_server_info(sdir, tmp_path):
 
 
 # -- answers ----------------------------------------------------------------
-def test_runs_through_the_wire_has_the_header_structured_exit_and_no_error(
+def test_runs_through_the_wire_has_the_header_and_no_error(
         sdir, tmp_path, run_id):
-    """One whole call: the exit header first, the status as structured
-    content, `isError` absent, and the modern stamps on the result."""
+    """One whole call: the exit header first, `isError` absent, and the
+    modern stamps on the result.
+
+    The result is TEXT, and only text (R18): the header is the exit's
+    machine-readable carrier, and the key a client may show INSTEAD of
+    that text is not on the answer at all.
+    """
     with spawn(sdir, tmp_path) as client:
         answer = client.call("runs", {})
     assert answer.header == "exit 0: the trace answered affirmatively"
     assert run_id in answer.stdout
     assert answer.stderr == ""
-    assert answer.raw["structuredContent"] == {"exit": 0}
+    assert "structuredContent" not in answer.raw
+    assert answer.exit == 0                          # read off the header
     assert answer.is_error is False
     assert "isError" not in answer.raw
     assert answer.raw["resultType"] == "complete"
@@ -297,12 +302,15 @@ def test_runs_through_the_wire_has_the_header_structured_exit_and_no_error(
     assert client.bad_lines == []
 
 
-def test_2025_03_26_omits_structured_content_output_schema_and_title(
-        sdir, tmp_path):
-    """`title` and `outputSchema` arrived in 2025-06-18 and structured
-    content with them, so the oldest revision we speak is sent the text
-    and nothing else: an unknown key is a validation failure in some
-    clients and noise in the rest."""
+def test_2025_03_26_omits_title(sdir, tmp_path):
+    """`title` arrived in 2025-06-18, so the oldest revision we speak is
+    not sent one: an unknown key is a validation failure in some clients
+    and noise in the rest.
+
+    `outputSchema` and `structuredContent` are absent here too -- but on
+    EVERY revision now (R18), not because this one is old: the modern
+    test above pins the same two keys off a 2026-07-28 session.
+    """
     with spawn(sdir, tmp_path, mode="legacy", version="2025-03-26") as client:
         listed = client.list_tools()
         answer = client.call("runs", {})
@@ -339,7 +347,7 @@ def test_call_without_arguments_is_an_empty_call(sdir, tmp_path):
     is."""
     with spawn(sdir, tmp_path) as client:
         answer = client.wait(client.send("tools/call", {"name": "runs"}), 60)
-    assert answer["result"]["structuredContent"] == {"exit": 0}
+    assert answer["result"]["content"][0]["text"].startswith("exit 0: ")
     assert client.bad_lines == []
 
 
@@ -375,7 +383,7 @@ def test_unknown_field_is_an_is_error_result_naming_the_fields_and_audited(
     assert answer.text.startswith(
         "exit 2: the call is wrong -- fix the arguments and ask again\n"
         "unknown field 'regex' for grep; fields: ")
-    assert answer.raw["structuredContent"] == {"exit": 2}
+    assert answer.exit == 2                          # read off the header
     assert answer.raw["resultType"] == "complete"
     line = last_audit(store)
     assert line["tool"] == "grep"
@@ -395,7 +403,7 @@ def test_exit_two_from_the_cli_is_is_error_with_stderr_labelled(
     assert STDERR_LABEL in answer.text
     assert answer.stderr.strip() == "error: no trace matches 'zz-no-such'"
     assert answer.is_error is True
-    assert answer.raw["structuredContent"] == {"exit": 2}
+    assert answer.exit == 2
     assert client.bad_lines == []
 
 
@@ -412,7 +420,7 @@ def test_a_negative_answer_is_exit_one_and_not_an_error(sdir, tmp_path):
     assert answer.stdout.strip() == "no such frame: f999999 does not exist"
     assert answer.is_error is False
     assert "isError" not in answer.raw
-    assert answer.raw["structuredContent"] == {"exit": 1}
+    assert answer.exit == 1
     assert client.bad_lines == []
 
 
@@ -548,7 +556,7 @@ def test_ids_keep_their_json_type(sdir, tmp_path):
     assert text["id"] == "abc" and isinstance(text["id"], str)
     assert number["id"] == 11 and isinstance(number["id"], int)
     assert answer["id"] == 7 and isinstance(answer["id"], int)
-    assert answer["result"]["structuredContent"] == {"exit": 0}
+    assert answer["result"]["content"][0]["text"].startswith("exit 0: ")
     assert client.bad_lines == []
 
 

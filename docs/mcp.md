@@ -108,12 +108,15 @@ so a client can split the text back into `(stdout, stderr, exit)`. One byte is
 lost in doing so: a stdout that lacked its trailing newline gains one before
 the label, and that case alone cannot be reassembled byte-exactly.
 
-Clients from 2025-06-18 on also get `structuredContent` -- `{"exit": N}`, with
-`null` for a call that produced no status. `isError` is set exactly when the
-exit is 2 or there is no exit: 2 is the call the model should repair itself,
-which is what the protocol says the flag is for, while 1 and 3 are answers
-ABOUT the trace and a signal is a death, not a misuse. The key is omitted, not
-sent `false`, when it does not apply.
+A result is TEXT, and only text: the exit's machine-readable carrier is the
+header line, read off its first token. No result carries `structuredContent`
+and no tool an `outputSchema` -- a client may show a model the structured twin
+INSTEAD of the text, and the deploy target we measured does exactly that.
+
+`isError` is set exactly when the exit is 2 or there is no exit: 2 is the call
+the model should repair itself, which is what the protocol says the flag is
+for, while 1 and 3 are answers ABOUT the trace and a signal is a death, not a
+misuse. The key is omitted, not sent `false`, when it does not apply.
 
 ## `run` defaults to `last`
 
@@ -287,11 +290,11 @@ the same instructions plus `supportedVersions`.
 A modern result carries `resultType: "complete"` (we never stream) and `_meta`
 with `io.modelcontextprotocol/serverInfo` -- name and version. A listing and
 `server/discover` also carry `ttlMs` and `cacheScope: "private"`: the tools are
-this process's CLI over one developer's store. `title` and `outputSchema`
-arrived in 2025-06-18 and a 2025-03-26 client is sent neither. `ping` is
-answered on the reading thread, never queued, so a liveness check behind a
-three-minute `record` does not report the server dead while it is working;
-`notifications/cancelled` is handled there too.
+this process's CLI over one developer's store. `title` arrived in 2025-06-18
+and a 2025-03-26 client is not sent one. `ping` is answered on the reading
+thread, never queued, so a liveness check behind a three-minute `record` does
+not report the server dead while it is working; `notifications/cancelled` is
+handled there too.
 
 * [2026-07-28 basic/versioning](https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning)
 * [2026-07-28 basic/transports/stdio](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio)

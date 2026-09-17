@@ -23,7 +23,9 @@ and `TRACE_FORMAT` stays **4**.
   says the status is the recorded command's, a signal renders as `killed by
   SIGTERM`, and a call with no status reads `no answer:` and the cause rather
   than inventing a number. Stderr goes under a `--- stderr ---` line of its
-  own, `structuredContent` carries `{"exit": N}`, `isError` is exit 2 or none.
+  own and `isError` is exit 2 or none. Nothing else carries the exit: a result
+  is text, because the deploy target we measured shows a model a structured
+  result INSTEAD of the text, so a `{"exit": N}` twin would hide the answer.
 - **The cap keeps a head AND a tail.** 64 KiB by default (`--max-output`,
   minimum 4096), up to 4 KiB of it from the end, because `diff` and `refocus`
   print their verdict last. The header line is never cut, and the marker names

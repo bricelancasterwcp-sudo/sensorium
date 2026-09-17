@@ -43,6 +43,12 @@ catches it:
   `print()` in the server would then be invisible to every `bad_lines
   == []` assertion in task 5b -- which is the one assertion those tests
   all share.
+* read `exit` out of `structuredContent` again (`(result.get(
+  "structuredContent") or {}).get("exit")`) -> `test_exit_is_read_from_
+  the_header_not_from_structured_content` (task 12, R18). The header is
+  the carrier this server sends; a client that preferred a key no
+  result carries would read `None` for every call, and E17's H1 parity
+  and H5 timeout arms both compare `CallResult.exit`.
 """
 from __future__ import annotations
 
@@ -342,7 +348,7 @@ def test_an_error_response_raises_mcp_error_with_code_message_and_data(echo):
         assert raw["error"]["code"] == -32602     # wait never raises on one
 
 
-def test_call_splits_the_text_and_reads_the_structured_exit(echo):
+def test_call_splits_the_text_and_reads_the_header_exit(echo):
     text = body("exit 0: the trace answered affirmatively", "out",
                 STDERR_LABEL, "warn")
     with McpClient(echo) as client:
@@ -355,12 +361,39 @@ def test_call_splits_the_text_and_reads_the_structured_exit(echo):
     assert got.raw["echo"]["name"] == "runs"
 
 
-def test_call_reports_is_error_and_a_missing_structured_exit(echo):
+def test_call_reports_is_error_and_still_reads_the_exit(echo):
+    """`isError` and the exit are two readings of one answer, not one:
+    an exit-2 result is flagged AND says 2 on its header line."""
     with McpClient(echo) as client:
         got = client.call("info", {"text": "exit 2: bad\n", "isError": True})
     assert got.is_error is True
-    assert got.exit is None
+    assert got.exit == 2
     assert got.header == "exit 2: bad"
+
+
+def test_exit_is_read_from_the_header_not_from_structured_content(echo):
+    """R18: the header line carries the exit, and nothing else does.
+
+    The deploy target shows a model a result's `structuredContent`
+    INSTEAD of its text, so this server sends none -- and a server that
+    sends one anyway is not believed over the words the model is
+    reading. The three headers below are the three readings: a status,
+    no status at all, and a first line that is neither.
+    """
+    with McpClient(echo) as client:
+        lying = client.call("runs", {"text": "exit 3: the trace is unusable\n",
+                                     "exit": 0})
+        none = client.call("runs", {
+            "text": "no answer: timed out after 1 s "
+                    "(server flag --timeout / --run-timeout)\n"})
+        other = client.call("runs", {"text": "not a header at all\n",
+                                     "exit": 0})
+    assert lying.raw["structuredContent"] == {"exit": 0}    # sent, ignored
+    assert lying.exit == 3
+    assert none.exit is None
+    assert none.header.startswith("no answer: timed out after 1 s ")
+    assert other.exit is None
+    assert other.raw["structuredContent"] == {"exit": 0}
 
 
 def test_call_raises_mcp_error_on_a_protocol_error(echo):

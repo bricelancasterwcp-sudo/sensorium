@@ -4,7 +4,10 @@ THE HEADER IS THE FIRST LINE, ALWAYS (D19). A model branches on it
 before it reads a word of prose, exactly as the debugging skills teach
 it to branch on `$?`, so the words are `exit.MEANING`'s and not a second
 copy of them (P3): a status whose sentence is reworded takes its header
-with it, and a status that MOVED takes its sentence.
+with it, and a status that MOVED takes its sentence. It is also the
+exit's only machine-readable carrier (R18): nothing here writes
+`structuredContent`, because the deploy target E17 measured shows a
+model that key INSTEAD of the text.
 
 Two statuses are not the four-way contract and say so. `record` is the
 CLI's `run`, whose exit is the recorded command's own -- an `exit 2`
@@ -138,7 +141,7 @@ def cap(text: str, limit: int, narrowing: tuple[str, ...]
     return head_line + "\n" + out, True, lines, len(omitted)
 
 
-def call_result(tool: Tool, o: Outcome, limit: int, structured: bool,
+def call_result(tool: Tool, o: Outcome, limit: int,
                 modern: bool) -> tuple[dict, bool]:
     """The `tools/call` result for one outcome, and whether it was cut.
 
@@ -155,8 +158,6 @@ def call_result(tool: Tool, o: Outcome, limit: int, structured: bool,
     text, truncated, _lines, _nbytes = cap(text_of(tool, o), limit,
                                            narrowing_fields(tool))
     out: dict = {"content": [{"type": "text", "text": text}]}
-    if structured:
-        out["structuredContent"] = {"exit": o.exit}
     if o.exit == 2 or o.exit is None:
         out["isError"] = True
     if modern:
@@ -164,7 +165,7 @@ def call_result(tool: Tool, o: Outcome, limit: int, structured: bool,
     return out, truncated
 
 
-def rejection_result(r: Rejection, structured: bool, modern: bool) -> dict:
+def rejection_result(r: Rejection, modern: bool) -> dict:
     """A refused call, as a RESULT rather than a protocol error (P30).
 
     Both revisions reserve `-32602` for unknown tools and malformed
@@ -177,8 +178,6 @@ def rejection_result(r: Rejection, structured: bool, modern: bool) -> dict:
     """
     text = f"exit {ex.BAD_CALL}: {ex.MEANING[ex.BAD_CALL]}\n{r.message}"
     out: dict = {"content": [{"type": "text", "text": text}]}
-    if structured:
-        out["structuredContent"] = {"exit": ex.BAD_CALL}
     out["isError"] = True
     if modern:
         out["resultType"] = "complete"

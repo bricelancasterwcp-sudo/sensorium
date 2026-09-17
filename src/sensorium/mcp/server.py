@@ -64,7 +64,8 @@ from sensorium.mcp.tools import Tool
 
 #: Every revision this server answers, newest first: the per-request
 #: era, then the three `initialize` ones. `STRUCTURED_LEGACY` is the
-#: legacy pair with structured content, `title` and `outputSchema`.
+#: legacy pair that knows `Tool.title` (no result carries structured
+#: content and no tool an output schema: R18, and `result.py` says why).
 SUPPORTED = ("2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26")
 LEGACY = SUPPORTED[1:]
 LEGACY_LATEST = "2025-11-25"
@@ -141,7 +142,6 @@ class _Call:
     tool: Tool
     arguments: dict
     child: Child
-    structured: bool
     modern: bool
 
 
@@ -305,7 +305,7 @@ class Server:
             return self.writer.result(message.id,
                                       self._listing(structured, modern))
         if message.method == "tools/call":
-            return self._plan_call(message, structured, modern)
+            return self._plan_call(message, modern)
         return self._fault(message, jsonrpc.METHOD_NOT_FOUND,
                            f"Method not found: {message.method}")
 
@@ -377,8 +377,7 @@ class Server:
         return {**answer, "_meta": {META_SERVER: self._info()}}
 
     # -- one tool call ------------------------------------------------------
-    def _plan_call(self, message: Incoming, structured: bool,
-                   modern: bool) -> _Call | None:
+    def _plan_call(self, message: Incoming, modern: bool) -> _Call | None:
         """Refuse the call, answer it, or hand back the child to run."""
         params = message.params
         name, given = params.get("name"), params.get("arguments")
@@ -400,7 +399,7 @@ class Server:
             # P30: an argument the model can fix comes back as a RESULT
             # in the CLI's exit-2 words -- an error response is swallowed
             # by the client, field names and all.
-            answer = result.rejection_result(rejected, structured, modern)
+            answer = result.rejection_result(rejected, modern)
             self.writer.result(message.id,
                                self._modern(answer) if modern else answer)
             audit.record_rejection(tool.name, jsonrpc.INVALID_PARAMS,
@@ -412,7 +411,7 @@ class Server:
             env=dict(os.environ),
             timeout=(self.options.run_timeout if tool.executes
                      else self.options.timeout),
-            log=self.log, name=tool.name), structured, modern)
+            log=self.log, name=tool.name), modern)
 
     def _run(self, message: Incoming, call: _Call) -> None:
         """Spawn, wait, answer -- the slow part, outside the lock. P20:
@@ -426,8 +425,7 @@ class Server:
                                 outcome.ms)
             return
         answer, truncated = result.call_result(
-            call.tool, outcome, self.options.max_output, call.structured,
-            call.modern)
+            call.tool, outcome, self.options.max_output, call.modern)
         shown = len(answer["content"][0]["text"].encode("utf-8"))
         self.writer.result(message.id, self._modern(answer) if call.modern
                            else answer)

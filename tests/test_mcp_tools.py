@@ -34,6 +34,11 @@ catches it:
 * drop `_record_schema`'s boot refusals ->
   `test_record_refuses_to_boot_on_a_blank_flag_help` and
   `test_record_refuses_to_boot_on_a_blank_description`.
+* re-add `outputSchema` to `to_wire` (`wire["outputSchema"] = {...}`) ->
+  `test_to_wire_has_title_only_when_structured_and_never_output_schema`
+  (task 12, R18). A declared output schema is what invites a client to
+  send structured content, and the deploy target shows the model that
+  INSTEAD of the answer.
 """
 import argparse
 
@@ -222,10 +227,13 @@ def test_annotations_by_kind():
         assert table[name].annotations == tools.ANNOTATIONS_EXECUTE, name
 
 
-def test_to_wire_has_title_and_output_schema_only_when_structured():
-    """`Tool.title` and `outputSchema` both arrived in 2025-06-18. A
-    2025-03-26 client is sent neither: an unknown key is a validation
-    failure in some clients and noise in the rest."""
+def test_to_wire_has_title_only_when_structured_and_never_output_schema():
+    """`Tool.title` arrived in 2025-06-18, so a 2025-03-26 client is not
+    sent one: an unknown key is a validation failure in some clients and
+    noise in the rest. NO revision is sent an `outputSchema` (R18): a
+    declared one invites the structured content the deploy target shows
+    the model INSTEAD of the answer, and the exit is the header line.
+    """
     tool = tools.table(allow_run=False)["grep"]
     old = tools.to_wire(tool, structured=False)
     assert list(old) == ["name", "description", "inputSchema", "annotations"]
@@ -236,12 +244,11 @@ def test_to_wire_has_title_and_output_schema_only_when_structured():
 
     new = tools.to_wire(tool, structured=True)
     assert list(new) == ["name", "description", "inputSchema", "annotations",
-                         "title", "outputSchema"]
+                         "title"]
     assert new["title"] == "grep"
-    assert new["outputSchema"] == tools.OUTPUT_SCHEMA
-    assert tools.OUTPUT_SCHEMA["required"] == ["exit"]
-    assert (tools.OUTPUT_SCHEMA["properties"]["exit"]["type"]
-            == ["integer", "null"])
+    assert not hasattr(tools, "OUTPUT_SCHEMA")
+    for wire in (old, new):
+        assert "outputSchema" not in wire
 
 
 def test_narrowing_fields():

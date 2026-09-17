@@ -247,7 +247,14 @@ def test_run_timeout_gives_no_answer_is_error_and_kills_the_group(
     """A call that ran out of time has no exit status, so it says so:
     `no answer:` and the flag to raise, never an invented number. It is
     an error result (there is nothing to report), and the group it left
-    behind is gone."""
+    behind is gone.
+
+    The header is the whole of the machine-readable part (R18): there is
+    no `structuredContent` to carry a null exit, and a client reads "no
+    exit" off the first token -- `CallResult.exit` is `None` for exactly
+    this header (`test_exit_is_read_from_the_header_not_from_structured_
+    content`), which is what E17's H5 timeout arm reports.
+    """
     store = own(sdir, tmp_path)
     with spawn(store, tmp_path, "--allow-run", "--run-timeout", "1") as client:
         request, pgid = sleeping_record(client, tmp_path)
@@ -258,7 +265,7 @@ def test_run_timeout_gives_no_answer_is_error_and_kills_the_group(
         "no answer: timed out after 1 s "
         "(server flag --timeout / --run-timeout)")
     assert answer["isError"] is True
-    assert answer["structuredContent"] == {"exit": None}
+    assert "structuredContent" not in answer
     line = last_audit(store)
     assert line["timeout"] is True
     assert line["exit"] is None
