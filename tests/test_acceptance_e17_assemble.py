@@ -170,6 +170,12 @@ def raw(**over) -> dict:
 def record(tmp_path) -> Path:
     copy = tmp_path / DOC.name
     shutil.copy2(DOC, copy)
+    # The live record has been measured (its §2 is written); the tests need the
+    # unmeasured shape, so the copy's §2 is reset to the line write_into replaces.
+    text = copy.read_text()
+    head, sep, _ = text.partition("## 2. Measured")
+    assert sep, "the record has no '## 2. Measured' heading"
+    copy.write_text(head + sep + "\n\nNot yet measured.\n")
     return copy
 
 

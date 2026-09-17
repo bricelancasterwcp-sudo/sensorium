@@ -1,0 +1,525 @@
+{
+  "cells": {
+    "H1": {
+      "detail": {
+        "census": [
+          115,
+          253
+        ],
+        "clauses": [
+          {
+            "clause": "failures",
+            "read": "0 failure(s)",
+            "word": "PASS"
+          },
+          {
+            "clause": "errors",
+            "read": "0 harness error(s)",
+            "word": "PASS"
+          },
+          {
+            "clause": "exit_reason",
+            "read": "no `exit_reason`",
+            "word": "PASS"
+          },
+          {
+            "clause": "skipped",
+            "read": "0 case(s) skipped",
+            "word": "PASS"
+          },
+          {
+            "clause": "differences",
+            "read": "0 MCP/CLI difference(s) over the read-only questions",
+            "word": "PASS"
+          },
+          {
+            "clause": "via_cli",
+            "read": "`via_cli` holds 3 question(s) against the locked 3",
+            "word": "PASS"
+          },
+          {
+            "clause": "census",
+            "read": "115 cases / 253 questions, against the locked 115 / 253",
+            "word": "PASS"
+          }
+        ],
+        "differences": [],
+        "dry": false,
+        "via_cli": [
+          "redact_retrofit/what-would-the-retrofit-take",
+          "redact_retrofit/the-retrofit-rewrites-once",
+          "redact_retrofit/a-second-pass-finds-nothing"
+        ]
+      },
+      "read": "0 failure(s); 0 harness error(s); no `exit_reason`; 0 case(s) skipped; 0 MCP/CLI difference(s) over the read-only questions; `via_cli` holds 3 question(s) against the locked 3; 115 cases / 253 questions, against the locked 115 / 253",
+      "word": "PASS"
+    },
+    "H2": {
+      "detail": {
+        "clauses": [
+          {
+            "clause": "exit",
+            "read": "pytest exited 0",
+            "word": "PASS"
+          },
+          {
+            "clause": "passed",
+            "read": "10 passed, against \u00a71's floor of 9",
+            "word": "PASS"
+          }
+        ],
+        "passed": 10,
+        "rc": 0,
+        "skipped": 0
+      },
+      "read": "pytest exited 0; 10 passed, against \u00a71's floor of 9",
+      "word": "PASS"
+    },
+    "H3": {
+      "detail": {
+        "bytes": 65135,
+        "clauses": [
+          {
+            "clause": "header",
+            "read": "the header line reads `exit 0: the trace answered affirmatively`",
+            "word": "PASS"
+          },
+          {
+            "clause": "marker",
+            "read": "1 line(s) match \u00a71's marker regex, which names `depth, limit, around`",
+            "word": "PASS"
+          },
+          {
+            "clause": "bytes",
+            "read": "65135 bytes after the header with the marker line removed, against the 65536-byte bound",
+            "word": "PASS"
+          },
+          {
+            "clause": "head",
+            "read": "the head is 306 line(s)",
+            "word": "PASS"
+          },
+          {
+            "clause": "tail",
+            "read": "the tail is 32 line(s)",
+            "word": "PASS"
+          },
+          {
+            "clause": "truncated",
+            "read": "the last `mcp.jsonl` line says truncated = True",
+            "word": "PASS"
+          }
+        ],
+        "cli_bytes": 28514015,
+        "head_lines": 306,
+        "header": "exit 0: the trace answered affirmatively",
+        "tail_lines": 32
+      },
+      "read": "the header line reads `exit 0: the trace answered affirmatively`; 1 line(s) match \u00a71's marker regex, which names `depth, limit, around`; 65135 bytes after the header with the marker line removed, against the 65536-byte bound; the head is 306 line(s); the tail is 32 line(s); the last `mcp.jsonl` line says truncated = True",
+      "word": "PASS"
+    },
+    "H4": {
+      "detail": {
+        "clauses": [
+          {
+            "clause": "nine",
+            "read": "9 tools without the flag",
+            "word": "PASS"
+          },
+          {
+            "clause": "record-is-unknown",
+            "read": "`tools/call record` without the flag answered -32602 'Unknown tool: record', against -32602 'Unknown tool: record'",
+            "word": "PASS"
+          },
+          {
+            "clause": "eleven",
+            "read": "11 tools with `--allow-run`",
+            "word": "PASS"
+          },
+          {
+            "clause": "record",
+            "read": "`record` answered `exit 0: the recorded command's own status (2 and no trace when recordi`",
+            "word": "PASS"
+          },
+          {
+            "clause": "runs",
+            "read": "`runs` through the wire lists 1 trace(s): 20260917-092446-76f719",
+            "word": "PASS"
+          },
+          {
+            "clause": "exceptions",
+            "read": "`exceptions` satisfies `what-was-dropped`",
+            "word": "PASS"
+          }
+        ],
+        "error_off": {
+          "code": -32602,
+          "message": "Unknown tool: record"
+        },
+        "names_off": [
+          "runs",
+          "info",
+          "tree",
+          "frame",
+          "grep",
+          "exceptions",
+          "flow",
+          "watch",
+          "diff"
+        ],
+        "names_on": [
+          "runs",
+          "info",
+          "tree",
+          "frame",
+          "grep",
+          "exceptions",
+          "flow",
+          "watch",
+          "diff",
+          "refocus",
+          "record"
+        ],
+        "record_header": "exit 0: the recorded command's own status (2 and no trace when recording was refused)",
+        "traces": [
+          "20260917-092446-76f719"
+        ]
+      },
+      "read": "9 tools without the flag; `tools/call record` without the flag answered -32602 'Unknown tool: record', against -32602 'Unknown tool: record'; 11 tools with `--allow-run`; `record` answered `exit 0: the recorded command's own status (2 and no trace when recordi`; `runs` through the wire lists 1 trace(s): 20260917-092446-76f719; `exceptions` satisfies `what-was-dropped`",
+      "word": "PASS"
+    },
+    "H5": {
+      "detail": {
+        "clauses": [
+          {
+            "clause": "pings",
+            "read": "10 pings sent, the slowest answered in 0.8 ms (ceiling 1000 ms)",
+            "word": "PASS"
+          },
+          {
+            "clause": "group-gone",
+            "read": "the child's group was gone 0.10 s after the cancel",
+            "word": "PASS"
+          },
+          {
+            "clause": "no-response",
+            "read": "no response for the cancelled id arrived",
+            "word": "PASS"
+          },
+          {
+            "clause": "runs-after",
+            "read": "the next `runs` answered=True, listing 1 trace(s), 1 INCOMPLETE",
+            "word": "PASS"
+          },
+          {
+            "clause": "timeout-header",
+            "read": "the timeout arm's header is `no answer: timed out after 3 s (server flag --timeout / --run-timeout)`",
+            "word": "PASS"
+          },
+          {
+            "clause": "timeout-is-error",
+            "read": "the timeout result's `isError` is True",
+            "word": "PASS"
+          },
+          {
+            "clause": "timeout-exit",
+            "read": "the header's exit (`CallResult.exit`) is None",
+            "word": "PASS"
+          },
+          {
+            "clause": "timeout-answered",
+            "read": "answered 3.05 s after the send (cap 6.0 s)",
+            "word": "PASS"
+          },
+          {
+            "clause": "timeout-group-gone",
+            "read": "the group was gone 3.06 s after the send (cap 5.0 s)",
+            "word": "PASS"
+          }
+        ],
+        "group_gone_s": 0.10010107140988111,
+        "ping_max": 0.00080886110663414,
+        "pings_sent": 10,
+        "runs_after": {
+          "answered": true,
+          "incomplete": 1,
+          "traces": 1
+        },
+        "timeout_answered_s": 3.05483007337898,
+        "timeout_group_gone_s": 3.0550199216231704
+      },
+      "read": "10 pings sent, the slowest answered in 0.8 ms (ceiling 1000 ms); the child's group was gone 0.10 s after the cancel; no response for the cancelled id arrived; the next `runs` answered=True, listing 1 trace(s), 1 INCOMPLETE; the timeout arm's header is `no answer: timed out after 3 s (server flag --timeout / --run-timeout)`; the timeout result's `isError` is True; the header's exit (`CallResult.exit`) is None; answered 3.05 s after the send (cap 6.0 s); the group was gone 3.06 s after the send (cap 5.0 s)",
+      "word": "PASS"
+    },
+    "H6": {
+      "detail": {
+        "checks_run": 4,
+        "clauses": [
+          {
+            "clause": "texts",
+            "read": "4 result text(s) counted, over the case's 4 question(s)",
+            "word": "PASS"
+          },
+          {
+            "clause": "audit-lines",
+            "read": "`mcp.jsonl` holds 4 line(s), against the 4 calls made",
+            "word": "PASS"
+          },
+          {
+            "clause": "stderr",
+            "read": "the stderr transcript holds 430 byte(s)",
+            "word": "PASS"
+          },
+          {
+            "clause": "occurrences",
+            "read": "0 occurrence(s) of the token in 0\u00d7 the result texts, 0\u00d7 `mcp.jsonl`, 0\u00d7 the stderr transcript",
+            "word": "PASS"
+          },
+          {
+            "clause": "h6b-marker",
+            "read": "H6b: the audit line's `arguments.pattern` is '<redacted>'",
+            "word": "PASS"
+          },
+          {
+            "clause": "h6b-absent",
+            "read": "H6b: 0 occurrence(s) of the token in `mcp.jsonl` after the `grep`",
+            "word": "PASS"
+          }
+        ],
+        "counts": {
+          "in_jsonl": 0,
+          "in_stderr": 0,
+          "in_texts": 0,
+          "jsonl_lines": 4,
+          "questions": 4,
+          "stderr_bytes": 430,
+          "texts": 4
+        },
+        "h6b": {
+          "in_jsonl": 0,
+          "pattern": "<redacted>"
+        },
+        "proc_check": "PASS"
+      },
+      "read": "4 result text(s) counted, over the case's 4 question(s); `mcp.jsonl` holds 4 line(s), against the 4 calls made; the stderr transcript holds 430 byte(s); 0 occurrence(s) of the token in 0\u00d7 the result texts, 0\u00d7 `mcp.jsonl`, 0\u00d7 the stderr transcript; H6b: the audit line's `arguments.pattern` is '<redacted>'; H6b: 0 occurrence(s) of the token in `mcp.jsonl` after the `grep`",
+      "word": "PASS"
+    },
+    "H7": {
+      "detail": {
+        "claude_version": "2.1.258",
+        "handshake": "handshake initialize 2025-11-25 -> 2025-11-25",
+        "model": "claude-opus-5",
+        "named_frame": true,
+        "recorded_command": [
+          "main.py"
+        ],
+        "sensorium_tool_calls": 5,
+        "tools_used": [
+          "Skill",
+          "ToolSearch",
+          "mcp__sensorium__record",
+          "mcp__sensorium__info",
+          "mcp__sensorium__exceptions",
+          "mcp__sensorium__frame",
+          "mcp__sensorium__tree"
+        ]
+      },
+      "read": "7 sensorium tool(s) used (Skill, ToolSearch, mcp__sensorium__record, mcp__sensorium__info, mcp__sensorium__exceptions, mcp__sensorium__frame, and 1 more), \u2265 3, over 5 sensorium call(s); `record` was passed ['main.py']; the frame the session named IS the case's `truth` frame `load_all`; the deploy target opened with `handshake initialize 2025-11-25 -> 2025-11-25`; model `claude-opus-5` under Claude Code 2.1.258",
+      "word": "reported"
+    },
+    "latency": {
+      "detail": {
+        "cli_ms": 3709.0765619650483,
+        "discover_ms": 49.46732148528099,
+        "mcp_ms": 3704.9070289358497,
+        "ratio": 0.9988758568448127
+      },
+      "read": "median `runs` through the wire 3704.9 ms vs 3709.1 ms through the CLI, a ratio of 1.00\u00d7; server spawn to the `server/discover` answer 49.5 ms",
+      "word": "measured"
+    }
+  },
+  "dropped": [],
+  "dry_run": false,
+  "finished": 1789655246.7613044,
+  "h1": {
+    "runs": [
+      {
+        "case": null,
+        "killed": false,
+        "rc": 0,
+        "seconds": 81.25
+      }
+    ]
+  },
+  "h3": {
+    "events": 93283,
+    "run": "20260901-210520-7f8854"
+  },
+  "label": "e17",
+  "lens": {
+    "live": "~/.sensorium",
+    "out": "$E17_DIR/out",
+    "repo": "$REPO",
+    "store": "$E17_DIR/store",
+    "transcripts": "$E17_DIR/transcripts",
+    "work_root": "$E17_DIR"
+  },
+  "n_db": 273,
+  "part": "DONE",
+  "phases": [
+    {
+      "error": null,
+      "name": "preflight",
+      "seconds": 0.404
+    },
+    {
+      "error": null,
+      "name": "copy-store",
+      "seconds": 0.053
+    },
+    {
+      "error": null,
+      "name": "h1-corpus",
+      "seconds": 81.25
+    },
+    {
+      "error": null,
+      "name": "h2-conformance",
+      "seconds": 2.37
+    },
+    {
+      "error": null,
+      "name": "h3-cap",
+      "seconds": 6.221
+    },
+    {
+      "error": null,
+      "name": "h4-gate",
+      "seconds": 0.458
+    },
+    {
+      "error": null,
+      "name": "h5-liveness",
+      "seconds": 11.373
+    },
+    {
+      "error": null,
+      "name": "mint",
+      "seconds": 0.0
+    },
+    {
+      "error": null,
+      "name": "h6-secrecy",
+      "seconds": 0.577
+    },
+    {
+      "error": null,
+      "name": "h7-read",
+      "seconds": 0.0
+    },
+    {
+      "error": null,
+      "name": "latency",
+      "seconds": 148.467
+    },
+    {
+      "error": null,
+      "name": "versions",
+      "seconds": 0.059
+    }
+  ],
+  "pins": [
+    [
+      "work root",
+      "$E17_DIR"
+    ],
+    [
+      "the copy (the subject)",
+      "$E17_DIR/store/"
+    ],
+    [
+      "H4's store",
+      "$E17_DIR/h4/store/"
+    ],
+    [
+      "H5's stores",
+      "$E17_DIR/h5/store/, $E17_DIR/h5/store-timeout/"
+    ],
+    [
+      "H6's store",
+      "$E17_DIR/h6/store/"
+    ],
+    [
+      "transcripts",
+      "$E17_DIR/transcripts/"
+    ],
+    [
+      "instrument output",
+      "$E17_DIR/out/"
+    ],
+    [
+      "copied out of (never written to)",
+      "~/.sensorium"
+    ],
+    [
+      "E17_CARGO_BIN",
+      "~/.cargo/bin"
+    ],
+    [
+      "E17_NODE_BIN",
+      "~/.nvm/versions/node/v24.16.0/bin"
+    ],
+    [
+      "H1's cell timer",
+      "600 s"
+    ],
+    [
+      "the part's cap",
+      "3300 s"
+    ]
+  ],
+  "preflight": {
+    "checks": {
+      "cargo": {
+        "out": "cargo 1.96.0 (30a34c682 2026-05-25)",
+        "rc": 0
+      },
+      "import mcp": {
+        "out": "",
+        "rc": 0
+      },
+      "mcp --help": {
+        "out": "usage: sensorium mcp [-h] [--allow-run] [--store DIR] [--max-output BYTES]\n                     [--timeout SECONDS] [--run-timeout SECONDS]\n\nOne JSON-RPC message per line on stdin/stdout; every query ",
+        "rc": 0
+      },
+      "node": {
+        "out": "v24.16.0",
+        "rc": 0
+      },
+      "which sensorium": {
+        "out": "$REPO/.venv/bin/sensorium",
+        "rc": 0
+      }
+    },
+    "dry_run": false,
+    "expected": "0.18.0",
+    "live_db": 273,
+    "sensorium": "0.18.0",
+    "timers": {
+      "cell": 600,
+      "h1": 600,
+      "part": 3300
+    }
+  },
+  "seconds": 251.2,
+  "started": 1789654995.5278277,
+  "status": "complete",
+  "token_sha8": "c82d127b",
+  "versions": {
+    "claude": "2.1.258 (Claude Code)",
+    "expected": "0.18.0",
+    "mcp": "2.2.0",
+    "python": "3.13.13",
+    "sensorium": "0.18.0"
+  }
+}
