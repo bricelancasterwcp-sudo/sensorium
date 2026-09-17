@@ -1,0 +1,339 @@
+exit 0: the trace answered affirmatively
+f1 e1 <module>() -> None
+f2 e3 <module>() -> None
+f3 e5 <module>() -> None
+  f4 e6 <module>() -> None
+    f5 e7 <module>() -> None
+    f6 e9 <module>() -> None
+    f7 e11 <module>() -> None
+      f8 e12 <module>() -> None
+        f9 e13 <module>() -> None
+          f10 e14 <module>() -> None
+            f11 e15 GateFixture() -> None
+            f12 e17 load_gate_fixtures(path=PosixPath#137034096557216) -> list[20]=[GateFixture#137034094807760, GateFixture#137034096440208, GateFixture#137034096440528, GateFixture#137034096295136, GateFixture#137034096295440, GateFixture#137034096472528, GateFixture#137034096342384, GateFixture#137034096335040, ...]
+            f13 e19 _extract_filenames_and_stems(fixtures=list[20]=[GateFixture#137034094807760, GateFixture#137034096440208, GateFixture#137034096440528, GateFixture#137034096295136, GateFixture#137034096295440, GateFixture#137034096472528, GateFixture#137034096342384, GateFixture#137034096335040, ...]) -> frozenset[40]=['support', 'countdown', 'serve.conf', 'inventory.py', 'changelog', 'firstlast', 'cart', 'cart.py', ...]
+            f14 e21 _extract_function_names(fixtures=list[20]=[GateFixture#137034094807760, GateFixture#137034096440208, GateFixture#137034096440528, GateFixture#137034096295136, GateFixture#137034096295440, GateFixture#137034096472528, GateFixture#137034096342384, GateFixture#137034096335040, ...]) -> frozenset[13]=['cart_total', 'discounted_price', 'register', 'greeting', 'restock_needed', 'countdown_labels', 'greeting_for', 'first_and_last', ...]
+          f15 e68 <module>() -> None
+            f16 e69 <module>() -> None
+            f17 e71 Task() -> None
+            f18 e73 RefusalTask() -> None
+          f19 e76 Report() -> None
+        f20 e79 GateOverlapTooDenseError() -> None
+        f21 e81 RejectionSampler() -> None
+      f22 e84 <module>() -> None
+        f23 e85 <module>() -> None
+        f24 e87 <module>() -> None
+          f25 e88 <module>() -> None
+            f26 e89 Joined() -> None
+            f27 e91 JoinReport() -> None
+      f28 e98 <module>() -> None
+        f29 e99 <module>() -> None
+          f30 e100 <module>() -> None
+            f31 e101 <module>() -> None
+            f32 e103 <module>() -> None
+              f33 e104 Theme() -> None
+          f34 e108 <module>() -> None
+          f35 e110 <module>() -> None
+          f36 e112 <module>() -> None
+            f37 e113 <module>() -> None
+            f38 e115 <module>() -> None
+            f39 e117 <module>() -> None
+            f40 e119 <module>() -> None
+          f41 e124 <module>() -> None
+            f42 e125 Probe() -> None
+            f43 e127 _run_verified(probe=Probe[2]=['(?:highest|lowest)_\\w+', '[3, 1, 4, 1, 5]'], fn=function#137034095504224) -> function#137034095677248
+            f44 e129 _run_verified(probe=Probe[2]=['first_and_last_\\w+', '[7, 8, 9]'], fn=function#137034095504064) -> function#137034095677408
+            f45 e131 _run_verified(probe=Probe[2]=['\\w+_checkpoints', '3'], fn=function#137034095504384) -> function#137034095677728
+            f46 e133 _run_verified(probe=Probe[2]=['scaled_\\w+', '8'], fn=function#137034095504544) -> function#137034095677888
+            f47 e135 _run_verified(probe=Probe[2]=['(?:is_ready|is_eligible|meets_criteria|qualifies|is_within_range|is_acceptable|passes_check|is_cleared)', '0, True'], fn=function#137034095504704) -> function#137034095678048
+            f48 e137 _run_verified(probe=Probe[2]=['combined_\\w+', '3, 5'], fn=function#137034095504864) -> function#137034095677568
+            f49 e139 _run_verified(probe=Probe[2]=['describe_\\w+', '3, 5'], fn=function#137034095505024) -> function#137034095678528
+            f50 e141 _run_verified(probe=Probe[2]=['\\w+_value', "{'primary': 1, 'secondary': 2, 'fallback': 3, 'override': 4, 'baseline': 5, 'candidate': 6, 'nominal': 7, 'adjusted': 8}"], fn=function#137034095505184) -> function#137034095678208
+          f51 e144 <module>() -> None
+          f52 e146 <lambda>(item=tuple[2]=['py_wrong_comparison_operator', function#137034095504224]) -> 'py_wrong_comparison_operator'
+          f53 e148 <lambda>(item=tuple[2]=['py_off_by_one_index', function#137034095504064]) -> 'py_off_by_one_index'
+          f54 e150 <lambda>(item=tuple[2]=['py_off_by_one_range_bound', function#137034095504384]) -> 'py_off_by_one_range_bound'
+          f55 e152 <lambda>(item=tuple[2]=['py_wrong_constant_multiplier', function#137034095504544]) -> 'py_wrong_constant_multiplier'
+          f56 e154 <lambda>(item=tuple[2]=['py_inverted_boolean', function#137034095504704]) -> 'py_inverted_boolean'
+          f57 e156 <lambda>(item=tuple[2]=['py_wrong_variable_reference', function#137034095504864]) -> 'py_wrong_variable_reference'
+          f58 e158 <lambda>(item=tuple[2]=['py_wrong_fstring_field', function#137034095505024]) -> 'py_wrong_fstring_field'
+          f59 e160 <lambda>(item=tuple[2]=['py_wrong_dict_key', function#137034095505184]) -> 'py_wrong_dict_key'
+          f60 e162 <lambda>(item=tuple[2]=['txt_config_value_mismatch', function#137034095679648]) -> 'txt_config_value_mismatch'
+          f61 e164 <lambda>(item=tuple[2]=['txt_port_host_mismatch', function#137034095679488]) -> 'txt_port_host_mismatch'
+          f62 e166 <lambda>(item=tuple[2]=['txt_version_date_string', function#137034095679808]) -> 'txt_version_date_string'
+          f63 e168 <lambda>(item=tuple[2]=['txt_wrong_name_in_prose', function#137034095679968]) -> 'txt_wrong_name_in_prose'
+          f64 e170 <lambda>(item=tuple[2]=['txt_wrong_url_path_in_docs', function#137034095680128]) -> 'txt_wrong_url_path_in_docs'
+          f65 e172 <lambda>(item=tuple[2]=['mf_py_threshold_band', function#137034095500864]) -> 'mf_py_threshold_band'
+          f66 e174 <lambda>(item=tuple[2]=['mf_py_settings_table', function#137034095501024]) -> 'mf_py_settings_table'
+          f67 e176 <lambda>(item=tuple[2]=['mf_py_window_class', function#137034095501184]) -> 'mf_py_window_class'
+          f68 e178 <lambda>(item=tuple[2]=['mf_txt_intake_limit_ini', function#137034095502784]) -> 'mf_txt_intake_limit_ini'
+          f69 e180 <lambda>(item=tuple[2]=['mf_txt_runbook_table', function#137034095502944]) -> 'mf_txt_runbook_table'
+          f70 e182 <lambda>(item=tuple[2]=['py_wrong_comparison_operator_run_verified', function#137034095677248]) -> 'py_wrong_comparison_operator_run_verified'
+          f71 e184 <lambda>(item=tuple[2]=['py_off_by_one_index_run_verified', function#137034095677408]) -> 'py_off_by_one_index_run_verified'
+          f72 e186 <lambda>(item=tuple[2]=['py_off_by_one_range_bound_run_verified', function#137034095677728]) -> 'py_off_by_one_range_bound_run_verified'
+          f73 e188 <lambda>(item=tuple[2]=['py_wrong_constant_multiplier_run_verified', function#137034095677888]) -> 'py_wrong_constant_multiplier_run_verified'
+          f74 e190 <lambda>(item=tuple[2]=['py_inverted_boolean_run_verified', function#137034095678048]) -> 'py_inverted_boolean_run_verified'
+          f75 e192 <lambda>(item=tuple[2]=['py_wrong_variable_reference_run_verified', function#137034095677568]) -> 'py_wrong_variable_reference_run_verified'
+          f76 e194 <lambda>(item=tuple[2]=['py_wrong_fstring_field_run_verified', function#137034095678528]) -> 'py_wrong_fstring_field_run_verified'
+          f77 e196 <lambda>(item=tuple[2]=['py_wrong_dict_key_run_verified', function#137034095678208]) -> 'py_wrong_dict_key_run_verified'
+          f78 e198 all_wordlist_tokens() -> frozenset[322]=['cadencecheck', 'gateway_host', 'lanternfish', 'bloom_seconds', 'routeplan', 'aquacare', 'transitscan', 'esteban', ...]
+      f79 e268 <module>() -> None
+      f80 e270 <module>() -> None
+      f81 e272 <module>() -> None
+        f82 e273 ToolClient() -> None
+    f83 e277 CorpusExhaustedError() -> None
+  f84 e280 GenerateCorpusTaskDirsTest() -> None
+  f85 e282 PristineMatchesWorkspaceTest() -> None
+  f86 e284 ManifestSchemaTest() -> None
+  f87 e286 DeterminismTest() -> None
+  f88 e288 RunVerifiedSelectionTest() -> None
+e22 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095254384)  [generator/coroutine, unframed]
+e24 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034097515568)  [generator/coroutine, unframed]
+e26 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095254912)  [generator/coroutine, unframed]
+e28 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255152)  [generator/coroutine, unframed]
+e30 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255008)  [generator/coroutine, unframed]
+e32 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255056)  [generator/coroutine, unframed]
+e34 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255200)  [generator/coroutine, unframed]
+e36 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095254816)  [generator/coroutine, unframed]
+e38 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095254864)  [generator/coroutine, unframed]
+e40 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255296)  [generator/coroutine, unframed]
+e42 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255104)  [generator/coroutine, unframed]
+e44 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255248)  [generator/coroutine, unframed]
+e46 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255344)  [generator/coroutine, unframed]
+e48 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255392)  [generator/coroutine, unframed]
+e50 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255440)  [generator/coroutine, unframed]
+e52 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034102266064)  [generator/coroutine, unframed]
+e54 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255488)  [generator/coroutine, unframed]
+e56 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034100758880)  [generator/coroutine, unframed]
+e58 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255536)  [generator/coroutine, unframed]
+e60 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255584)  [generator/coroutine, unframed]
+e62 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255632)  [generator/coroutine, unframed]
+e64 _extract_function_names.<locals>.<genexpr>(.0=callable_iterator#137034095255680)  [generator/coroutine, unframed]
+e94 <genexpr>(.0=tuple_iterator#137034094733120)  [generator/coroutine, unframed]
+e121 <genexpr>(.0=dict_valueiterator#137034095658704)  [generator/coroutine, unframed]
+e199 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e201 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e203 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e205 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e207 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e209 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e211 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e213 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e215 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e217 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e219 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e221 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e223 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e225 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e227 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e229 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e231 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e233 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e235 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e237 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518304)  [generator/coroutine, unframed]
+e239 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518544)  [generator/coroutine, unframed]
+e241 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518544)  [generator/coroutine, unframed]
+e243 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518544)  [generator/coroutine, unframed]
+e245 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095518544)  [generator/coroutine, unframed]
+e247 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e249 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e251 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e253 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e255 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e257 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e259 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e261 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+e263 all_wordlist_tokens.<locals>.<genexpr>(.0=tuple_iterator#137034095520848)  [generator/coroutine, unframed]
+f89 e291 <module>() -> None
+  f90 e292 <module>() -> None
+    f91 e293 TaskCheckResult() -> None
+    f92 e295 CheckReport() -> None
+  f93 e298 CleanCorpusPassesTest() -> None
+  f94 e300 PreFixedDefectFailsCheck1Test() -> None
+  f95 e302 BrokenReplaceFailsCheck2Test() -> None
+  f96 e304 FlippedByteFailsCheck3Test() -> None
+  f97 e306 DoctoredManifestCountFailsCheck4Test() -> None
+  f98 e308 CliExitCodeTest() -> None
+  f99 e310 MissingManifestFailsWithNamedCorpusFailureTest() -> None
+  f100 e312 TaskMissingFamilyRetainsTaskResultsTest() -> None
+  f101 e314 ManifestMissingFamiliesRetainsTaskResultsTest() -> None
+f102 e317 <module>() -> None
+  f103 e318 <module>() -> None
+    f104 e319 <module>() -> None
+      f105 e320 MovedOnShapeError() -> None
+    f106 e323 PgTaskCheckResult() -> None
+    f107 e325 PgCheckReport() -> None
+  f108 e328 CheckCorpusPgTest() -> None
+f109 e331 <module>() -> None
+  f110 e332 <module>() -> None
+    f111 e333 <module>() -> None
+    f112 e335 LaneCheckResult() -> None
+    f113 e337 S5CheckReport() -> None
+  f114 e340 CheckCorpusS5Test() -> None
+f115 e343 <module>() -> None
+  f116 e344 AuthorMovedOnTest() -> None
+  f117 e346 GenerateCorpusPgTest() -> None
+f118 e349 <module>() -> None
+  f119 e350 ThirdValueTest() -> None
+  f120 e352 AuthorMovedGoalTest() -> None
+  f121 e354 GenerateCorpusS5Test() -> None
+f122 e357 <module>() -> None
+  f123 e358 <module>() -> None
+    f124 e359 IdentityMismatchError() -> None
+    f125 e361 _DriverInfra() -> None
+    f126 e363 Ledger() -> None
+  f127 e366 Script() -> None
+  f128 e368 ScriptedServer() -> None
+  f129 e370 DriverInvariantsTest() -> None
+  f130 e372 PerPhaseSourceTest() -> None
+f131 e375 <module>() -> None
+  f132 e376 <module>() -> None
+  f133 e378 DryDefaultBehaviorTests() -> None
+  f134 e380 RealModeTests() -> None
+  f135 e382 FrozenTreeUntouchedTests() -> None
+  f136 e384 CliTests() -> None
+  f137 e386 PristineP2CarryTests() -> None
+f138 e389 <module>() -> None
+  f139 e390 <module>() -> None
+    f140 e391 <module>() -> None
+    f141 e393 <module>() -> None
+      f142 e394 <module>() -> None
+  f143 e398 <module>() -> None
+  f144 e400 ArithmeticFixtureTests() -> None
+  f145 e402 CleanGateTests() -> None
+f146 e405 <module>() -> None
+  f147 e406 CostJournalFailureTests() -> None
+  f148 e408 ArmCompletenessTests() -> None
+  f149 e410 GoldenBootstrapTests() -> None
+  f150 e412 ExpectedDigestTests() -> None
+f151 e415 <module>() -> None
+  f152 e416 HygieneViolationTests() -> None
+  f153 e418 ErrorStatusInfraTests() -> None
+  f154 e420 MalformedCostRowTests() -> None
+  f155 e422 TreatmentIdentityTests() -> None
+f156 e425 <module>() -> None
+  f157 e426 <module>() -> None
+    f158 e427 <module>() -> None
+      f159 e428 <module>() -> None
+      f160 e430 <module>() -> None
+      f161 e432 <module>() -> None
+  f162 e436 RecomputePgTest() -> None
+  f163 e438 CliFatalTest() -> None
+f164 e441 <module>() -> None
+  f165 e442 <module>() -> None
+  f166 e444 WilsonTest() -> None
+  f167 e446 RecomputeS5Test() -> None
+  f168 e448 CliFatalTest() -> None
+f169 e451 <module>() -> None
+  f170 e452 <module>() -> None
+  f171 e454 ArithmeticFixtureTests() -> None
+  f172 e456 A1WallNoneVsZeroTests() -> None
+  f173 e458 G1VerdictTests() -> None
+  f174 e460 G2VerdictTests() -> None
+f175 e463 <module>() -> None
+  f176 e464 CompletenessTests() -> None
+  f177 e466 CliTests() -> None
+f178 e469 <module>() -> None
+  f179 e470 StampAuditTests() -> None
+  f180 e472 H2EquivalenceTests() -> None
+  f181 e474 H3InfraTests() -> None
+  f182 e476 ArmLabelHonestyTests() -> None
+  f183 e478 GoldenBootstrapV2Tests() -> None
+f184 e481 DeterminismTest.test_different_seed_yields_different_task_list(self=DeterminismTest#137034094816496) -> None
+  f185 e482 _generate(seed=1, n=6, out_dir=PosixPath#137034090395264) -> dict[5]={'instrument': 'memory-battery-v1', 'corpus_seed': 1, 'n': 6, 'families': dict[6]={'py_inverted_boolean_run_verified': 1, 'py_off_by_one_index_run_verified': 1, 'py_off_by_one_range_bound_run_verified': 1, 'py_wrong_comparison_operator_run_verified': 1, 'py_wrong_constant_multiplier_run_verified': 1, 'py_wrong_dict_key_run_verified': <redacted #c1d9f8df>}, 'tasks': list[6]=[dict[11]={'name': 'py_inverted_boolean_run_verified-0000', 'family': 'py_inverted_boolean_run_verified', 'workspace': 'tasks/py_inverted_boolean_run_verified-0000/workspace', 'goal': 'Please correct the condition in qualifies() in roastlog.py: qualifies() currently requires both conditions instead of either one (or vice versa), and qualifies(28, True) returns False instead of True '~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    if batch_id >= 64 and yield_grams_ready:', 'replace': '    if batch_id >= 64 or yield_grams_ready:', ...}, dict[11]={'name': 'py_off_by_one_index_run_verified-0001', 'family': 'py_off_by_one_index_run_verified', 'workspace': 'tasks/py_off_by_one_index_run_verified-0001/workspace', 'goal': 'A reviewer flagged intervalplan.py because first_and_last_effort_level() returns the first effort_level reading twice instead of the first and last, shown by first_and_last_effort_level([341, 89, 188,'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    last_standout_value = effort_level_values[0]', 'replace': '    last_standout_value = effort_level_values[-1]', ...}, dict[11]={'name': 'py_off_by_one_range_bound_run_verified-0002', 'family': 'py_off_by_one_range_bound_run_verified', 'workspace': 'tasks/py_off_by_one_range_bound_run_verified-0002/workspace', 'goal': 'Bug ticket for trailplan.py: trailhead_id_checkpoints() stops one short of producing a marker for every cycle from 1 through count. Evidence: trailhead_id_checkpoints(11) yields only 10 markers and cy'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    for marker in range(1, trailhead_id_count):', 'replace': '    for marker in range(1, trailhead_id_count + 1):', ...}, dict[11]={'name': 'py_wrong_comparison_operator_run_verified-0003', 'family': 'py_wrong_comparison_operator_run_verified', 'workspace': 'tasks/py_wrong_comparison_operator_run_verified-0003/workspace', 'goal': 'Bug ticket for transitscan.py: highest_orbital_period() keeps the lowest orbital_period instead of the highest one. Evidence: highest_orbital_period([9, 232, 8, 387, 144]) returns 8 instead of 387. Re'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '        if x < top_pick:', 'replace': '        if x > top_pick:', ...}, dict[11]={'name': 'py_wrong_constant_multiplier_run_verified-0004', 'family': 'py_wrong_constant_multiplier_run_verified', 'workspace': 'tasks/py_wrong_constant_multiplier_run_verified-0004/workspace', 'goal': "loopcheck.py's scaled_session_id() scales by the wrong calibration factor -- scaled_session_id(61) returns 91.5 instead of 244.0. Fix scaled_session_id() in loopcheck.py so it multiplies by 4.0. Patch"~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    return value * 1.5', 'replace': '    return value * 4.0', ...}, dict[11]={'name': 'py_wrong_dict_key_run_verified-0005', 'family': 'py_wrong_dict_key_run_verified', 'workspace': 'tasks/py_wrong_dict_key_run_verified-0005/workspace', 'goal': 'loopcheck.py\'s track_duration_value() reads the "secondary" entry instead of "baseline" -- track_duration_value({\'baseline\': 5, \'secondary\': 288}) returns 288 instead of 5. Fix the dict lookup in trac'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    return entry["secondary"]', 'replace': '    return entry["baseline"]', ...}]}
+    f186 e483 generate_corpus(seed=1, n=6, out_dir=PosixPath#137034090395264) -> dict[5]={'instrument': 'memory-battery-v1', 'corpus_seed': 1, 'n': 6, 'families': dict[6]={'py_inverted_boolean_run_verified': 1, 'py_off_by_one_index_run_verified': 1, 'py_off_by_one_range_bound_run_verified': 1, 'py_wrong_comparison_operator_run_verified': 1, 'py_wrong_constant_multiplier_run_verified': 1, 'py_wrong_dict_key_run_verified': <redacted #c1d9f8df>}, 'tasks': list[6]=[dict[11]={'name': 'py_inverted_boolean_run_verified-0000', 'family': 'py_inverted_boolean_run_verified', 'workspace': 'tasks/py_inverted_boolean_run_verified-0000/workspace', 'goal': 'Please correct the condition in qualifies() in roastlog.py: qualifies() currently requires both conditions instead of either one (or vice versa), and qualifies(28, True) returns False instead of True '~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    if batch_id >= 64 and yield_grams_ready:', 'replace': '    if batch_id >= 64 or yield_grams_ready:', ...}, dict[11]={'name': 'py_off_by_one_index_run_verified-0001', 'family': 'py_off_by_one_index_run_verified', 'workspace': 'tasks/py_off_by_one_index_run_verified-0001/workspace', 'goal': 'A reviewer flagged intervalplan.py because first_and_last_effort_level() returns the first effort_level reading twice instead of the first and last, shown by first_and_last_effort_level([341, 89, 188,'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    last_standout_value = effort_level_values[0]', 'replace': '    last_standout_value = effort_level_values[-1]', ...}, dict[11]={'name': 'py_off_by_one_range_bound_run_verified-0002', 'family': 'py_off_by_one_range_bound_run_verified', 'workspace': 'tasks/py_off_by_one_range_bound_run_verified-0002/workspace', 'goal': 'Bug ticket for trailplan.py: trailhead_id_checkpoints() stops one short of producing a marker for every cycle from 1 through count. Evidence: trailhead_id_checkpoints(11) yields only 10 markers and cy'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    for marker in range(1, trailhead_id_count):', 'replace': '    for marker in range(1, trailhead_id_count + 1):', ...}, dict[11]={'name': 'py_wrong_comparison_operator_run_verified-0003', 'family': 'py_wrong_comparison_operator_run_verified', 'workspace': 'tasks/py_wrong_comparison_operator_run_verified-0003/workspace', 'goal': 'Bug ticket for transitscan.py: highest_orbital_period() keeps the lowest orbital_period instead of the highest one. Evidence: highest_orbital_period([9, 232, 8, 387, 144]) returns 8 instead of 387. Re'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '        if x < top_pick:', 'replace': '        if x > top_pick:', ...}, dict[11]={'name': 'py_wrong_constant_multiplier_run_verified-0004', 'family': 'py_wrong_constant_multiplier_run_verified', 'workspace': 'tasks/py_wrong_constant_multiplier_run_verified-0004/workspace', 'goal': "loopcheck.py's scaled_session_id() scales by the wrong calibration factor -- scaled_session_id(61) returns 91.5 instead of 244.0. Fix scaled_session_id() in loopcheck.py so it multiplies by 4.0. Patch"~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    return value * 1.5', 'replace': '    return value * 4.0', ...}, dict[11]={'name': 'py_wrong_dict_key_run_verified-0005', 'family': 'py_wrong_dict_key_run_verified', 'workspace': 'tasks/py_wrong_dict_key_run_verified-0005/workspace', 'goal': 'loopcheck.py\'s track_duration_value() reads the "secondary" entry instead of "baseline" -- track_duration_value({\'baseline\': 5, \'secondary\': 288}) returns 288 instead of 5. Fix the dict lookup in trac'~, 'grant': dict[3]={, ...}, 'run_argv': list[4]=[, ...], 'search': '    return entry["secondary"]', 'replace': '    return entry["baseline"]', ...}]}
+      f187 e484 _draw_n_run_verified_python_tasks(seed=1, n=6) -> list[6]=[Task[13]=['py_inverted_boolean_run_verified', 'python', 'roastlog.py', dict[2]={'roastlog.py': 'def qualifies(batch_id, yield_grams_ready):\n    # Return True when the batch_id threshold or yield_grams_ready qualifies.\n    if batch_id >= 64 and yield_grams_ready:\n        return True\n    return Fa'~, 'test_roastlog.py': 'import unittest\n\nimport roastlog\n\n\nclass TestRoastlog(unittest.TestCase):\n    def test_qualifies(self):\n        self.assertEqual(roastlog.qualifies(0, True), True)\n\n\nif __name__ == "__main__":\n    uni'~}, 'Please correct the condition in qualifies() in roastlog.py: qualifies() currently requires both conditions instead of either one (or vice versa), and qualifies(28, True) returns False instead of True '~, '    if batch_id >= 64 and yield_grams_ready:', '    if batch_id >= 64 or yield_grams_ready:', "Fixed the boolean connector in qualifies() from 'and' to 'or'.", ...], Task[13]=['py_off_by_one_index_run_verified', 'python', 'intervalplan.py', dict[2]={'intervalplan.py': 'def first_and_last_effort_level(effort_level_values):\n    # Return the first and last effort_level reading from effort_level_values.\n    first_standout_value = effort_level_values[0]\n    last_standout'~, 'test_intervalplan.py': 'import unittest\n\nimport intervalplan\n\n\nclass TestIntervalplan(unittest.TestCase):\n    def test_first_and_last_effort_level(self):\n        self.assertEqual(intervalplan.first_and_last_effort_level([7, '~}, 'A reviewer flagged intervalplan.py because first_and_last_effort_level() returns the first effort_level reading twice instead of the first and last, shown by first_and_last_effort_level([341, 89, 188,'~, '    last_standout_value = effort_level_values[0]', '    last_standout_value = effort_level_values[-1]', 'Fixed last_standout_value in first_and_last_effort_level() to index from the end.', ...], Task[13]=['py_off_by_one_range_bound_run_verified', 'python', 'trailplan.py', dict[2]={'trailplan.py': 'def trailhead_id_checkpoints(trailhead_id_count):\n    markers = []\n    for marker in range(1, trailhead_id_count):\n        markers.append(f"cycle {marker}")\n    return markers\n', 'test_trailplan.py': "import unittest\n\nimport trailplan\n\n\nclass TestTrailplan(unittest.TestCase):\n    def test_trailhead_id_checkpoints(self):\n        self.assertEqual(trailplan.trailhead_id_checkpoints(3), ['cycle 1', 'cy"~}, 'Bug ticket for trailplan.py: trailhead_id_checkpoints() stops one short of producing a marker for every cycle from 1 through count. Evidence: trailhead_id_checkpoints(11) yields only 10 markers and cy'~, '    for marker in range(1, trailhead_id_count):', '    for marker in range(1, trailhead_id_count + 1):', 'Widened the loop bound in trailhead_id_checkpoints() so the final cycle is included.', ...], Task[13]=['py_wrong_comparison_operator_run_verified', 'python', 'transitscan.py', dict[2]={'transitscan.py': 'def highest_orbital_period(readings):\n    top_pick = readings[0]\n    for x in readings[1:]:\n        if x < top_pick:\n            top_pick = x\n    return top_pick\n', 'test_transitscan.py': 'import unittest\n\nimport transitscan\n\n\nclass TestTransitscan(unittest.TestCase):\n    def test_highest_orbital_period(self):\n        self.assertEqual(transitscan.highest_orbital_period([3, 1, 4, 1, 5]),'~}, 'Bug ticket for transitscan.py: highest_orbital_period() keeps the lowest orbital_period instead of the highest one. Evidence: highest_orbital_period([9, 232, 8, 387, 144]) returns 8 instead of 387. Re'~, '        if x < top_pick:', '        if x > top_pick:', 'Fixed the comparison operator in highest_orbital_period() so it keeps the highest orbital_period.', ...], Task[13]=['py_wrong_constant_multiplier_run_verified', 'python', 'loopcheck.py', dict[2]={'loopcheck.py': 'SCALE_NOTE = "calibration multiplier for raw session_id readings"\n\n\ndef scaled_session_id(value):\n    # Scale a raw session_id reading by the calibration factor.\n    return value * 1.5\n', 'test_loopcheck.py': 'import unittest\n\nimport loopcheck\n\n\nclass TestLoopcheck(unittest.TestCase):\n    def test_scaled_session_id(self):\n        self.assertEqual(loopcheck.scaled_session_id(8), 32.0)\n\n\nif __name__ == "__mai'~}, "loopcheck.py's scaled_session_id() scales by the wrong calibration factor -- scaled_session_id(61) returns 91.5 instead of 244.0. Fix scaled_session_id() in loopcheck.py so it multiplies by 4.0. Patch"~, '    return value * 1.5', '    return value * 4.0', 'Fixed the calibration factor in scaled_session_id() from 1.5 to 4.0.', ...], Task[13]=['py_wrong_dict_key_run_verified', 'python', 'loopcheck.py', dict[2]={'loopcheck.py': 'def track_duration_value(entry):\n    # Return the "baseline" track_duration reading from entry.\n    return entry["secondary"]\n\n\ndef track_duration_value_or_default(entry, fallback):\n    value = track_'~, 'test_loopcheck.py': "import unittest\n\nimport loopcheck\n\n\nclass TestLoopcheck(unittest.TestCase):\n    def test_track_duration_value(self):\n        self.assertEqual(loopcheck.track_duration_value({'primary': 1, 'secondary':"~}, 'loopcheck.py\'s track_duration_value() reads the "secondary" entry instead of "baseline" -- track_duration_value({\'baseline\': 5, \'secondary\': 288}) returns 288 instead of 5. Fix the dict lookup in trac'~, '    return entry["secondary"]', '    return entry["baseline"]', 'Fixed track_duration_value() to read the "baseline" key instead of "secondary".', ...]]
+        f188 e485 _run_verified_python_tasks(seed=1, count=36) -> list[12]=[Task[13]=['py_inverted_boolean_run_verified', 'python', 'roastlog.py', dict[2]={'roastlog.py': 'def qualifies(batch_id, yield_grams_ready):\n    # Return True when the batch_id threshold or yield_grams_ready qualifies.\n    if batch_id >= 64 and yield_grams_ready:\n        return True\n    return Fa'~, 'test_roastlog.py': 'import unittest\n\nimport roastlog\n\n\nclass TestRoastlog(unittest.TestCase):\n    def test_qualifies(self):\n        self.assertEqual(roastlog.qualifies(0, True), True)\n\n\nif __name__ == "__main__":\n    uni'~}, 'Please correct the condition in qualifies() in roastlog.py: qualifies() currently requires both conditions instead of either one (or vice versa), and qualifies(28, True) returns False instead of True '~, '    if batch_id >= 64 and yield_grams_ready:', '    if batch_id >= 64 or yield_grams_ready:', "Fixed the boolean connector in qualifies() from 'and' to 'or'.", ...], Task[13]=['py_off_by_one_index_run_verified', 'python', 'intervalplan.py', dict[2]={'intervalplan.py': 'def first_and_last_effort_level(effort_level_values):\n    # Return the first and last effort_level reading from effort_level_values.\n    first_standout_value = effort_level_values[0]\n    last_standout'~, 'test_intervalplan.py': 'import unittest\n\nimport intervalplan\n\n\nclass TestIntervalplan(unittest.TestCase):\n    def test_first_and_last_effort_level(self):\n        self.assertEqual(intervalplan.first_and_last_effort_level([7, '~}, 'A reviewer flagged intervalplan.py because first_and_last_effort_level() returns the first effort_level reading twice instead of the first and last, shown by first_and_last_effort_level([341, 89, 188,'~, '    last_standout_value = effort_level_values[0]', '    last_standout_value = effort_level_values[-1]', 'Fixed last_standout_value in first_and_last_effort_level() to index from the end.', ...], Task[13]=['py_off_by_one_range_bound_run_verified', 'python', 'trailplan.py', dict[2]={'trailplan.py': 'def trailhead_id_checkpoints(trailhead_id_count):\n    markers = []\n    for marker in range(1, trailhead_id_count):\n        markers.append(f"cycle {marker}")\n    return markers\n', 'test_trailplan.py': "import unittest\n\nimport trailplan\n\n\nclass TestTrailplan(unittest.TestCase):\n    def test_trailhead_id_checkpoints(self):\n        self.assertEqual(trailplan.trailhead_id_checkpoints(3), ['cycle 1', 'cy"~}, 'Bug ticket for trailplan.py: trailhead_id_checkpoints() stops one short of producing a marker for every cycle from 1 through count. Evidence: trailhead_id_checkpoints(11) yields only 10 markers and cy'~, '    for marker in range(1, trailhead_id_count):', '    for marker in range(1, trailhead_id_count + 1):', 'Widened the loop bound in trailhead_id_checkpoints() so the final cycle is included.', ...], Task[13]=['py_wrong_comparison_operator_run_verified', 'python', 'transitscan.py', dict[2]={'transitscan.py': 'def highest_orbital_period(readings):\n    top_pick = readings[0]\n    for x in readings[1:]:\n        if x < top_pick:\n            top_pick = x\n    return top_pick\n', 'test_transitscan.py': 'import unittest\n\nimport transitscan\n\n\nclass TestTransitscan(unittest.TestCase):\n    def test_highest_orbital_period(self):\n        self.assertEqual(transitscan.highest_orbital_period([3, 1, 4, 1, 5]),'~}, 'Bug ticket for transitscan.py: highest_orbital_period() keeps the lowest orbital_period instead of the highest one. Evidence: highest_orbital_period([9, 232, 8, 387, 144]) returns 8 instead of 387. Re'~, '        if x < top_pick:', '        if x > top_pick:', 'Fixed the comparison operator in highest_orbital_period() so it keeps the highest orbital_period.', ...], Task[13]=['py_wrong_constant_multiplier_run_verified', 'python', 'loopcheck.py', dict[2]={'loopcheck.py': 'SCALE_NOTE = "calibration multiplier for raw session_id readings"\n\n\ndef scaled_session_id(value):\n    # Scale a raw session_id reading by the calibration factor.\n    return value * 1.5\n', 'test_loopcheck.py': 'import unittest\n\nimport loopcheck\n\n\nclass TestLoopcheck(unittest.TestCase):\n    def test_scaled_session_id(self):\n        self.assertEqual(loopcheck.scaled_session_id(8), 32.0)\n\n\nif __name__ == "__mai'~}, "loopcheck.py's scaled_session_id() scales by the wrong calibration factor -- scaled_session_id(61) returns 91.5 instead of 244.0. Fix scaled_session_id() in loopcheck.py so it multiplies by 4.0. Patch"~, '    return value * 1.5', '    return value * 4.0', 'Fixed the calibration factor in scaled_session_id() from 1.5 to 4.0.', ...], Task[13]=['py_wrong_dict_key_run_verified', 'python', 'loopcheck.py', dict[2]={'loopcheck.py': 'def track_duration_value(entry):\n    # Return the "baseline" track_duration reading from entry.\n    return entry["secondary"]\n\n\ndef track_duration_value_or_default(entry, fallback):\n    value = track_'~, 'test_loopcheck.py': "import unittest\n\nimport loopcheck\n\n\nclass TestLoopcheck(unittest.TestCase):\n    def test_track_duration_value(self):\n        self.assertEqual(loopcheck.track_duration_value({'primary': 1, 'secondary':"~}, 'loopcheck.py\'s track_duration_value() reads the "secondary" entry instead of "baseline" -- track_duration_value({\'baseline\': 5, \'secondary\': 288}) returns 288 instead of 5. Fix the dict lookup in trac'~, '    return entry["secondary"]', '    return entry["baseline"]', 'Fixed track_duration_value() to read the "baseline" key instead of "secondary".', ...], Task[13]=['py_wrong_fstring_field_run_verified', 'python', 'weathercheck.py', dict[2]={'weathercheck.py': 'def describe_cloud_cover(cloud_cover, rainfall):\n    # Return a summary mentioning both cloud_cover and rainfall.\n    return f"cloud_cover={cloud_cover}, rainfall={cloud_cover}"\n\n\ndef describe_cloud_c'~, 'test_weathercheck.py': "import unittest\n\nimport weathercheck\n\n\nclass TestWeathercheck(unittest.TestCase):\n    def test_describe_cloud_cover(self):\n        self.assertEqual(weathercheck.describe_cloud_cover(3, 5), 'cloud_cove"~}, "Bug ticket for weathercheck.py: describe_cloud_cover() reports cloud_cover where rainfall should appear. Evidence: describe_cloud_cover(145, 10) returns 'cloud_cover=145, rainfall=145' instead of 'clo"~, '    return f"cloud_cover={cloud_cover}, rainfall={cloud_cover}"', '    return f"cloud_cover={cloud_cover}, rainfall={rainfall}"', 'Fixed the f-string in describe_cloud_cover() to report rainfall instead of repeating cloud_cover.', ...], Task[13]=['py_wrong_variable_reference_run_verified', 'python', 'tanktrack.py', dict[2]={'tanktrack.py': 'def combined_coral_count_feeding_interval(coral_count, feeding_interval):\n    # Combine adjusted coral_count and feeding_interval readings.\n    adjusted_coral_count = coral_count * 2\n    adjusted_feed'~, 'test_tanktrack.py': 'import unittest\n\nimport tanktrack\n\n\nclass TestTanktrack(unittest.TestCase):\n    def test_combined_coral_count_feeding_interval(self):\n        self.assertEqual(tanktrack.combined_coral_count_feeding_in'~}, 'A reviewer flagged tanktrack.py because combined_coral_count_feeding_interval() adds the adjusted coral_count in twice instead of combining coral_count and feeding_interval, shown by combined_coral_co'~, '    return adjusted_coral_count + adjusted_coral_count', '    return adjusted_coral_count + adjusted_feeding_interval', 'Fixed combined_coral_count_feeding_interval() to add adjusted_feeding_interval instead of repeating adjusted_coral_count.', ...], ...]
+          f189 e486 generate_candidate_tasks(rng=Random#160770944, count=36, gates=list[0]=[]) -> tuple[3]=[list[36]=[Task[13]=['py_inverted_boolean', 'python', 'reeflog.py', dict[1]={, ...}, 'Bug ticket for reeflog.py: is_cleared() requires both conditions instead of either one (or vice versa). Evidence: is_cleared(48, True) returns True instead of False. Resolution: update the condition i'~, '    if coral_count >= 67 or filter_flow_ready:', '    if coral_count >= 67 and filter_flow_ready:', "Fixed the boolean connector in is_cleared() from 'or' to 'and'.", ...], Task[13]=['mf_py_settings_table', 'python', 'starfield.py', dict[4]={, ...}, 'A support escalation says resolve_transit_depth_setting() hands back the "baseline" transit_depth setting instead of the "override" one, and it returns 862 where every caller expects 53 backs that up.'~, '    return TRANSIT_DEPTH_PROFILE["baseline"]', '    return TRANSIT_DEPTH_PROFILE["override"]', 'Fixed resolve_transit_depth_setting() to read the "override" key instead of "baseline".', ...], Task[13]=['py_inverted_boolean_run_verified', 'python', 'roastlog.py', dict[2]={, ...}, 'Please correct the condition in qualifies() in roastlog.py: qualifies() currently requires both conditions instead of either one (or vice versa), and qualifies(28, True) returns False instead of True '~, '    if batch_id >= 64 and yield_grams_ready:', '    if batch_id >= 64 or yield_grams_ready:', "Fixed the boolean connector in qualifies() from 'and' to 'or'.", ...], Task[13]=['py_off_by_one_index', 'python', 'intervalplan.py', dict[1]={, ...}, "intervalplan.py's first_and_last_session_minutes() returns the first session_minutes reading twice instead of the first and last -- first_and_last_session_minutes([113, 390, 236, 488, 149]) returns (1"~, '    last_running_peak = session_minutes_values[0]', '    last_running_peak = session_minutes_values[-1]', 'Fixed last_running_peak in first_and_last_session_minutes() to index from the end.', ...], Task[13]=['mf_py_threshold_band', 'python', 'dockplan.py', dict[5]={, ...}, 'Nobody on the team remembers where compute_bay_temperature_band() lives, but it labels every bay_temperature reading above the limit as "under": compute_bay_temperature_band(65) returns "under" agains'~, '    if measurement < BAY_TEMPERATURE_CEILING:', '    if measurement > BAY_TEMPERATURE_CEILING:', 'Flipped the comparison in compute_bay_temperature_band() so readings above BAY_TEMPERATURE_CEILING classify as over.', ...], Task[13]=['py_off_by_one_index_run_verified', 'python', 'intervalplan.py', dict[2]={, ...}, 'A reviewer flagged intervalplan.py because first_and_last_effort_level() returns the first effort_level reading twice instead of the first and last, shown by first_and_last_effort_level([341, 89, 188,'~, '    last_standout_value = effort_level_values[0]', '    last_standout_value = effort_level_values[-1]', 'Fixed last_standout_value in first_and_last_effort_level() to index from the end.', ...], Task[13]=['py_off_by_one_range_bound', 'python', 'starfield.py', dict[1]={, ...}, 'Bug ticket for starfield.py: redshift_checkpoints() stops one short of producing a marker for every cycle from 1 through count. Evidence: redshift_checkpoints(4) yields only 3 markers and cycle 4 neve'~, '    for marker in range(1, redshift_count):', '    for marker in range(1, redshift_count + 1):', 'Widened the loop bound in redshift_checkpoints() so the final cycle is included.', ...], Task[13]=['mf_py_window_class', 'python', 'extractiontrack.py', dict[4]={, ...}, "Nobody on the team remembers where the tamp_pressure feed's evaluate_tamp_pressure_window() method lives, but it always comes back one reading short of the window it was asked for: asking for 12 readi"~, '        return self.tamp_pressure_readings[:width - 1]', '        return self.tamp_pressure_readings[:width]', "Widened TampPressureFeed.evaluate_tamp_pressure_window()'s slice so it returns the full window.", ...], ...], dict[0]={}, 36]
+            f190 e487 family_functions(count=36) -> list[36]=[function#137034095504704, function#137034095501024, function#137034095678048, function#137034095504064, function#137034095500864, function#137034095677408, function#137034095504384, function#137034095501184, ...]
+              f191 e488 trajectory_for_slot(slot=0) -> 'plain'
+              f192 e490 _plain_registry_and_index(plain_slot=0, lens_counters=dict[2]={'python': 0, 'plaintext': 0}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 0]
+              f193 e492 trajectory_for_slot(slot=1) -> 'find'
+              f194 e494 trajectory_for_slot(slot=2) -> 'run'
+              f195 e496 trajectory_for_slot(slot=3) -> 'plain'
+              f196 e498 _plain_registry_and_index(plain_slot=1, lens_counters=dict[2]={'python': 1, 'plaintext': 0}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 1]
+              f197 e500 trajectory_for_slot(slot=4) -> 'find'
+              f198 e502 trajectory_for_slot(slot=5) -> 'run'
+              f199 e504 trajectory_for_slot(slot=6) -> 'plain'
+              f200 e506 _plain_registry_and_index(plain_slot=2, lens_counters=dict[2]={'python': 2, 'plaintext': 0}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 2]
+              f201 e508 trajectory_for_slot(slot=7) -> 'find'
+              f202 e510 trajectory_for_slot(slot=8) -> 'run'
+              f203 e512 trajectory_for_slot(slot=9) -> 'plain'
+              f204 e514 _plain_registry_and_index(plain_slot=3, lens_counters=dict[2]={'python': 3, 'plaintext': 0}) -> tuple[2]=[tuple[5]=[tuple[2]=['txt_config_value_mismatch', function#137034095679648], tuple[2]=['txt_port_host_mismatch', function#137034095679488], tuple[2]=['txt_version_date_string', function#137034095679808], tuple[2]=['txt_wrong_name_in_prose', function#137034095679968], tuple[2]=['txt_wrong_url_path_in_docs', function#137034095680128]], 0]
+              f205 e516 trajectory_for_slot(slot=10) -> 'find'
+              f206 e518 trajectory_for_slot(slot=11) -> 'run'
+              f207 e520 trajectory_for_slot(slot=12) -> 'plain'
+              f208 e522 _plain_registry_and_index(plain_slot=4, lens_counters=dict[2]={'python': 3, 'plaintext': 1}) -> tuple[2]=[tuple[5]=[tuple[2]=['txt_config_value_mismatch', function#137034095679648], tuple[2]=['txt_port_host_mismatch', function#137034095679488], tuple[2]=['txt_version_date_string', function#137034095679808], tuple[2]=['txt_wrong_name_in_prose', function#137034095679968], tuple[2]=['txt_wrong_url_path_in_docs', function#137034095680128]], 1]
+              f209 e524 trajectory_for_slot(slot=13) -> 'find'
+              f210 e526 trajectory_for_slot(slot=14) -> 'run'
+              f211 e528 trajectory_for_slot(slot=15) -> 'plain'
+              f212 e530 _plain_registry_and_index(plain_slot=5, lens_counters=dict[2]={'python': 3, 'plaintext': 2}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 3]
+              f213 e532 trajectory_for_slot(slot=16) -> 'find'
+              f214 e534 trajectory_for_slot(slot=17) -> 'run'
+              f215 e536 trajectory_for_slot(slot=18) -> 'plain'
+              f216 e538 _plain_registry_and_index(plain_slot=6, lens_counters=dict[2]={'python': 4, 'plaintext': 2}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 4]
+              f217 e540 trajectory_for_slot(slot=19) -> 'find'
+              f218 e542 trajectory_for_slot(slot=20) -> 'run'
+              f219 e544 trajectory_for_slot(slot=21) -> 'plain'
+              f220 e546 _plain_registry_and_index(plain_slot=7, lens_counters=dict[2]={'python': 5, 'plaintext': 2}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 5]
+              f221 e548 trajectory_for_slot(slot=22) -> 'find'
+              f222 e550 trajectory_for_slot(slot=23) -> 'run'
+              f223 e552 trajectory_for_slot(slot=24) -> 'plain'
+              f224 e554 _plain_registry_and_index(plain_slot=8, lens_counters=dict[2]={'python': 6, 'plaintext': 2}) -> tuple[2]=[tuple[5]=[tuple[2]=['txt_config_value_mismatch', function#137034095679648], tuple[2]=['txt_port_host_mismatch', function#137034095679488], tuple[2]=['txt_version_date_string', function#137034095679808], tuple[2]=['txt_wrong_name_in_prose', function#137034095679968], tuple[2]=['txt_wrong_url_path_in_docs', function#137034095680128]], 2]
+              f225 e556 trajectory_for_slot(slot=25) -> 'find'
+              f226 e558 trajectory_for_slot(slot=26) -> 'run'
+              f227 e560 trajectory_for_slot(slot=27) -> 'plain'
+              f228 e562 _plain_registry_and_index(plain_slot=9, lens_counters=dict[2]={'python': 6, 'plaintext': 3}) -> tuple[2]=[tuple[5]=[tuple[2]=['txt_config_value_mismatch', function#137034095679648], tuple[2]=['txt_port_host_mismatch', function#137034095679488], tuple[2]=['txt_version_date_string', function#137034095679808], tuple[2]=['txt_wrong_name_in_prose', function#137034095679968], tuple[2]=['txt_wrong_url_path_in_docs', function#137034095680128]], 3]
+              f229 e564 trajectory_for_slot(slot=28) -> 'find'
+              f230 e566 trajectory_for_slot(slot=29) -> 'run'
+              f231 e568 trajectory_for_slot(slot=30) -> 'plain'
+              f232 e570 _plain_registry_and_index(plain_slot=10, lens_counters=dict[2]={'python': 6, 'plaintext': 4}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 6]
+              f233 e572 trajectory_for_slot(slot=31) -> 'find'
+              f234 e574 trajectory_for_slot(slot=32) -> 'run'
+              f235 e576 trajectory_for_slot(slot=33) -> 'plain'
+              f236 e578 _plain_registry_and_index(plain_slot=11, lens_counters=dict[2]={'python': 7, 'plaintext': 4}) -> tuple[2]=[tuple[8]=[tuple[2]=['py_inverted_boolean', function#137034095504704], tuple[2]=['py_off_by_one_index', function#137034095504064], tuple[2]=['py_off_by_one_range_bound', function#137034095504384], tuple[2]=['py_wrong_comparison_operator', function#137034095504224], tuple[2]=['py_wrong_constant_multiplier', function#137034095504544], tuple[2]=['py_wrong_dict_key', function#137034095505184], tuple[2]=['py_wrong_fstring_field', function#137034095505024], tuple[2]=['py_wrong_variable_reference', function#137034095504864]], 7]
+              f237 e580 trajectory_for_slot(slot=34) -> 'find'
+              f238 e582 trajectory_for_slot(slot=35) -> 'run'
+            f239 e585 draw_all(rng=Random#160770944, fns=list[36]=[function#137034095504704, function#137034095501024, function#137034095678048, function#137034095504064, function#137034095500864, function#137034095677408, function#137034095504384, function#137034095501184, ...], validate_fn=function#137034095235200, gates=list[0]=[], ...) -> tuple[3]=[list[36]=[Task[13]=['py_inverted_boolean', 'python', 'reeflog.py', dict[1]={, ...}, 'Bug ticket for reeflog.py: is_cleared() requires both conditions instead of either one (or vice versa). Evidence: is_cleared(48, True) returns True instead of False. Resolution: update the condition i'~, '    if coral_count >= 67 or filter_flow_ready:', '    if coral_count >= 67 and filter_flow_ready:', "Fixed the boolean connector in is_cleared() from 'or' to 'and'.", ...], Task[13]=['mf_py_settings_table', 'python', 'starfield.py', dict[4]={, ...}, 'A support escalation says resolve_transit_depth_setting() hands back the "baseline" transit_depth setting instead of the "override" one, and it returns 862 where every caller expects 53 backs that up.'~, '    return TRANSIT_DEPTH_PROFILE["baseline"]', '    return TRANSIT_DEPTH_PROFILE["override"]', 'Fixed resolve_transit_depth_setting() to read the "override" key instead of "baseline".', ...], Task[13]=['py_inverted_boolean_run_verified', 'python', 'roastlog.py', dict[2]={, ...}, 'Please correct the condition in qualifies() in roastlog.py: qualifies() currently requires both conditions instead of either one (or vice versa), and qualifies(28, True) returns False instead of True '~, '    if batch_id >= 64 and yield_grams_ready:', '    if batch_id >= 64 or yield_grams_ready:', "Fixed the boolean connector in qualifies() from 'and' to 'or'.", ...], Task[13]=['py_off_by_one_index', 'python', 'intervalplan.py', dict[1]={, ...}, "intervalplan.py's first_and_last_session_minutes() returns the first session_minutes reading twice instead of the first and last -- first_and_last_session_minutes([113, 390, 236, 488, 149]) returns (1"~, '    last_running_peak = session_minutes_values[0]', '    last_running_peak = session_minutes_values[-1]', 'Fixed last_running_peak in first_and_last_session_minutes() to index from the end.', ...], Task[13]=['mf_py_threshold_band', 'python', 'dockplan.py', dict[5]={, ...}, 'Nobody on the team remembers where compute_bay_temperature_band() lives, but it labels every bay_temperature reading above the limit as "under": compute_bay_temperature_band(65) returns "under" agains'~, '    if measurement < BAY_TEMPERATURE_CEILING:', '    if measurement > BAY_TEMPERATURE_CEILING:', 'Flipped the comparison in compute_bay_temperature_band() so readings above BAY_TEMPERATURE_CEILING classify as over.', ...], Task[13]=['py_off_by_one_index_run_verified', 'python', 'intervalplan.py', dict[2]={, ...}, 'A reviewer flagged intervalplan.py because first_and_last_effort_level() returns the first effort_level reading twice instead of the first and last, shown by first_and_last_effort_level([341, 89, 188,'~, '    last_standout_value = effort_level_values[0]', '    last_standout_value = effort_level_values[-1]', 'Fixed last_standout_value in first_and_last_effort_level() to index from the end.', ...], Task[13]=['py_off_by_one_range_bound', 'python', 'starfield.py', dict[1]={, ...}, 'Bug ticket for starfield.py: redshift_checkpoints() stops one short of producing a marker for every cycle from 1 through count. Evidence: redshift_checkpoints(4) yields only 3 markers and cycle 4 neve'~, '    for marker in range(1, redshift_count):', '    for marker in range(1, redshift_count + 1):', 'Widened the loop bound in redshift_checkpoints() so the final cycle is included.', ...], Task[13]=['mf_py_window_class', 'python', 'extractiontrack.py', dict[4]={, ...}, "Nobody on the team remembers where the tamp_pressure feed's evaluate_tamp_pressure_window() method lives, but it always comes back one reading short of the window it was asked for: asking for 12 readi"~, '        return self.tamp_pressure_readings[:width - 1]', '        return self.tamp_pressure_readings[:width]', "Widened TampPressureFeed.evaluate_tamp_pressure_window()'s slice so it returns the full window.", ...], ...], dict[0]={}, 36]
+              f240 e586 RejectionSampler.draw(self=RejectionSampler#137034094813808, rng=Random#160770944, draw_fn=function#137034095504704, validate_fn=function#137034095235200) -> Task[13]=['py_inverted_boolean', 'python', 'reeflog.py', dict[1]={'reeflog.py': 'def is_cleared(coral_count, filter_flow_ready):\n    # Return True when the coral_count threshold or filter_flow_ready qualifies.\n    if coral_count >= 67 or filter_flow_ready:\n        return True\n    '~}, 'Bug ticket for reeflog.py: is_cleared() requires both conditions instead of either one (or vice versa). Evidence: is_cleared(48, True) returns True instead of False. Resolution: update the condition i'~, '    if coral_count >= 67 or filter_flow_ready:', '    if coral_count >= 67 and filter_flow_ready:', "Fixed the boolean connector in is_cleared() from 'or' to 'and'.", ...]
+                f241 e587 RejectionSampler._check_termination(self=RejectionSampler#137034094813808) -> None
+                f242 e589 _family_inverted_boolean(rng=Random#160770944) -> Task[13]=['py_inverted_boolean', 'python', 'reeflog.py', dict[1]={'reeflog.py': 'def is_cleared(coral_count, filter_flow_ready):\n    # Return True when the coral_count threshold or filter_flow_ready qualifies.\n    if coral_count >= 67 or filter_flow_ready:\n        return True\n    '~}, 'Bug ticket for reeflog.py: is_cleared() requires both conditions instead of either one (or vice versa). Evidence: is_cleared(48, True) returns True instead of False. Resolution: update the condition i'~, '    if coral_count >= 67 or filter_flow_ready:', '    if coral_count >= 67 and filter_flow_ready:', "Fixed the boolean connector in is_cleared() from 'or' to 'and'.", ...]
+                  f243 e590 _theme_and_target(rng=Random#160770944) -> tuple[2]=[Theme[3]=['aquarium', tuple[12]=['tank_volume', 'filter_flow', 'ph_level', 'salinity', 'coral_count', 'feeding_interval', 'water_temp', 'algae_growth', ...], tuple[4]=['reeflog', 'tanktrack', 'aquacare', 'brinecheck']], 'reeflog.py']
+                  f244 e592 _family_inverted_boolean.<locals>.check(a_val=48, b_val=True, conn='or') -> True
+                  f245 e594 _family_inverted_boolean.<locals>.check(a_val=48, b_val=True, conn='and') -> False
+                  f246 e596 patch_skeletons(rng=Random#160770944, target='reeflog.py', subject='is_cleared()', problem='requires both conditions instead of either one (or vice versa)', ...) -> 'Bug ticket for reeflog.py: is_cleared() requires both conditions instead of either one (or vice versa). Evidence: is_cleared(48, True) returns True instead of False. Resolution: update the condition i'~
+                f247 e599 validate_task(task=Task[13]=['py_inverted_boolean', 'python', 'reeflog.py', dict[1]={'reeflog.py': 'def is_cleared(coral_count, filter_flow_ready):\n    # Return True when the coral_count threshold or filter_flow_ready qualifies.\n    if coral_count >= 67 or filter_flow_ready:\n        return True\n    '~}, 'Bug ticket for reeflog.py: is_cleared() requires both conditions instead of either one (or vice versa). Evidence: is_cleared(48, True) returns True instead of False. Resolution: update the condition i'~, '    if coral_count >= 67 or filter_flow_ready:', '    if coral_count >= 67 and filter_flow_ready:', "Fixed the boolean connector in is_cleared() from 'or' to 'and'.", ...]) -> list[0]=[]
+                f248 e601 task_violates_gates(task=Task[13]=['py_inverted_boolean', 'python', 'reeflog.py', dict[1]={'reeflog.py': 'def is_cleared(coral_count, filter_flow_ready):\n    # Return True when the coral_count threshold or filter_flow_ready qualifies.\n    if coral_count >= 67 or filter_flow_ready:\n        return True\n    '~}, 'Bug ticket for reeflog.py: is_cleared() requires both conditions instead of either one (or vice versa). Evidence: is_cleared(48, True) returns True instead of False. Resolution: update the condition i'~, '    if coral_count >= 67 or filter_flow_ready:', '    if coral_count >= 67 and filter_flow_ready:', "Fixed the boolean connector in is_cleared() from 'or' to 'and'.", ...], gates=list[0]=[], jaccard_threshold=0.8) -> None
+                f249 e603 RejectionSampler._record(self=RejectionSampler#137034094813808, accepted=True) -> None
+[... 46,557 lines (28,448,880 bytes) omitted; narrow with: depth, limit, around ...]
+      f44300 e93265 _corpus_sha.<locals>.<lambda>(task=dict[2]={'name': 't0', 'workspace_sha256': 'sha-t0'}) -> 't0'
+      f44301 e93267 _corpus_sha.<locals>.<lambda>(task=dict[2]={'name': 't1', 'workspace_sha256': 'sha-t1'}) -> 't1'
+      f44302 e93269 _corpus_sha.<locals>.<lambda>(task=dict[2]={'name': 't2', 'workspace_sha256': 'sha-t2'}) -> 't2'
+      f44303 e93271 _corpus_sha.<locals>.<lambda>(task=dict[2]={'name': 't3', 'workspace_sha256': 'sha-t3'}) -> 't3'
+      f44304 e93273 _corpus_sha.<locals>.<lambda>(task=dict[2]={'name': 't4', 'workspace_sha256': 'sha-t4'}) -> 't4'
+      f44305 e93275 _corpus_sha.<locals>.<lambda>(task=dict[2]={'name': 't5', 'workspace_sha256': 'sha-t5'}) -> 't5'
+    f44306 e93278 _check_identity(arm_label='m_prime', identity_by_phase=dict[2]={1: 'digest-m-prime', 2: 'digest-m-prime'}, expected_digest=None) -> dict[6]={'phase1_digest': 'digest-m-prime', 'phase2_digest': 'digest-m-prime', 'agree': True, 'matches_expected': None, 'violated': False, 'reason': None}
+    f44307 e93280 _check_identity(arm_label='r', identity_by_phase=dict[2]={1: 'digest-r', 2: 'digest-r'}, expected_digest=None) -> dict[6]={'phase1_digest': 'digest-r', 'phase2_digest': 'digest-r', 'agree': True, 'matches_expected': None, 'violated': False, 'reason': None}
+e93100 _row_counts.<locals>.<genexpr>(.0=list_iterator#137034079686464)  [generator/coroutine, unframed]
+e93102 _row_counts.<locals>.<genexpr>(.0=list_iterator#137034079686464)  [generator/coroutine, unframed]
+e93104 _row_counts.<locals>.<genexpr>(.0=list_iterator#137034079686464)  [generator/coroutine, unframed]
+e93132 _row_counts.<locals>.<genexpr>(.0=list_iterator#137034090127776)  [generator/coroutine, unframed]
+e93134 _row_counts.<locals>.<genexpr>(.0=list_iterator#137034090127776)  [generator/coroutine, unframed]
+e93136 _row_counts.<locals>.<genexpr>(.0=list_iterator#137034090127776)  [generator/coroutine, unframed]
+e93183 _g2_injection_preservation.<locals>.<genexpr>(.0=dict_valueiterator#137034095083984)  [generator/coroutine, unframed]
+e93185 _g2_injection_preservation.<locals>.<genexpr>(.0=dict_valueiterator#137034094200448)  [generator/coroutine, unframed]
+e93197 _stamp_audit.<locals>.<genexpr>(.0=tuple_iterator#137034090125568)  [generator/coroutine, unframed]
+e93199 _stamp_audit.<locals>.<genexpr>(.0=tuple_iterator#137034090125568)  [generator/coroutine, unframed]
+e93212 _a1_wall.<locals>._unmeasured_count.<locals>.<genexpr>(.0=dict_valueiterator#137034096177648)  [generator/coroutine, unframed]
+e93216 _a1_wall.<locals>._unmeasured_count.<locals>.<genexpr>(.0=dict_valueiterator#137034095445152)  [generator/coroutine, unframed]
+e93220 _a1_wall.<locals>._unmeasured_count.<locals>.<genexpr>(.0=dict_valueiterator#137034095445152)  [generator/coroutine, unframed]
+e93224 _a1_wall.<locals>._unmeasured_count.<locals>.<genexpr>(.0=dict_valueiterator#137034095666704)  [generator/coroutine, unframed]
+e93235 _a1_wall.<locals>.<genexpr>(.0=dict_valueiterator#137034095445152)  [generator/coroutine, unframed]
+e93241 _h3_infra.<locals>.<genexpr>(.0=list_iterator#137034090127776)  [generator/coroutine, unframed]
+e93243 _h3_infra.<locals>.<genexpr>(.0=list_iterator#137034090127776)  [generator/coroutine, unframed]
+e93248 _h4_advisory.<locals>._mint_rate.<locals>.<genexpr>(.0=list_iterator#137034079936256)  [generator/coroutine, unframed]
+e93252 _h4_advisory.<locals>._mint_rate.<locals>.<genexpr>(.0=list_iterator#137034079936304)  [generator/coroutine, unframed]
+e93256 _h4_advisory.<locals>._retrieval_rate.<locals>.<genexpr>(.0=dict_valueiterator#137034095445152)  [generator/coroutine, unframed]
+e93260 _h4_advisory.<locals>._retrieval_rate.<locals>.<genexpr>(.0=dict_valueiterator#137034095445152)  [generator/coroutine, unframed]
+2585 unframed call(s) in this trace: coroutine/generator code opens no frame in this version (no tree, frame, focus or watch inside them)
+parentage: ASSUMED -- recorded by a format-1 sensorium, whose parent was the last frame opened on the thread, not the caller; async, generators and C callbacks break that. Re-record to derive it.

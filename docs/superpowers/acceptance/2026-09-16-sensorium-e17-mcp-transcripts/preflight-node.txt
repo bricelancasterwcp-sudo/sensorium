@@ -1,0 +1,3 @@
+$ node --version
+# cwd $E17_DIR  exit 0  0.002s
+v24.16.0

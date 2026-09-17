@@ -1,0 +1,26 @@
+$ $REPO/.venv/bin/python -m sensorium mcp --help
+# cwd $E17_DIR  exit 0  0.058s
+usage: sensorium mcp [-h] [--allow-run] [--store DIR] [--max-output BYTES]
+                     [--timeout SECONDS] [--run-timeout SECONDS]
+
+One JSON-RPC message per line on stdin/stdout; every query command is a tool,
+and record and refocus are tools only under --allow-run. Diagnostics go to
+stderr.
+
+options:
+  -h, --help            show this help message and exit
+  --allow-run           offer record and refocus, the two tools that execute
+                        the recorded program; default off
+  --store DIR           the trace store to serve, as SENSORIUM_DIR for this
+                        server and every call it makes; default the inherited
+                        store
+  --max-output BYTES    cap one answer's body at this many bytes, head and
+                        tail kept with a marker naming what was cut; minimum
+                        4096
+  --timeout SECONDS     how long one query tool may take before its process
+                        group is killed and the call is answered no answer
+  --run-timeout SECONDS
+                        the same bound for the two tools that execute the
+                        recorded program, which are expected to take longer
+
+exit: 0 at EOF or SIGTERM, 2 a refusal to start

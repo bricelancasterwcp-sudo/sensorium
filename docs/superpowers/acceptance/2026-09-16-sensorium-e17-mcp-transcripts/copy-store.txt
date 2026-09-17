@@ -1,0 +1,2 @@
+$ cp -a ~/.sensorium/traces $E17_DIR/store/traces
+# cwd $E17_DIR  exit 0  0.052s

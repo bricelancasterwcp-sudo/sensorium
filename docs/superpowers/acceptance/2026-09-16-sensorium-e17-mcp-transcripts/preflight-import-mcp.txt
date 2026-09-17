@@ -1,0 +1,2 @@
+$ $REPO/.venv/bin/python -c import mcp
+# cwd $E17_DIR  exit 0  0.302s

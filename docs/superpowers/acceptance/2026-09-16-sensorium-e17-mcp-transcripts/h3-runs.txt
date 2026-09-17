@@ -1,0 +1,117 @@
+$ $REPO/.venv/bin/python -m sensorium runs
+# cwd $E17_DIR  exit 0  3.7s
+20260819-225537-ea9b8a  exit:0  events:20  cmd: orders.py
+20260819-225607-70d5ec  exit:0  events:23  cmd: orders.py  [refocus-of:20260819-225537-ea9b8a,verdict:MATCH(granted:4,see-info)]
+20260819-230831-a23a5c  exit:0  events:1376  cmd: pytest tests/test_settings_ai_url_allowlist.py::test_put_roundtrip_stored_private_ip_url_survives_unrelated_field_change -q -p no:cacheprovider --tb=line
+20260819-230850-9726f6  exit:0  events:1379  cmd: pytest tests/test_settings_ai_url_allowlist.py::test_put_roundtrip_stored_private_ip_url_survives_unrelated_field_change -q -p no:cacheprovider --tb=line
+20260819-234739-e2e00e  exit:1  events:972  cmd: -m pytest test_pricing.py
+20260819-235151-a3e00a  exit:0  events:457  cmd: pytest test_pricing.py -x
+20260820-130042-28eca7  exit:0  events:1607  cmd: /tmp/claude-1000/-home-brice/c8f18e01-c8e2-45e3-978b-5f4494f67840/scratchpad/probe_register.py
+20260820-175841-20d068  exit:0  events:2420  cmd: /tmp/claude-1000/-home-brice/c8f18e01-c8e2-45e3-978b-5f4494f67840/scratchpad/probe_dice.py
+20260820-175844-afcbe7  exit:0  events:2604  cmd: /tmp/claude-1000/-home-brice/c8f18e01-c8e2-45e3-978b-5f4494f67840/scratchpad/probe_dice.py
+20260820-180710-694dd7  exit:0  events:2736  cmd: /tmp/claude-1000/-home-brice/c8f18e01-c8e2-45e3-978b-5f4494f67840/scratchpad/probe_dice.py
+20260820-204749-443c7d  exit:0  events:20  cmd: repro.py
+20260821-071202-294980  exit:0  events:20  cmd: repro.py
+20260821-081934-4b2a53  exit:0  events:1454  cmd: /tmp/claude-1000/-home-brice/c8f18e01-c8e2-45e3-978b-5f4494f67840/scratchpad/probe_chat.py
+20260821-104604-efdea5  exit:0  events:20  cmd: tests/fixtures/format1_async.py
+20260901-205911-d66e37  exit:0  events:14911  cmd: -m unittest discover -s tools/memory_battery/tests -t . -p test_recompute.py
+20260901-210147-dec9d4  exit:0  events:14917  cmd: -m unittest tools.memory_battery.tests.test_recompute tools.memory_battery.tests.test_recompute_gates tools.memory_battery.tests.test_recompute_hygiene
+20260901-210236-2d791a  exit:0  events:93283  cmd: -m unittest discover -s tools/memory_battery/tests -t . -p test_*.py
+20260901-210300-edca03  exit:0  events:93273  cmd: -m unittest discover -s tools/memory_battery/tests -t . -p test_*.py
+20260901-210520-7f8854  exit:0  events:93283  cmd: -m unittest discover -s tools/memory_battery/tests -t . -p test_*.py
+invocation 20260903-101135-a142ca: cargo test
+  20260903-101136-eea51c  exit:0  events:6  cmd: smoke-68defe2a11371176
+invocation 20260903-101152-8ede81: cargo test
+  20260903-101152-371a81  exit:0  events:6  cmd: smoke-0ebeef214759077c
+invocation 20260903-101202-ca8dea: cargo test
+  20260903-101202-0235b3  exit:0  events:6  cmd: smoke-31ea8fd843ab0f5f
+invocation 20260903-101249-39fb63: cargo test
+  20260903-101249-d695fa  exit:0  events:6  cmd: smoke-233d8d5090394ad3
+invocation 20260903-101349-489572: cargo test
+  20260903-101349-c3bf45  exit:0  events:6  cmd: smoke-cc5c73fa3d3407bb
+invocation 20260903-101821-881f1e: cargo test
+  20260903-101821-2b91e6  exit:0  events:6  cmd: smoke-d6d8bf6736215fc1
+invocation 20260903-101953-737da1: cargo test
+  20260903-101953-8b216c  exit:0  events:6  cmd: smoke-de82642b9d649330
+invocation 20260903-102034-7afea7: cargo test
+  20260903-102034-c76672  exit:0  events:6  cmd: smoke-a8c0aed1f5b32198
+invocation 20260903-102259-4f1484: cargo test
+  20260903-102259-f54831  exit:0  events:6  cmd: smoke-a50b976ce91968ff
+invocation 20260903-103055-373b12: cargo test
+  20260903-103055-e642e8  exit:0  events:6  cmd: smoke-9ddb6a0a0de3dcc1
+invocation 20260903-104311-f1c679: cargo test
+  20260903-104311-320a38  exit:0  events:6  cmd: smoke-cf239f27c2f0780c
+invocation 20260903-104504-81e1e0: cargo test
+  20260903-104504-6b7fc1  exit:0  events:6  cmd: smoke-46bb550ba05b6723
+invocation 20260903-104818-58b5ec: cargo test
+  20260903-104818-bdd4b0  exit:0  events:6  cmd: smoke-89a48ddc9165a56e
+invocation 20260903-104829-fb48de: cargo test
+  20260903-104829-3b0c10  exit:0  events:6  cmd: smoke-3ee72fb2ee3f29d2
+invocation 20260903-104952-cb7f11: cargo test
+  20260903-104952-dd58b2  exit:0  events:6  cmd: smoke-6cd3eabfd446c079
+invocation 20260903-105333-2ba535: cargo test
+  20260903-105333-7055c7  exit:0  events:6  cmd: smoke-83f33d17e1a0f4e1
+invocation 20260903-105344-1001eb: cargo test
+  20260903-105344-e839e4  exit:0  events:6  cmd: smoke-cebb1477161fd7ff
+invocation 20260903-114124-aad85b: cargo test
+  20260903-114124-c45a87  exit:0  events:6  cmd: smoke-5bc44dd6ce419e94
+invocation 20260903-114920-b3da45: cargo test
+  20260903-114921-9cad4c  exit:0  events:6  cmd: smoke-2454538384212fa7
+invocation 20260903-114928-684a8c: cargo test
+  20260903-114928-21ebbf  exit:0  events:6  cmd: smoke-9ece121128ab0dfd
+invocation 20260903-115952-70becc: cargo test
+  20260903-115952-23912e  exit:0  events:6  cmd: smoke-5248d91f60885e22
+invocation 20260903-120003-8e4c5b: cargo test
+  20260903-120003-73f596  exit:0  events:6  cmd: smoke-08ee23938ce4305d
+invocation 20260903-133526-2102ae: cargo test
+  20260903-133526-4de2d2  exit:0  events:6  cmd: smoke-9286ed3647666c18
+invocation 20260903-140212-df1e2a: cargo test
+  20260903-140212-563645  exit:0  events:6  cmd: smoke-ce82bebcefd1e447
+invocation 20260903-142328-7209dd: cargo test
+  20260903-142328-d00c38  exit:0  events:6  cmd: smoke-0265b4bc09865688
+invocation 20260903-144223-a92f33: cargo test
+  20260903-144224-852952  exit:0  events:6  cmd: smoke-d4fbb39fe28c59a2
+invocation 20260903-145057-55f5bc: cargo test
+  20260903-145057-7295ed  exit:0  events:6  cmd: smoke-fcc7822b1f6fbf7f
+invocation 20260903-145104-5ac839: cargo test
+  20260903-145104-bcd95a  exit:0  events:6  cmd: smoke-911ea9fd71e6a840
+invocation 20260903-145123-ce57ee: cargo test
+  20260903-145123-5694b3  exit:0  events:6  cmd: smoke-31d8ab7639430711
+invocation 20260903-145130-0e633e: cargo test
+  20260903-145130-850279  exit:0  events:6  cmd: smoke-7b2992026452a592
+invocation 20260903-150113-9aa57c: cargo test
+  20260903-150113-bff8e7  exit:0  events:6  cmd: smoke-718b41709acc38bb
+invocation 20260903-150820-d73413: cargo test
+  20260903-150820-83a918  exit:0  events:6  cmd: smoke-ba05321675ed468a
+invocation 20260903-150844-25bc3b: cargo test
+  20260903-150844-548245  exit:0  events:6  cmd: smoke-26dba21e23211aed
+invocation 20260903-150926-5f274d: cargo test
+  20260903-150926-1024ac  exit:0  events:6  cmd: smoke-d2fc3c759b364645
+invocation 20260903-150932-2ba819: cargo test
+  20260903-150932-a79b12  exit:0  events:6  cmd: smoke-8df86c77f563358f
+invocation 20260903-151035-48eb54: cargo test
+  20260903-151036-e46903  exit:0  events:6  cmd: smoke-284a8ad173fa835f
+invocation 20260903-151127-2f68d3: cargo test
+  20260903-151127-be647c  exit:0  events:6  cmd: smoke-243e9b0df785ac75
+invocation 20260903-152019-b63777: cargo test
+  20260903-152019-3f6bf4  exit:0  events:6  cmd: smoke-ccf7bbe82710dcf4
+invocation 20260903-152249-9a88c6: cargo test
+  20260903-152249-4d57ea  exit:0  events:6  cmd: smoke-149b9b7b213c08cd
+invocation 20260903-152605-60b071: cargo test
+  20260903-152605-51c688  exit:0  events:6  cmd: smoke-c6a8953364051265
+invocation 20260903-152909-6e125b: cargo test
+  20260903-152909-98644f  exit:0  events:6  cmd: smoke-32e53e4708e99731
+invocation 20260903-152922-0402e3: cargo test
+  20260903-152922-682231  exit:0  events:6  cmd: smoke-1c450201ebc880a7
+invocation 20260903-153149-d3f809: cargo test
+  20260903-153149-484958  exit:0  events:6  cmd: smoke-80a9f06a0d07ed0c
+invocation 20260903-153247-c02b7f: cargo test
+  20260903-153247-1291e9  exit:0  events:6  cmd: smoke-f9c46806d5355bf0
+invocation 20260903-153252-b60942: cargo test
+  20260903-153252-38e08e  exit:0  events:6  cmd: smoke-78e21e2b90d4b1e0
+invocation 20260903-153304-115145: cargo test
+  20260903-153304-1d8404  exit:0  events:6  cmd: smoke-248655cde41c6b1b
+invocation 20260903-153531-4baf02: cargo test
+  20260903-153531-cf8478  exit:0  events:6  cmd: smoke-2397cecab4d417d1
+invocation 20260903-170939-e4a59a: cargo test
+  20260903-170939-2813ec  exit:0  events:6  cmd: smoke-9c31a17ecf05cf

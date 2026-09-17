@@ -1,0 +1,4 @@
+sensorium mcp: serving 11 tools (allow_run=True) store=$E17_DIR/h5/store-timeout
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: child 1794115 pgid 1794115 tool record
+sensorium mcp: exit 0 (eof)

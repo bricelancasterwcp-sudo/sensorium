@@ -1,0 +1,3 @@
+$ which -a sensorium
+# cwd $E17_DIR  exit 0  0.001s
+$REPO/.venv/bin/sensorium

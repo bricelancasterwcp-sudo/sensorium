@@ -1,0 +1,7 @@
+exit 0: the trace answered affirmatively
+raised (2):
+  e9 RAISE   parse_row raise ValueError("invalid literal for int() with base 10: 'x7'") L8
+    SWALLOWED at e10 load_all L15 -- caught in f3, which returned normally; never re-raised
+  e14 RAISE   parse_row raise ValueError("invalid literal for int() with base 10: '??'") L8
+    SWALLOWED at e15 load_all L15 -- caught in f3, which returned normally; never re-raised
+dispositions: swallowed 2

@@ -63,4 +63,198 @@ Written after H7's first run and before any cell was measured by the instrument;
 
 ## 2. Measured
 
-Not yet measured.
+### measured 2026-09-17
+
+Measured once, on this box, under `e17.sh`. **E17: DONE** — H1 parity PASS  H2 conformance PASS  H3 the cap PASS  H4 the gate PASS  H5 liveness PASS  H6 secrecy PASS  H7 the deploy target reported  latency measured. 273 traces in the copy. 251.2s wall clock.
+
+| cell | word | §9's rule | what was read |
+|---|---|---|---|
+| H1 parity | **PASS** | 0 failures; every read-only question byte-identical and exit-identical; skipped set equals Task 0's locked not-a-tool list exactly | 0 failure(s); 0 harness error(s); no `exit_reason`; 0 case(s) skipped; 0 MCP/CLI difference(s) over the read-only questions; `via_cli` holds 3 question(s) against the locked 3; 115 cases / 253 questions, against the locked 115 / 253 |
+| H2 conformance | **PASS** | all of a–d | pytest exited 0; 10 passed, against §1's floor of 9 |
+| H3 the cap | **PASS** | text ≤ 65536 + marker; marker names `depth, limit, around`; head and tail both non-empty; audit `truncated: true` | the header line reads `exit 0: the trace answered affirmatively`; 1 line(s) match §1's marker regex, which names `depth, limit, around`; 65135 bytes after the header with the marker line removed, against the 65536-byte bound; the head is 306 line(s); the tail is 32 line(s); the last `mcp.jsonl` line says truncated = True |
+| H4 the gate | **PASS** | all | 9 tools without the flag; `tools/call record` without the flag answered -32602 'Unknown tool: record', against -32602 'Unknown tool: record'; 11 tools with `--allow-run`; `record` answered `exit 0: the recorded command's own status (2 and no trace when recordi`; `runs` through the wire lists 1 trace(s): 20260917-092446-76f719; `exceptions` satisfies `what-was-dropped` |
+| H5 liveness | **PASS** | all | 10 pings sent, the slowest answered in 0.8 ms (ceiling 1000 ms); the child's group was gone 0.10 s after the cancel; no response for the cancelled id arrived; the next `runs` answered=True, listing 1 trace(s), 1 INCOMPLETE; the timeout arm's header is `no answer: timed out after 3 s (server flag --timeout / --run-timeout)`; the timeout result's `isError` is True; the header's exit (`CallResult.exit`) is None; answered 3.05 s after the send (cap 6.0 s); the group was gone 3.06 s after the send (cap 5.0 s) |
+| H6 secrecy | **PASS** | 0 occurrences in the three places; H6b marker present, value absent from the audit | 4 result text(s) counted, over the case's 4 question(s); `mcp.jsonl` holds 4 line(s), against the 4 calls made; the stderr transcript holds 430 byte(s); 0 occurrence(s) of the token in 0× the result texts, 0× `mcp.jsonl`, 0× the stderr transcript; H6b: the audit line's `arguments.pattern` is '<redacted>'; H6b: 0 occurrence(s) of the token in `mcp.jsonl` after the `grep` |
+| H7 the deploy target | **reported** | — | 7 sensorium tool(s) used (Skill, ToolSearch, mcp__sensorium__record, mcp__sensorium__info, mcp__sensorium__exceptions, mcp__sensorium__frame, and 1 more), ≥ 3, over 5 sensorium call(s); `record` was passed ['main.py']; the frame the session named IS the case's `truth` frame `load_all`; the deploy target opened with `handshake initialize 2025-11-25 -> 2025-11-25`; model `claude-opus-5` under Claude Code 2.1.258 |
+| latency | **measured** | — | median `runs` through the wire 3704.9 ms vs 3709.1 ms through the CLI, a ratio of 1.00×; server spawn to the `server/discover` answer 49.5 ms |
+
+#### Pins
+
+| pin | path |
+|---|---|
+| work root | `E17_DIR=/mnt/extra/sensorium-rung2/e17` |
+| the copy (the subject) | `$E17_DIR/store/` |
+| H4's store | `$E17_DIR/h4/store/` |
+| H5's stores | `$E17_DIR/h5/store/, $E17_DIR/h5/store-timeout/` |
+| H6's store | `$E17_DIR/h6/store/` |
+| transcripts | `$E17_DIR/transcripts/` |
+| instrument output | `$E17_DIR/out/` |
+| copied out of (never written to) | `~/.sensorium` |
+| E17_CARGO_BIN | `~/.cargo/bin` |
+| E17_NODE_BIN | `~/.nvm/versions/node/v24.16.0/bin` |
+| H1's cell timer | `600 s` |
+| the part's cap | `3300 s` |
+
+#### Versions
+
+| version | read | §1 expected |
+|---|---|---|
+| `sensorium` (the venv the server ran from) | 0.18.0 | 0.18.0 |
+| Python | 3.13.13 | — |
+| `mcp` (H2's oracle, the official SDK) | 2.2.0 | 2.2.x |
+| Claude Code (H7's client) | 2.1.258 (Claude Code) | — |
+
+#### H1 — PASS
+
+| clause | what was read | word |
+|---|---|---|
+| failures | 0 failure(s) | **PASS** |
+| errors | 0 harness error(s) | **PASS** |
+| exit_reason | no `exit_reason` | **PASS** |
+| skipped | 0 case(s) skipped | **PASS** |
+| differences | 0 MCP/CLI difference(s) over the read-only questions | **PASS** |
+| via_cli | `via_cli` holds 3 question(s) against the locked 3 | **PASS** |
+| census | 115 cases / 253 questions, against the locked 115 / 253 | **PASS** |
+
+| reading | value |
+|---|---|
+| `census` | [115, 253] |
+| `differences` | [] |
+| `dry` | False |
+| `via_cli` | ['redact_retrofit/what-would-the-retrofit-take', 'redact_retrofit/the-retrofit-rewrites-once', 'redact_retrofit/a-second-pass-finds-nothing'] |
+
+#### H2 — PASS
+
+| clause | what was read | word |
+|---|---|---|
+| exit | pytest exited 0 | **PASS** |
+| passed | 10 passed, against §1's floor of 9 | **PASS** |
+
+| reading | value |
+|---|---|
+| `passed` | 10 |
+| `rc` | 0 |
+| `skipped` | 0 |
+
+#### H3 — PASS
+
+| clause | what was read | word |
+|---|---|---|
+| header | the header line reads `exit 0: the trace answered affirmatively` | **PASS** |
+| marker | 1 line(s) match §1's marker regex, which names `depth, limit, around` | **PASS** |
+| bytes | 65135 bytes after the header with the marker line removed, against the 65536-byte bound | **PASS** |
+| head | the head is 306 line(s) | **PASS** |
+| tail | the tail is 32 line(s) | **PASS** |
+| truncated | the last `mcp.jsonl` line says truncated = True | **PASS** |
+
+| reading | value |
+|---|---|
+| `bytes` | 65135 |
+| `cli_bytes` | 28514015 |
+| `head_lines` | 306 |
+| `header` | exit 0: the trace answered affirmatively |
+| `tail_lines` | 32 |
+
+#### H4 — PASS
+
+| clause | what was read | word |
+|---|---|---|
+| nine | 9 tools without the flag | **PASS** |
+| record-is-unknown | `tools/call record` without the flag answered -32602 'Unknown tool: record', against -32602 'Unknown tool: record' | **PASS** |
+| eleven | 11 tools with `--allow-run` | **PASS** |
+| record | `record` answered `exit 0: the recorded command's own status (2 and no trace when recordi` | **PASS** |
+| runs | `runs` through the wire lists 1 trace(s): 20260917-092446-76f719 | **PASS** |
+| exceptions | `exceptions` satisfies `what-was-dropped` | **PASS** |
+
+| reading | value |
+|---|---|
+| `error_off` | {'code': -32602, 'message': 'Unknown tool: record'} |
+| `names_off` | ['runs', 'info', 'tree', 'frame', 'grep', 'exceptions', 'flow', 'watch', 'diff'] |
+| `names_on` | ['runs', 'info', 'tree', 'frame', 'grep', 'exceptions', 'flow', 'watch', 'diff', 'refocus', 'record'] |
+| `record_header` | exit 0: the recorded command's own status (2 and no trace when recording was refused) |
+| `traces` | ['20260917-092446-76f719'] |
+
+#### H5 — PASS
+
+| clause | what was read | word |
+|---|---|---|
+| pings | 10 pings sent, the slowest answered in 0.8 ms (ceiling 1000 ms) | **PASS** |
+| group-gone | the child's group was gone 0.10 s after the cancel | **PASS** |
+| no-response | no response for the cancelled id arrived | **PASS** |
+| runs-after | the next `runs` answered=True, listing 1 trace(s), 1 INCOMPLETE | **PASS** |
+| timeout-header | the timeout arm's header is `no answer: timed out after 3 s (server flag --timeout / --run-timeout)` | **PASS** |
+| timeout-is-error | the timeout result's `isError` is True | **PASS** |
+| timeout-exit | the header's exit (`CallResult.exit`) is None | **PASS** |
+| timeout-answered | answered 3.05 s after the send (cap 6.0 s) | **PASS** |
+| timeout-group-gone | the group was gone 3.06 s after the send (cap 5.0 s) | **PASS** |
+
+| reading | value |
+|---|---|
+| `group_gone_s` | 0.1 |
+| `ping_max` | 0.001 |
+| `pings_sent` | 10 |
+| `runs_after` | {'answered': True, 'incomplete': 1, 'traces': 1} |
+| `timeout_answered_s` | 3.055 |
+| `timeout_group_gone_s` | 3.055 |
+
+#### H6 — PASS
+
+| clause | what was read | word |
+|---|---|---|
+| texts | 4 result text(s) counted, over the case's 4 question(s) | **PASS** |
+| audit-lines | `mcp.jsonl` holds 4 line(s), against the 4 calls made | **PASS** |
+| stderr | the stderr transcript holds 430 byte(s) | **PASS** |
+| occurrences | 0 occurrence(s) of the token in 0× the result texts, 0× `mcp.jsonl`, 0× the stderr transcript | **PASS** |
+| h6b-marker | H6b: the audit line's `arguments.pattern` is '<redacted>' | **PASS** |
+| h6b-absent | H6b: 0 occurrence(s) of the token in `mcp.jsonl` after the `grep` | **PASS** |
+
+| reading | value |
+|---|---|
+| `checks_run` | 4 |
+| `counts` | {'in_jsonl': 0, 'in_stderr': 0, 'in_texts': 0, 'jsonl_lines': 4, 'questions': 4, 'stderr_bytes': 430, 'texts': 4} |
+| `h6b` | {'in_jsonl': 0, 'pattern': '<redacted>'} |
+| `proc_check` | PASS |
+
+#### H7 — reported
+
+**No clause table (reported).** §9 gives this row no PASS/STOP column, so it has no clauses
+
+| reading | value |
+|---|---|
+| `claude_version` | 2.1.258 |
+| `handshake` | handshake initialize 2025-11-25 -> 2025-11-25 |
+| `model` | claude-opus-5 |
+| `named_frame` | True |
+| `recorded_command` | ['main.py'] |
+| `sensorium_tool_calls` | 5 |
+| `tools_used` | ['Skill', 'ToolSearch', 'mcp__sensorium__record', 'mcp__sensorium__info', 'mcp__sensorium__exceptions', 'mcp__sensorium__frame', 'mcp__sensorium__tree'] |
+
+#### Latency
+
+| reading | value |
+|---|---|
+| median `runs` through the wire | 3704.907 ms |
+| median `runs` through the CLI | 3709.077 ms |
+| ratio | 0.999× |
+| server spawn to the `server/discover` answer | 49.467 ms |
+
+#### Phases
+
+| phase | seconds | error |
+|---|---|---|
+| preflight | 0.404 | — |
+| copy-store | 0.053 | — |
+| h1-corpus | 81.25 | — |
+| h2-conformance | 2.37 | — |
+| h3-cap | 6.221 | — |
+| h4-gate | 0.458 | — |
+| h5-liveness | 11.373 | — |
+| mint | 0.0 | — |
+| h6-secrecy | 0.577 | — |
+| h7-read | 0.0 | — |
+| latency | 148.467 | — |
+| versions | 0.059 | — |
+
+#### Erratum (2026-09-17, the controller, same day, after reading the raw)
+
+The H7 row's `what was read` says "7 sensorium tool(s) used (Skill, ToolSearch, …)": the cell counted every distinct tool NAME in `h7.json`'s `tools_used`, including Claude Code's own `Skill` and `ToolSearch`, which are not sensorium's. Read from the same file by hand: the distinct sensorium tools were **5** (`record`, `info`, `exceptions`, `tree`, `frame`), the `sensorium_tool_calls` field is **5**, and the locked "≥ 3" holds either way. The measured value (`h7.json`) is untouched; the cell's counting is a rendering defect carried to the next slice. The same run's handshake line — `initialize 2025-11-25 -> 2025-11-25` — records that Claude Code 2.1.258 opened with the LEGACY handshake, not `server/discover`.

@@ -1,0 +1,51 @@
+$ $REPO/.venv/bin/python -m pytest -q tests/test_mcp_conformance.py -rA
+# cwd $REPO  exit 0  2.369s
+..........                                                               [100%]
+==================================== PASSES ====================================
+_______________ test_auto_connect_is_modern_and_names_the_server _______________
+----------------------------- Captured stderr call -----------------------------
+sensorium mcp: serving 9 tools (allow_run=False) store=/tmp/pytest-of-brice/pytest-22707/conformance-store0/sdir
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: exit 0 (eof)
+_______________________ test_list_tools_nine_then_eleven _______________________
+----------------------------- Captured stderr call -----------------------------
+sensorium mcp: serving 9 tools (allow_run=False) store=/tmp/pytest-of-brice/pytest-22707/conformance-store0/sdir
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: exit 0 (eof)
+sensorium mcp: serving 11 tools (allow_run=True) store=/tmp/pytest-of-brice/pytest-22707/conformance-store0/sdir
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: exit 0 (eof)
+___________ test_call_runs_has_the_header_and_no_structured_content ____________
+----------------------------- Captured stderr call -----------------------------
+sensorium mcp: serving 9 tools (allow_run=False) store=/tmp/pytest-of-brice/pytest-22707/conformance-store0/sdir
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: child 1793684 pgid 1793684 tool runs
+sensorium mcp: exit 0 (eof)
+___________________ test_legacy_mode_connects_at_2025_11_25 ____________________
+----------------------------- Captured stderr call -----------------------------
+sensorium mcp: serving 9 tools (allow_run=False) store=/tmp/pytest-of-brice/pytest-22707/conformance-store0/sdir
+sensorium mcp: handshake initialize 2025-11-25 -> 2025-11-25
+sensorium mcp: exit 0 (eof)
+________________________ test_unknown_tool_raises_32602 ________________________
+----------------------------- Captured stderr call -----------------------------
+sensorium mcp: serving 9 tools (allow_run=False) store=/tmp/pytest-of-brice/pytest-22707/conformance-store0/sdir
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: exit 0 (eof)
+______________ test_read_timeout_cancels_and_the_server_survives _______________
+----------------------------- Captured stderr call -----------------------------
+sensorium mcp: serving 11 tools (allow_run=True) store=/tmp/pytest-of-brice/pytest-22707/test_read_timeout_cancels_and_0/sdir
+sensorium mcp: handshake discover 2026-07-28
+sensorium mcp: child 1793694 pgid 1793694 tool record
+sensorium mcp: exit 0 (eof)
+=========================== short test summary info ============================
+PASSED tests/test_mcp_conformance.py::test_auto_connect_is_modern_and_names_the_server
+PASSED tests/test_mcp_conformance.py::test_list_tools_nine_then_eleven
+PASSED tests/test_mcp_conformance.py::test_call_runs_has_the_header_and_no_structured_content
+PASSED tests/test_mcp_conformance.py::test_legacy_mode_connects_at_2025_11_25
+PASSED tests/test_mcp_conformance.py::test_unknown_tool_raises_32602
+PASSED tests/test_mcp_conformance.py::test_read_timeout_cancels_and_the_server_survives
+PASSED tests/test_mcp_conformance.py::test_hand_written_client_initialize_echo_fallback_and_32022
+PASSED tests/test_mcp_conformance.py::test_a_modern_request_without_client_capabilities_is_32602
+PASSED tests/test_mcp_conformance.py::test_sdk_send_discover_with_an_unsupported_version_is_32022
+PASSED tests/test_mcp_conformance.py::test_the_servers_stderr_holds_no_json
+10 passed in 2.21s
