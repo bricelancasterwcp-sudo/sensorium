@@ -187,7 +187,8 @@ def _h5(**over) -> dict:
 
 
 def _h6(**over) -> dict:
-    checks = [{"question": f"q{i}", "failures": []} for i in range(4)]
+    checks = [{"question": e17_cells.PROC_CHECK, "failures": []}]
+    checks += [{"question": f"q{i}", "failures": []} for i in range(4)]
     counts = {"questions": 4, "texts": 4, "in_texts": 0, "jsonl_lines": 5,
               "in_jsonl": 0, "stderr_bytes": 812, "in_stderr": 0}
     args = {"checks": checks, "counts": counts,
@@ -450,6 +451,14 @@ def test_h5_stops_on_each_clause_in_turn():
     assert h5(**_h5(timeout_header="no answer: cancelled"))["word"] == "STOP"
 
 
+def test_h5_names_the_headers_exit_and_not_the_wire_field(request):
+    """R18: what the cell reads is `CallResult.exit`, parsed out of the
+    `no answer: timed out after 3 s (…)` header. The clause says that."""
+    got = h5(**_h5(timeout_exit=0))
+    assert "the header's exit (`CallResult.exit`) is 0" in got["read"]
+    assert "structuredContent" not in got["read"]
+
+
 def test_h5_stops_when_the_timeout_arm_never_answered():
     """A header the instrument wrote because nothing came back is a STOP,
     not a hole: the arm ran and the server did not answer."""
@@ -494,6 +503,54 @@ def test_h6_stops_as_instrument_on_a_failed_expectation_naming_it():
     assert "info-counts-the-values-the-rule-took" in got["read"]
 
 
+def test_h6_drops_when_a_count_over_the_result_texts_was_never_taken():
+    """Catches: `texts` and `questions` left out of the `unread` guard. An
+    absent pair made the first clause `None == None` -- a PASS over two
+    holes -- and degraded the audit-lines clause to `jsonl_lines >= 0`,
+    which nothing can fail.
+
+    Pre-registered mutant: drop the two new `unread` entries -- caught
+    here.
+    """
+    for key, said in (("texts", "the result texts"),
+                      ("questions", "the case's question count")):
+        counts = dict(_h6()["counts"])
+        counts[key] = None
+        got = h6(**_h6(counts=counts))
+        assert got["word"] == "dropped", (key, got)
+        assert said in got["read"], (key, got["read"])
+    # ...and both absent together is still a drop, never `None == None`.
+    counts = dict(_h6()["counts"])
+    counts["texts"] = counts["questions"] = None
+    assert h6(**_h6(counts=counts))["word"] == "dropped"
+
+
+def test_h6_counts_the_proc_row_apart_from_the_cases_questions():
+    """The `/proc` precondition rides in `checks` so a failure reaches the
+    STOP-AS-INSTRUMENT sentence, but it is not one of `secret_in_env`'s
+    questions: `checks_run` must read 4, not 5."""
+    got = h6(**_h6())
+    assert got["detail"]["checks_run"] == got["detail"]["counts"]["questions"]
+    assert got["detail"]["proc_check"] == "PASS"
+    # A run whose `checks` never carried the row says so, rather than
+    # reporting a precondition that was never looked at as one that held.
+    bare = [c for c in _h6()["checks"]
+            if c["question"] != e17_cells.PROC_CHECK]
+    assert h6(**_h6(checks=bare))["detail"]["proc_check"] is None
+
+
+def test_h6_stops_as_instrument_when_the_server_did_not_hold_the_token():
+    """The `/proc` row failing is a finding about the MEASUREMENT: a server
+    without the token in its environment measured no secrecy."""
+    checks = [{"question": e17_cells.PROC_CHECK,
+               "failures": ["the entry is not in the server's environ"]}]
+    checks += [{"question": f"q{i}", "failures": []} for i in range(4)]
+    got = h6(**_h6(checks=checks))
+    assert got["word"] == "STOP"
+    assert "instrument" in got["read"]
+    assert e17_cells.PROC_CHECK in got["read"]
+
+
 def test_h6_drops_when_the_audit_file_was_not_read():
     """Catches: a missing `mcp.jsonl` counted as 0 lines and 0
     occurrences -- a hole reported as the cleanest possible pass."""
@@ -534,6 +591,7 @@ def test_h6_drops_on_a_missing_input():
 # -- H7 and latency ---------------------------------------------------------
 def _h7(**over) -> dict:
     doc = {"tools_used": ["record", "exceptions", "frame", "runs"],
+           "sensorium_tool_calls": 11,
            "recorded_command": ["main.py"], "named_frame": True,
            "model": "claude-opus-5", "claude_version": "2.1.258",
            "handshake": "handshake discover 2026-07-28"}
@@ -545,6 +603,8 @@ def test_h7_is_reported_either_way_and_names_what_was_read():
     got = h7(_h7())
     assert got["word"] == "reported"
     assert "4 sensorium tool" in got["read"]
+    assert "11 sensorium call(s)" in got["read"]
+    assert got["detail"]["sensorium_tool_calls"] == 11
     assert "main.py" in got["read"]
     assert "load_all" in got["read"]
     assert "handshake discover 2026-07-28" in got["read"]
@@ -556,6 +616,17 @@ def test_h7_is_still_reported_when_the_model_did_something_else():
     assert got["word"] == "reported"
     assert "fewer than 3" in got["read"]
     assert "is NOT" in got["read"]
+
+
+def test_h7_says_so_when_the_call_count_was_not_recorded():
+    """`sensorium_tool_calls` is R17's addition to `h7.json`. Absent is
+    said out loud -- never a zero, and never silence that reads as one."""
+    doc = _h7()
+    del doc["sensorium_tool_calls"]
+    got = h7(doc)
+    assert got["word"] == "reported"
+    assert "a call count that was not recorded" in got["read"]
+    assert got["detail"]["sensorium_tool_calls"] is None
 
 
 def test_h7_drops_with_the_controllers_reason_when_the_file_is_absent():

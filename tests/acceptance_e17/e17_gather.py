@@ -275,10 +275,15 @@ def _h5_cancel(part, root: Path) -> dict:
         listing = client.call("runs", {}, timeout=part.timers["cell"])
         part._keep("h5-runs", listing.text)
         rows = listing.stdout.splitlines()
+        # READ, not asserted: `call` returning at all is not the same fact
+        # as the server having ANSWERED the call -- a result with no exit
+        # (a cancel, a timeout) reads `no answer:` in its header, and a
+        # literal `True` here would have reported that as an answer.
+        answered = listing.header.startswith("exit ")
     return {"pings_sent": len(pings), "ping_max": max(pings) if pings else None,
             "alive_before": alive_before, "group_gone_s": gone,
             "response_seen": seen,
-            "runs_after": {"answered": True,
+            "runs_after": {"answered": answered,
                            "traces": len(RUNS_ROW.findall(listing.stdout)),
                            "incomplete": sum("INCOMPLETE" in r for r in rows)}}
 
@@ -378,24 +383,24 @@ def _h6_ask(part, spec, case: Path, store: Path, token: str, literal: str,
     return {"checks": checks, "counts": counts, "h6b": h6b}
 
 
-#: What `_proc_check` calls itself in `checks`. Counted apart from the
-#: case's own questions in `e17_cells.h6`'s detail, so `checks_run` never
-#: reads as one more question than the case has.
-PROC_CHECK = "the server's own environment holds the token"
-
-
 def _proc_check(pid: int, token: str) -> dict:
     """§9's precondition, read in memory and never written: the server's
-    own `/proc/<pid>/environ` carries `NAME=<token>`. Reported as a
-    question so that H6's STOP-AS-INSTRUMENT sentence carries it -- a
-    server without the token in its environment measured no secrecy."""
+    own `/proc/<pid>/environ` carries `NAME=<token>`.
+
+    Reported as a question so that H6's STOP-AS-INSTRUMENT sentence carries
+    it -- a server without the token in its environment measured no
+    secrecy. It is NOT one of the case's questions, and `e17_cells.h6`
+    keeps the two apart by `e17_cells.PROC_CHECK`: the detail's
+    `checks_run` counts the case's questions and `proc_check` carries this
+    row's own word.
+    """
     entry = f"SENSORIUM_CORPUS_TOKEN={token}".encode()
     try:
         held = entry in Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
         why = [] if held else ["the entry is not in the server's environ"]
     except OSError as err:
         why = [f"/proc/{pid}/environ could not be read: {err}"]
-    return {"question": PROC_CHECK, "failures": why}
+    return {"question": e17_cells.PROC_CHECK, "failures": why}
 
 
 def _scrub(text: str, token: str) -> str:

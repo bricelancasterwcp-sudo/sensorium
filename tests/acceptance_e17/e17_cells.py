@@ -103,6 +103,12 @@ RUN_ID = re.compile(r"\b\d{8}-\d{6}-[0-9a-f]{6}\b")
 #: The three places §9 counts the token in, and what each key says.
 H6_PLACES = (("in_texts", "the result texts"), ("in_jsonl", "`mcp.jsonl`"),
              ("in_stderr", "the stderr transcript"))
+#: The row `e17_gather._proc_check` adds to H6's `checks`: §9's precondition
+#: that the SERVER's own environment holds the token. It rides in `checks`
+#: so that a failure reaches H6's STOP-AS-INSTRUMENT sentence, and it is
+#: counted APART from the case's questions in the detail -- `checks_run`
+#: must not read as one more question than `secret_in_env` has.
+PROC_CHECK = "the server's own environment holds the token"
 
 
 def marker_re(narrowing: tuple[str, ...]) -> re.Pattern:
@@ -325,12 +331,14 @@ def h5(pings_sent, ping_max, alive_before, group_gone_s, response_seen,
        timeout_answered_s, timeout_group_gone_s) -> dict:
     """§9's H5, both arms.
 
-    `timeout_exit` is `None` on a PASS -- §9 requires `structuredContent.
-    exit == null` -- so the timeout arm's READNESS is carried by
-    `timeout_header`, which the instrument fills with `NO_TIMEOUT_RESULT`
-    when nothing came back. `group_gone_s` is `None` when the group was
-    still there at the deadline: a STOP, not a hole, since `alive_before`
-    proves there was a group to watch.
+    `timeout_exit` is `None` on a PASS. The reading is R18's: the timed-out
+    result's HEADER is `no answer: timed out after 3 s (server flag
+    --timeout / --run-timeout)`, and `CallResult.exit` -- which the client
+    parses out of that header -- is therefore `None`. So the timeout arm's
+    READNESS is carried by `timeout_header`, which the instrument fills
+    with `NO_TIMEOUT_RESULT` when nothing came back at all. `group_gone_s`
+    is `None` when the group was still there at the deadline: a STOP, not a
+    hole, since `alive_before` proves there was a group to watch.
     """
     gone = _missing(pings_sent=pings_sent, ping_max=ping_max,
                     alive_before=alive_before, response_seen=response_seen,
@@ -371,7 +379,7 @@ def h5(pings_sent, ping_max, alive_before, group_gone_s, response_seen,
          ("timeout-is-error", timeout_is_error is True,
           f"the timeout result's `isError` is {timeout_is_error!r}"),
          ("timeout-exit", timeout_exit is None,
-          f"`structuredContent.exit` is {timeout_exit!r}"),
+          f"the header's exit (`CallResult.exit`) is {timeout_exit!r}"),
          ("timeout-answered", answered is not None
           and answered <= TIMEOUT_ANSWER,
           f"answered {answered:.2f} s after the send (cap {TIMEOUT_ANSWER} s)"
@@ -389,6 +397,14 @@ def h5(pings_sent, ping_max, alive_before, group_gone_s, response_seen,
 
 
 # -- H6: secrecy ------------------------------------------------------------
+def _proc_word(checks: list) -> str | None:
+    """The `/proc` row's own word, or `None` when the row is not there --
+    which is not the same fact as a row that passed."""
+    row = next((c for c in checks if c.get("question") == PROC_CHECK), None)
+    return None if row is None else ("STOP" if row.get("failures")
+                                     else "PASS")
+
+
 def h6(checks: list | None, counts: dict | None, h6b: dict | None) -> dict:
     """§9's H6 and H6b: the case's own expectations first, then the token's
     bytes counted in the three places. A question whose expectations failed
@@ -408,8 +424,14 @@ def h6(checks: list | None, counts: dict | None, h6b: dict | None) -> dict:
             f"their own expectations through the wire: "
             + _named([f"{c['question']} ({_named(c['failures'], 2)})"
                       for c in failed]))
+    # `texts` and `questions` belong here with the rest. Without them an
+    # absent pair made the first clause `None == None` -- a PASS over two
+    # holes -- and turned the audit-lines clause into `jsonl_lines >= 0`,
+    # which nothing can fail. A count nobody took is not a count.
     unread = [name for name, value in
-              (("`mcp.jsonl`", counts.get("jsonl_lines")),
+              (("the result texts", counts.get("texts")),
+               ("the case's question count", counts.get("questions")),
+               ("`mcp.jsonl`", counts.get("jsonl_lines")),
                ("the stderr transcript", counts.get("stderr_bytes")),
                *((what, counts.get(key)) for key, what in H6_PLACES))
               if value is None]
@@ -418,13 +440,12 @@ def h6(checks: list | None, counts: dict | None, h6b: dict | None) -> dict:
                         f"{', '.join(dict.fromkeys(unread))}")
     total = sum(counts[key] for key, _ in H6_PLACES)
     return _verdict(
-        [("texts", counts.get("texts") == counts.get("questions"),
-          f"{counts.get('texts')} result text(s) counted, over the case's "
-          f"{counts.get('questions')} question(s)"),
-         ("audit-lines", counts["jsonl_lines"] >= (counts.get("questions")
-                                                   or 0),
+        [("texts", counts["texts"] == counts["questions"],
+          f"{counts['texts']} result text(s) counted, over the case's "
+          f"{counts['questions']} question(s)"),
+         ("audit-lines", counts["jsonl_lines"] >= counts["questions"],
           f"`mcp.jsonl` holds {counts['jsonl_lines']} line(s), against the "
-          f"{counts.get('questions')} calls made"),
+          f"{counts['questions']} calls made"),
          ("stderr", counts["stderr_bytes"] > 0,
           f"the stderr transcript holds {counts['stderr_bytes']} byte(s)"),
          ("occurrences", total == 0,
@@ -436,7 +457,10 @@ def h6(checks: list | None, counts: dict | None, h6b: dict | None) -> dict:
          ("h6b-absent", h6b.get("in_jsonl") == 0,
           f"H6b: {h6b.get('in_jsonl')!r} occurrence(s) of the token in "
           f"`mcp.jsonl` after the `grep`")],
-        {"counts": counts, "h6b": h6b, "checks_run": len(checks)})
+        {"counts": counts, "h6b": h6b,
+         "checks_run": len([c for c in checks
+                            if c.get("question") != PROC_CHECK]),
+         "proc_check": _proc_word(checks)})
 
 
 # -- H7 and latency: never gated -------------------------------------------
@@ -447,12 +471,15 @@ def h7(doc: dict | None) -> dict:
         return _dropped("H7 not run by the controller")
     used, command = list(doc.get("tools_used") or []), doc.get(
         "recorded_command")
-    named = doc.get("named_frame")
+    named, calls = doc.get("named_frame"), doc.get("sensorium_tool_calls")
     return {"word": "reported",
             "read": (f"{len(used)} sensorium tool(s) used "
                      f"({_named(used, 6) or 'none'}), "
                      f"{'≥ 3' if len(used) >= H7_MIN_TOOLS else 'fewer '
-                        'than 3'}; `record` was passed "
+                        'than 3'}, over "
+                     f"{f'{calls} sensorium call(s)' if calls is not None
+                        else 'a call count that was not recorded'}; "
+                     f"`record` was passed "
                      f"{command if command is not None else '(not read)'}; "
                      f"the frame the session named "
                      f"{'IS' if named is True else 'is NOT' if named is False
@@ -461,7 +488,8 @@ def h7(doc: dict | None) -> dict:
                      f"with `{doc.get('handshake')}`; model "
                      f"`{doc.get('model')}` under Claude Code "
                      f"{doc.get('claude_version')}"),
-            "detail": {"tools_used": used, "recorded_command": command,
+            "detail": {"tools_used": used, "sensorium_tool_calls": calls,
+                       "recorded_command": command,
                        "named_frame": named, "model": doc.get("model"),
                        "claude_version": doc.get("claude_version"),
                        "handshake": doc.get("handshake")}}

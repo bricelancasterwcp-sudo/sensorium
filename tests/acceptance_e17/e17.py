@@ -216,8 +216,13 @@ class PartE17(Part):
         token = TOKEN_PREFIX + "".join(secrets.choice(ALPHABET)
                                        for _ in range(TOKEN_BODY))
         path = self.work / "token"
-        path.write_text(token + "\n")
-        os.chmod(path, 0o600)
+        # 0600 at CREATION, and `O_EXCL` so an existing file is never
+        # written into: `write_text` then `chmod` leaves the value
+        # world-readable-under-the-umask for the width of two syscalls,
+        # which is a window a secret does not need to have.
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(token + "\n")
         return token
 
     # -- what the record's §2 pins -----------------------------------------

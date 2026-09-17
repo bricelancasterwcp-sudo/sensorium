@@ -46,6 +46,12 @@ LIVE="${E17_LIVE:-$HOME/.sensorium}"
   refuse "$WORK/store exists: E17 is measured ONCE, into a fresh copy; delete it before measuring again"
 { [ -e "$OUT/e17.DONE" ] || [ -e "$OUT/e17.FAILED" ]; } &&
   refuse "$OUT already holds a marker from an earlier run"
+# ...and the raw record itself, which a killed run leaves behind WITHOUT a
+# marker: the marker is written last, so a run reaped on the part cap has
+# results and no `.DONE`, and a second run would overwrite the only
+# evidence of the first.
+[ -e "$OUT/results-$LABEL.json" ] &&
+  refuse "$OUT/results-$LABEL.json exists from an earlier run: move it aside before measuring again"
 
 mkdir -p "$WORK" || refuse "cannot write under $WORK"
 mkdir -p "$OUT" || refuse "cannot write under $OUT"
