@@ -37,6 +37,9 @@ it:
 * drop the empty-help refusal -> `test_empty_help_refuses_to_boot`.
 * make `from_argv` keep values equal to the parser's default (P25) ->
   `test_from_argv_drops_defaults`.
+* accept `[]` on a required array (drop `_absent`'s array clause) ->
+  `test_to_argv_rejects_an_empty_required_array` (the call is neither
+  bad nor missing, and argparse refuses the argv it builds).
 """
 import argparse
 
@@ -222,6 +225,25 @@ def test_to_argv_rejects_missing_required():
     assert excinfo.value.fields == ("at", "expr")
     assert excinfo.value.message == (
         "missing required field(s) for watch: at, expr")
+
+
+def test_to_argv_rejects_an_empty_required_array():
+    """`--focus` repeated zero times IS `--focus` not given.
+
+    `[]` is a well-typed array and the key IS present, so neither check
+    caught it, and `to_argv` built `["refocus", "r1"]` -- argv the CLI
+    then refuses with `error: the following arguments are required:
+    --focus` and exit 2. `json_schema` says `minItems: 1`, so a client
+    that validates locally already refuses this call; `to_argv` must
+    refuse the same one, in the words argparse would have used.
+    """
+    schema = derive(refocus_cmd)
+    with pytest.raises(Rejection) as excinfo:
+        to_argv(schema, {"run": "r1", "focus": []})
+    assert excinfo.value.reason == "missing_fields"
+    assert excinfo.value.fields == ("focus",)
+    assert excinfo.value.message == (
+        "missing required field(s) for refocus: focus")
 
 
 # -- argv becomes a call ----------------------------------------------------

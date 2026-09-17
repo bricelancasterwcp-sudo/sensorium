@@ -298,11 +298,26 @@ def _well_typed(f: Field, value) -> bool:
 
 def _reject_missing(ts: ToolSchema, arguments: dict) -> None:
     missing = [f.name for f in ts.fields
-               if f.required and f.name not in arguments]
+               if f.required and _absent(f, arguments)]
     if missing:
         raise Rejection("missing_fields", missing,
                         f"missing required field(s) for {ts.command}: "
                         f"{', '.join(missing)}")
+
+
+def _absent(f: Field, arguments: dict) -> bool:
+    """...and `--focus: []` is absent too, not an empty one.
+
+    An `_AppendAction` repeated zero times IS the flag not given: argparse
+    would answer `error: the following arguments are required: --focus`,
+    and `json_schema` already says `minItems: 1`. Counting `[]` as present
+    let `to_argv` build argv the CLI then refused with exit 2 -- the one
+    thing this validation exists to prevent -- and reported as "missing"
+    is what argparse itself would have called it.
+    """
+    if f.name not in arguments:
+        return True
+    return f.kind == "array" and arguments[f.name] == []
 
 
 # -- argv becomes a call ----------------------------------------------------

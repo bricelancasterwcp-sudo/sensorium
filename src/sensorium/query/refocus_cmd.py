@@ -184,7 +184,7 @@ def add_parser(sub) -> None:
         help="re-run a recorded command with deeper capture, verified",
         description="Executes the recorded command again with the added "
                     "`--focus` and reports whether it was the same "
-                    "execution -- MATCH, DIVERGED or REFUSED; the "
+                    "execution — MATCH, DIVERGED or REFUSED; the "
                     "licence names what was compared.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
     p.add_argument("run", help=RUN_HELP)
