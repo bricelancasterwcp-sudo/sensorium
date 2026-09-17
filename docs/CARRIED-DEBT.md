@@ -253,10 +253,15 @@ reported (n = 1) · latency measured**.
   parses one line instead. The re-measured session made **5** calls.
 - **`<store>/mcp.jsonl`, 0600, one line per call and per rejection**
   (**D27**), and **the arguments pass the content rule before they are
-  written** (**D28**) — a secret typed into `grep`'s pattern or `watch`'s
-  expression leaves the marker, not the value, and so do a rejection's tool
-  name, field names and message (**R11**). Never the environment, never
-  `cwd`, never the result text: `bytes` says how much was shown and
+  written** (**D28**) — a secret the CONTENT RULE RECOGNISES, typed into
+  `grep`'s pattern or `watch`'s expression, leaves the marker rather than the
+  value, and so do a rejection's tool name, field names and message
+  (**R11**). The rule is nineteen shapes with a minimum length each, a floor
+  and not a scanner: a secret in no published shape is written as typed, and
+  the fix wave narrowed that sentence wherever it was shipped (**M7**).
+  Never the environment, never `cwd`, never the result text — even though
+  every child RUNS under a copy of the environment, which `docs/mcp.md` now
+  says in both places (**I3**): `bytes` says how much was shown and
   `truncated` whether all of it. `SENSORIUM_NO_INVOCATION_LOG` disables this
   file too (**D29**) and the server says so once on stderr. The rejection
   shapes are a census the hosted slice reads (**P16**). `720f56c`.
@@ -361,6 +366,19 @@ reported (n = 1) · latency measured**.
   paragraph is a post-merge chore, not a repository change. *Cost if wrong:* a
   model driving sensorium through MCP is taught the shell's spelling, which
   works, and is not taught that `record` needs `--allow-run`.
+- **`--max-output` bounds the WIRE, not the child** (**M5**, the final
+  whole-branch review; deferred by ruling in the fix wave that answered it).
+  `child.py:196` reads the child's whole stdout and stderr into memory before
+  `result.cap` trims them, so a `tree --limit 100000` over a very large trace
+  allocates the entire answer first and the cap throws most of it away. The
+  flag's name reads like a memory bound and is not one. Fine for one
+  developer's store and one process; the hosted slice runs THIS process per
+  tenant, which is where the bound has to become real — a streaming read with
+  a hard ceiling, or a separate child-output limit the child is killed for
+  exceeding, since the cap cannot refuse what has already been read. *Cost if
+  wrong:* one unbounded question makes the server's resident size the size of
+  that answer, on a process a tenant shares with nothing but their own calls,
+  and the flag they read before asking said otherwise.
 - **Three files stand over the plan's per-file budgets, each parked with its
   split named** — the budgets are hints under the binding 800-line gate, and
   every one of the three is well under it. `src/sensorium/mcp/schema.py`
@@ -419,10 +437,18 @@ the wording is the ledger's own.
   against a ≤330 budget. **Instrument limit accepted:** mutant M11b — a plain
   unlocked id mint — survives under the GIL; the lock stays and the test pins
   the invariant.
-- **`server.py` (T5b).** A post-write audit failure (a `scrub` →
+- **`server.py` (T5b).** ~~A post-write audit failure (a `scrub` →
   `redact_content` raising, outside `audit._write`'s own `try`) would produce
   a `-32603` for an ALREADY-ANSWERED id — wrap the post-write audit calls, or
-  skip `-32603` when the id is answered; the reader loop has no exception
+  skip `-32603` when the id is answered~~ — **closed at `e63fa98`**, and the
+  premise above was the wrong half of it: the raise came from INSIDE
+  `_write`, whose `except` missed `ValueError`, so one ordinary `tools/call`
+  carrying a lone surrogate in a field name produced a correct `isError`
+  result and then a second `-32603` for the same id (**I1**). `_write` now
+  catches it and a rejection is audited BEFORE its answer is written. *A
+  minor parked as hypothetical was reachable from one request; what made it
+  look hypothetical was naming the one raising path that is pure.* The reader
+  loop has no exception
   boundary around `record_cancel`;
   `test_cancel_sent_immediately_after_the_call_still_kills`' kill clause is
   vacuous in practice (assert the disjunction: a queued cancel OR a pgid that
@@ -480,7 +506,10 @@ the wording is the ledger's own.
 
 Measured at this slice's last commit against the 800-line gate
 (`tests/test_ceiling.py`, `LIMIT = 800`, tracked `*.py *.rs *.sh *.md *.mjs
-*.ts *.tsx` outside the record directories). What this slice moved:
+*.ts *.tsx` outside the record directories), and RE-MEASURED after the fix
+wave that followed the final whole-branch review — these numbers supersede
+the spec's §13 (c) item 16, which records the merge-ready head. What this
+slice moved:
 
 - **`README.md` 727** — 797 before the slice, and the cut was taken FIRST
   (`fa2fe8d`): `## Overhead`, 88 lines, moved whole to **`docs/overhead.md`
@@ -495,27 +524,34 @@ Measured at this slice's last commit against the 800-line gate
 - **`CHANGELOG.md` 750** after the 0.18.0 entry (60 lines, 11 bullets)
   against 687 before — fifty lines of room, so the next entry is the one that
   decides whether volume 3 of the archive gets cut.
-- **New and clear:** `docs/mcp.md` **330** at its own budget,
-  `corpus/mcp_client.py` **329**, `corpus/run_corpus.py` **711** (the mode's
-  body lives in `corpus/via_mcp.py` **220**, which is the ceiling working as
-  intended), `src/sensorium/mcp/` at 360 / 488 / 240 / 220 / 184 / 139 / 135
-  / 100 (`schema`, `server`, `child`, `tools`, `result`, `jsonrpc`, `audit`,
-  `cmd`), `tests/acceptance_e17/` at 530 / 435 / 412 / 323 / 220.
+- **New and clear:** `docs/mcp.md` **356** (330 before the fix wave, which
+  spent 26 lines on the environment paragraph, what the content rule does and
+  the audit file's mode), `corpus/mcp_client.py` **329**,
+  `corpus/run_corpus.py` **711** (the mode's body lives in
+  `corpus/via_mcp.py` **220**, which is the ceiling working as intended),
+  `src/sensorium/mcp/` at 380 / 493 / 240 / 223 / 187 / 172 / 162 / 100
+  (`schema`, `server`, `child`, `tools`, `result`, `jsonrpc`, `audit`,
+  `cmd`; 360 / 488 / 240 / 220 / 184 / 139 / 135 / 100 before the wave),
+  `tests/acceptance_e17/` at 530 / 435 / 412 / 323 / 220.
 - **The largest new test modules:** `tests/test_acceptance_e17_cells.py`
-  **751** — the one to watch, 49 lines of room, and the next cell family
-  added to E17 needs it split first — then `tests/test_vocab.py` **639**
-  (was 637), `tests/test_mcp_server.py` **588** and
-  `tests/test_mcp_client.py` **586**.
+  **751** — 49 lines of room, and the next cell family added to E17 needs it
+  split first — then `tests/test_mcp_server.py` **743**, which the fix wave
+  took from 588 and is now the OTHER one to watch (57 lines of room; the
+  protocol/process split at `tests/test_mcp_server_process.py` **414** is the
+  seam at **393**, and the surrogate and hyphen cases could move there), then
+  `tests/test_vocab.py` **639** (was 637) and `tests/test_mcp_client.py`
+  **586**.
 - **Unchanged and still at the gate:** `rust/HONESTY-BLIND-SPOTS.md` **800**
   — zero headroom, exactly as PR B and PR C left it — and the four test
   modules at 790+ (`tests/test_flow_identity.py` **797**,
   `tests/test_refocus_typescript.py` **794**, `tests/test_runs_info.py`
   **790**, `tests/test_ts_ingest_meta.py` **789**), which this slice added
   nothing to.
-- **This file 598** after the fifteenth cut — see the pointer paragraph
-  above, which measured the move before it was made (the section was 425 lines
-  when the cut was decided and **427** as it stands, this bullet's own number
-  being the difference). Two hundred and two lines of room.
+- **This file 634** — 598 after the fifteenth cut, and 36 lines more from the
+  fix wave (M5's deferral, I1's strike, the narrowed D28 sentence and these
+  re-measurements). See the pointer paragraph above, which measured the move
+  before it was made: the section was 425 lines when the cut was decided and
+  is **463** now. A hundred and sixty-six lines of room.
 - **What this list does NOT cover.** The twenty-odd tracked files between 770
   and 800 that this slice did not touch are not named here;
   `tests/test_ceiling.py`'s by-pattern enumeration is the list. This section

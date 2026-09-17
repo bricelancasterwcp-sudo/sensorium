@@ -682,8 +682,9 @@ its evidence. The third column is the cost the ruling was taken at.
 
 #### (c) Where the shipped code differs from §§2–10
 
-Seventeen. Each is a place a reader of the sections above would be told
-something the code does not do.
+Nineteen: seventeen at the merge-ready head, and 18-19 appended by the fix
+wave that followed the final whole-branch review. Each is a place a reader of
+the sections above would be told something the code does not do.
 
 1. **The tool tables are explicit, not derived from `_QUERY_MODULES`**
    (**P1**, amending **D4**'s companion **D31**). That list has eleven
@@ -826,6 +827,34 @@ something the code does not do.
     rule) as one. `refocus` re-runs under the server's own interpreter with
     no `python` override. Where: `tools.command_argv`, `audit.record_call`,
     `docs/mcp.md`, the 0.18.0 CHANGELOG entry.
+18. **D28's "leaves the marker" is narrower than it reads** (**M7**, the
+    final review's minor; the wording is narrowed, the behaviour is not).
+    §6.3's first bullet says a model that types a secret into `grep`'s
+    pattern "leaves the marker in the audit, not the value". That is true of
+    a string the CONTENT rule MATCHES and of no other:
+    `redact_content.content("hunter2")` returns it unchanged, and it is
+    written to `mcp.jsonl` verbatim. The rule is nineteen shapes, each with a
+    minimum length — a floor, not a secret scanner — so the clause before it
+    ("arguments pass the content rule") is exact and the "so" clause
+    over-reads it. `docs/mcp.md` now says what the rule actually does (which
+    spans are replaced by `<redacted>`, and that a value in no published
+    shape is written as typed) and that the CLI's own stdout may echo an
+    argument back in any case. The audit is the census a hosted tier's policy
+    argument will rest on, and an over-read claim there would be quoted
+    later. Where: `docs/mcp.md`'s audit section, `docs/CARRIED-DEBT.md`'s
+    settled entry.
+19. **The wire is `ensure_ascii=True`** (**C2**, the same wave, amending
+    §3.2's framing line, which says `ensure_ascii=False`). A method name, a
+    tool name and a rejected field name are echoed back to the client as
+    model-typed text, and a model does emit lone surrogates (a tokenizer
+    splitting an emoji). Such a string cannot be encoded onto a UTF-8 stdout
+    at all: the write raised `UnicodeEncodeError` — a `ValueError` — the
+    writer's `except` swallowed it as a gone pipe, and the response vanished
+    with nothing logged on any channel. Escaped, it is `\ud800` on the wire
+    and `json.loads` hands the client back the same string. The same wave
+    narrows that `except` to `BrokenPipeError` plus a ValueError off a stream
+    that is actually CLOSED, which is what §3.2's "one lock, flushed per
+    message" line always meant. Where: `jsonrpc.Writer._write`.
 
 #### (d) E17's outcome
 

@@ -166,6 +166,18 @@ is a tool it does not have. With the flag:
 * **`refocus`** re-runs the command a trace remembers with a deeper `--focus`
   and reports whether it was the same execution.
 
+**Every call inherits the server's whole environment**, `record` included,
+plus the `SENSORIUM_DIR` that `--store` exports. That is not incidental: it is
+how the CLI's own `SENSORIUM_*` variables and your program's own variables
+(a `PATH`, a `VIRTUAL_ENV`, a database URL) reach the child at all. There is no
+`env` field on `record`, nothing a model types can add a variable, and nothing
+is filtered out on the way in -- so whatever the MCP client's environment
+holds, tokens included, is the environment your program is recorded under.
+Start the server from an environment you are willing to record under. What a
+RECORDING then keeps of it is the redaction rule's business (values are
+withheld at the writer, which is why an `env` field was left out on purpose);
+what the AUDIT keeps of it is nothing at all, as the section below says.
+
 **Stdin is `/dev/null` for every call, without exception** -- the server's own
 stdin is the JSON-RPC stream, and a child that inherited it would read the
 client's next request and stall the session with neither side at fault. So a
@@ -222,12 +234,22 @@ matching the first time the wording improved. `bytes` is the length of the
 text actually shown and `truncated` whether that was all of it.
 
 What is NEVER written: the process environment, the server's working
-directory, the result text. Arguments pass the redaction content rule first,
-so a secret typed into `grep`'s pattern leaves the marker here and not the
-value -- and that includes a tool name, a field name and a rejection message,
-which are model-typed text like any other. `record`'s own `cwd` and `python`
-are ordinary arguments of that call and are written as such, scrubbed like the
-rest.
+directory, the result text. The environment is never written even though every
+child RUNS under a copy of it (see `--allow-run` above) -- this file is a
+census of CALLS, and the process it ran in is not one of the things it counts.
+
+Arguments pass the redaction content rule before they are written, and that
+includes a tool name, a field name and a rejection message, which are
+model-typed text like any other. What that rule does, exactly: it replaces the
+SPANS it recognises -- nineteen shapes, each with a minimum length, listed in
+[`docs/trace-format/redaction-v1.json`](trace-format/redaction-v1.json). A
+value it recognises (an `AKIA…`, a `ghp_…`, a bearer header, a URL's
+userinfo) leaves `<redacted>` here instead of itself; a value it does not
+(`hunter2`, an internal token in no published shape) is written as typed. It is
+a floor, not a secret scanner, and this is not the only place an argument
+appears: the CLI's own stdout may echo one back, and the result text is what
+the client shows the model. `record`'s own `cwd` and `python` are ordinary
+arguments of that call and are written as such, through the same rule.
 
 `SENSORIUM_NO_INVOCATION_LOG` disables this file too -- one word for "log
 nothing about my calls", read through the invocation log's own knob rather
