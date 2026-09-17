@@ -11,16 +11,17 @@ new cases in it, two lines from a ceiling `tests/test_ceiling.py` enforces.
 every paragraph below is byte for byte what the README carried, except the
 last — the thirteen TypeScript cases — which is new text this slice wrote, and
 which the shipped history (`603f879`) shows being written straight into this
-file rather than into the README first. The README keeps the four commands, the
+file rather than into the README first. The README keeps the five commands, the
 one-sentence claim the corpus makes, and a link here. The `--require-driver`
 comment in the block below is the README's own wording of the day it was
 written, when the only driver-backed cases were Rust's; the README's copy now
 says "Rust or TypeScript".
 
-    python corpus/run_corpus.py                   # verify against seeded bugs
-    python corpus/run_corpus.py --show            # print the questions and commands
-    python corpus/run_corpus.py --bench           # report recording overhead
-    python corpus/run_corpus.py --require-driver  # a skipped Rust case is exit 1
+    python corpus/run_corpus.py                          # verify against seeded bugs
+    python corpus/run_corpus.py --show                   # print the questions and commands
+    python corpus/run_corpus.py --bench                  # report recording overhead
+    python corpus/run_corpus.py --require-driver         # a skipped Rust case is exit 1
+    python corpus/run_corpus.py --via mcp --compare-cli  # every tool question through the MCP server, diffed against the CLI
 
 Twenty small programs with deliberately planted bugs, and thirty-nine
 questions registered **before** any output was looked at: the question in

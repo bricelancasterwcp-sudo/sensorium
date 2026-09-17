@@ -46,6 +46,13 @@ jobs:
         # below are where those cases are recorded, and where the flag
         # turns a skip into a failure.
         run: python corpus/run_corpus.py
+      # The same cases, asked through `sensorium mcp` instead of the CLI,
+      # and diffed against it: the server is a second surface answering
+      # the corpus's questions, and one leg of the matrix is enough to
+      # catch a surface that starts answering differently.
+      - name: Corpus through the MCP server (3.14 leg)
+        if: matrix.python-version == '3.14'
+        run: python corpus/run_corpus.py --via mcp --compare-cli
 
   rust:
     runs-on: ubuntu-latest
@@ -148,6 +155,14 @@ jobs:
         env:
           SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
         run: python corpus/run_corpus.py --only-dir rust --require-driver
+      # ...and the same cases through the server. The `env:` block is
+      # repeated because it has to reach the per-case server's CHILDREN:
+      # every tool call is a `python -m sensorium` of its own, and a
+      # `refocus` there re-records with the driver this names.
+      - name: Rust corpus (records corpus/rust with the built driver) through the MCP server
+        env:
+          SENSORIUM_CARGO_SENSORIUM: ${{ github.workspace }}/rust/target/release/cargo-sensorium
+        run: python corpus/run_corpus.py --only-dir rust --require-driver --via mcp --compare-cli
 
   typescript:
     runs-on: ubuntu-latest
@@ -259,3 +274,6 @@ jobs:
       # this flag exists to turn into a failure.
       - name: TypeScript corpus (records corpus/typescript with the real driver)
         run: python corpus/run_corpus.py --only-dir typescript --require-driver
+      # ...and the same cases through the server, as in the `rust` job.
+      - name: TypeScript corpus (records corpus/typescript with the real driver) through the MCP server
+        run: python corpus/run_corpus.py --only-dir typescript --require-driver --via mcp --compare-cli

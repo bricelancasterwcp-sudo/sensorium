@@ -405,10 +405,11 @@ The headline: 2.9× on the corpus's typical workloads, up to 194× on the call-d
 
 ## Corpus
 
-    python corpus/run_corpus.py                   # verify against seeded bugs
-    python corpus/run_corpus.py --show            # print the questions and commands
-    python corpus/run_corpus.py --bench           # report recording overhead
-    python corpus/run_corpus.py --require-driver  # a skipped Rust or TypeScript case is exit 1
+    python corpus/run_corpus.py                          # verify against seeded bugs
+    python corpus/run_corpus.py --show                   # print the questions and commands
+    python corpus/run_corpus.py --bench                  # report recording overhead
+    python corpus/run_corpus.py --require-driver         # a skipped Rust or TypeScript case is exit 1
+    python corpus/run_corpus.py --via mcp --compare-cli  # every tool question through the MCP server, diffed against the CLI
 
 Small programs with deliberately planted bugs, and questions registered
 **before** any output was looked at: the question in plain language, the known
