@@ -18,8 +18,13 @@ keyed off the version key's ABSENCE); `none` spawns and reads.
 Three threads -- the caller's writes, one resolving futures off stdout,
 one that ALWAYS drains stderr (into `stderr_path`, else into memory)
 because a pipe nobody reads fills up and blocks the server inside
-`log()`. DEATH IS AN ANSWER: on EOF or a read error every pending and
-every future call fails at once with `McpError(-32000, "server exited
+`log()`. NOTHING THE SERVER WRITES IS DROPPED (R13): a line that is not
+a JSON object -- blank lines included -- lands in `bad_lines`, and an
+object with no id of its own (a `-32700` answered `"id": null`, a
+notification) lands in `unaddressed`, which `wait(None)` drains oldest
+first -- binning either hides a server that answers the wrong shape.
+DEATH IS AN ANSWER: on EOF or a read error every pending and every
+future call fails at once with `McpError(-32000, "server exited
 (rc=<n>)")` -- hanging futures would turn a server crash into a
 60-second timeout, and a `BrokenPipeError` would blame the caller.
 """
@@ -103,9 +108,9 @@ class McpClient:
         self.version, self.client_name = version, client_name
         self.stderr_path = None if stderr_path is None else Path(stderr_path)
         self.proc = self.pid = self.pgid = None
-        self.bad_lines, self.stderr_lines, self._threads = [], [], []
-        self._cond, self._answers, self._dead = threading.Condition(), {}, None
-        self._next_id = 1
+        self.bad_lines, self.unaddressed, self.stderr_lines = [], [], []
+        self._threads, self._answers, self._dead = [], {}, None
+        self._cond, self._next_id = threading.Condition(), 1
 
     def __enter__(self) -> "McpClient":
         self.proc = subprocess.Popen(
@@ -158,23 +163,31 @@ class McpClient:
             for raw in self.proc.stdout:
                 line = raw.strip()
                 try:
-                    obj = json.loads(line) if line else {}
+                    obj = json.loads(line) if line else None
                 except ValueError:
                     obj = None
                 if not isinstance(obj, dict):
-                    self.bad_lines.append(line)
-                elif obj.get("id") is not None:
-                    with self._cond:
+                    self.bad_lines.append(line)   # a blank line included
+                    continue
+                with self._cond:
+                    if obj.get("id") is None:
+                        self.unaddressed.append(obj)
+                    else:
                         self._answers[obj["id"]] = obj
-                        self._cond.notify_all()
+                    self._cond.notify_all()
         except Exception:                 # a read error is EOF with a cause
             pass
         finally:
             self._die()
 
     def _drain_stderr(self) -> None:
-        handle = (None if self.stderr_path is None else
-                  open(self.stderr_path, "w", encoding="utf-8", buffering=1))
+        handle = None
+        try:
+            if self.stderr_path is not None:
+                handle = open(self.stderr_path, "w", encoding="utf-8",
+                              buffering=1)
+        except OSError as err:           # drain to memory rather than not
+            self.stderr_lines.append(f"[no {self.stderr_path}: {err}]")
         keep = handle.write if handle is not None else (
             lambda line: self.stderr_lines.append(line.rstrip("\n")))
         try:
@@ -192,13 +205,13 @@ class McpClient:
             rc = self.proc.wait(2) if rc is None else rc
         with self._cond:
             if self._dead is None:
-                self._dead = McpError(GONE, f"server exited (rc={rc})")
+                self._dead = (GONE, f"server exited (rc={rc})", None)
             self._cond.notify_all()
 
     def _line(self, msg: dict) -> None:
         with self._cond:
             if self._dead is not None:
-                raise self._dead
+                raise McpError(*self._dead)
         text = json.dumps(msg, separators=(",", ":"), ensure_ascii=False)
         try:
             self.proc.stdin.write(text + "\n")
@@ -206,7 +219,7 @@ class McpClient:
         except (OSError, ValueError):
             self._die()                # EPIPE: the server is already gone
             with self._cond:
-                raise self._dead from None
+                raise McpError(*self._dead) from None
 
     def send(self, method: str, params: dict | None = None, *,
              meta: bool | None = None, id: object = None) -> object:
@@ -217,9 +230,10 @@ class McpClient:
             out["_meta"] = {META_VERSION: self.version,
                             META_CLIENT: {"name": self.client_name,
                                           "version": "0"}, META_CAPS: {}}
-        id = self._next_id if id is None else id
-        if isinstance(id, int) and not isinstance(id, bool):
-            self._next_id = max(self._next_id, id + 1)
+        with self._cond:                 # two senders cannot mint one id
+            id = self._next_id if id is None else id
+            if isinstance(id, int) and not isinstance(id, bool):
+                self._next_id = max(self._next_id, id + 1)
         self._line({"jsonrpc": "2.0", "id": id, "method": method,
                     "params": out})
         return id
@@ -229,14 +243,21 @@ class McpClient:
         self._line(msg if params is None else {**msg, "params": params})
 
     def wait(self, id: object, timeout: float = 60) -> dict:
-        """The raw response for `id`: a result, an error, or death."""
+        """The raw response for `id`: a result, an error, or death.
+
+        `wait(None)` takes the oldest object the server wrote with no id
+        of its own -- a `-32700` answered `"id": null`, a notification --
+        in the order they arrived. This client never sends a null id, so
+        the two queues cannot collide."""
         deadline = time.monotonic() + timeout
         with self._cond:
             while True:
-                if id in self._answers:
+                if id is None and self.unaddressed:
+                    return self.unaddressed.pop(0)
+                if id is not None and id in self._answers:
                     return self._answers.pop(id)
                 if self._dead is not None:
-                    raise self._dead
+                    raise McpError(*self._dead)
                 left = deadline - time.monotonic()
                 if left <= 0:
                     raise TimeoutError(f"no answer to id {id!r} "
@@ -284,11 +305,10 @@ class McpClient:
         return time.monotonic() - started
 
     def _stderr(self) -> list[str]:
-        if self.stderr_path is None:
-            return list(self.stderr_lines)
-        with contextlib.suppress(OSError):
-            return self.stderr_path.read_text(encoding="utf-8").splitlines()
-        return []
+        if self.stderr_path is not None:
+            with contextlib.suppress(OSError):
+                return self.stderr_path.read_text("utf-8").splitlines()
+        return list(self.stderr_lines)
 
     def child_pgids(self) -> list[int]:
         found = (CHILD_LINE.search(line) for line in self._stderr())

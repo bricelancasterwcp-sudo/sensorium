@@ -31,11 +31,24 @@ catches it:
   exit quietly) -> `test_a_dead_server_fails_every_wait_and_send_with_
   mcp_error`, which is bounded at 3 s and fails with `TimeoutError`
   rather than hanging.
+* drop the `__enter__` guard that reaps a spawn whose handshake raised
+  -> `test_a_handshake_that_fails_leaves_no_process_behind`. The pipes
+  are still open, which is the observable half of a leaked process.
+* file only objects with a non-null id (`elif obj.get("id") is not
+  None`) -> `test_null_id_answers_are_kept_and_come_back_oldest_first`.
+  The object is a dict, so `bad_lines` does not catch it either: the
+  server's `-32700` answer vanishes and `wait(None)` times out.
+* treat a blank stdout line as an empty object (`json.loads(line) if
+  line else {}`) -> `test_a_blank_stdout_line_is_a_bad_line`. A stray
+  `print()` in the server would then be invisible to every `bad_lines
+  == []` assertion in task 5b -- which is the one assertion those tests
+  all share.
 """
 from __future__ import annotations
 
 import json
 import sys
+import threading
 import time
 
 import pytest
@@ -84,6 +97,17 @@ for line in sys.stdin:
     if mid is None:
         continue
     if method == "silent":
+        continue
+    if method == "unaddressed":
+        send({"jsonrpc": "2.0", "id": None,
+              "error": {"code": -32700, "message": "Parse error"}})
+        send({"jsonrpc": "2.0", "method": "notifications/message",
+              "params": {"n": 2}})
+        continue
+    if method == "blank":
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+        send({"jsonrpc": "2.0", "id": mid, "result": {"echo": params}})
         continue
     if method == "garbage":
         sys.stdout.write("this line is not json\n")
@@ -281,6 +305,32 @@ def test_bad_lines_collects_a_stdout_line_that_is_not_a_json_object(echo):
     assert client.bad_lines == ["this line is not json"]
 
 
+def test_null_id_answers_are_kept_and_come_back_oldest_first(echo):
+    """R13. The server answers a parse error with `"id": null`, and it
+    writes notifications with no id key at all. Neither is addressed to
+    a waiting call, and neither may be dropped: task 5b asserts on the
+    `-32700` that a non-UTF-8 byte on stdin produces."""
+    with McpClient(echo, mode="none") as client:
+        client.send("unaddressed")
+        first = client.wait(None, 3)
+        second = client.wait(None, 3)
+        assert first == {"jsonrpc": "2.0", "id": None,
+                         "error": {"code": -32700, "message": "Parse error"}}
+        assert second["method"] == "notifications/message"
+        assert client.unaddressed == []
+        assert client.bad_lines == []
+        with pytest.raises(TimeoutError):
+            client.wait(None, 0.3)       # and the queue really is empty
+
+
+def test_a_blank_stdout_line_is_a_bad_line(echo):
+    """A stray `print()` at boot writes exactly this, and `bad_lines ==
+    []` is the assertion every task 5b test ends with."""
+    with McpClient(echo, mode="none") as client:
+        assert client.request("blank")["echo"] == {}
+    assert client.bad_lines == [""]
+
+
 def test_an_error_response_raises_mcp_error_with_code_message_and_data(echo):
     with McpClient(echo, mode="none") as client:
         with pytest.raises(McpError) as caught:
@@ -413,6 +463,44 @@ def test_an_unanswered_request_times_out_without_killing_the_client(echo):
         with pytest.raises(TimeoutError):
             client.request("silent", timeout=0.5)
         assert client.request("anything")["echo"] == {}
+
+
+def test_a_dead_servers_error_is_a_fresh_exception_every_time(dead):
+    """One stored exception re-raised would accumulate every waiter's
+    traceback on itself, and `raise x from None` would mutate the copy
+    the next caller sees."""
+    with McpClient(dead, mode="none") as client:
+        first = pytest.raises(McpError, client.wait, 1, 3).value
+        second = pytest.raises(McpError, client.request, "anything",
+                               timeout=3).value
+    assert first is not second
+    assert (first.code, first.message) == (second.code, second.message)
+
+
+def test_two_threads_sending_at_once_never_mint_the_same_id(echo):
+    minted, threads = [], []
+    with McpClient(echo, mode="none") as client:
+        def run():
+            for _ in range(50):
+                minted.append(client.send("anything"))
+        threads = [threading.Thread(target=run) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(30)
+        assert sorted(minted) == list(range(1, 101))
+
+
+def test_an_unopenable_stderr_file_still_drains_the_pipe(echo, tmp_path):
+    """The pipe matters more than the file: an undrained stderr blocks
+    the server inside `log()`, so a path that cannot be opened falls
+    back to memory and says so in the first line."""
+    with McpClient(echo, stderr_path=tmp_path / "no-such-dir" / "e.log",
+                   mode="none") as client:
+        client.request("anything")
+    assert client.stderr_lines[0].startswith("[no ")
+    assert any("recv anything" in line for line in client.stderr_lines)
+    assert client.child_pgids() == [4243, 4245]
 
 
 def test_close_stdin_ends_the_server_and_exit_leaves_nothing_running(echo):
