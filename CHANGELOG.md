@@ -1,5 +1,66 @@
 # Changelog
 
+## 0.18.0 — 2026-09-17
+
+**sensorium as an MCP server.** `sensorium mcp` serves your own store to a
+model over the Model Context Protocol on stdio — one process, no runtime
+dependency, every query command a tool with the CLI's own words on it, and
+`record` and `refocus` only under `--allow-run`. The whole surface is
+`docs/mcp.md`. Python **0.18.0** alone; no runtime, converter or probe changed
+and `TRACE_FORMAT` stays **4**.
+
+- **Eleven tools, read off the CLI's own parsers.** WHICH commands are offered
+  is a hand-written table — `redact` rewrites a stored trace and is not a tool
+  — but every tool's FIELDS come from that command's `add_parser`, and its
+  description is the `help=` plus `description=` that `sensorium <cmd> --help`
+  prints. A field that lost its help is a refusal to boot, not a blank tool.
+- **`run` defaults to `last`.** Every query tool's run reference is optional
+  and means the newest trace, so a model need not ask `runs` before every
+  question. The default lives in the tool schema and in `to_argv`, never in
+  the parser: the CLI's own positional is still required.
+- **The header is the first line, always**, in `exit.MEANING`'s own words, so
+  a status that is reworded or moved takes its sentence with it. `record`'s
+  says the status is the recorded command's, a signal renders as `killed by
+  SIGTERM`, and a call with no status reads `no answer:` and the cause rather
+  than inventing a number. Stderr goes under a `--- stderr ---` line of its
+  own, `structuredContent` carries `{"exit": N}`, `isError` is exit 2 or none.
+- **The cap keeps a head AND a tail.** 64 KiB by default (`--max-output`,
+  minimum 4096), up to 4 KiB of it from the end, because `diff` and `refocus`
+  print their verdict last. The header line is never cut, and the marker names
+  the fields THIS tool narrows by.
+- **`--allow-run`, and nothing about it on the wire.** Without it `record` and
+  `refocus` are absent from `tools/list` and `Unknown tool` on a call. With
+  it, `record` takes `cwd` and `python` — the child's process, not its argv.
+  Stdin is `/dev/null` for every call, so a program that reads it is stamped
+  `stdin_consumed` and `refocus` refuses it; a cancelled or timed-out
+  recording leaves an INCOMPLETE trace, which `runs` flags and `info` names.
+- **`mcp.jsonl`, beside `invocations.jsonl`.** One 0600 line per call, per
+  rejection and per cancel — the census a future policy argument has to stand
+  on. `reason` is data, not prose; arguments pass the redaction content rule;
+  the environment, the working directory and the result text are never
+  written; and `SENSORIUM_NO_INVOCATION_LOG` disables this file too.
+- **Two lifecycles on one process**, over **2026-07-28**, **2025-11-25**,
+  **2025-06-18** and **2025-03-26**. A request carrying `_meta`
+  `protocolVersion` is served statelessly under the per-request model; one
+  without that KEY is legacy and needs `initialize` first — the key's absence
+  decides, never its value. `ping` and `notifications/cancelled` answer on the
+  reading thread; calls are serialized by design.
+- **The corpus asks its questions through the wire.** `--via mcp` starts a
+  server per case and routes every question whose command is a tool through
+  it; `--compare-cli` asks the read-only ones both ways and reports any stdout
+  or exit the two seams do not agree on. `redact`'s three questions are named,
+  never skipped, and an executing tool is never re-run to compare.
+- **The official SDK as the conformance oracle.** `tests/test_mcp_conformance.py`
+  drives the server with the real `mcp` client over ten tests, so a misreading
+  of the spec cannot sit on both sides of the check. A dev-only `conformance`
+  extra and its own CI job — never a runtime dependency — skipped BY NAME
+  everywhere the extra is absent.
+- **Seventeen empty `help=` filled and eleven `description=` written.** The
+  query CLI's own strings, since a tool description is made of them:
+  `sensorium <cmd> --help` gained every sentence the server now serves.
+- **`## Overhead` moved to `docs/overhead.md`**, wording unchanged, so
+  `README.md` stays under 800 lines with the new `## MCP` section in it.
+
 ## 0.17.0 — 2026-09-16
 
 **The retrofit.** Parts A and B took the environment and the values at the
