@@ -628,6 +628,29 @@ def test_h7_is_still_reported_when_the_model_did_something_else():
     assert "is NOT" in got["read"]
 
 
+def test_h7_counts_only_sensorium_tools():
+    """The measured session mixed Claude Code's Skill and ToolSearch with
+    five `mcp__sensorium__*` names. Counting every name reads 7 sensorium
+    tools, which is the erratum. The cell counts this server's tools,
+    prefix stripped, and the ≥ 3 clause uses that count."""
+    got = h7(_h7(tools_used=[
+        "Skill", "ToolSearch",
+        "mcp__sensorium__record", "mcp__sensorium__info",
+        "mcp__sensorium__exceptions", "mcp__sensorium__tree",
+        "mcp__sensorium__frame",
+    ]))
+    assert got["word"] == "reported"
+    assert "5 sensorium tool" in got["read"]
+    assert "7 sensorium tool" not in got["read"]
+    assert "Skill" not in got["read"]
+    assert "ToolSearch" not in got["read"]
+    assert "≥ 3" in got["read"]
+    host_only = h7(_h7(tools_used=["Skill", "ToolSearch",
+                                   "mcp__sensorium__record"]))
+    assert "1 sensorium tool" in host_only["read"]
+    assert "fewer than 3" in host_only["read"]
+
+
 def test_h7_says_so_when_the_call_count_was_not_recorded():
     """`sensorium_tool_calls` is R17's addition to `h7.json`. Absent is
     said out loud -- never a zero, and never silence that reads as one."""

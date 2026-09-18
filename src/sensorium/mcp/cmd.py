@@ -33,8 +33,8 @@ from pathlib import Path
 #: has never seen MCP needs its shape in one sentence.
 HELP = "serve the store to a model over the Model Context Protocol on stdio"
 DESCRIPTION = ("One JSON-RPC message per line on stdin/stdout; every query "
-               "command is a tool, and record and refocus are tools only "
-               "under --allow-run. Diagnostics go to stderr.")
+               "command except redact is a tool, and record and refocus are "
+               "tools only under --allow-run. Diagnostics go to stderr.")
 EPILOG = "exit: 0 at EOF or SIGTERM, 2 a refusal to start"
 
 #: Below this a cap cannot hold a head, a tail and the marker between

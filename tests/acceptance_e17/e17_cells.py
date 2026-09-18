@@ -156,6 +156,28 @@ def _named(items, cap: int = 3) -> str:
                     else "")
 
 
+#: Claude Code prefixes this server's tools as `mcp__<server>__<name>`.
+_SENSORIUM_PREFIX = "mcp__sensorium__"
+
+
+def _sensorium_tools(used) -> list[str]:
+    """This server's tools in `used`, first-seen order, prefix stripped.
+
+    A name is sensorium if it is one of the eleven, or the host prefix
+    plus one of the eleven. Host tools (Skill, ToolSearch, ...) are
+    dropped so H7 cannot count them as ours.
+    """
+    known = set(ELEVEN)
+    seen: list[str] = []
+    for name in used:
+        raw = str(name)
+        if raw.startswith(_SENSORIUM_PREFIX):
+            raw = raw[len(_SENSORIUM_PREFIX):]
+        if raw in known and raw not in seen:
+            seen.append(raw)
+    return seen
+
+
 # -- H1: parity -------------------------------------------------------------
 def h1(doc: dict | None, dry: bool = False) -> dict:
     """§9's H1, off `run_corpus.py --via mcp --compare-cli --json`. `dry`
@@ -469,7 +491,7 @@ def h7(doc: dict | None) -> dict:
     session by hand and writes `h7.json`; this reads it."""
     if doc is None:
         return _dropped("H7 not run by the controller")
-    used, command = list(doc.get("tools_used") or []), doc.get(
+    used, command = _sensorium_tools(doc.get("tools_used") or []), doc.get(
         "recorded_command")
     named, calls = doc.get("named_frame"), doc.get("sensorium_tool_calls")
     return {"word": "reported",

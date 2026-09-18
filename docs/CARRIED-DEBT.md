@@ -456,10 +456,10 @@ the wording is the ledger's own.
   by no test; `_discover` hand-builds its `_meta` instead of calling
   `_modern()`; `_listing`'s docstring says eleven; `test_instructions` takes
   unused fixtures; `session.discovered` is never read; `test_vocab`'s import
-  placement. **Stale prose, reachable by `--help`:** `cmd.DESCRIPTION` (P19's
+  placement. ~~**Stale prose, reachable by `--help`:** `cmd.DESCRIPTION` (P19's
   literal) still reads *every query command is a tool* — false of `redact`,
   and the one place the corrected sentence did not land when `efb243f` fixed
-  the README and `docs/mcp.md`.
+  the README and `docs/mcp.md`.~~ — **settled 2026-09-17**: `except redact`.
 - **`corpus/via_mcp.py` and the runner (T6).** `_first_differing_line` falls
   through to `<end of output>` when two stdouts differ only in trailing
   newlines (the record still exits 1; make the printed line name the tails);
@@ -489,7 +489,7 @@ the wording is the ledger's own.
   test builds unreal `Outcome`s (exit 0 with cause `cancelled`);
   `STRUCTURED_LEGACY` and the `structured` parameter now mean "knows
   `Tool.title`" and should be renamed.
-- **★ The H7 cell counts tools that are not sensorium's** — a rendering
+- ~~**★ The H7 cell counts tools that are not sensorium's** — a rendering
   defect in the measured record, caught by the controller the same day and
   written as an **erratum** beside §2 rather than edited away. The row reads
   *7 sensorium tool(s) used* because the cell counted every distinct name in
@@ -500,7 +500,9 @@ the wording is the ledger's own.
   what needs the fix. *Cost if wrong:* a reader of the row takes a number
   about Claude Code for a number about sensorium — which is exactly what the
   erratum exists to stop, and why the fix belongs in `e17_cells.h7` before
-  the next slice reuses it.
+  the next slice reuses it.~~ — **settled 2026-09-17**. `h7` now keeps only
+  names in the eleven, prefix-stripped; the measured record and its erratum
+  are untouched.
 
 - **docs (Task 8's review):** the prose in `docs/mcp.md` and the README's MCP
   section spells the dash as ASCII ` -- ` in places where the rest of the docs
@@ -640,3 +642,34 @@ slice moved:
   held under a deliberate overlap rather than an accidental one. *A second
   worktree is better; by-path commits plus `--stat` after every one is what
   makes the single tree survivable.*
+
+## 2026-09-17 — 0.18.0 closeout
+
+Three leftovers the MCP merge left named. Not a product slice. M5, D28,
+hosted MCP and S0 were not opened.
+
+### Settled — closed here
+
+- **C18.** The live store's 273 traces were already retrofitted; the
+  ledger still said they were plaintext. Struck in
+  [`CARRIED-DEBT-ARCHIVE-15.md`](CARRIED-DEBT-ARCHIVE-15.md) with the
+  three-trace sample (oldest, a 93283-event format-1, newest), all `by
+  retrofit`, the two files checked at `0600`.
+- **P19's description.** `sensorium mcp --help` now says every query
+  command *except redact* is a tool. `tests/test_mcp_cmd.py` pins it.
+- **H7's cell.** `e17_cells.h7` keeps only names in the eleven,
+  `mcp__sensorium__` stripped. The measured record and its erratum stay.
+  `test_h7_counts_only_sensorium_tools` is the mutant the erratum named.
+- **`.gitignore`.** `*.db-shm` and `*.db-wal`, so a reader of a fixture
+  `.db` does not dirty the tree.
+
+### Deferred by ruling
+
+None from this closeout. Everything the MCP section deferred stays
+deferred.
+
+### Files near the ceiling
+
+Measured after this closeout: this file **675**;
+`tests/test_acceptance_e17_cells.py` **774** (26 of room),
+`tests/acceptance_e17/e17_cells.py` **552**. No cut.

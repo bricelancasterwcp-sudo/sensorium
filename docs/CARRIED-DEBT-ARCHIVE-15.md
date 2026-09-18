@@ -168,7 +168,7 @@ repository change.
 
 ### Deferred by ruling
 
-- **The live store is still plaintext until the chore runs** (**C18**,
+- ~~**The live store is still plaintext until the chore runs** (**C18**,
   **P14**). H4 was measured on a COPY; `~/.sensorium/traces`'s own 273
   traces are unchanged, at 0644, with four token values in them. Brice
   pre-authorised the retrofit conditional on §4 reading H4 PASS, which it
@@ -176,7 +176,12 @@ repository change.
   redact --all --dry-run` then `sensorium redact --all`, transcripts kept
   beside the record's work root and the outcome recorded here next slice.
   *Cost if wrong:* the box this was built on is the one store the slice
-  did not fix.
+  did not fix.~~ — **settled 2026-09-17**. The store is still 273 traces.
+  Oldest (`20260819-225537-ea9b8a`), a 93283-event format-1
+  (`20260901-210236-2d791a`, 183 values redacted) and newest
+  (`20260912-125149-d82847`) all read `redaction: rule v1, keyed (key
+  352fcb5e), by retrofit`; the two files checked were mode `0600`. The
+  chore ran; this records it.
 - **`argv`, `invocations.jsonl` and the command lines §2 keeps are not
   reached** (**C2**, **C20**), exactly as PR B left them. A token passed
   as a command-line argument is in the trace's own argv and in
