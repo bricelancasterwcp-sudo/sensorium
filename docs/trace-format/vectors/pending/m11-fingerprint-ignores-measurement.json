@@ -1,0 +1,172 @@
+{
+  "id": "m11-fingerprint-ignores-measurement",
+  "asserts": "A generation's fingerprint hashes token ids only: two traces whose generations chose the identical token at every position, but whose recorded logprob, entropy, top-k and timestamps all differ, hash equal and read MATCH. Measurement is what the GPU's floating point moved between two boots; behavior is the token that was chosen, and only behavior enters the hash.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "argv": [
+      "bloomery-daemon",
+      "--config",
+      "/w/daemon.toml"
+    ],
+    "cwd": "/w",
+    "env_hash": "e0e0e0e0",
+    "start_ts": 1000.0,
+    "end_ts": 1002.0,
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "meta2": {
+    "same_as": "meta",
+    "run_id": "$RUN2"
+  },
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ],
+        [
+          5,
+          -2.4
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 5,
+      "piece": " fix",
+      "logprob": -0.2,
+      "entropy": 0.6,
+      "topk": [
+        [
+          5,
+          -0.2
+        ],
+        [
+          6,
+          -0.25
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "tokens2": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.44,
+      "entropy": 0.71,
+      "topk": [
+        [
+          3,
+          -0.44
+        ],
+        [
+          5,
+          -1.9
+        ]
+      ],
+      "ts": 5000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 5,
+      "piece": " fix",
+      "logprob": -0.31,
+      "entropy": 0.52,
+      "topk": [
+        [
+          5,
+          -0.31
+        ],
+        [
+          6,
+          -0.9
+        ]
+      ],
+      "ts": 9000
+    }
+  ],
+  "spans": [],
+  "spans2": [],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "identical-token-ids-with-different-measurements-hash-equal",
+      "ask": "Both traces sampled token 3 then token 5, and every recorded measurement about those tokens -- logprob, entropy, top-k, timestamp -- differs between them: does diff read MATCH, the two generations having fingerprinted equal?",
+      "command": [
+        "diff",
+        "$RUN",
+        "$RUN2"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "MATCH"
+        ]
+      ]
+    }
+  ]
+}

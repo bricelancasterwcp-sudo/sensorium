@@ -1,0 +1,118 @@
+{
+  "id": "m01-format5-refused-by-format4-reader",
+  "asserts": "A format-5 trace opened by a reader pinned at format 4 refuses by naming the newer format and telling the caller to upgrade, rather than reading rows the reader does not understand.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "argv": [
+      "bloomery-daemon",
+      "--config",
+      "/w/daemon.toml"
+    ],
+    "cwd": "/w",
+    "env_hash": "e0e0e0e0",
+    "start_ts": 1000.0,
+    "end_ts": 1002.0,
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "harness": {
+    "reader_max_format": 4
+  },
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "ok",
+      "logprob": -0.05,
+      "entropy": 0.1,
+      "topk": [
+        [
+          3,
+          -0.05
+        ]
+      ],
+      "ts": 1000
+    }
+  ],
+  "spans": [
+    {
+      "task": 1,
+      "kind": "stop",
+      "first_pos": 0,
+      "last_pos": 0,
+      "text": null,
+      "ref": {
+        "reason": "eog"
+      }
+    }
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "newer-format-refused-with-upgrade-hint",
+      "ask": "A reader pinned at format 4 opens a format-5 trace: does it name the format gap and say to upgrade, rather than read the model rows as if they were program rows?",
+      "command": [
+        "info",
+        "$RUN"
+      ],
+      "expect_exit": 2,
+      "expect_line": [
+        [
+          "is trace format 5, newer than this sensorium reads (up to 4)",
+          "upgrade sensorium"
+        ]
+      ]
+    }
+  ]
+}

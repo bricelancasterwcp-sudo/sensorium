@@ -1,0 +1,131 @@
+{
+  "id": "m07b-spans-exec-ref-trace-not-found",
+  "asserts": "An action span's exec ref can name a run id the builder minted but never wrote a trace for: spans still prints the daemon's own witness (exit 1, waited) and says separately that the program trace was not found, rather than reporting the cached ref as if the file had been read or dropping the reference.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "argv": [
+      "bloomery-daemon",
+      "--config",
+      "/w/daemon.toml"
+    ],
+    "cwd": "/w",
+    "env_hash": "e0e0e0e0",
+    "start_ts": 1000.0,
+    "end_ts": 1002.0,
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "absent2": true,
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "ok",
+      "logprob": -0.05,
+      "entropy": 0.1,
+      "topk": [
+        [
+          3,
+          -0.05
+        ]
+      ],
+      "ts": 1000
+    }
+  ],
+  "spans": [
+    {
+      "task": 1,
+      "kind": "action",
+      "first_pos": 0,
+      "last_pos": 0,
+      "text": "<action verb=\"run\">python3 -m unittest</action>",
+      "ref": {
+        "verb": "run",
+        "attrs": {},
+        "exec": {
+          "run_id": "$RUN2",
+          "exit_status": 1,
+          "exit_status_basis": "waited"
+        }
+      }
+    }
+  ],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "exec-ref-to-a-trace-that-was-never-built-says-so",
+      "ask": "The daemon waited on the child and saw exit 1, but $RUN2 was minted and never built: does spans print the daemon's own witness as its own fact and say the program trace was not found, rather than letting the cached ref speak for a file nobody opened?",
+      "command": [
+        "spans",
+        "$RUN",
+        "--gen",
+        "fx/patch-01"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "exec run",
+          "$RUN2"
+        ],
+        [
+          "daemon saw exit 1 (waited)"
+        ],
+        [
+          "program trace",
+          "(trace not found)"
+        ]
+      ]
+    }
+  ]
+}

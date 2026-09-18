@@ -1,0 +1,183 @@
+{
+  "id": "m05b-diff-within-noise-needs-blessed-band",
+  "asserts": "A divergence within a blessed noise_band's max_margin, with both tokens in each other's top-k, reads MATCH (within noise) and names the baseline it was read from.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "argv": [
+      "bloomery-daemon",
+      "--config",
+      "/w/daemon.toml"
+    ],
+    "cwd": "/w",
+    "env_hash": "e0e0e0e0",
+    "start_ts": 1000.0,
+    "end_ts": 1002.0,
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    },
+    "noise_band": {
+      "basis": "two-identical-boots",
+      "against": "$RUN2",
+      "weights_sha256": "00",
+      "adapters": [],
+      "max_margin": 0.1,
+      "positions": 1,
+      "gens": 1
+    }
+  },
+  "meta2": {
+    "same_as": "meta",
+    "run_id": "$RUN2",
+    "noise_band": null
+  },
+  "tasks": [
+    [
+      1,
+      "fx/patch-01",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ],
+        [
+          5,
+          -2.4
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 5,
+      "piece": " fix",
+      "logprob": -0.2,
+      "entropy": 0.6,
+      "topk": [
+        [
+          5,
+          -0.2
+        ],
+        [
+          6,
+          -0.25
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "tokens2": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ],
+        [
+          5,
+          -2.4
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 1,
+      "pos": 1,
+      "token": 6,
+      "piece": " match",
+      "logprob": -0.23,
+      "entropy": 0.58,
+      "topk": [
+        [
+          6,
+          -0.23
+        ],
+        [
+          5,
+          -0.3
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "spans": [],
+  "spans2": [],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "within-blessed-band-is-match",
+      "ask": "With a noise_band blessed against $RUN2, measured under the same weights_sha256 both sides declare, and a max_margin that covers this divergence, does diff read MATCH (within noise) and name $RUN2 as the baseline?",
+      "command": [
+        "diff",
+        "$RUN",
+        "$RUN2"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "MATCH (within noise)",
+          "$RUN2"
+        ]
+      ]
+    }
+  ]
+}

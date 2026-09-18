@@ -29,6 +29,7 @@ through the real command line (§8).
 | 2 | Async attribution: `events.task_id`, the `tasks` table, and the CALL-payload keys. Parentage becomes `"derived"`. |
 | 3 | Inspectable coroutines: `frames.kind`, the `YIELD`/`RESUME` event kinds, and `task_fingerprints`. |
 | 4 | The trace-format contract (this document). **No column changes.** It makes `recorder`, `lang` and `capabilities` required meta, and requires the finalize keys of §4 on any trace that says `incomplete = false`, so a second recorder can never have an absent record rendered as a zero. |
+| 5 | Model traces (`lang: "model"`). Tables, join, fingerprints: [`MODEL-TRACES.md`](trace-format/MODEL-TRACES.md). Program recorders write 4. This sensorium (0.18.0) refuses 5 at open until S1. |
 
 Two refusals live in `db.open_trace`, and both raise `TraceFormatError`
 (which `cli.main` turns into `error: …` on stderr and exit status 2):
@@ -205,7 +206,7 @@ recorder writes evidence; the reader names the state.
 | Column | Meaning and NULL semantics |
 |---|---|
 | `id` | Causal order (§6). 1-based, dense, assigned in write order. |
-| `ts_ns` | Monotonic nanoseconds (`time.monotonic_ns()` in the Python recorder). For display and duration only — never compared, never hashed. |
+| `ts_ns` | Monotonic nanoseconds (`time.monotonic_ns()` in the Python recorder). For display and duration only — never compared, never hashed (§6 names the one cross-file exception). |
 | `thread_id` | Thread serial (§6). |
 | `kind` | One of the seven kinds in §5. |
 | `frame_id` | The frame this event ran INSIDE. **NULL on every CALL**, including the ones that open a frame: the frame does not exist yet when the CALL row is written (`tracer._on_start` passes `None`), and the link runs the other way, through `frames.call_event_id`. NULL too for any other event a recorder emits outside a frame. `RETURN`, `RAISE`, `HANDLED`, `LINE`, `YIELD` and `RESUME` carry the open frame's id. |
@@ -263,11 +264,11 @@ recorder, lang, capabilities
 | `start_ts`, `end_ts` | Wall-clock seconds (`time.time()`); `info` prints the difference as the duration. |
 | `exit_status` | The status the recorded program ended with, or **null** when nobody witnessed it — read with `exit_status_basis` below, never alone. |
 | `main_thread_ident` | The **serial** of the thread the target was invoked from, recorded at boot rather than inferred (§6). |
-| `fingerprint_basis` | `"per-task"` or `"per-thread"` — what a per-thread fingerprint row covers (§7). Explicit, never defaulted by a writer. |
+| `fingerprint_basis` | `"per-task"` or `"per-thread"` — what a per-thread fingerprint row covers (§7) — and `"per-generation"` on a format-5 model trace ([MODEL-TRACES §6](trace-format/MODEL-TRACES.md#6-fingerprints-and-diff)), where the unit is one generation. Explicit, never defaulted by a writer. |
 | `truncated_count` | How many captured values were clipped by the capture caps. |
 | `source_hashes` | `{file: content-digest}` for every file the run traced code from. |
 | `recorder` | Who wrote the trace: `"sensorium 0.8.0"`, `"sensorium-rt 0.3.0"`. Printed in every sentence about what this trace can and cannot say. Both are examples of the SHAPE, not pins — the value is whatever wrote the file, and a reader that compares against a literal is reading it wrong. |
-| `lang` | `"python"`, `"rust"`, `"typescript"` — `db.KNOWN_LANGS`, the languages this sensorium has a vocabulary column for. Any other value is **refused at open** (exit 2), naming the recorder, the language and the columns that exist: until 2026-09-09 an unknown `lang` silently borrowed Python's words, which told a reader of such a trace about `asyncio tasks` and `python ?`. An **absent** `lang` is not an unknown one — the reader defaults it to `"python"`, because nothing else existed before the key. Vector: `v24-unknown-lang-refused`. |
+| `lang` | `"python"`, `"rust"`, `"typescript"` — `db.KNOWN_LANGS`, the languages this sensorium has a vocabulary column for. Any other value is **refused at open** (exit 2), naming the recorder, the language and the columns that exist: until 2026-09-09 an unknown `lang` silently borrowed Python's words, which told a reader of such a trace about `asyncio tasks` and `python ?`. An **absent** `lang` is not an unknown one — the reader defaults it to `"python"`, because nothing else existed before the key. Vector: `v24-unknown-lang-refused`. Format 5's `lang: "model"` is [MODEL-TRACES §1](trace-format/MODEL-TRACES.md#1-subject-and-vocabulary); this sensorium refuses format 5 at open. |
 | `capabilities` | The declaration; see below. |
 
 ### `exit_status` may be null, and `exit_status_basis` says why
@@ -288,6 +289,8 @@ the distinction and prints exactly as it always did. Rendering a null as
 `None` is the failure this key exists to stop: it reads as a status the
 program ended with. An `unwitnessed` process never prints a signal either;
 nobody waited, so nothing about the ending is known.
+
+Format 5 adds `exit_status_basis: "not-a-process-exit"` with `exit_status: null` (MODEL-TRACES §2). Rendering that null as a status, or as `0`, is the same failure this key already stops.
 
 Vector: `v10-exit-status-unwitnessed`.
 
@@ -409,7 +412,7 @@ under rule v1; `info` refuses to print it and prints `env_hash` instead —
 `redaction`, what that rule did, `caps`, the capture caps in force
 (`{"str": 200, "repr": 200, "sample": 8, "depth": 3}` in the Python
 recorder), and the record-time filters `focus`, `include`, `exclude`,
-`window`. These seven are the shared optional set; they are not Python-only.
+`window`. These seven, plus `join` — the cross-trace group and anchor in [MODEL-TRACES §7](trace-format/MODEL-TRACES.md#7-the-join); a `role: "program"` trace copies it from `SENSORIUM_JOIN` or omits it. They are not Python-only.
 
 `redaction`'s shape, its four `info` renderings and every limit of the rule
 are [`redaction.md`](redaction.md); `env_hash` is over the environment AS
@@ -489,7 +492,7 @@ Python sentence is a regression, and the legacy suite is the fence.
 | `frames.kind` markers | the contract's own words: `[coroutine]`, `[generator]`, `[async_generator]` | the contract's own words | `[async]`, `[generator]`, `[async generator]` — JavaScript has no coroutines |
 | `exceptions` | these rules ARE Python's | its own rules (rung 3), gated on `capabilities.err_flow` | its own rules (rung 2), gated on `capabilities.err_flow` |
 
-TypeScript column added 2026-09-09 (S5 rung 1); the `terms()` fallback retired with it — an unknown `lang` is refused at open (the `lang` row). Amended the same day (R26/R27a): the `runs` header prints `harness_command` and is chosen by `lang`.
+TypeScript column added 2026-09-09 (S5 rung 1); the `terms()` fallback retired with it — an unknown `lang` is refused at open (the `lang` row). Amended the same day (R26/R27a): the `runs` header prints `harness_command` and is chosen by `lang`. The model column (format 5) is contract in MODEL-TRACES until S1; it is not a fourth column here.
 
 ## 5. Enumerations
 
@@ -676,7 +679,7 @@ pins the `kind` half of the same rule.
   interleave in the id sequence — that interleaving is the record of what
   happened first. Vector: `v03-two-thread-order`.
 - **`ts_ns` is monotonic** within a process and is not the ordering: it is
-  for display and duration only.
+  for display and duration only, except the one same-process case MODEL-TRACES §7 names (`by clock`, never `by order`).
 - **Thread serials are per process, main = 1.** `frames.thread_id` and
   `events.thread_id` carry the serial, not an OS thread id — two short-lived
   threads that recycle one OS id must key to distinct fingerprints. `main =
@@ -790,7 +793,7 @@ events that ran in **no** unit of work, and each unit owns a row of its own.
 Under `"per-thread"` (every trace recorded before the marker) a thread's row
 covers every causal event on the thread, task events included. The two are
 not comparable, and `diff` refuses to compare traces recorded under
-different bases when either ran a task.
+different bases when either ran a task. Format 5 adds `"per-generation"` (MODEL-TRACES §6); `diff` never compares that basis with either program basis (exit 2, not 3).
 
 ## 8. Conformance vectors
 

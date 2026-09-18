@@ -1,0 +1,184 @@
+{
+  "id": "m03-gens-unnamed-pairs-by-order",
+  "asserts": "gens pairs unnamed generations (gen-N, the runtime-minted default) by creation order exactly as asyncio's Task-N does, and diff names the unnamed one that diverged by its order position, never inventing a caller-supplied name it never had.",
+  "meta": {
+    "trace_format": 5,
+    "incomplete": false,
+    "run_id": "$RUN",
+    "argv": [
+      "bloomery-daemon",
+      "--config",
+      "/w/daemon.toml"
+    ],
+    "cwd": "/w",
+    "env_hash": "e0e0e0e0",
+    "start_ts": 1000.0,
+    "end_ts": 1002.0,
+    "lang": "model",
+    "recorder": "sensorium-model 0.1.0",
+    "fingerprint_basis": "per-generation",
+    "exit_status": null,
+    "exit_status_basis": "not-a-process-exit",
+    "topk": 8,
+    "main_thread_ident": 1,
+    "truncated_count": 0,
+    "source_hashes": {},
+    "capabilities": {
+      "line": false,
+      "locals": false,
+      "return_value": false,
+      "tasks": true,
+      "threads": false,
+      "children": false,
+      "stdin": false,
+      "output": false,
+      "object_identity": false,
+      "refocus": false,
+      "tokens": true,
+      "topk": true,
+      "entropy": true,
+      "spans": true,
+      "routing": false,
+      "activations": false,
+      "attention": false
+    },
+    "model": {
+      "name": "fixture-model",
+      "engine": "llama.cpp",
+      "engine_build": "b10200",
+      "weights_path": "/w/m.gguf",
+      "weights_sha256": "00",
+      "adapters": [],
+      "n_ctx": 4096,
+      "n_vocab": 8,
+      "backend": "vulkan",
+      "sampler": {
+        "kind": "greedy"
+      },
+      "flash_attention": true
+    }
+  },
+  "meta2": {
+    "same_as": "meta",
+    "run_id": "$RUN2"
+  },
+  "tasks": [
+    [
+      1,
+      "gen-1",
+      1
+    ],
+    [
+      2,
+      "gen-2",
+      1
+    ]
+  ],
+  "tokens": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 2,
+      "pos": 0,
+      "token": 5,
+      "piece": "Hi",
+      "logprob": -0.2,
+      "entropy": 0.4,
+      "topk": [
+        [
+          5,
+          -0.2
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "tokens2": [
+    {
+      "task": 1,
+      "pos": 0,
+      "token": 3,
+      "piece": "The",
+      "logprob": -0.1,
+      "entropy": 0.3,
+      "topk": [
+        [
+          3,
+          -0.1
+        ]
+      ],
+      "ts": 1000
+    },
+    {
+      "task": 2,
+      "pos": 0,
+      "token": 7,
+      "piece": "Hey",
+      "logprob": -0.3,
+      "entropy": 0.5,
+      "topk": [
+        [
+          7,
+          -0.3
+        ]
+      ],
+      "ts": 2000
+    }
+  ],
+  "spans": [],
+  "spans2": [],
+  "fingerprints": "compute",
+  "questions": [
+    {
+      "id": "diverged-gen2-unnamed-paired-by-order",
+      "ask": "gen-2 on each side diverges at position 0: does diff name it unnamed and by position, since neither side's caller supplied a name?",
+      "command": [
+        "diff",
+        "$RUN",
+        "$RUN2"
+      ],
+      "expect_exit": 1,
+      "expect_line": [
+        [
+          "gen-2",
+          "unnamed"
+        ],
+        [
+          "p0"
+        ]
+      ]
+    },
+    {
+      "id": "gens-lists-both-runtime-minted-names",
+      "ask": "Does `gens` list both generations by their runtime-minted names, in causal order?",
+      "command": [
+        "gens",
+        "$RUN"
+      ],
+      "expect_exit": 0,
+      "expect_line": [
+        [
+          "g1",
+          "gen-1"
+        ],
+        [
+          "g2",
+          "gen-2"
+        ]
+      ]
+    }
+  ]
+}
