@@ -722,6 +722,8 @@ substrates. See
 
 ## License
 
-Proprietary — all rights reserved; see [LICENSE](LICENSE). Copyright © 2026
-Brice Lancaster. Versions through 0.14.0 were published under MIT; that grant
-stands for copies obtained under it and does not extend to later versions.
+MIT — see [LICENSE](LICENSE). Copyright © 2026 Brice Lancaster.
+
+Versions after the Proprietary interlude are again under MIT (matching
+releases through 0.14.0).
+
