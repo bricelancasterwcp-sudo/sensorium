@@ -13,6 +13,17 @@ refuses and what it does not do yet. The tool table below is pasted from
 
     claude mcp add sensorium -- <venv>/bin/sensorium mcp --allow-run
 
+Any MCP client that speaks stdio, the same binary:
+
+    {
+      "command": "<venv>/bin/sensorium",
+      "args": ["mcp", "--allow-run"]
+    }
+
+`--store DIR` belongs in `args` when the client should not inherit the
+launcher's `SENSORIUM_DIR`. The ten-step agent path is
+[`agent.md`](agent.md).
+
 **From the project's own venv, by absolute path.** `record` spawns
 `<interpreter> -m sensorium run -- <your command>`, and that interpreter is
 the server's own unless the call sets `python`; Python `refocus` re-runs the

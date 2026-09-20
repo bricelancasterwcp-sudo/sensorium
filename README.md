@@ -144,7 +144,15 @@ runs under:
     claude mcp add sensorium -- <venv>/bin/sensorium mcp --allow-run
 
 The tools, the result header, the cap, the audit file and what the server
-refuses: [`docs/mcp.md`](docs/mcp.md).
+refuses: [`docs/mcp.md`](docs/mcp.md). Any MCP client, not only Claude,
+registers the same binary on stdio — the `{command, args}` shape is on
+that page.
+
+## For agents
+
+Install, record one run, query it, serve it over MCP: ten steps in
+[`docs/agent.md`](docs/agent.md). After install, prove the path with
+`.venv/bin/python -m pytest tests/test_agent_smoke.py -q`.
 
 ## Exit statuses
 
