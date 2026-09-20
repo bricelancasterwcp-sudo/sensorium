@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.18.1 — 2026-09-20
+
+**The agent path.** Install, record one Python run, query it, and serve
+the same store over MCP, in ten steps, with a one-command smoke. Python
+**0.18.1** alone; no runtime, converter or probe changed and
+`TRACE_FORMAT` stays **4**.
+
+- **[`docs/agent.md`](docs/agent.md).** Ten numbered steps: venv install,
+  the venv binary, `sensorium run -- corpus/silent_swallow/main.py`,
+  `exceptions` / `tree` / `frame`, the four exits,
+  `sensorium mcp --allow-run --store`, the stdio `{command, args}`
+  shape, `record`'s argv array, the MCP exit header, and
+  `pytest tests/test_agent_smoke.py`. The README's `## For agents`
+  points there.
+- **Generic MCP registration.** `docs/mcp.md` names the stdio JSON any
+  client uses, not only `claude mcp add`. `--store` is an extra arg when
+  the client should not inherit the launcher's `SENSORIUM_DIR`.
+- **`tests/test_agent_smoke.py`.** Records `corpus/silent_swallow/main.py`
+  through the CLI and through MCP `--allow-run --store`, asks
+  `exceptions` both ways, and never writes `~/.sensorium`.
+
 ## 0.18.0 — 2026-09-17
 
 **sensorium as an MCP server.** `sensorium mcp` serves your own store to a

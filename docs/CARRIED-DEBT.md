@@ -752,3 +752,36 @@ deferred, each with the reason it was not worth a change now:
   what the brief said could not discriminate. A vector's `meta2 same_as` needs its overrides
   stated explicitly in the brief; a falsifier cited in a brief needs the case it would fail on
   stated with it. Faithful transcription is not a check on the thing transcribed.
+
+## 2026-09-20 — agent-usable MVP closeout
+
+The path an agent needs after clone: install → record → query → MCP, in
+≤10 steps, with a one-command smoke. Not a product slice. Hosted MCP,
+S1, D28, M5 and Rust/TS `record` tools were not opened.
+
+### Settled — closed here
+
+- **`docs/agent.md`.** Ten steps, the in-repo program
+  `corpus/silent_swallow/main.py`, the venv binary, generic stdio
+  `{command, args}`. README `## For agents` points there.
+  `tests/test_agent_docs.py` pins the step count, the install line, the
+  program, `sensorium mcp --allow-run`, the stdio args, the smoke path,
+  and the README heading.
+- **`docs/mcp.md` Registering** names the stdio JSON any client uses,
+  not only `claude mcp add`.
+- **`tests/test_agent_smoke.py`.** CLI record+`exceptions` and MCP
+  `--allow-run --store` record+`exceptions` of silent_swallow; the
+  store is always tmp. Python **0.18.1**.
+
+### Deferred by ruling
+
+Everything the MCP section deferred stays deferred. No `record` tool
+for `sensorium ts run` or `cargo sensorium`. The README's `fog.py`
+examples stay historical (they were run as typed); the agent path
+points at a file that is in the repo.
+
+### Files near the ceiling
+
+Measured after this closeout: this file **787**; `README.md` **735**;
+`docs/mcp.md` **367**; `docs/agent.md` **73**; `CHANGELOG.md` **771**.
+No cut. `docs/query.md` **798** still untouched.
