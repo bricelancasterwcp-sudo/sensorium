@@ -1,14 +1,14 @@
-# S5 rung 1 — TypeScript recorder v1: Implementation Plan
+# S5 rung 1: TypeScript recorder v1: Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the first product TypeScript recorder — the `typescript/` Node library, `sensorium ts run`/`sensorium ts ingest`, and the reader's `TYPESCRIPT` column — so that `runs`, `info`, `tree`, `frame`, `grep` and `diff` (with `--ignore-moves`) answer on real VTT-frontend traces with the honesty contract the other two recorders carry, and prove it against the pre-registered endpoints E0′–E11 and the two §10 controls on the spike's lens.
+**Goal:** Ship the first product TypeScript recorder (the `typescript/` Node library, `sensorium ts run`/`sensorium ts ingest`, and the reader's `TYPESCRIPT` column) so that `runs`, `info`, `tree`, `frame`, `grep` and `diff` (with `--ignore-moves`) answer on real VTT-frontend traces with the honesty contract the other two recorders carry, and prove it against the pre-registered endpoints E0′–E11 and the two §10 controls on the spike's lens.
 
 **Architecture:** A Python driver over a Node library (spec D1). The library is written fresh under `typescript/` against the spec, taking the parked spike (`origin/spike/typescript-mechanics`, `spike/typescript/`) as the proven shape for the transform, the runtime and the Vite plugin. The driver recognises the harness, writes a wrapper config and a setup file under the consumer's `node_modules/.sensorium/`, spawns the command as typed, waits, and converts every spool into a format-4 trace through `sensorium.store.writer.TraceWriter` in parallel. The reader gains a third vocabulary column, one choke-point refusal for an unknown `lang`, a lang-keyed `runs` header, `info_typescript.py`, and seven conformance vectors.
 
 **Tech Stack:** Node 24.16 (the measured floor), ESM `.mjs` with JSDoc types checked by `tsc --checkJs`, `magic-string` (the one runtime dependency; `typescript` is the consumer's), vitest 4.1 + jsdom for the probe project and corpus; Python 3.12–3.14 for the driver, converter and reader; sensorium 0.8.7 → **0.9.0**, `sensorium-ts` **0.1.0**.
 
-**Spec:** `docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md` — §2 (architecture), §3 (transformer), §4 (runtime and wire), §5 (contract), §6 (reader), §7 (ledger), §8 (endpoints), §9 (tests), §10 (first use), §12 (D1–D16). **Findings:** `docs/superpowers/spikes/2026-09-08-typescript-mechanics-spike.md` §3–§4 are binding on every task. **Contract:** `docs/TRACE-FORMAT.md`. **Rigor:** `~/.claude/skills/rigorous-experiments/SKILL.md`. **Style:** this plan states interfaces and invariants, and gives verbatim text only where a fresh implementer would guess wrong (wire records, the splice forms, the wrapper files, the run line) — plan-carried code was the dominant defect source in earlier rungs.
+**Spec:** `docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`, §2 (architecture), §3 (transformer), §4 (runtime and wire), §5 (contract), §6 (reader), §7 (ledger), §8 (endpoints), §9 (tests), §10 (first use), §12 (D1–D16). **Findings:** `docs/superpowers/spikes/2026-09-08-typescript-mechanics-spike.md` §3–§4 are binding on every task. **Contract:** `docs/TRACE-FORMAT.md`. **Rigor:** `~/.claude/skills/rigorous-experiments/SKILL.md`. **Style:** this plan states interfaces and invariants, and gives verbatim text only where a fresh implementer would guess wrong (wire records, the splice forms, the wrapper files, the run line), plan-carried code was the dominant defect source in earlier rungs.
 
 ## Global Constraints
 
@@ -18,7 +18,7 @@
 - **Pre-registration is committed before any code** (Task 0). After a number is read no threshold moves, no arm is added, no run is re-rolled; an infrastructure kill may be re-run from zero with the reason recorded.
 - **Legacy output is byte-identical**: the existing suite (count pinned in Task 0 on 3.12/3.13/3.14, corpus Python + Rust) is the regression fence for every Python task; `PYTHON` and `RUST` strings in `vocab.py` do not change by one character.
 - **Dependency policy**: `typescript/` runtime dependency `magic-string` only; `rt.mjs` imports `node:` builtins only; `typescript` is resolved from the consumer's root by `createRequire`; devDependencies `typescript`, `vitest`, `jsdom`, `@types/node`. Python: no new runtime dependency.
-- **The transform never inserts a newline** — `lines(out) === lines(in)` asserted on every golden and every probe file.
+- **The transform never inserts a newline**: `lines(out) === lines(in)` asserted on every golden and every probe file.
 - No file over 800 lines; functions under 50 lines. Every test mutation-checked before it counts (break the pinned line, watch it fail, restore); Python mutation runs purge `__pycache__` and set `PYTHONDONTWRITEBYTECODE=1`.
 - Commits: conventional prefixes; trailer lines per the session's git rules. Branch `feat/s5-rung1-recorder-v1` off `main` once PR #24 has merged (the spec and findings must be on `main` first; if it has not merged, branch off `docs/s5-typescript-design` and say so in the ledger).
 
@@ -28,13 +28,13 @@
 
 | # | Question | Decision | Why | Cost if wrong |
 |---|---|---|---|---|
-| P1 | Spec §5.1's `pool` key | **Dropped.** `environment` comes from `expect.getState().environment` through the setup file; `vitest` from the driver reading `<root>/node_modules/vitest/package.json`; the pool is already legible from `thread_id_os`/`is_main_thread`. | vitest sets no env var naming the pool. | `info` prints `node v24.16.0 (vitest 4.1.9, jsdom)` — one word fewer. |
+| P1 | Spec §5.1's `pool` key | **Dropped.** `environment` comes from `expect.getState().environment` through the setup file; `vitest` from the driver reading `<root>/node_modules/vitest/package.json`; the pool is already legible from `thread_id_os`/`is_main_thread`. | vitest sets no env var naming the pool. | `info` prints `node v24.16.0 (vitest 4.1.9, jsdom)`, one word fewer. |
 | P2 | How a test/describe call is wrapped | **Spread form:** `test(...__srt.task(<title>, fn, <flags>), <rest…>)`, `describe(...__srt.suite(<title>, fn))`. The helper returns `[title, wrapped]`. | The title expression is evaluated once; no newline; options arguments survive. | none known |
-| P3 | Where the unknown-`lang` refusal lives (spec §6) | **`db.open_trace`**, keyed on `db.KNOWN_LANGS = ("python", "rust", "typescript")`, raising `TraceFormatError` (exit 2, the newer-format refusal's shape); `vocab.terms()` indexes strictly and never falls back. | One choke point: every command refuses identically, and `grep` cannot answer where `info` refuses. | A recorder for a fourth language must add its column AND its name here — which is the rule. |
+| P3 | Where the unknown-`lang` refusal lives (spec §6) | **`db.open_trace`**, keyed on `db.KNOWN_LANGS = ("python", "rust", "typescript")`, raising `TraceFormatError` (exit 2, the newer-format refusal's shape); `vocab.terms()` indexes strictly and never falls back. | One choke point: every command refuses identically, and `grep` cannot answer where `info` refuses. | A recorder for a fourth language must add its column AND its name here, which is the rule. |
 | P4 | Records with no frame | A parentless CALL carries `caller: "untraced"`; a RAISE/HANDLED whose `f` is null is counted in meta **`throw_flow_outside_frames`** and written as no event (the contract forbids a code-less causal row; Rust's `err_flow_outside_frames` precedent). | | none |
 | P5 | The setup file | `typescript/src/setup.mjs` is a **template**; the driver writes the filled copy to `<root>/node_modules/.sensorium/<invocation>.setup.mjs` beside the wrapper, so its `import 'vitest'` resolves to the CONSUMER's vitest. | A setup file outside the consumer's tree would resolve `vitest` from `typescript/node_modules` and register hooks into the wrong runner instance. | none |
 | P6 | Re-ingesting a spool directory | `ingest` writes `<spool>/ingested.json` (`{run_ids}`) and refuses at exit 2 when it exists, naming it. | A second ingest would mint new run ids over the same records. | none |
-| P7 | The `run:` line the driver prints | `run: <id>  pid: <pid>  file: <test_file or ->  events: <n>  tasks: <m>` — accepted by `corpus.run_corpus.RUN_LINE` (shape 2, `  pid: ` anchor). | One line per trace, as the Rust converter prints. | none |
+| P7 | The `run:` line the driver prints | `run: <id>  pid: <pid>  file: <test_file or ->  events: <n>  tasks: <m>`, accepted by `corpus.run_corpus.RUN_LINE` (shape 2, `  pid: ` anchor). | One line per trace, as the Rust converter prints. | none |
 | P8 | YIELD payload | `{"awaiting": "Promise"}` for `await`, `{"awaiting": "consumer"}` for `yield`/`yield*`; the wire carries `k: "await"|"yield"`. | The reader prints `awaiting` as a type name. | none |
 | P9 | The corpus's vitest root | `corpus/typescript/` is ONE vitest project (shared `package.json`, `package-lock.json`, `vitest.config.ts` with `environment: 'node'`); a case is a subdirectory; `program: vitest`, `harness_args: ["run", "<case>"]`. The runner copies `corpus/typescript/` (minus `node_modules`, `.sensorium`) into the work dir and **symlinks** the real `node_modules` in. | One `npm ci`, not one per case. | Cases share a config; a case needing jsdom uses the per-file `@vitest-environment` pragma. |
 | P10 | Locating the Node package from Python | `SENSORIUM_TS_PKG` if set, else `Path(sensorium.__file__).parents[2] / "typescript"` (the editable-install layout); refuse at exit 2 when `<pkg>/node_modules/magic-string` is absent, naming `npm ci --prefix <pkg>`. | The global tool is an editable install of this checkout. | A wheel install has no `typescript/` beside it and must set the variable; the refusal says so. |
@@ -76,12 +76,12 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 ### Task 0: Branch, pre-registration, preflight, the package skeleton
 
 **Files:**
-- Create: `docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` — §1 (spec §8 table + §10 controls + the pins above, verbatim), §2 ambient pins (filled), §3 results (every cell `not measured (rung 1 pending)`), §4, §5 empty.
+- Create: `docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md`, §1 (spec §8 table + §10 controls + the pins above, verbatim), §2 ambient pins (filled), §3 results (every cell `not measured (rung 1 pending)`), §4, §5 empty.
 - Create: `typescript/package.json`, `typescript/tsconfig.json`, `typescript/.gitignore` (`node_modules/`), run `npm install magic-string@^0.30 && npm install -D typescript@^5.9 vitest@^4.1 jsdom@^29 @types/node@^24` and commit the lock.
 
 **Invariants:**
 - The pre-registration commit precedes every other commit on the branch.
-- §2 records: `node --version` (`v24.16.0`), `npm --version`, the lens's vitest/vite/typescript/jsdom versions from `frontend/node_modules/*/package.json`, the lens's sha256 manifest of `frontend/src` + `vite.config.ts` + `package.json` (748 entries expected — the spike's E6 set; store it at `/mnt/extra/sensorium-s5/manifest-rung1-before.txt`), a plain `npx vitest run` on the lens at `372 passed (372)` / `4278 passed (4278)` with its wall, `nproc`/governor, `df -h` of `/` and `/mnt/extra`, `NODE_OPTIONS`/`VITEST`/`CI` unset, the Python suite's pass count on 3.12/3.13/3.14, `sensorium --version`, and `git rev-parse HEAD` of this repo.
+- §2 records: `node --version` (`v24.16.0`), `npm --version`, the lens's vitest/vite/typescript/jsdom versions from `frontend/node_modules/*/package.json`, the lens's sha256 manifest of `frontend/src` + `vite.config.ts` + `package.json` (748 entries expected, the spike's E6 set; store it at `/mnt/extra/sensorium-s5/manifest-rung1-before.txt`), a plain `npx vitest run` on the lens at `372 passed (372)` / `4278 passed (4278)` with its wall, `nproc`/governor, `df -h` of `/` and `/mnt/extra`, `NODE_OPTIONS`/`VITEST`/`CI` unset, the Python suite's pass count on 3.12/3.13/3.14, `sensorium --version`, and `git rev-parse HEAD` of this repo.
 - Preflight refuses under 8 GB free on `/mnt/extra` or 3 GB on `/`, or a 1-minute load above 4.0.
 - `npm ci` in `typescript/` reproduces `node_modules` from the lock; `npx tsc -p typescript/tsconfig.json` passes on an empty `src/`.
 
@@ -98,19 +98,19 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 **Interfaces:** the falsifier names are fixed here and later tasks must create them: `typescript/test/rt.test.mjs` (`task isolation`, `stack pops at yield`, `serial survives rethrow`, `dbg caps`, `flush on exit`), `typescript/test/transform.test.mjs` (goldens), `typescript/probes/{async,sites,swallow,each,concurrent,never_settles,describe_chain,timer_parentless}.probe.test.ts`, `tests/test_ts_ingest.py`, vectors `v23`–`v29`, corpus cases `corpus/typescript/{double_call,pass_vs_fail,wrong_branch,nondeterministic,unit_mismatch,async_interleaved,object_refused,watch_refused,exceptions_refused,each_naming,unhandled_rejection_in_info,suspended_at_end,timer_callback_parentless}`, and endpoints E0′–E11.
 
-**Invariants:** every promise names a falsifier; every "cannot see" is also a meta key, an `info` line or a transform exclusion count — the ledger claims nothing the trace does not carry. README: `npm ci --prefix typescript`, `sensorium ts run [--tier off|call] -- vitest run …`, where traces go, the not-yet list (`exceptions`, `watch`, `flow`, `refocus` refuse on these traces in 0.1.0; args unread).
+**Invariants:** every promise names a falsifier; every "cannot see" is also a meta key, an `info` line or a transform exclusion count. The ledger claims nothing the trace does not carry. README: `npm ci --prefix typescript`, `sensorium ts run [--tier off|call] -- vitest run …`, where traces go, the not-yet list (`exceptions`, `watch`, `flow`, `refocus` refuse on these traces in 0.1.0; args unread).
 
 - [ ] Write both; commit: `docs(typescript): the honesty ledger before the runtime`.
 
 ---
 
-### Task 2: `typescript/src/transform.mjs` — the rewriter, goldens
+### Task 2: `typescript/src/transform.mjs`: the rewriter, goldens
 
 **Files:**
 - Create: `src/transform.mjs`, `src/qualname.mjs`, `test/transform.test.mjs`, `test/golden/<rule>.ts` + `.expected.ts` for every rule below.
 
 **Interfaces:**
-- `transformSource(code: string, filePath: string, opts: {root: string, ts: typeof import('typescript'), rtPath: string}) → {code, map, manifest} | null` — null for a path outside `root`, under any `node_modules`, a `.d.ts`, or an extension outside `.ts .tsx .js .jsx .mjs` (`.cjs` counted in the manifest as `excluded.commonjs` and returned null).
+- `transformSource(code: string, filePath: string, opts: {root: string, ts: typeof import('typescript'), rtPath: string}) → {code, map, manifest} | null`, null for a path outside `root`, under any `node_modules`, a `.d.ts`, or an extension outside `.ts .tsx .js .jsx .mjs` (`.cjs` counted in the manifest as `excluded.commonjs` and returned null).
 - `manifest = {file: <abs>, rel: <root-relative>, sha256, instrumented: [{qualname, line, kind}], excluded: {<reason>: count}}` with `kind ∈ function|coroutine|generator|async_generator` and reasons `vitest-hoisted-factory`, `overload-signature`, `ambient`, `abstract`, `commonjs`.
 - Header prepended: `import * as __srt from "<rtPath>";const __sfile=__srt.file(<rel>,<abs>,<codes>,<sha>);` where `codes = [[qualname, line, kind]…]`.
 - The splice forms (verbatim, the one place to copy):
@@ -118,7 +118,7 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
   - expression body: `{const __sf=__srt.call(__sfile,<idx>);try{return __srt.ret(__sf,(` … `))}catch(__se){__srt.thr(__sf,__se);throw __se}}`
   - `return <e>` → `return __srt.ret(__sf,(<e>))`; bare `return` → `return __srt.ret(__sf,undefined)`
   - `await <e>` → `__srt.r(__sf,await __srt.y(__sf,(<e>),0))`; `yield <e>` / `yield* <e>` → `__srt.r(__sf,yield __srt.y(__sf,(<e>),1))` / `__srt.r(__sf,yield* __srt.y(__sf,(<e>),1))`
-  - `throw <e>` → `throw __srt.raise(__sf,(<e>),<line>)`; a `catch (e) {` gains `__srt.handled(__sf,e,<line>,<how>);` as its first statement; `catch {` becomes `catch(__sce){__srt.handled(__sf,__sce,<line>,<how>);` — `how` is `"sink_empty_catch"` for an empty block, `"catch"` otherwise; `.catch(() => {})` (arrow, empty block) → `.catch(__srt.emptyCatch(__sf,<line>,() => {}))`
+  - `throw <e>` → `throw __srt.raise(__sf,(<e>),<line>)`; a `catch (e) {` gains `__srt.handled(__sf,e,<line>,<how>);` as its first statement; `catch {` becomes `catch(__sce){__srt.handled(__sf,__sce,<line>,<how>);`, `how` is `"sink_empty_catch"` for an empty block, `"catch"` otherwise; `.catch(() => {})` (arrow, empty block) → `.catch(__srt.emptyCatch(__sf,<line>,() => {}))`
   - `test|it[.chain…](<title>, fn, …)` → `(...__srt.task((<title>),fn,<flags>), …)` with `flags = (literal ? 1 : 0) | (each ? 2 : 0)`; `describe|suite[.chain…](<title>, fn)` → `(...__srt.suite((<title>),fn))`; `__sf` outside any instrumented function is spelled `null`.
 - Closing insertions at one offset are spliced innermost first (`prependRight`); nothing inside a `vi.mock|vi.doMock|vi.hoisted|vi.unmock` factory is instrumented.
 
@@ -128,7 +128,7 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 ---
 
-### Task 3: `typescript/src/rt.mjs` — tasks, stacks, values, spools
+### Task 3: `typescript/src/rt.mjs`: tasks, stacks, values, spools
 
 **Files:**
 - Create: `src/rt.mjs`, `src/dbg.mjs`, `test/rt.test.mjs`.
@@ -164,7 +164,7 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
   rt.fileStart(expect.getState().testPath ?? null, expect.getState().environment ?? null);
   beforeEach(() => { rt.seen(expect.getState().currentTestName ?? null); });
   ```
-- The probe project's own `vitest.config.ts` imports `../src/vite.mjs` directly and lists `probes/setup.mjs` — the template's text with `'../src/rt.mjs'` in place of `__PKG__/src/rt.mjs` (a test in `transform.test.mjs` asserts the two files differ only on that line) — so the probes run WITHOUT the driver: `SENSORIUM_TIER=call SENSORIUM_SPOOL=<dir> npx vitest run` from `typescript/probes/`.
+- The probe project's own `vitest.config.ts` imports `../src/vite.mjs` directly and lists `probes/setup.mjs` (the template's text with `'../src/rt.mjs'` in place of `__PKG__/src/rt.mjs` (a test in `transform.test.mjs` asserts the two files differ only on that line)) so the probes run WITHOUT the driver: `SENSORIUM_TIER=call SENSORIUM_SPOOL=<dir> npx vitest run` from `typescript/probes/`.
 
 **Invariants** (a `probes/check.mjs` reads the spools and asserts): the E3 rows of spec §1.1 of the findings in `node` and `jsdom` files; 20/20 sites on their `// SITE` lines; the five swallow shapes; `each.probe` produces 3 tasks named `adds 1 + 2`-style by the provider with `conflict: false`; `describe_chain.probe` names `outer > inner > leaf`; `never_settles.probe`'s frame ends on a YIELD with no RETURN; `timer_parentless.probe`'s timer callback CALL has `p: null` inside its task; `concurrent.probe` records a conflict count that the checker prints (not gated: the documented hazard); `node --test` on the async probe produces its rows through `register.mjs`.
 
@@ -172,14 +172,14 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 ---
 
-### Task 5: `sensorium ts ingest` — spools to traces
+### Task 5: `sensorium ts ingest`: spools to traces
 
 **Files:**
 - Create: `src/sensorium/ts/{__init__.py, spool.py, ingest.py}`, `tests/test_ts_ingest.py`, `tests/fixtures/ts-spools/<case>/…` for cases `async-chain` (recorded from the probe project in Task 4 and committed), `unhandled-rejection`, `killed-mid-file` (a spool cut before EXIT), `each-names`, `outside-frame-throw`, `no-boot` (refused by name).
 
 **Interfaces:**
 - `spool.read(path) → Spool` (records in order; `boot` required else `SpoolError` naming the file; `exit` optional).
-- `ingest.convert(spool_path, invocation: dict, harness: dict|None, store_dir) → Summary{run_id, pid, test_file, events, tasks, incomplete}`; `ingest.ingest_dir(spool_dir, store_dir, jobs=os.cpu_count()) → list[Summary]` (a `multiprocessing.Pool` over spool files in name order; writes `ingested.json`; refuses when it exists — P6).
+- `ingest.convert(spool_path, invocation: dict, harness: dict|None, store_dir) → Summary{run_id, pid, test_file, events, tasks, incomplete}`; `ingest.ingest_dir(spool_dir, store_dir, jobs=os.cpu_count()) → list[Summary]` (a `multiprocessing.Pool` over spool files in name order; writes `ingested.json`; refuses when it exists: P6).
 - Trace construction through `TraceWriter`: `intern_code(abs, qualname, line)`; `open_frame(parent_db, code_id, call_eid, depth, 1, kind)`; CALL payload `{"args": {}, "unread": ["locals"]}` plus `"caller": "untraced"` when `p` is null; RETURN `{"value": v, "outcome": "ok"}` and `close_frame(return)`; UNWIND → `close_frame(None, "unwind", exc)`; YIELD per P8; RAISE/HANDLED `{"exc": x, "how": how}` with `line`, `frame_id`/`code_id` from `f` (closed frames included), or counted in `throw_flow_outside_frames` when `f` is null; UNHANDLED → `unhandled_rejections`; TASK → `add_task(id, name, 1)`; fingerprints per task and one thread row over `(rel, qualname, kind)` for the four causal kinds (`Fingerprint`, root-relative file = `rel`); `truncated_count` = `trunc: true` values.
 - Meta: the required set (`run_id` minted `time.strftime('%Y%m%d-%H%M%S', localtime(startTs)) + '-' + 6 hex`; `argv`, `cwd`, `env`, `env_hash` from BOOT; `start_ts`/`end_ts` from BOOT/EXIT, `end_ts` = last `ts` when EXIT is absent; `exit_status: None`, `exit_status_basis: "unwitnessed"`; `main_thread_ident: 1`; `fingerprint_basis: "per-task"`; `source_hashes {abs: sha}`; `recorder: "sensorium-ts 0.1.0"` (from the package.json the driver recorded in `invocation.json`); `lang: "typescript"`; `capabilities` = spec §5.2; `caps: {"dbg": 200, "depth": 2, "sample": 8, "str": 100}`), the TypeScript-only keys of spec §5.1 minus `pool` plus `throw_flow_outside_frames`, `harness_exit` when `harness.json` exists; `incomplete` true first, `False` after finalize only when EXIT was present.
 
@@ -189,11 +189,11 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 ---
 
-### Task 6: `sensorium ts run` — harness recognition, the wrapper, the driver
+### Task 6: `sensorium ts run`: harness recognition, the wrapper, the driver
 
 **Files:**
 - Create: `src/sensorium/ts/{cli.py, harness.py, wrapper.py, pkg.py, driver.py}`, `tests/test_ts_harness.py`, `tests/test_ts_wrapper.py`, `tests/test_ts_live.py` (gated by `SENSORIUM_TS_LIVE=1` and skipped BY NAME otherwise).
-- Modify: `src/sensorium/cli.py` — register `ts` (`from sensorium.ts import cli as ts_cli; ts_cli.add_parser(sub)`), help `record a TypeScript/JavaScript program under vitest or node --test`.
+- Modify: `src/sensorium/cli.py`, register `ts` (`from sensorium.ts import cli as ts_cli; ts_cli.add_parser(sub)`), help `record a TypeScript/JavaScript program under vitest or node --test`.
 
 **Interfaces:**
 - `harness.recognise(cmd: list[str], cwd: Path) → Plan | Refusal`; `Plan{kind: "vitest"|"node-test", argv, root, user_config: Path|None}`; `Refusal{message}` for `npm|pnpm|yarn test|run …` ("run the harness directly: sensorium ts run -- vitest run …"), for `jest` ("jest is not supported: not measured, and the consumer does not run it"), and for anything else (naming `vitest` and `node --test`). vitest is recognised through `vitest`, `npx vitest`, `pnpm vitest`, `pnpm exec vitest`, `yarn vitest`, any path ending `/vitest`; `--root X`, `-r X`, `--root=X`, `--config X`, `-c X`, `--config=X` are consumed; the default config search is `vitest.config.{ts,mts,cts,js,mjs,cjs}` then `vite.config.{…}` in the root.
@@ -222,16 +222,16 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 ---
 
-### Task 7: The reader on TypeScript traces — vocabulary, refusal, `runs`, `info`, vectors, contract
+### Task 7: The reader on TypeScript traces: vocabulary, refusal, `runs`, `info`, vectors, contract
 
 **Files:**
 - Modify: `src/sensorium/query/vocab.py` (`TYPESCRIPT`, `Terms.kind_labels`, `Terms.exceptions_refusal: str | None`, strict `terms()`), `src/sensorium/store/db.py` (`KNOWN_LANGS`, the refusal in `open_trace`), `src/sensorium/query/tree_cmd.py:149` and `frame_cmd.py:137` (`terms(trace).kind_labels.get(kind, kind)`), `runs_cmd.py` (`_header` reads `harness`/`harness_args` + `harness_exit`; `_row` prints `file: <test_file>` or `files: N` when present), `exceptions_cmd.py` (`_language_refusal` returns `terms(trace).exceptions_refusal`; the Rust arm unchanged), `info_cmd.py` (`typescript_lines(t, m)` after the interpreter line, gated on `t.lang == "typescript"` exactly as `rust_lines` is), `docs/TRACE-FORMAT.md` (§4 a TypeScript-only table, §5 `exc.kind` and `how` values, §6 the `file:` member, the vocabulary row), `docs/trace-format/VECTORS.md` (rows `v23`–`v29`), `tests/test_vocab.py` (a `TYPESCRIPT_VECTORS` scan with `FORBIDDEN_TS = FORBIDDEN + ("cargo", "Rust disposition", "toolchain:")`, `test_typescript_terms_name_what_a_typescript_trace_has`, the unknown-lang test).
-- Create: `src/sensorium/query/info_typescript.py`, `docs/trace-format/vectors/v23-lang-typescript-prose.json` … `v29-runs-file-header.json`, `tests/test_ts_refusal.py` (a hand-built `lang: "cobol"` trace through `finalize_synthetic`: `Trace.open` raises `TraceFormatError` with the sentence, and `info`, `grep`, `tree` and `diff` through the real CLI all exit 2 with it — one choke point, four commands).
+- Create: `src/sensorium/query/info_typescript.py`, `docs/trace-format/vectors/v23-lang-typescript-prose.json` … `v29-runs-file-header.json`, `tests/test_ts_refusal.py` (a hand-built `lang: "cobol"` trace through `finalize_synthetic`: `Trace.open` raises `TraceFormatError` with the sentence, and `info`, `grep`, `tree` and `diff` through the real CLI all exit 2 with it, one choke point, four commands).
 
 **Interfaces:**
-- `TYPESCRIPT` fields as spec §6; `kind_labels = {"coroutine": "async", "async_generator": "async generator"}` (PYTHON and RUST: `{}`); `exceptions_refusal` = `"REFUSED: exceptions on a typescript trace needs the TypeScript disposition rules (S5 rung 2); the Python rules index exception identity this trace does not carry; nothing was judged"` (PYTHON: None; RUST: None — dispatched before the refusal).
+- `TYPESCRIPT` fields as spec §6; `kind_labels = {"coroutine": "async", "async_generator": "async generator"}` (PYTHON and RUST: `{}`); `exceptions_refusal` = `"REFUSED: exceptions on a typescript trace needs the TypeScript disposition rules (S5 rung 2); the Python rules index exception identity this trace does not carry; nothing was judged"` (PYTHON: None; RUST: None, dispatched before the refusal).
 - `db.open_trace`: after the format checks, `lang = get_meta(conn, "lang")`; `lang is not None and lang not in KNOWN_LANGS` → `TraceFormatError(f"{path} was written by {recorder} for lang {lang!r}, which this sensorium ({version}) has no vocabulary for ({', '.join(KNOWN_LANGS)}); upgrade sensorium to read it")`.
-- `info_typescript.typescript_lines(trace, m)`: `harness: vitest run src/fog  exit: 1 (waited)`, `container: pid 4242  thread 0 (main)  file: src/fog/compute.test.ts`, `tests: 11 as tasks, 11 seen by the harness` (+ `; 2 registered through a shape the transform did not wrap` when they differ; + `; task names: vitest|title|mixed` + `, 1 conflict`), `files: 41 transformed; excluded: 3 (vitest-hoisted-factory)`, `unhandled rejections: N` (when non-zero, or zero on a complete trace), `throw flow outside frames: N` (when non-zero) — every line gated on its key.
+- `info_typescript.typescript_lines(trace, m)`: `harness: vitest run src/fog  exit: 1 (waited)`, `container: pid 4242  thread 0 (main)  file: src/fog/compute.test.ts`, `tests: 11 as tasks, 11 seen by the harness` (+ `; 2 registered through a shape the transform did not wrap` when they differ; + `; task names: vitest|title|mixed` + `, 1 conflict`), `files: 41 transformed; excluded: 3 (vitest-hoisted-factory)`, `unhandled rejections: N` (when non-zero, or zero on a complete trace), `throw flow outside frames: N` (when non-zero). Every line gated on its key.
 
 **Invariants:** `v23` asks `info`, `tree`, `frame`, `runs`, `diff` and `exceptions` on a hand-built TypeScript trace and asserts the words `node v24`, `test`, `[async]`, `file:`, `exit:1 (waited)`, the refusal sentence at exit 3, and the ABSENCE of `asyncio`, `cargo`, `python ?`, `coroutine`, `Python's own`, `Rust disposition`; `v24` builds a `lang: "cobol"` trace and asserts `info` exits 2 with `no vocabulary for (python, rust, typescript)`; `v25`–`v29` as spec §5.3; the whole legacy suite green; `test_vocab.py`'s Rust scan unchanged and the TypeScript scan green over every `lang: typescript` vector and the six commands.
 
@@ -243,7 +243,7 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 **Files:**
 - Create: `corpus/typescript/{package.json, package-lock.json, vitest.config.ts, README.md}` and the thirteen cases named in Task 1, each `<case>/<case>.test.ts` (+ a source file where the case needs one) and `questions.yaml`.
-- Modify: `corpus/run_corpus.py` — `VITEST = "vitest"`, `TS_DIR = "typescript"`, `harness_args` in `ALLOWED_TOP_KEYS` and `Case`, `_question_files` adds `typescript/*/questions.yaml`, `_record_vitest(wd, sdir, harness_args)` (copy `corpus/typescript/` minus `node_modules`/`.sensorium`, symlink `node_modules`, run `python -m sensorium ts run -- npx vitest run <case>` with `SENSORIUM_DIR=sdir`), skip reason `NO_TS = "no corpus/typescript/node_modules (npm ci) or node < 24"`, `--require-driver` unchanged (any skip already fails it), and a new `--only-dir <name>` that runs one corpus directory (`rust`, `typescript`, or `.` for the Python cases) so a CI job can gate one recorder's cases with `--require-driver` while another recorder's driver is absent.
+- Modify: `corpus/run_corpus.py`, `VITEST = "vitest"`, `TS_DIR = "typescript"`, `harness_args` in `ALLOWED_TOP_KEYS` and `Case`, `_question_files` adds `typescript/*/questions.yaml`, `_record_vitest(wd, sdir, harness_args)` (copy `corpus/typescript/` minus `node_modules`/`.sensorium`, symlink `node_modules`, run `python -m sensorium ts run -- npx vitest run <case>` with `SENSORIUM_DIR=sdir`), skip reason `NO_TS = "no corpus/typescript/node_modules (npm ci) or node < 24"`, `--require-driver` unchanged (any skip already fails it), and a new `--only-dir <name>` that runs one corpus directory (`rust`, `typescript`, or `.` for the Python cases) so a CI job can gate one recorder's cases with `--require-driver` while another recorder's driver is absent.
 
 **Invariants:** every question pre-registers `why_logs_fail` naming which of `console.log`, `DEBUG=*`, a stack trace fails; every case's planted truth is stated; the count line reads `13 cases` for the TypeScript directory; the refusal cases pin the exact sentences (`flow --object` → `object_identity: false` at exit 3; `watch` → `line: false` at exit 3; `exceptions` → the TypeScript sentence at exit 3); `async_interleaved` pins two `.concurrent` tests' rows each under their own task; `each_naming` pins three tasks named by expanded titles; `unhandled_rejection_in_info` pins `unhandled rejections: 1`; `suspended_at_end` pins `~ suspended at L<n> at end of recording`; `timer_callback_parentless` pins a depth-0 frame inside the task with the tree's untraced-caller tag.
 
@@ -251,10 +251,10 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 ---
 
-### Task 9: CI — the `typescript` job
+### Task 9: CI: the `typescript` job
 
 **Files:**
-- Modify: `.github/workflows/ci.yml` — a `typescript` job: `actions/setup-node@v4` with `node-version: 24`, `npm ci` in `typescript/`, `typescript/probes/` and `corpus/typescript/`, `npx tsc -p typescript/tsconfig.json`, `npm test --prefix typescript`, the probe checker through the driver (`SENSORIUM_TS_LIVE=1 python -m pytest -q tests/test_ts_live.py`), `python -m pytest -q tests/test_ts_ingest.py tests/test_ts_refusal.py tests/test_vectors.py tests/test_vocab.py`, `python corpus/run_corpus.py --require-driver` with `SENSORIUM_CARGO_SENSORIUM` unset **and** the Rust cases excluded by `--only-dir typescript` (add that flag: run one corpus directory) so the flag gates the TypeScript cases alone. `actions/cache@v4` on `~/.npm` keyed by the three lock files.
+- Modify: `.github/workflows/ci.yml`, a `typescript` job: `actions/setup-node@v4` with `node-version: 24`, `npm ci` in `typescript/`, `typescript/probes/` and `corpus/typescript/`, `npx tsc -p typescript/tsconfig.json`, `npm test --prefix typescript`, the probe checker through the driver (`SENSORIUM_TS_LIVE=1 python -m pytest -q tests/test_ts_live.py`), `python -m pytest -q tests/test_ts_ingest.py tests/test_ts_refusal.py tests/test_vectors.py tests/test_vocab.py`, `python corpus/run_corpus.py --require-driver` with `SENSORIUM_CARGO_SENSORIUM` unset **and** the Rust cases excluded by `--only-dir typescript` (add that flag: run one corpus directory) so the flag gates the TypeScript cases alone. `actions/cache@v4` on `~/.npm` keyed by the three lock files.
 
 **Invariants:** the Python matrix jobs are unchanged and skip the TypeScript cases BY NAME; the job fails when the driver or `node_modules` is missing (the gate on the gate).
 
@@ -262,10 +262,10 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 ---
 
-### Task 10: The acceptance run — E0′–E11 and the §10 controls on the lens
+### Task 10: The acceptance run: E0′–E11 and the §10 controls on the lens
 
 **Files:**
-- Create: `typescript/acceptance/{census.mjs, check_e3.py, sites.py, e6.sh, arms.sh, assemble.py, e5ts_split.sh, planted_change.sh}` — re-authored from the spike's instruments (shape, not source), each printing JSON with `{value, n, lens, dropped}` per measurement.
+- Create: `typescript/acceptance/{census.mjs, check_e3.py, sites.py, e6.sh, arms.sh, assemble.py, e5ts_split.sh, planted_change.sh}`, re-authored from the spike's instruments (shape, not source), each printing JSON with `{value, n, lens, dropped}` per measurement.
 - Modify: the acceptance record §2 (pins re-taken), §3 (results), §4 (decisions), §5 (gaps).
 
 **Invariants:** every endpoint computed by an instrument, never by hand; the arms interleaved plain/off/call ×5 with the load guard; `arms.sh` detached with `setsid nohup`, pid file + `.DONE` marker, killed by pgid on timeout; E6′ from the Task-0 manifest; E9's 20-name comparison against `e9.json`; E10 n=3; E11 both halves; E5-TS on `lens-split` (two functions of one VTT module moved to a new file), the planted change on `lens-swap` (two call sites swapped); every number written into §3 with its rule quoted, verdicts into §4 as the rules say (STOP stands where it fires; no re-roll).
@@ -274,7 +274,7 @@ docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md   §1 pre-registrat
 
 ---
 
-### Task 11: Land it — README, CHANGELOG, versions, spec amendments, ledger, PR
+### Task 11: Land it: README, CHANGELOG, versions, spec amendments, ledger, PR
 
 **Files:**
 - Modify: `README.md` (a `## TypeScript` section beside `## Rust`, the same shape: install, record, what it answers, what refuses, cost beside Python's and Rust's; the `--help` description of the top-level parser moves from "Record a Python program's execution" to "Record a program's execution (Python, Rust, TypeScript)"), `CHANGELOG.md` (a `0.9.0` entry in the file's style), `pyproject.toml` (`0.9.0`), the spec (§13-style deltas: P1–P11 and every measured number that moved a sentence, dated in place, nothing deleted), `docs/CARRIED-DEBT.md` (an S5 rung-1 section: settled → deferred with rulings → lessons; args capture, `exceptions` rules, `scheduled_by`, transform cache, the `.concurrent` naming hazard, jest), `typescript/HONESTY.md` (row references to the acceptance record's §4 cells).

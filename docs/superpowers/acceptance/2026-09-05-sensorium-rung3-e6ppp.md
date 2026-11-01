@@ -1,8 +1,8 @@
-# Rung-3 acceptance, the R2 repair — E6‴-A, E6‴-W, E6-again, E7‴
+# Rung-3 acceptance, the R2 repair: E6‴-A, E6‴-W, E6-again, E7‴
 
-The record of whether the R2 amendment of 2026-09-05 — format PRODUCTS escape
+The record of whether the R2 amendment of 2026-09-05 (format PRODUCTS escape
 the arm, only the unit-returning logging family keeps the bare-argument
-exemption — actually removes the false accusation E6′ STOPped on, without
+exemption) actually removes the false accusation E6′ STOPped on, without
 buying it with a new one somewhere else.
 
 This is a **new slice, not a re-roll**. The 2026-09-04 acceptance
@@ -11,7 +11,7 @@ measured once and stands as written: E6′ **STOP**, 1 false accusation of 15,
 `build_memory` at the clone's `memory.rs:131`. Nothing there is re-run,
 re-scoped or re-classified by this document. The binding design is
 `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md` (R1–R16,
-§2a, and the dated "R2 amendment — 2026-09-05" block above §2a); the plan is
+§2a, and the dated "R2 amendment, 2026-09-05" block above §2a); the plan is
 `docs/superpowers/plans/2026-09-04-sensorium-rung3-err-flow.md` (Addendum
 2026-09-05, tasks T10 and T11). The driver these endpoints are measured with
 is the `cargo-sensorium` binary built `--release` from this branch
@@ -22,9 +22,9 @@ recorded in §2.
 its tests but before any E6‴ number has been read, and it is the plan
 addendum's pre-registration with the two numbers Task 10 measured on the clone
 before this section was written (the arm census, below) filled in. It was
-**amended once, dated, before any measurement** — the note is inside §1 itself,
+**amended once, dated, before any measurement**. The note is inside §1 itself,
 in "Reported without a gate", so the lock covers it; §2 records both shas. Task 11
-refuses to run if this section differs from the commit that locked it —
+refuses to run if this section differs from the commit that locked it,
 compared with `awk '/^## 1/,/^## 2/'`, both shas recorded in §2. A completed
 measurement is never re-rolled, and a miss is a STOP with its number.
 
@@ -47,21 +47,21 @@ Lens for every endpoint: dev profile; the clone at `e209ed9`; the driver built `
 
 Measured 2026-09-05T02:20:30-0500 → 2026-09-05T02:20:49-0500 by `rust/tests/acceptance_e6ppp.py`, launched detached; the raw facts it recorded are `results-e6ppp-raw.json` in the gitignored plan ledger, with every command's log beside it. §3 below is rendered from `2026-09-05-sensorium-rung3-e6ppp.results.json`, which `acceptance_schema_e6ppp.assemble_e6ppp` derived from that raw file.
 
-**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it. The range is awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references — here §1 references no footnote (`footnotes_in_range` = none), so the extended range and `awk '/^## 1/,/^## 2/'` are the same bytes. Checked at `254765b`: 5712 bytes, sha256 `9b0c2dfebe8a5d67250cad36ec9030967f7ac0c90447ab13c600e4086d243065` on both sides — identical: yes. The ORIGINAL lock is `33396b0` (sha256 `7803a2a1da73024e265b48c0b2929a7414bf1676404749cce3fd2192b71202ee`, 4655 bytes); §1 was amended after it: yes (1057 bytes added — the dated pre-measurement note inside "Reported without a gate").
+**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it. The range is awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references, here §1 references no footnote (`footnotes_in_range` = none), so the extended range and `awk '/^## 1/,/^## 2/'` are the same bytes. Checked at `254765b`: 5712 bytes, sha256 `9b0c2dfebe8a5d67250cad36ec9030967f7ac0c90447ab13c600e4086d243065` on both sides, identical: yes. The ORIGINAL lock is `33396b0` (sha256 `7803a2a1da73024e265b48c0b2929a7414bf1676404749cce3fd2192b71202ee`, 4655 bytes); §1 was amended after it: yes (1057 bytes added, the dated pre-measurement note inside "Reported without a gate").
 
 | Pin | Value |
 |---|---|
 | repo HEAD at the run | `abadf7a72c8daa185cfda9c00886520e3e2caa92` (branch `feat/rung3-err-flow`) |
 | driver | `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, mtime 2026-09-05T01:48:00-0500 |
-| driver sha256 | `0ce80ad5aa884ac00a6fbc755354e27bab336a52932332ef0829b22cdb8cee42` — unchanged across the run: yes |
+| driver sha256 | `0ce80ad5aa884ac00a6fbc755354e27bab336a52932332ef0829b22cdb8cee42`, unchanged across the run: yes |
 | census driver | `/mnt/extra/sensorium-rung2/rust-target/debug/census` (sha256 `42a4e8e6c30da1d17638a05568f64ac4be8fe2230861f50fcacd628ed2c5dc3c`) |
 | toolchain | rustc 1.96.0 (ac68faa20 2026-05-25) / cargo 1.96.0 (30a34c682 2026-05-25) |
 | reader | Python 3.14.4, sensorium 0.6.0 |
 | machine | 16 cpus, governor `powersave` |
 | clone (the workspace under measurement) | `/mnt/extra/sensorium-rung2/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` |
 | clone porcelain before / after | empty / empty; restored to the pin: yes; `Cargo.lock` unchanged: yes |
-| target (**emptied by the prep build**, which then left it warm for both measured arms) | `/mnt/extra/sensorium-rung2/bloomery-target` — 6090542658 bytes removed |
-| corpus target (E6-again) — FRESH for this run | `/mnt/extra/sensorium-rung2/corpus-target-e6ppp`, 0 bytes at the start |
+| target (**emptied by the prep build**, which then left it warm for both measured arms) | `/mnt/extra/sensorium-rung2/bloomery-target`, 6090542658 bytes removed |
+| corpus target (E6-again): FRESH for this run | `/mnt/extra/sensorium-rung2/corpus-target-e6ppp`, 0 bytes at the start |
 | probe target (E7‴) | `/mnt/extra/sensorium-rung2/probe-target` |
 | trace store (new and empty at the start) | `/mnt/extra/sensorium-rung2/sensorium-dir/e6ppp`; per arm E6‴-A `/mnt/extra/sensorium-rung2/sensorium-dir/e6ppp/a`, E6‴-W `/mnt/extra/sensorium-rung2/sensorium-dir/e6ppp/w` |
 | `~/workspace/bloomery` (READ-ONLY) | `/home/brice/workspace/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` → `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`; porcelain empty → empty; unchanged: yes |
@@ -70,14 +70,14 @@ Measured 2026-09-05T02:20:30-0500 → 2026-09-05T02:20:49-0500 by `rust/tests/ac
 | disk free on the target's filesystem, before / after | 101.89 GB / 101.96 GB |
 | §1's frozen census (Task 10, before the lock) | arms_escaped_before 90, arms_escaped_after 121, arms_handled_before 96, arms_handled_after 65, arms_moved 31, arm_sites 225, source §1 |
 
-**Log locations.** Every command's log is under `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance-e6ppp/logs`, one subdirectory per phase (`built-from`, `prep`, `arm-a`, `arm-w`, `e6-again`, `e7ppp`). **One exception, recorded 2026-09-05, after the run:** the prep build's own log went to `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/prep-workspace.log` — the rung-3 slice's log directory, not this document's. `acceptance_rung3`'s module body re-points `acceptance_lib.LOGS` when it is imported, and the prep phase ran outside a `logs_at` block, so it inherited that pointer. Nothing was clobbered (the rung-3 run writes no file of that name) and no measured number depends on it; the runner now re-asserts the pointer after the import AND wraps the phase, so a later run logs beside its own document.
+**Log locations.** Every command's log is under `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance-e6ppp/logs`, one subdirectory per phase (`built-from`, `prep`, `arm-a`, `arm-w`, `e6-again`, `e7ppp`). **One exception, recorded 2026-09-05, after the run:** the prep build's own log went to `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-04-sensorium-rung3-err-flow/acceptance/logs/prep-workspace.log`, the rung-3 slice's log directory, not this document's. `acceptance_rung3`'s module body re-points `acceptance_lib.LOGS` when it is imported, and the prep phase ran outside a `logs_at` block, so it inherited that pointer. Nothing was clobbered (the rung-3 run writes no file of that name) and no measured number depends on it; the runner now re-asserts the pointer after the import AND wraps the phase, so a later run logs beside its own document.
 
 
 1-minute load at each arm's start: prep (--workspace --no-run, from scratch) 0.62, E6‴-A 1.23, E6‴-W 1.23, E6-again 1.23, E7‴ 1.23.
 
 ## 3. Results
 
-Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_acceptance.py --doc e6ppp` from `2026-09-05-sensorium-rung3-e6ppp.results.json`. No verdict is decided here — §4 is.
+Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_acceptance.py --doc e6ppp` from `2026-09-05-sensorium-rung3-e6ppp.results.json`. No verdict is decided here, §4 is.
 
 | Id | Headline | n | Lens (abridged) | Dropped |
 |---|---|---|---|---|
@@ -657,5 +657,5 @@ cell is now **`not measured`, with the reason**, through the schema
 `acceptance_e6ppp.py --assemble` re-derived `results.json` from the untouched
 `results-e6ppp-raw.json`, and the derivation is byte-identical to the
 published one except that one cell and the `assembled.at` stamp. No arm was
-re-run, no number re-read, and nothing downstream consumed the cell — E6‴-A's
+re-run, no number re-read, and nothing downstream consumed the cell. E6‴-A's
 adjudication is over the 14 lines of the primary process either way.

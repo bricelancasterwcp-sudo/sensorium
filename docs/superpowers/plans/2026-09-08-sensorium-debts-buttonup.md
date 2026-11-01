@@ -1,14 +1,14 @@
-# The queue, buttoned up — Implementation Plan
+# The queue, buttoned up: Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close every open carried debt in buckets A (mechanical fixes with a stated fix), B (files over the 800-line ceiling) and D (dated notes), strike the X items, and land a repo-wide ceiling gate — with no measurement and no behaviour change that a pre-registration governs.
+**Goal:** Close every open carried debt in buckets A (mechanical fixes with a stated fix), B (files over the 800-line ceiling) and D (dated notes), strike the X items, and land a repo-wide ceiling gate, with no measurement and no behaviour change that a pre-registration governs.
 
 **Architecture:** Pure-move splits first (`programs.py` → test files → `convert.rs` → `tracer.py` → `refocus_world.py`), then the fixes grouped by owner (Python query wording; crates; instruments; corpus + ledgers), then the ceiling gate, then the release. One implementer at a time in the checkout.
 
 **Tech Stack:** Python 3.12–3.14 (pytest), Rust 1.96.0, the corpus harness with the release driver.
 
-**Spec:** `docs/superpowers/specs/2026-09-08-sensorium-debts-buttonup-design.md` — §0 rulings R1–R9; §2 the inventory (row numbers below are its `#`); §3 the split seams. The seam map with line ranges is in the ledger workspace as `inventory-ceiling-splits.md` (gitignored; the design §3 carries the seams).
+**Spec:** `docs/superpowers/specs/2026-09-08-sensorium-debts-buttonup-design.md`, §0 rulings R1–R9; §2 the inventory (row numbers below are its `#`); §3 the split seams. The seam map with line ranges is in the ledger workspace as `inventory-ceiling-splits.md` (gitignored; the design §3 carries the seams).
 
 ## Global Constraints
 
@@ -39,16 +39,16 @@
 - [ ] Each row its own commit or a small batch by file; a test per behaviour change; the four Rust gates after each batch.
 - [ ] Report: the `#44` nits actually taken vs reported.
 
-### Task 3: `tracer.py` split (B) and `sha256` consolidation (R3) — the crates' versions
+### Task 3: `tracer.py` split (B) and `sha256` consolidation (R3): the crates' versions
 
 **Files:** `src/sensorium/record/tracer.py` → `tracer_frames.py` + `tracer_exc.py` per design §3 (re-exports; `_CONTROL_FLOW_EXC` removed as dead; `tests/test_tracer*.py`'s `_SENSORIUM_DIR` patch repointed to `tracer_frames` in the SAME commit); `rust/sensorium-rt/src/sha256.rs` becomes `pub mod sha256` (rt **0.4.1**), `sensorium-transform` and `cargo-sensorium` drop their copies and depend on rt (transform **0.4.4**, driver **0.5.3**; `Cargo.lock`); the NIST-vector tests stay in rt and the two dependents get one smoke test each that hashes through rt.
 
-- [ ] `tracer.py`: RED first for the patch repoint (run `tests/test_tracer.py` after the move but before the repoint: the `_SENSORIUM_DIR` test fails on a full event list); move; repoint; GREEN; full Python suite; corpus gate WITH the driver (the tracer is the Python recorder — every Python case exercises it). Commit: `refactor(record): tracer.py splits by responsibility — frames/classification and exception refs move out; the one patch repointed`.
+- [ ] `tracer.py`: RED first for the patch repoint (run `tests/test_tracer.py` after the move but before the repoint: the `_SENSORIUM_DIR` test fails on a full event list); move; repoint; GREEN; full Python suite; corpus gate WITH the driver (the tracer is the Python recorder, every Python case exercises it). Commit: `refactor(record): tracer.py splits by responsibility — frames/classification and exception refs move out; the one patch repointed`.
 - [ ] `sha256`: rt exposes the module; dependents switch; `grep -rn "mod sha256" rust/` shows one definition; four Rust gates; version bumps + lock; the driver rebuilt for the corpus gate. Commit: `refactor(crates): one sha256 — sensorium-rt owns it (0.4.1); transform 0.4.4 and driver 0.5.3 take it from rt`.
 
 ### Task 4: `refocus_world.py` split (B #55) and the Python query fixes (A)
 
-**Files:** `src/sensorium/query/refocus_world.py` → `refocus_threads.py` (the four thread functions; re-export block in the `refocus_cmd.py:161-171` idiom); then rows **#6** (the session clause carried into the withheld pair's FACT — `info` replays what the screen said; a test that reads `refocus_licence_verified`/facts), **#7** (`is_relocation_note` → `is_env_rule_note`, both callers, docstring), **#20** (the scheduling caveat: one printed sentence on a MATCH with >1 thread, in `refocus_report.py`, through `vocab` if language-bearing), **#14** (`info` prints `focus: none` for an absent focus — pick the spelling the existing `info` lines use for absence; the literal pin then taken), **#18** (`exceptions_rust.py:431,448,462` point at `HONESTY-ERR-FLOW.md` / blind spots 15–26), **#27** (a typed exception replaces the message sniff at `exceptions_cmd.py:671`), **#28**'s printed half (qualify "born outside this thread's instrumented frames"), **#30** (the invocation header's noun), **#31** (one word on the panics line; a `details vary` fixture), **#36** (`diff --task` help in the recorder's words), **#37** (the `interp_line` `or "?"` fixture), **#51** (`diff`'s "modulo location" on the all-in-tasks branch), **#19** (one driver resolution: a helper under `src/sensorium/` used by `refocus_rust.py`, `run_corpus.py`, `test_focus_refusal.py`; the `…_resolutions_agree` test kept), **#21/#43** (`run_corpus._run_ids` keyed on an unambiguous `run:` line shape + the byte-exact conformance pin), **#45** (`corpus/rust/abort` cleans its core file), **#10**'s corpus assertion (the spawned root is the MARKED fn) and its two comments.
+**Files:** `src/sensorium/query/refocus_world.py` → `refocus_threads.py` (the four thread functions; re-export block in the `refocus_cmd.py:161-171` idiom); then rows **#6** (the session clause carried into the withheld pair's FACT (`info` replays what the screen said; a test that reads `refocus_licence_verified`/facts), **#7** (`is_relocation_note` → `is_env_rule_note`, both callers, docstring), **#20** (the scheduling caveat: one printed sentence on a MATCH with >1 thread, in `refocus_report.py`, through `vocab` if language-bearing), **#14** (`info` prints `focus: none` for an absent focus) pick the spelling the existing `info` lines use for absence; the literal pin then taken), **#18** (`exceptions_rust.py:431,448,462` point at `HONESTY-ERR-FLOW.md` / blind spots 15–26), **#27** (a typed exception replaces the message sniff at `exceptions_cmd.py:671`), **#28**'s printed half (qualify "born outside this thread's instrumented frames"), **#30** (the invocation header's noun), **#31** (one word on the panics line; a `details vary` fixture), **#36** (`diff --task` help in the recorder's words), **#37** (the `interp_line` `or "?"` fixture), **#51** (`diff`'s "modulo location" on the all-in-tasks branch), **#19** (one driver resolution: a helper under `src/sensorium/` used by `refocus_rust.py`, `run_corpus.py`, `test_focus_refusal.py`; the `…_resolutions_agree` test kept), **#21/#43** (`run_corpus._run_ids` keyed on an unambiguous `run:` line shape + the byte-exact conformance pin), **#45** (`corpus/rust/abort` cleans its core file), **#10**'s corpus assertion (the spawned root is the MARKED fn) and its two comments.
 
 - [ ] The split first (one commit, zebra-proved).
 - [ ] Each printed-sentence row: change → unit test (exact line) → corpus gate WITH the driver → the case expectation updated to what the tool prints, named in the report.
@@ -60,7 +60,7 @@
 
 **Interfaces:** the test enumerates `git ls-files -- '*.py' '*.rs' '*.sh' 'README.md' 'docs/*.md' 'rust/*.md'` minus `docs/superpowers/{acceptance,plans,specs}/`, and asserts each ≤ 800 with the file and count in the failure message; it also asserts the exemption list is exactly those three directories (so a future record cannot be exempted silently).
 
-- [ ] Write it; run it: GREEN only if Tasks 1–4 left nothing over (any file it names is a Task 1–4 miss — fix there, not by widening the exemption). Mutation: lower the limit to 700 → it names files; restore.
+- [ ] Write it; run it: GREEN only if Tasks 1–4 left nothing over (any file it names is a Task 1–4 miss, fix there, not by widening the exemption). Mutation: lower the limit to 700 → it names files; restore.
 - [ ] Commit: `test: a repo-wide 800-line gate over code and living docs; records exempt by name`.
 
 ### Task 6: The instruments (A: E4″ gaps and the runner minors)
@@ -73,17 +73,17 @@
 
 ### Task 7: Ledgers, D notes, X strikes, versions, release (Python 0.8.7)
 
-**Files:** `docs/CARRIED-DEBT.md` (this slice's section appended LAST: Settled with strikes of every A/B row taken, in the section where each was raised — `docs/CARRIED-DEBT-ARCHIVE.md`, `-ARCHIVE-2.md` and the live file all get their strikes; Deferred = the C rows restated in one line each with "C, not funded this slice"; Process lessons), the D notes (**#62–#66**, dated, in the ledger or the findings sibling — never inside a locked §1), the X strikes (**#67–#73**), `rust/HONESTY-BLIND-SPOTS.md` (**#49** the expression-position spawn declared; **#28**'s ledger half, R16 (v)), `rust/HONESTY-INDEX.md` (**#29**'s §11 row + the `JoinHandle` gloss and vector `v18`/`test_honesty_prose` items), the rung-4-entry design spec's continuation note (**#34**, a dated amendment), `rust/HONESTY-REFOCUS.md:181`'s bare rule and `refocus_cmd.py`'s two "two files" comments (**#11**), the three `chain.terminal` conformance vectors (**#23**, `docs/trace-format/vectors/` + the reader's vector test), `rm rust/target/release/cargo-sensorium` (**#15**, R7 — untracked), `CHANGELOG.md` (`## 0.8.7 — <date>` with every row taken, by number), `pyproject.toml` 0.8.7 + the editable-install refresh (`uv pip install -p .venv/bin/python -e . --no-deps`), `README.md`/`rust/README.md` tokens.
+**Files:** `docs/CARRIED-DEBT.md` (this slice's section appended LAST: Settled with strikes of every A/B row taken, in the section where each was raised (`docs/CARRIED-DEBT-ARCHIVE.md`, `-ARCHIVE-2.md` and the live file all get their strikes; Deferred = the C rows restated in one line each with "C, not funded this slice"; Process lessons), the D notes (**#62–#66**, dated, in the ledger or the findings sibling) never inside a locked §1), the X strikes (**#67–#73**), `rust/HONESTY-BLIND-SPOTS.md` (**#49** the expression-position spawn declared; **#28**'s ledger half, R16 (v)), `rust/HONESTY-INDEX.md` (**#29**'s §11 row + the `JoinHandle` gloss and vector `v18`/`test_honesty_prose` items), the rung-4-entry design spec's continuation note (**#34**, a dated amendment), `rust/HONESTY-REFOCUS.md:181`'s bare rule and `refocus_cmd.py`'s two "two files" comments (**#11**), the three `chain.terminal` conformance vectors (**#23**, `docs/trace-format/vectors/` + the reader's vector test), `rm rust/target/release/cargo-sensorium` (**#15**, R7, untracked), `CHANGELOG.md` (`## 0.8.7 — <date>` with every row taken, by number), `pyproject.toml` 0.8.7 + the editable-install refresh (`uv pip install -p .venv/bin/python -e . --no-deps`), `README.md`/`rust/README.md` tokens.
 
 - [ ] Strikes and notes first (one commit); then the release commit in `c471b9d`'s shape with a `Gates:` paragraph carrying the real counts (Python; four Rust gates; corpus WITH the driver `--require-driver`; the ceiling gate).
 - [ ] Box-path scan over `git diff --name-only f14d2f6`; every touched file ≤ 800; `pr-body.md` in the ledger.
 
-### After Task 7 — final review, fix wave, PR
+### After Task 7: final review, fix wave, PR
 
-Final whole-branch review (fable): every split byte-identical; every A row either taken (with its strike) or reported with a reason; no behaviour change under a pre-registration; the C list intact. One fix wave (any file — nothing here is locked, but no results file is re-assembled); scoped re-review; push `feat/debts-buttonup`; PR; CI green; merge is Brice's; archive the ledger.
+Final whole-branch review (fable): every split byte-identical; every A row either taken (with its strike) or reported with a reason; no behaviour change under a pre-registration; the C list intact. One fix wave (any file. Nothing here is locked, but no results file is re-assembled); scoped re-review; push `feat/debts-buttonup`; PR; CI green; merge is Brice's; archive the ledger.
 
 ## Self-review
 
 - Spec coverage: R1 → Task 5; R2 → Tasks 1–4; R3 → Task 3; R4 → not in slice (Task 7's Deferred restates #48 under C); R5 → Task 6; R6 → Tasks 4/6; R7 → Task 7; R8 → Task 7; R9 → Task 6. Every A row of §2 appears in exactly one task above (#1–5, 8, 9, 12, 17, 25, 26, 32, 33, 35 → T6; #6, 7, 10, 14, 18–21, 27, 28, 30, 31, 36, 37, 43, 45, 51 → T4; #13 → T3; #16, 22, 24, 38–42, 44, 46, 47, 50, 52–54 → T2; #11, 15, 23, 29, 34, 49 → T7); B rows → T1–T4; D → T7; X → T7.
 - Placeholders: none; each row's fix is the inventory's stated one.
-- Names: `refocus_threads.py`, `tracer_frames.py`, `tracer_exc.py`, `flow_programs.py`, `async_programs.py`, `convert_runner.rs`, `tests_terminals.rs`, `is_env_rule_note`, `tests/test_ceiling.py` — consistent between §1 of the design and the tasks.
+- Names: `refocus_threads.py`, `tracer_frames.py`, `tracer_exc.py`, `flow_programs.py`, `async_programs.py`, `convert_runner.rs`, `tests_terminals.rs`, `is_env_rule_note`, `tests/test_ceiling.py`, consistent between §1 of the design and the tasks.

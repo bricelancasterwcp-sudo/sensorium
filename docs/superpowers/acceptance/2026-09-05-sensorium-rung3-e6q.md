@@ -1,7 +1,7 @@
-# Rung-3 acceptance, the borrow repair — E6⁗-A, E6⁗-WS, E6⁗-WS0, E-flip, E6-again′, E7⁗, E0‴
+# Rung-3 acceptance, the borrow repair: E6⁗-A, E6⁗-WS, E6⁗-WS0, E-flip, E6-again′, E7⁗, E0‴
 
-The record of whether the `&e` rule repaired on 2026-09-05 — a shared borrow
-is exempt only where the borrowing CALL's product is provably dropped —
+The record of whether the `&e` rule repaired on 2026-09-05 (a shared borrow
+is exempt only where the borrowing CALL's product is provably dropped)
 accuses falsely where the repaired shapes actually EXECUTE, and of whether the
 arm that measures it can reach those shapes at all.
 
@@ -13,8 +13,8 @@ accusations of 14 lines under both readings, and its §5.1 recorded that
 or re-classified by this document. The binding design is
 `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
 (B1–B8), which adds to and changes nothing in
-`docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md` (R1–R16
-— R15's "both readings and the guarded-arm count beside them" and R16's
+`docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md` (R1–R16:
+R15's "both readings and the guarded-arm count beside them" and R16's
 residual list bind here unchanged); the plan is
 `docs/superpowers/plans/2026-09-05-sensorium-rung3-borrow-repair.md`.
 
@@ -23,7 +23,7 @@ Two drivers are measured, and which is which is the point of the control. The
 branch (`feat/rung3-borrow-repair`) by the runner at run time, with its commit
 and sha256 recorded in §2; E6⁗-A and E6⁗-WS run under it. The **BASE driver**
 is built `--release` from the pre-repair `main` at `d1b1b57` in a worktree
-under `/mnt/extra`, and E6⁗-WS0 — the discrimination control — runs under it,
+under `/mnt/extra`, and E6⁗-WS0 (the discrimination control) runs under it,
 into its own from-scratch target and its own trace store. `cargo-sensorium`
 has no `--version` flag, so each driver's identity is its worktree's HEAD plus
 the binary's sha256, and the version string each arm reports is read after the
@@ -33,8 +33,7 @@ run out of the trace that arm wrote.
 and corpus changes and their tests but before any E6⁗ number has been read,
 and it is design §4's pre-registration with the five census numbers Tasks 0
 and 1 measured on the clone before this section was written filled in. The
-runner refuses to run if this section differs from the commit that locked it —
-compared with `awk '/^## 1/,/^## 2/'`, the sha recorded in §2 — and refuses
+runner refuses to run if this section differs from the commit that locked it (compared with `awk '/^## 1/,/^## 2/'`, the sha recorded in §2) and refuses
 outright while no lock sha is set. §1 is not amended: unlike E6‴'s there is
 one sha and no dated note inside it. A completed measurement is never
 re-rolled, and a miss is a STOP with its number.
@@ -71,16 +70,16 @@ wall on `--workspace` (the rung-2 addendum lens); the guarded-arm rows named.
 
 Measured 2026-09-05T09:10:46-0500 → 2026-09-05T09:13:13-0500 by `rust/tests/acceptance_e6q.py`, launched detached; the raw facts it recorded are `results-e6q-raw.json` in the gitignored plan ledger, with every command's log beside it. §3 below is rendered from `2026-09-05-sensorium-rung3-e6q.results.json`, which `acceptance_schema_e6q.assemble_e6q` derived from that raw file.
 
-**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it — and refuses outright while no lock sha is set. The range is awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references — here §1 references no footnote (`footnotes_in_range` = none), so the extended range and `awk '/^## 1/,/^## 2/'` are the same bytes. Checked at `559e617`: 5327 bytes, sha256 `c911724b0c391c801e7d67883ba9f8a8b71833e92728201c13bbb941550e7c27` on both sides — identical: yes. §1 was committed ALONE and never amended: there is no second sha (`original_lock` = None).
+**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it, and refuses outright while no lock sha is set. The range is awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references, here §1 references no footnote (`footnotes_in_range` = none), so the extended range and `awk '/^## 1/,/^## 2/'` are the same bytes. Checked at `559e617`: 5327 bytes, sha256 `c911724b0c391c801e7d67883ba9f8a8b71833e92728201c13bbb941550e7c27` on both sides, identical: yes. §1 was committed ALONE and never amended: there is no second sha (`original_lock` = None).
 
 | Pin | Value |
 |---|---|
 | repo HEAD at the run | `caf371afa8807992b2d2185a3c44fcb85d14261a` (branch `feat/rung3-borrow-repair`) |
 | HEAD driver (E6⁗-A, E6⁗-WS) | `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, mtime 2026-09-05T09:10:53-0500 |
-| HEAD driver sha256 | `ef95dc4fef1b7015422d254f65a7d1ce05eaff55f8bbf59d2a5922b8b1da438e` — unchanged across the run: yes |
-| BASE driver (E6⁗-WS0, the control) | `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` (sha256 `09def88613fd566acfad4d047731a0b9831493f3158d4a19661024345ecf28fc`, mtime 2026-09-05T07:07:44-0500), built from worktree `/mnt/extra/sensorium-rung2/base-d1b1b57` at `d1b1b57e20353a8ef76ee93d270394e8b47893d5` — expected `d1b1b57`: yes, clean: yes. |
+| HEAD driver sha256 | `ef95dc4fef1b7015422d254f65a7d1ce05eaff55f8bbf59d2a5922b8b1da438e`, unchanged across the run: yes |
+| BASE driver (E6⁗-WS0, the control) | `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` (sha256 `09def88613fd566acfad4d047731a0b9831493f3158d4a19661024345ecf28fc`, mtime 2026-09-05T07:07:44-0500), built from worktree `/mnt/extra/sensorium-rung2/base-d1b1b57` at `d1b1b57e20353a8ef76ee93d270394e8b47893d5`, expected `d1b1b57`: yes, clean: yes. |
 | driver each arm ran | E6⁗-A `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, E6⁗-WS `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, E6⁗-WS0 `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` |
-| driver version each arm's own trace carries | E6⁗-A ['cargo-sensorium 0.3.0'], E6⁗-WS ['cargo-sensorium 0.3.0'], E6⁗-WS0 ['cargo-sensorium 0.3.0'] — after the run, from each arm's own trace (`meta.driver_version`): `cargo-sensorium` has no `--version` flag and is never invoked to identify itself |
+| driver version each arm's own trace carries | E6⁗-A ['cargo-sensorium 0.3.0'], E6⁗-WS ['cargo-sensorium 0.3.0'], E6⁗-WS0 ['cargo-sensorium 0.3.0'], after the run, from each arm's own trace (`meta.driver_version`): `cargo-sensorium` has no `--version` flag and is never invoked to identify itself |
 | census driver | `/mnt/extra/sensorium-rung2/rust-target/debug/census` (sha256 `2bffb9dab11180f825e9e74c3a3f2ed9a108e81342fb27e3acd590acb2945c63`) |
 | toolchain | rustc 1.96.0 (ac68faa20 2026-05-25) / cargo 1.96.0 (30a34c682 2026-05-25) |
 | reader | Python 3.14.4, sensorium 0.6.0 |
@@ -88,14 +87,14 @@ Measured 2026-09-05T09:10:46-0500 → 2026-09-05T09:13:13-0500 by `rust/tests/ac
 | clone (the workspace under measurement) | `/mnt/extra/sensorium-rung2/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` |
 | clone porcelain before / after | empty / empty; restored to the pin: yes; `Cargo.lock` unchanged: yes |
 | targets, each emptied from scratch by its OWN prep build | E6⁗-A `/mnt/extra/sensorium-rung2/bloomery-target`, E6⁗-WS `/mnt/extra/sensorium-rung2/bloomery-target`, E6⁗-WS0 `/mnt/extra/sensorium-rung2/bloomery-target-control` |
-| corpus target (E6-again′) — FRESH for this run | `/mnt/extra/sensorium-rung2/corpus-target-e6q`, 0 bytes at the start |
+| corpus target (E6-again′): FRESH for this run | `/mnt/extra/sensorium-rung2/corpus-target-e6q`, 0 bytes at the start |
 | probe target (E7⁗) | `/mnt/extra/sensorium-rung2/probe-target` |
 | trace store (new and empty at the start) | `/mnt/extra/sensorium-rung2/sensorium-dir/e6q`; per arm E6⁗-A `/mnt/extra/sensorium-rung2/sensorium-dir/e6q/a`, E6⁗-WS `/mnt/extra/sensorium-rung2/sensorium-dir/e6q/ws`, E6⁗-WS0 `/mnt/extra/sensorium-rung2/sensorium-dir/e6q/ws0` |
 | `~/workspace/bloomery` (READ-ONLY) | `/home/brice/workspace/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` → `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`; porcelain empty → empty; unchanged: yes |
 | HEAD driver `built_from` (recorded by the runner) | HEAD `caf371afa8807992b2d2185a3c44fcb85d14261a`, `cargo build --release` exit 0, rebuilt: yes |
 | 1-minute load at the start | 0.56 |
 | disk free on the target's filesystem, before / after | 95.76 GB / 87.44 GB |
-| §1's frozen census (Tasks 0 and 1, before the lock) — the five numbers §1 carries | arms_handled_before 65, arms_handled_after 54, arms_escaped_before 121, arms_escaped_after 132, arm_sites 225, source §1 |
+| §1's frozen census (Tasks 0 and 1, before the lock). The five numbers §1 carries | arms_handled_before 65, arms_handled_after 54, arms_escaped_before 121, arms_escaped_after 132, arm_sites 225, source §1 |
 | census numbers from the T0/T1 ledger that §1 does NOT freeze | arms_propagate 39, source T0/T1 ledger census lines (unchanged across the repair); NOT frozen in §1 |
 
 **Log locations.** Every command's log is under `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-05-sensorium-rung3-borrow-repair/acceptance-e6q/logs`, one subdirectory per phase (`built-from`, `prep-head`, `prep-base`, `arm-a`, `arm-ws`, `arm-ws0`, `e6-again`, `e7q`, `e0ppp`). Each prep build opens its own `logs_at` block inside itself, so its `cargo -v` log lands under that prep's directory and the two cannot overwrite each other: `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-05-sensorium-rung3-borrow-repair/acceptance-e6q/logs/prep-head/prep/prep-workspace.log` and `/home/brice/workspace/sensorium/.superpowers/sdd/2026-09-05-sensorium-rung3-borrow-repair/acceptance-e6q/logs/prep-base/prep/prep-workspace.log`.
@@ -105,14 +104,14 @@ Measured 2026-09-05T09:10:46-0500 → 2026-09-05T09:13:13-0500 by `rust/tests/ac
 **The runner's own driver build was load-bearing, and the record says so
 rather than assuming it.** `built_from` reports the HEAD driver's sha256
 *before* the build as `09def88613fd566acfad4d047731a0b9831493f3158d4a19661024345ecf28fc`
-— byte-identical to the BASE driver — and *after* it as
+(byte-identical to the BASE driver) and *after* it as
 `ef95dc4fef1b7015422d254f65a7d1ce05eaff55f8bbf59d2a5922b8b1da438e`, `rebuilt:
 yes`, from repo HEAD `caf371a` with a clean porcelain. The binary sitting at
 the HEAD driver's path when this run started was the PRE-repair one (built
 07:07 by Task 0 into `rust-target-base`, and the same bytes at the HEAD path
 from an earlier build at 04:01, before the transformer changed). Had the
-runner not built the driver itself — the instrument change E6‴ §5.8 asked
-for — E6⁗-A and E6⁗-WS would have run the control's binary and this document
+runner not built the driver itself. The instrument change E6‴ §5.8 asked
+for. E6⁗-A and E6⁗-WS would have run the control's binary and this document
 would have reported three arms of one driver as two.
 
 **The two drivers are separated by sha256 and by the trace's `tool_hash`, not
@@ -121,7 +120,7 @@ design B6 moves `cargo-sensorium` 0.3.0 → 0.3.1 in the release task, which is
 AFTER the lock and after this measurement, so the repaired binary still
 carries the pre-repair version string. What does separate them is recorded on
 both sides: the HEAD driver's sha256 `ef95dc4f…` against the BASE driver's
-`09def886…`, and each arm's own trace `tool_hash` — `849b55140090fd90` for
+`09def886…`, and each arm's own trace `tool_hash`, `849b55140090fd90` for
 E6⁗-A and E6⁗-WS, `50132e86f96576eb` for E6⁗-WS0. `traces_missing` is `[]` for
 all three arms, so every process the record counts wrote a trace the reader
 could open. §5.7 carries this as a residual of the runner's stated
@@ -130,13 +129,13 @@ expectation.
 
 ## 3. Results
 
-Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_e6q.py` from `2026-09-05-sensorium-rung3-e6q.results.json`. No verdict is decided here — §4 is.
+Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_e6q.py` from `2026-09-05-sensorium-rung3-e6q.results.json`. No verdict is decided here, §4 is.
 
 | Id | Headline | n | Lens (abridged) | Dropped |
 |---|---|---|---|---|
 | E6⁗-A | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") (rule: 0 false accusations on the clone's `-p bloomery-daemon --lib` suite) | 14 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
 | E6⁗-WS | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") (rule: 0 false accusations over the union of every process of the clone's `--workspace` suite) | 782 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
-| E6⁗-WS0 | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") (rule: ≥ 1 false accusation at a flipped arm — NOT a merge gate; a 0 makes E6⁗-WS NOT DISCRIMINATING) | 812 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
+| E6⁗-WS0 | not measured (adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed") (rule: ≥ 1 false accusation at a flipped arm, NOT a merge gate; a 0 makes E6⁗-WS NOT DISCRIMINATING) | 812 | FALSE ACCUSATIONS. Not measurable by this instrument: §1 asks for every printed SWALLOWED line to be adjudicat… | adjudicated by hand in §4 of the acceptance document, under both the amended reading (the gate) and the strictest pre-lock reading of "merely observed" |
 | E-flip | 0 (rule: both named rows go `arm_handled` → `arm_ambiguous`; no other transition; changed rows == the frozen delta) | 11 | changed manifest rows whose transition is NOT `arm_handled -> arm_ambiguous`, of the changed rows; §1's gate i… | none |
 | E6-again′ | 0 (rule: printed SWALLOWED lines == the registered set for every case; any extra = a false accusation = STOP) | 20 | printed SWALLOWED lines no registered group claims -- §1's false accusations; every `corpus/rust/*` case with … | none |
 | E7⁗ | 0 (rule: 0 failures, 0 differences) | 6 | FAILED E7 checks on the probe's EXISTING panics (lines and columns), of the E7 checks that ran; `rust/tests/me… | none |
@@ -183,7 +182,7 @@ Every SWALLOWED line, with the sink the trace names for it (the adjudication its
 | 13 | `sink_let_underscore` | `/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs:1084` (`tests::fresh_dir` L1084) | `SWALLOWED -- absorbed by sink_let_underscore at e544 (tests::fresh_dir L1084) in f263, which returned ok` |
 | 14 | `sink_let_underscore` | `/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/src/task/registry.rs:1084` (`tests::fresh_dir` L1084) | `SWALLOWED -- absorbed by sink_let_underscore at e557 (tests::fresh_dir L1084) in f276, which returned ok` |
 
-### E6⁗-WS — the clone's `--workspace` suite (no `--lib`), HEAD driver
+### E6⁗-WS: the clone's `--workspace` suite (no `--lib`), HEAD driver
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -992,7 +991,7 @@ Every SWALLOWED line, with the sink the trace names for it (the adjudication its
 | 781 | `sink_let_underscore` | `/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/tests/common/task_loop.rs:63` (`fresh_dir` L63) | `SWALLOWED -- absorbed by sink_let_underscore at e141 (fresh_dir L63) in f74, which returned ok` |
 | 782 | `sink_let_underscore` | `/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/tests/task_render_test.rs:324` (`a_demoted_v4_task_renders_the_none_line_even_with_a_command_bearing_grant` L324) | `SWALLOWED -- absorbed by sink_let_underscore at e4 (a_demoted_v4_task_renders_the_none_line_even_with_a_command_bearing_grant L324) in f1, which returned ok` |
 
-### E6⁗-WS0 — the same `--workspace` suite under the PRE-repair driver (the control)
+### E6⁗-WS0: the same `--workspace` suite under the PRE-repair driver (the control)
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -1834,7 +1833,7 @@ Every SWALLOWED line, with the sink the trace names for it (the adjudication its
 | 811 | `sink_let_underscore` | `/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/tests/common/task_loop.rs:63` (`fresh_dir` L63) | `SWALLOWED -- absorbed by sink_let_underscore at e44 (fresh_dir L63) in f24, which returned ok` |
 | 812 | `sink_let_underscore` | `/mnt/extra/sensorium-rung2/bloomery/crates/bloomery-daemon/tests/task_render_test.rs:324` (`a_demoted_v4_task_renders_the_none_line_even_with_a_command_bearing_grant` L324) | `SWALLOWED -- absorbed by sink_let_underscore at e29 (a_demoted_v4_task_renders_the_none_line_even_with_a_command_bearing_grant L324) in f20, which returned ok` |
 
-### E-flip — which arms the repair moved, exactly
+### E-flip: which arms the repair moved, exactly
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -1873,7 +1872,7 @@ Every changed row:
 | 10 | `crates/bloomery-daemon/src/codec_probe/boot.rs` | 110 | `run_boot_codec_probe` | `arm_handled` | `arm_ambiguous` |
 | 11 | `crates/bloomery-daemon/src/pager/paging.rs` | 673 | `Pager::restore_image` | `arm_handled` | `arm_ambiguous` |
 
-### E6-again′ — the Rust corpus, every `exceptions` question (20)
+### E6-again′: the Rust corpus, every `exceptions` question (20)
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -1907,7 +1906,7 @@ Every changed row:
 | `rust/silent_swallow` | `which-settings-were-dropped` | 2 / 2 | yes | `dispositions: swallowed 2` | `dispositions: swallowed 2` | yes |
 | `rust/unwrap_panic` | `what-happened-to-the-refusal` | 0 / 0 | yes | `dispositions: panicked 1` | `dispositions: panicked 1` | yes |
 
-### E7⁗ — panic locations under the wraps
+### E7⁗: panic locations under the wraps
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|

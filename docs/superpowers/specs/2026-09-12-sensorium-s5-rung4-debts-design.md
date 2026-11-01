@@ -1,4 +1,4 @@
-# S5 rung 4's debts, funded — E12′, the finally seal, the Rust `unbound`, and the closable list: design
+# S5 rung 4's debts, funded: E12′, the finally seal, the Rust `unbound`, and the closable list: design
 
 **Date:** 2026-09-12. **Base:** `main` @ `e6f5035` (PR #34, Python 0.12.0 /
 sensorium-ts 0.3.0 / rt 0.4.1 / transform 0.4.4 / driver 0.5.3).
@@ -14,13 +14,13 @@ re-registered under fixed instruments; the one runtime gap rung 4 declared
 (blind spot 38) is closed; and Rust's own fold debt, raised by building
 TypeScript's `unbound` beside it, is closed by giving Rust the same row. What
 it is not: a design conversation. Every item that needs a ruling on WHAT the
-tool should say — the nested-arrow spelling, identity for anonymous
-function-likes, place writes, `this`, the four unreachable shapes — stays in
+tool should say (the nested-arrow spelling, identity for anonymous
+function-likes, place writes, `this`, the four unreachable shapes) stays in
 the C pile with its reason restated in §9.
 
 ## 0. Rulings (Claude, 2026-09-12)
 
-- **R1 — E12′ re-adjudicates, it does not re-run.** H2, H4 and H5 STOPped on
+- **R1. E12′ re-adjudicates, it does not re-run.** H2, H4 and H5 STOPped on
   the instrument (record §4.2/§4.4/§4.5, R37), and the data they were read
   from is committed and hash-locked (`…-focus-reads/`,
   `…-focus-tracehashes.txt`). A fresh lens session would answer a question
@@ -29,40 +29,40 @@ the C pile with its reason restated in §9.
   E6′→E6″ precedent's form (one new record section, one new instrument, the
   cited instrument untouched), plus ONE live run whose only job is to say
   this slice's recorder still produces the same rows on the same lens (H8′).
-- **R2 — the finally seal is static and shape-scoped.** Only a function whose
+- **R2. The finally seal is static and shape-scoped.** Only a function whose
   own body carries a `return` lexically inside a `try` with a `finally`
   (nested closures excluded, they own their frames) gets the deferred exit.
   Every other wrapper is byte-identical to 0.3.0's, so every locked cost
   number and every golden that does not carry the shape holds. A finally on
   every wrapper would move every cost figure for a shape most functions lack.
-- **R3 — Rust `unbound` rides the LINE payload as a new delta tag, not a new
+- **R3: Rust `unbound` rides the LINE payload as a new delta tag, not a new
   record kind.** The wire already tags each delta (`0` no value, `1` debug
   text, `2` unread); `3` = unbound, name only. No header change, no new kind;
   an older converter meeting tag 3 refuses "unknown tag", which is the honest
   reading of a spool it cannot describe.
-- **R4 — a shadowed name is popped, not re-read.** After `{ let x = 2; }` the
+- **R4. A shadowed name is popped, not re-read.** After `{ let x = 2; }` the
   outer `x` is alive, but a probe of it at block exit would read a name the
   statement did not write, and a moved outer binding makes that a compile
   error the transform cannot see. So the block's row lists `x` as `unbound`
-  and the fold reports it as *not captured* until its next write — never a
+  and the fold reports it as *not captured* until its next write, never a
   stale value. TypeScript's `declaredIn` already behaves this way, undocumented;
   both recorders get the same blind-spot entry (§5.5).
-- **R5 — `line`'s signature does not change.** A block-like statement with
+- **R5, `line`'s signature does not change.** A block-like statement with
   names to unbind calls a second runtime entry point, `line_unbinding`, so
   every golden without a block is byte-identical.
-- **R6 — versions.** Python **0.13.0**, sensorium-ts **0.4.0** (the RETURN
+- **R6, versions.** Python **0.13.0**, sensorium-ts **0.4.0** (the RETURN
   row moves past a finally's rows: a format-visible change), `sensorium-rt`
   **0.5.0** (wire grammar extended), `sensorium-transform` **0.5.0**,
   `cargo-sensorium` **0.6.0** (the converter reads tag 3). No licence clause
-  turns on the rt hash — the README says the recorder's own `--extern
-  sensorium_rt=…` fragment is REMOVED from the env compare and named — and
+  turns on the rt hash (the README says the recorder's own `--extern
+  sensorium_rt=…` fragment is REMOVED from the env compare and named) and
   LINE is not a causal kind, so a refocus pair across the boundary can still
   read MATCH; §5.6 says what such a pair reports.
-- **R7 — the cut opens `CHANGELOG-ARCHIVE-2.md`.** `CHANGELOG.md` is at 702
+- **R7. The cut opens `CHANGELOG-ARCHIVE-2.md`.** `CHANGELOG.md` is at 702
   and this entry will not fit under the cut-before-append rule without a
   cut; the archive is at 742 and cannot take one. Volume 2 opens with a
   preamble in the archive's voice and a pointer from volume 1.
-- **R8 — Rust's new tests take a new file.** `golden.rs` (788) and `edges.rs`
+- **R8: Rust's new tests take a new file.** `golden.rs` (788) and `edges.rs`
   (784) are inside the ceiling's last twelve lines; the unbound goldens and
   edges go to `rust/sensorium-transform/tests/unbound.rs`.
 
@@ -86,7 +86,7 @@ REC = the rung-4 record. Classes as 2026-09-08: **A** mechanical, fundable;
 **B** at the ceiling; **D** closable only by a dated note; **C** design-level,
 not this slice.
 
-### A — funded here
+### A: funded here
 
 | # | ledger | title | how it closes | §
 |---|---|---|---|---|
@@ -101,12 +101,12 @@ not this slice.
 | 9 | CD minors, recorder | `captures()` drops a trailing unpaired name; dead typedefs `bindings.mjs:25,26,28`; `({a = 1} = o)` untested; `isGuard`/`isGuardBody` re-derive `isStatementPosition`; `transform.mjs ⇄ probe.mjs` cycle; `resolve.survey` unguarded `sitesOf` | refuse loudly with the name; delete; test; derive; `positions.mjs`; `try` → counted unparsable with the file named on stderr | 6.4 |
 | 10 | CD minors, tests | "777"→781; `test_ts_live.py:110`; `second_run` closed-key check; `cases.py:281-285` wording; `focus_async` needle; fixture `driver_version`; `naming.test.mjs` scrub; `resolve.test.mjs` temp roots; unused imports; `driver.py:84`; `Resolution.wall` persisted; `lock.py:391` slice | each as stated | 6.4 |
 | 11 | CD minors, modules | `listNames` dedupe (documented why not); `bindings.test.mjs:307` name over-claims the `var` head | comment; rename the test to what it pins | 6.4 |
-| 12 | CD minors, prose | `focus.md:296` tilde path; §1's "pin table" singular; §1.4's CALL table deviation | fix the tilde; the two record items are inside a locked §1 — a dated NOTE in CD only | 6.4 / D |
+| 12 | CD minors, prose | `focus.md:296` tilde path; §1's "pin table" singular; §1.4's CALL table deviation | fix the tilde; the two record items are inside a locked §1, a dated NOTE in CD only | 6.4 / D |
 | 13 | CD "files near the ceiling" | `tests/test_corpus.py` at 800 | the harness half moves to `tests/test_corpus_harness.py` | 7 |
 | 14 | CD "files near the ceiling" | `CHANGELOG-ARCHIVE.md` cannot take another cut | volume 2 (R7) | 7 |
 | 15 | CD rung-3 §"new debts" 3 | spec §4.3's prose vs the shipped whole-word rule | the dated parenthesis §4.3 already asked for | 6.5 |
 
-### B — at the ceiling, touched by A
+### B: at the ceiling, touched by A
 
 `typescript/src/rt.mjs` 783 (+ the seal ≈ 30 lines → seam first, §7),
 `tests/test_corpus.py` 800 (#13), `CHANGELOG.md` 702 / `CHANGELOG-ARCHIVE.md`
@@ -114,17 +114,17 @@ not this slice.
 788 (two sentences fit), `typescript/HONESTY.md` 786 (one line, fits),
 `rust/sensorium-transform/tests/{golden,edges}.rs` (R8).
 
-### D — closed by a dated note
+### D: closed by a dated note
 
-CD rung-3 §"new debts" 1 (two variants unmeasured on a lens — nothing to
-build), 4 (row 1's "library `try`" — the locked table keeps its words), 5
-(`Index.left_frame` window-2 rethrow — rung-2 behaviour, no lens showed it,
+CD rung-3 §"new debts" 1 (two variants unmeasured on a lens (nothing to
+build), 4 (row 1's "library `try`") the locked table keeps its words), 5
+(`Index.left_frame` window-2 rethrow (rung-2 behaviour, no lens showed it,
 a corpus case would pin a shape nobody has met; NOTE names the shape and the
-test that would pin it), 6 (`lens.stamp()` on the three legacy assemblers —
+test that would pin it), 6 (`lens.stamp()` on the three legacy assemblers)
 frozen paths; NOTE), 2 (`test_acceptance_scripts.py` watched); #12's two
 locked-record items.
 
-### C — not this slice (§9)
+### C: not this slice (§9)
 
 The nested-arrow `--focus` spelling and anonymous-function identity (CD
 §"gaps" 1–2); blind spots 28–31 (place writes, `this`, conditional
@@ -133,7 +133,7 @@ assignment, `switch` discriminant), 34 (`enum`/`namespace`/`static {}`), 35
 (accepted, R31) and its printing on Rust traces (accepted, R32); the skill
 living outside the repo (the same arrangement as Python's and Rust's).
 
-## 3. E12′ — the three endpoints, re-registered
+## 3. E12′: the three endpoints, re-registered
 
 ### 3.1 The question and the data
 
@@ -171,8 +171,8 @@ parser does differently, each a defect record §4.4/§4.5 named:
 
 And the **real-data acceptance test**, `tests/test_acceptance_e12p.py`: the
 new parser over the committed transcripts must read exactly what §4.4/§4.5
-found by hand — S2 found, `elsewhere_not_gated` five rows, W2 zero HITs on
-completion rows and two on head rows — and must pass exactly what held (S1,
+found by hand (S2 found, `elsewhere_not_gated` five rows, W2 zero HITs on
+completion rows and two on head rows) and must pass exactly what held (S1,
 W1, W3, H6's two sightings). Each of those assertions is mutation-tested
 against the parser line it pins before it counts. A dry run over the
 transcript fixtures exercises every SHAPE the endpoints meet (a CALL row, a
@@ -188,14 +188,14 @@ no second parser.
 | Endpoint | Reads | Holds when |
 |---|---|---|
 | **H2′** | `node resolve.mjs` output in the record; `meta.functions_focused`, `meta.focus_matched` off the committed trace; a HAND count under the container rule written at T0 (the three named functions plus every function-like nested in them, read from `diceQueue.ts` at VTT `0091e97`) | hand count = resolver sites = `functions_focused` = **6**; `focus_matched` = **5**, and the one qualname two sites share is `buildDiceQueueEntry.<anonymous>`; the suite half exactly as §4.2 quotes it |
-| **H4′** | the three committed `watch` transcripts | W1/W2/W3 all `SATISFIED`/exit 0; W2's HITs = **52**, of which **0** on a row whose `unbound` names `count` (the `while`'s completion rows — §1.2's clause as written) and **2** at line 72, both head rows (`m=[ … ]`, no `unbound`, `count=1`); W3's HITs = **15**, all at line 72 on rows carrying `m=null` and `unbound:count,sides` |
+| **H4′** | the three committed `watch` transcripts | W1/W2/W3 all `SATISFIED`/exit 0; W2's HITs = **52**, of which **0** on a row whose `unbound` names `count` (the `while`'s completion rows, §1.2's clause as written) and **2** at line 72, both head rows (`m=[ … ]`, no `unbound`, `count=1`); W3's HITs = **15**, all at line 72 on rows carrying `m=null` and `unbound:count,sides` |
 | **H5′** | the two committed `flow --value` transcripts + the trace's `code` table | S1 found (**9** sightings at `:74` in `parseDiceGroups`); S2 found (event `e10`, CALL, qualname `parseDiceGroups`, code-object line **68**); `elsewhere_not_gated` = **5** (1 + 4 RETURN rows); the transcripts' own `sightings:` totals **10** and **5** quoted beside; `unpredicted` = **0** |
 
 The numbers are rung 4's, read once there, quoted here as the pre-registered
 expectation of a parser that can see them. They are not re-measured; the
 question is whether an instrument without the four defects reads them.
 
-### 3.4 H8′ — the live confirmation
+### 3.4 H8′: the live confirmation
 
 One run, last in the slice, on the lens (`/mnt/extra/sensorium-s5/vtt/frontend`,
 VTT `0091e97`): the rung-1 manifest verified before and after (748 OK / 0
@@ -228,18 +228,18 @@ the next record's question, not this one's.
 the program's own `finally` runs. Two consequences: every `line` from the
 finally arrives on a closed frame and is dropped (bs 38), and a call made
 inside the finally (`finally { cleanup() }`) opens under whatever frame is
-now on top — attributed OUTSIDE its parent, in every tier. The same finally
+now on top, attributed OUTSIDE its parent, in every tier. The same finally
 reached by a `throw` is recorded in full, because `thr` runs in the wrapper's
 `catch`, after it.
 
 ### 4.2 The rule
 
-A function is **seal-deferred** when its own body — not a nested function,
-arrow, method or class — contains a `ReturnStatement` whose ancestors, up to
+A function is **seal-deferred** when its own body (not a nested function,
+arrow, method or class) contains a `ReturnStatement` whose ancestors, up to
 the function, include a `TryStatement` with a `finallyBlock`, and the return
 sits inside that try's `tryBlock` or `catchClause`. (A return inside the
 `finallyBlock` itself is a return that no further finally of that try guards;
-it counts only if an OUTER try-with-finally encloses it — same test, one
+it counts only if an OUTER try-with-finally encloses it, same test, one
 level up.) The detector lives in `escape.mjs` beside `finallyCompletes`,
 which already walks these shapes; `sitesOf` reports it per site as
 `deferred: true`, so `resolve.mjs` can print it and the census (§4.6) can
@@ -252,7 +252,7 @@ For a seal-deferred function only, three things change:
    `;__srt.pend(__sf,undefined)`.
 2. **The wrapper** gains `finally{__srt.seal(__sf)}` after its `catch`.
 3. **The runtime**: `pend(f, v)` stores `f.pending = dbg(v)` and returns `v`
-   with the frame OPEN; `seal(f)` — on an open frame — closes it, drops it,
+   with the frame OPEN; `seal(f)` (on an open frame) closes it, drops it,
    and emits RETURN with `f.pending` (or `dbg(undefined)` if nothing pended);
    on a frame `thr` already closed it does nothing. `line` is unchanged: the
    frame is open through the finally, so its rows are minted. `call` is
@@ -274,7 +274,7 @@ against.
 | a generator with the shape | as above, then the existing `finally{gclose}`; `gclose` yields to `seal` (one exit, §4.4) | |
 | a function WITHOUT the shape | byte-identical to 0.3.0 | R2 |
 
-The RETURN row's position — after the finally's rows — is the order
+The RETURN row's position (after the finally's rows) is the order
 Python's `sys.monitoring` already gives (`PY_RETURN` fires after the finally
 body), so `TRACE-FORMAT.md`'s TypeScript clause gains the sentence and
 Python's needs none. Rust has no finally.
@@ -284,7 +284,7 @@ Python's needs none. Rust has no finally.
 A generator wrapper today ends `finally{__srt.gclose(__sf)}` (the `.return(v)`
 close). A seal-deferred generator must not emit two exits: `seal` runs first
 (inner finally), closes the frame, and `gclose` then meets a closed frame and
-is a no-op — which is the existing contract ("a frame `ret` or `thr` has
+is a no-op, which is the existing contract ("a frame `ret` or `thr` has
 already closed is left exactly as they left it"). No new rule; a test pins
 the single RETURN.
 
@@ -333,12 +333,12 @@ evaluated where `x` is dead.
 
 A **block-like statement** is `is_block_like`'s list: `Expr::Block`,
 `Unsafe`, `If`, `Match`, `Loop`, `While`, `ForLoop`, `TryBlock`, `Async`,
-`Const` — in statement position, with or without a `;`, minted today at
+`Const`, in statement position, with or without a `;`, minted today at
 `block_like_end`. Its row's `unbound` is, in source order, each name once:
 
 - every `Stmt::Local` pattern's `binding_names` in each of its DIRECT blocks
   (an `if`'s then and else, a `match` arm's block, a loop body, the plain
-  block itself) — not the blocks of a nested block-like statement, which
+  block itself), not the blocks of a nested block-like statement, which
   unbinds its own;
 - its own head pattern's names: `for <pat> in`, `if let <pat>`, `while let
   <pat>`, and each `match` arm's pattern (the names the arm-entry row bound);
@@ -349,7 +349,7 @@ there today and still does); an `Async` or `Const` block-like statement
 unbinds nothing at all, since no probe inside it ever bound a name (a row
 that said a name went out of scope where none came in would be a row that
 invents); a `let` whose statement `is_conditionally_compiled`
-(no delta, no unbind — the symmetric rule); a name that
+(no delta, no unbind, the symmetric rule); a name that
 `is_binding_name` rejects. A `let`-`else` binds like a `let`. A name bound in
 BOTH a head pattern and an inner `let` is listed once.
 
@@ -390,8 +390,8 @@ block that shadows an outer name pops the name, so `watch` reports it
 *not captured* at sites after the block until its next write. Blind spot
 **39** (TypeScript) and a new Rust blind-spot entry state it, each with a
 falsifier (`focus_block_let`'s shadowed `x`; a TS unit test in
-`bindings.test.mjs`). This is the honest reading — absence, never a stale
-value — and the cost is named: a reader watching a shadowed outer binding
+`bindings.test.mjs`). This is the honest reading (absence, never a stale
+value) and the cost is named: a reader watching a shadowed outer binding
 must ask at a site before the block or after its next write.
 
 ### 5.6 The licence
@@ -422,20 +422,20 @@ a block with nothing to unbind (fragment unchanged: `line(...)`).
 
 ## 6. The closable list
 
-### 6.1 Blind spot 36 — the inspect tail
+### 6.1 Blind spot 36: the inspect tail
 
 `js_inspect._MORE` becomes `INSPECT_MORE`, public, one definition.
 `ts/build.py`'s capture walk counts a `str` capture whose text matches it
-(outside the closing quote — `_body`'s rule) as truncated, beside `trunc`,
+(outside the closing quote, `_body`'s rule) as truncated, beside `trunc`,
 `type_trunc` and `name_trunc`. `info`'s `truncated values:` then counts it.
 `corpus/typescript/focus_long_string` records a 100-character and a
 101-character string under a focus: the 100 is spelled whole, the 101
 carries the tail, `truncated values: 1`, and `flow --value` of the full
-101-character literal sights **0** — the capture is a prefix, read as
-TRUNCATED and never compared as a value (plan P7) — which measures the
+101-character literal sights **0** (the capture is a prefix, read as
+TRUNCATED and never compared as a value (plan P7)) which measures the
 100/101 boundary the deferred minor said was asserted and not measured.
 
-### 6.2 Blind spot 37 — the E6-TS table
+### 6.2 Blind spot 37: the E6-TS table
 
 Rung 3's own precedent is the procedure: a new TypeScript corpus case that
 asks an `exceptions` question adds its row to `e6ts.PRE_REGISTERED` (and to
@@ -506,7 +506,7 @@ is not closed here.
 - `docs/CARRIED-DEBT.md` at 538: this section is drafted and measured before
   it is appended; the oldest section is cut to volume 9 if it would cross.
 
-## 8. Acceptance — pre-registered
+## 8. Acceptance: pre-registered
 
 Every endpoint below is written into the record's §1 and committed BEFORE the
 instrument or the code it measures exists (T0), then read ONCE. A clause
@@ -521,7 +521,7 @@ and the number stands.
 | **E13** | is a finally after a return recorded, and only where the shape exists? | `focus_finally_return` green with its RED run in the ledger; the census lists (§4.6) match the golden diff exactly; the lens file's list is empty; `HONESTY-COST.md`'s cited numbers are untouched (the seam and the seal change no unfocused wrapper) |
 | **E14** | does Rust's row say what its block unbound, and does the fold honour it? | `focus_block_let` green; `v40` round-trips; the tag-3 refusal cases in `spool/tests.rs`; every existing Rust corpus case equal (no block-free fragment moved); `refocus_*` cases equal |
 | **E6-TS′** | does the re-registered table hold? | `e6tsppp.py` over every TS case with an `exceptions` question: every row matches, `focus_catch_binding` included; the swallow set non-empty |
-| **fences** | did anything else move? | `python corpus/run_corpus.py --require-driver` every case equal (all three languages); `.venv/bin/python -m pytest -q`; `cargo test --workspace`; `npm --prefix typescript test`; the probes; `tests/test_ceiling.py`; the E7 needle on TS output; `e_fences.py` legacy and branch — the legacy fence's `FENCED` set covers `rust/` whole, `exceptions.py`, `exceptions_rust.py` and the four `test_exceptions*` files; this slice edits `rust/` by design (§5) and NOTHING else in that set, so the record's §1 names `rust/` as the one fenced path expected to move and the fence's report must list only paths under it |
+| **fences** | did anything else move? | `python corpus/run_corpus.py --require-driver` every case equal (all three languages); `.venv/bin/python -m pytest -q`; `cargo test --workspace`; `npm --prefix typescript test`; the probes; `tests/test_ceiling.py`; the E7 needle on TS output; `e_fences.py` legacy and branch. The legacy fence's `FENCED` set covers `rust/` whole, `exceptions.py`, `exceptions_rust.py` and the four `test_exceptions*` files; this slice edits `rust/` by design (§5) and NOTHING else in that set, so the record's §1 names `rust/` as the one fenced path expected to move and the fence's report must list only paths under it |
 
 Baselines (suite counts, corpus case count, the ceiling census, `df`) are
 taken at T0 and written into the record's §2, the ambient pins.
@@ -566,7 +566,7 @@ tool and `cargo-sensorium`.
 ## 12. Amendments
 
 Appended at execution, dated, each naming the section it amends. **A-rows**
-are the thirteen decisions the plan made — A1–A11 in its own decisions table
+are the thirteen decisions the plan made: A1–A11 in its own decisions table
 (`../plans/2026-09-12-sensorium-s5-rung4-debts.md`), A12 and A13 added by
 ruling while shipping. **P-rows** are the controller rulings that changed how
 a section of THIS document reads; the rulings that changed no sentence here
@@ -576,39 +576,39 @@ falsified, this list is the index to it.
 
 ### The plan's decisions, as shipped
 
-- **A1 (2026-09-12, Task 1) — amends §7.** The `rt.mjs` seam is the **naming**
+- **A1 (2026-09-12, Task 1), amends §7.** The `rt.mjs` seam is the **naming**
   block, not the capture side: `dbg`, `exc` and `cap` already live in
   `dbg.mjs` and `captures` is eight lines, so what moved to
   `typescript/src/naming.mjs` is `UNNAMED`, `titleOf`, `nameProvider` (with its
   `provider` state), `ask` and `nameFor`. §7 named three functions of which two
   were not in the file. The export set is unchanged, which is §7's own
   constraint.
-- **A2 (2026-09-12, Task 2) — amends §3.2.** `e12p_report.py` **imports**
+- **A2 (2026-09-12, Task 2), amends §3.2.** `e12p_report.py` **imports**
   `e12_report.py`'s helpers rather than copying them; it owns only what
   changed (`ROW2`, `rows_of2`, `call_line_of`, `h2p`, `h4p`, `h5p`, `main`).
   §3.2 requires the cited file's text to keep still, and an import reads it
   without moving a byte.
-- **A3 (2026-09-12, Task 3) — amends §4.2.** `Site` gains **`deferred:
+- **A3 (2026-09-12, Task 3), amends §4.2.** `Site` gains **`deferred:
   boolean`** rather than a separate list: `planSites` computes it beside
   `focused`, `sitesOf` reports it, `resolve.mjs` prints it per matched site.
   Only a deferred AND instrumented function gets the wrapper; focus is
   irrelevant to the seal, which is a frame-lifetime fix in every tier.
-- **A4 (2026-09-12, Task 0) — amends §3.3.** The H2′ hand count is a
+- **A4 (2026-09-12, Task 0), amends §3.3.** The H2′ hand count is a
   **sha-pinned table**, `…-h2-handcount.md`, one row per function-like under
   the three specs (`| n | qualname | line | kind | how selected |`) with `N = 6`
   as its last line, on rung 4's precedent. The lock test recomputes its sha
   from disk.
-- **A5 (2026-09-12, Tasks 0 and 3) — amends §4.6.** The census at T0 is **by
-  hand** — §4.6's script cannot run before the detector exists — and
+- **A5 (2026-09-12, Tasks 0 and 3), amends §4.6.** The census at T0 is **by
+  hand** (§4.6's script cannot run before the detector exists) and
   `census_deferred.mjs` arrives with the detector at Task 3. E13's clause is
   that the script prints exactly the hand list.
-- **A6 (2026-09-12, Task 6) — amends §5.2–§5.3.** The Rust fragment for a
+- **A6 (2026-09-12, Task 6), amends §5.2–§5.3.** The Rust fragment for a
   block-like statement with names to unbind is
   `::sensorium_rt::line_unbinding(&crate::__SENSORIUM_UNIT, <site>, || [<deltas>], &[<"a">, <"b">]);`,
   and `line_unbinding` writes tag-3 blocks **after** the deltas. The names are
   `&'static [&'static str]`, so the fragment is a literal and the runtime
   allocates nothing.
-- **A7 (2026-09-12, Task 0; SUPERSEDED 2026-09-12, Task 8) — amends §6.2.**
+- **A7 (2026-09-12, Task 0; SUPERSEDED 2026-09-12, Task 8), amends §6.2.**
   Under ruling **P6**, spec §6.2 binds over the plan's A7 and
   `focus_catch_binding` takes **two** rows, not one: its `PRE_REGISTERED` row
   and `"focus_catch_binding": None` in `PRE_REGISTERED_REASON_LINE`, a pinned
@@ -616,46 +616,46 @@ falsified, this list is the index to it.
   precedent. **Superseded by A13**: under ruling **P16** the row's value is
   **1 SWALLOWED**, not 0. The two-row shape stands; the adjudication behind the
   first row did not.
-- **A8 (2026-09-12, Task 12) — amends §1 and §6.4.** The fixture
+- **A8 (2026-09-12, Task 12) (amends §1 and §6.4.** The fixture
   `driver_version` becomes `"0.13.0"` when Python's version moves, not
-  `"0.12.0"` at the recorder bump — **and there is ONE such fixture, not the
+  `"0.12.0"` at the recorder bump) **and there is ONE such fixture, not the
   plan's three**: `tests/fixtures/ts-spools/focus-lines/invocation.json`, at
   `"0.11.0"`, is the one `docs/CARRIED-DEBT.md`'s minors paragraph names as
   *now one behind*. The eleven other `ts-spools` fixtures carry `"0.1.0"`,
   which is the version that cut them and is dated history, not a
   current-identity token. Corrected here rather than obeyed as written.
-- **A9 (2026-09-12, Task 12) — amends §6.4 and the inventory's D class.**
+- **A9 (2026-09-12, Task 12), amends §6.4 and the inventory's D class.**
   `sites._anchor`'s cwd fallback is closed by a **dated note** and no code
   change: it is already the documented Python-trace rule (`root` or `cwd`,
   else `None`), the comment the function carries says so, and no trace in the
   corpus reaches it. The note is in `docs/CARRIED-DEBT.md`'s 2026-09-12
   section under *Deferred by ruling*.
-- **A10 (2026-09-12, Task 9) — amends §6.4.** `captures()` on an odd-length
+- **A10 (2026-09-12, Task 9), amends §6.4.** `captures()` on an odd-length
   pairs list **throws** `TypeError('captures: an odd pairs list — <n>
   entries')`, caught by nothing. The transform is the only caller and an odd
   list is a transform bug, which should surface as a loud failure of the
-  instrumented file rather than as a silently dropped name — §2's A #9,
+  instrumented file rather than as a silently dropped name, §2's A #9,
   *refuse loudly*.
-- **A11 (2026-09-12, Task 9) — amends §6.4.** `Resolution.wall` is persisted
+- **A11 (2026-09-12, Task 9), amends §6.4.** `Resolution.wall` is persisted
   in the invocation's manifest as **`resolver_wall_s`**, written by `driver.py`
   beside `focus_matched`; `info` does not print it. An instrument can now time
   the resolver without timing itself.
-- **A12 (2026-09-12, Task 3; ruling P12) — amends §4.4.** A seal-deferred
+- **A12 (2026-09-12, Task 3; ruling P12), amends §4.4.** A seal-deferred
   **generator** whose consumer abandons it (`.return()`, a `break` out of
   `for…of`) reports `RETURN {k: 'unread'}`, not `RETURN undefined`: the value
   belongs to the consumer and never reached the body. `seal` emits
   `{k: 'unread'}` where nothing was pended (`f.pending ?? {k: 'unread'}`); only
   an abandoned generator reaches `seal` that way, because every other exit
-  pends — a `return`, or the fallthrough close's `pend(__sf, undefined)` — and a
+  pends (a `return`, or the fallthrough close's `pend(__sf, undefined)`) and a
   body that falls off its end still pends `undefined` explicitly. Ruling P12
   proposed a second argument to `seal`; the implementation's **flag-free** form,
   which needs no flag because the pend itself already carries the distinction,
   was what Task 3 wrote and what was accepted there (2026-09-12), and `seal(f)`
   ships with one parameter.
-- **A13 (2026-09-12, Tasks 8 and 11; ruling P16) — amends §6.2.** §6.2's hand
+- **A13 (2026-09-12, Tasks 8 and 11; ruling P16), amends §6.2.** §6.2's hand
   read was **wrong**. `focus_catch_binding` is **1 SWALLOWED** by the
-  `exceptions` reader's own documented disposition rule — an absorbing handler
-  took it and the frame holding that handler then returned — and *one HANDLED,
+  `exceptions` reader's own documented disposition rule (an absorbing handler
+  took it and the frame holding that handler then returned) and *one HANDLED,
   nothing swallowed* was a reading in `grep --kind HANDLED`'s vocabulary. The
   locked §1.7 clause was **not** edited: **E6-TS′ STOPped by design** and is
   the finding; a corrected clause, **E6-TS″**, was pre-registered beside it
@@ -664,7 +664,7 @@ falsified, this list is the index to it.
 
 ### The rulings that changed a section's reading
 
-- **P7 + P13 (2026-09-12, Tasks 0 and 6) — amend §5.2.** The Rust unbind order
+- **P7 + P13 (2026-09-12, Tasks 0 and 6), amend §5.2.** The Rust unbind order
   is **source order** (§5.2's lead clause; the bullet order is expository), so
   a `match` arm reports `unbound:n,big`. And **P13 corrects P7's `else if`
   clause**: an `else if` is the outer `if`'s `else_branch` EXPRESSION, not a
@@ -673,22 +673,22 @@ falsified, this list is the index to it.
   `unbound_of` descends the chain while the branch is an `Expr::If`; a nested
   `if` that IS a statement still unbinds its own. Golden
   `focus_unbound_elseif` pins it.
-- **P14 (2026-09-12, Task 6) — amends §5.2.** A `let` with **no initialiser**
+- **P14 (2026-09-12, Task 6), amends §5.2.** A `let` with **no initialiser**
   is listed as unbound on its block's row: `unbound` means *this name's scope
   ended here*, which is true whether or not a probe ever bound it, and the
   reader's fold tolerates popping an absent name.
-- **P9 (2026-09-12, Task 2) — amends §8.** On a provenance (sha) failure
+- **P9 (2026-09-12, Task 2), amends §8.** On a provenance (sha) failure
   `assemble_s5debts.main` **writes** `results.json` with
   `verification.reads_read_this_record.ok == false` and exits **1**, the
   documented behaviour of the `assemble_rung4.py` family: a reader diagnosing
   a failed verification needs the cells it failed over. Only the box-path
   refusal writes nothing.
-- **P15 (2026-09-12, Task 7) — amends §7.** `rust/HONESTY-BLIND-SPOTS.md` is
+- **P15 (2026-09-12, Task 7), amends §7.** `rust/HONESTY-BLIND-SPOTS.md` is
   **ceiling-bound at exactly 800 lines** and takes no split in this slice; its
   NEXT entry must open a volume, on the `CARRIED-DEBT-ARCHIVE` numbering
   precedent, and that split costs `rust/HONESTY-INDEX.md`'s *one home of §12*
   promise. §7's seam list gains it.
-- **P17 (2026-09-12, Task 11) — amends §8.** A **hand adjudication** lives in
+- **P17 (2026-09-12, Task 11), amends §8.** A **hand adjudication** lives in
   the results file's `reported.adjudicated`, labelled: `assemble_s5debts.py`
   filters `gated` through a fixed `ORDER` and builds `reported` from a fixed
   key set, so a cell added for E6-TS′ through the assembler would have been
@@ -708,6 +708,6 @@ census-table parser (P3); a baseline re-run if the cargo driver was missing
 (P4); that Task 0's RED `test_corpus_passes` is an explicit exception in every
 brief to Task 7 (P5); `rt.mjs` at 747 lines against a plan figure that
 miscounted (P8); the disposition for a corpus failure under load (P10) and its
-successor once the cause was known — a vitest substring filter (P11); and the
+successor once the cause was known, a vitest substring filter (P11); and the
 pre-registration discipline that produced A13 (P16). **P6** and **P12** are
 recorded as A7 and A12 above rather than twice.

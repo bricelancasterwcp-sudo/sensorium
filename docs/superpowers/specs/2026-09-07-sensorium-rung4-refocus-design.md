@@ -1,4 +1,4 @@
-# Rung 4, slice 2 — `refocus` for Rust traces, and E4
+# Rung 4, slice 2: `refocus` for Rust traces, and E4
 
 **Date:** 2026-09-07 · **Status:** design, approved section by section in
 conversation (Brice, 2026-09-07) · **Design authority:** Claude · **Base:**
@@ -11,7 +11,7 @@ compile-time `--focus`. This slice closes rung 4: `sensorium refocus` works
 on a Rust trace by re-invoking the original `cargo sensorium` command under
 an added focus and comparing the pair, and the pre-registered E4 row of the
 recorder design (`docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`
-§13, row E4 — "refocus MATCH rate on the 7 `pager_*_test.rs` FakeSubstrate
+§13, row E4, "refocus MATCH rate on the 7 `pager_*_test.rs` FakeSubstrate
 files, per test with `--exact`, expected-MATCH list written first") is
 measured.
 
@@ -19,7 +19,7 @@ measured.
 
 | # | Question | Ruling (Brice, 2026-09-07) | Why |
 |---|---|---|---|
-| G1 | does the brace-macro tail guard land here? | **yes** — the one-line `is_tail` check in the transform's macro arm, its golden flipped from compile-fail to compile-pass | slice 2's focused builds run through the transform and slice 2 has its own pre-registered measurement, so the records stay honest; the inference-variable limitation stays declared (no stable-Rust fix) |
+| G1 | does the brace-macro tail guard land here? | **yes**, the one-line `is_tail` check in the transform's macro arm, its golden flipped from compile-fail to compile-pass | slice 2's focused builds run through the transform and slice 2 has its own pre-registered measurement, so the records stay honest; the inference-variable limitation stays declared (no stable-Rust fix) |
 | G2 | where does `refocus` for Rust live? | **Python's re-run path** | one comparator, one verdict vocabulary, capability dispatch as today; the driver learns one flag |
 | G3 | how does Python learn the new trace? | **`--refocus-of <run>` on the driver + a store lookup** on `refocus_of` | the link is durable in both traces and read by `info`/`runs` the same way for both languages; nothing parsed from stdout is load-bearing |
 
@@ -34,7 +34,7 @@ refocus) and a `--json` driver flag (a new surface for one consumer).
    against the current store.
 2. Converter: `workspace_root`, `refocus_of`, `invocation_processes` in
    meta; `capabilities.refocus: true` for every trace this driver converts.
-3. Python: a Rust branch in `sensorium refocus` — pre-rerun refusals, the
+3. Python: a Rust branch in `sensorium refocus`, pre-rerun refusals, the
    subprocess re-run from the workspace root under the same store, the pair
    lookup by `refocus_of`, the unchanged comparator, the stamps, and two
    UNVERIFIABLE licence caveats (output, children).
@@ -99,10 +99,10 @@ The driver is resolved exactly as the corpus runner resolves it
 original's `SENSORIUM_TIER` from its recorded `env` (omitted when absent,
 so the driver's default `call` applies) and the focus list is the
 original's `meta.focus` followed by the caller's `--focus` values, in that
-order, de-duplicated by the driver's own set rule — never fewer than the
+order, de-duplicated by the driver's own set rule, never fewer than the
 original's (Python's "only ever captures more"). cwd = `workspace_root`.
 Environment: the caller's, with `SENSORIUM_DIR` as resolved for the
-original's store (the same store), and nothing else set or stripped — the
+original's store (the same store), and nothing else set or stripped. The
 environment is diffed afterwards, as for Python. The child's stderr streams
 through to the user (a focused rebuild is visible); its stdout is captured
 only for the report. No timeout: Python's `refocus` has none, and a cargo
@@ -137,7 +137,7 @@ converter's `meta` table has the identical schema.
 |---|---|---|
 | source | runs for real | `source_hashes` (instrumented `.rs`, `Cargo.toml`/`.lock`, the binary) re-hashed now |
 | environment | runs for real | `env` recorded in both traces |
-| output | **UNVERIFIABLE** | `capabilities.output: false`; today the check would compare two empty sets and read as verified — the named bug class; on a Rust pair it prints and stamps `output: unverifiable (not recorded)` and withholds nothing |
+| output | **UNVERIFIABLE** | `capabilities.output: false`; today the check would compare two empty sets and read as verified, the named bug class; on a Rust pair it prints and stamps `output: unverifiable (not recorded)` and withholds nothing |
 | children | **UNVERIFIABLE** | `capabilities.children: false`; same treatment |
 | exit status | runs for real | the recorded process exit of both |
 
@@ -159,15 +159,15 @@ and corrected; CARRIED-DEBT's item is struck as taken. `sensorium-transform`
 0.4.1. The inference-variable commit stays declared and measured by its
 compile-fail golden.
 
-### 3.4 Printing gate — three Rust corpus cases
+### 3.4 Printing gate: three Rust corpus cases
 
 Each is a real re-run inside the gate under the built driver (the corpus
 runner records the case once; a `refocus` question then re-invokes the
-driver itself — the gate's driver env is what it uses).
+driver itself. The gate's driver env is what it uses).
 
 | case | program | pins |
 |---|---|---|
-| `refocus_match` | a deterministic `fn fill()` program, `cargo_args: ["run"]` | `refocus $RUN --focus fill` → `verdict: MATCH`, exit 0; the new trace's `info` shows `refocus_of: $RUN`, `focus: fill`, `line=yes`; `watch <new> --at fill --expr b == 2` SATISFIED — the loop |
+| `refocus_match` | a deterministic `fn fill()` program, `cargo_args: ["run"]` | `refocus $RUN --focus fill` → `verdict: MATCH`, exit 0; the new trace's `info` shows `refocus_of: $RUN`, `focus: fill`, `line=yes`; `watch <new> --at fill --expr b == 2` SATISFIED. The loop |
 | `refocus_diverged` | a program whose second run reads a marker file its first run wrote and takes another branch | `refocus $RUN --focus main` → `verdict: DIVERGED`, exit 1, the divergent event named |
 | `refocus_refused_many` | a crate whose `cargo_args: ["test"]` builds two test binaries | `refocus $RUN --focus …` → the single-target sentence, exit 2, and the store holds no new trace |
 
@@ -175,7 +175,7 @@ Python tests on fixture Rust traces (`tests/rust_traces.py` gains
 `workspace_root`, `invocation_processes`, `refocus_of`): every pre-rerun
 refusal; the pair lookup (0 / 1 / 2 candidates); the two UNVERIFIABLE
 caveats present and the output check never "verified"; the stamps; the
-merged-focus order; the driver resolution — each mutation-tested.
+merged-focus order; the driver resolution, each mutation-tested.
 
 ## 4. E4, pre-registered (section 3, approved)
 
@@ -194,7 +194,7 @@ this branch's HEAD.
 `pager_reservation_test` 8, `pager_test` 4, `pager_weights_test` 6):
 `cargo sensorium test -p bloomery-daemon --test <file> -- <name> --exact`,
 unfocused. Pass 2: for each original, `sensorium refocus <run> --focus
-<name>` — one focus per test, 61 focused rebuilds, cost reported.
+<name>`, one focus per test, 61 focused rebuilds, cost reported.
 
 **Expected-MATCH list, written first:** all 61, the thread-spawning
 `a_pager_can_be_shared_across_threads` included (its spawned thread is a
@@ -209,7 +209,7 @@ under `--exact`), no brace-macro tail, no inference-variable head type.
 | H2 | does every re-run complete? | 61 of 61; a focused build failure is a **STOP** (the compile-limitation class, guard in) |
 | H3 | MATCH on the expected list? | 61 of 61 MATCH; an unexpected DIVERGED is a **finding** recorded with the divergent event, not a STOP (the E4 row's own reading); a REFUSED after the rerun is a **STOP** (the instrument or the pairing) |
 | H4 | what does the licence say? | reported: source and environment verified 61 of 61; output and children UNVERIFIABLE 61 of 61 with the caveat printed each time |
-| H5 | does the loop close? | three `watch` triples on the NEW traces — E9's W1 and W3 on the refocused `missing_stats_is_a_contract_violation_not_a_reply`, and one triple from another file chosen in §1 — answer as predicted (verdict class and exit) |
+| H5 | does the loop close? | three `watch` triples on the NEW traces (E9's W1 and W3 on the refocused `missing_stats_is_a_contract_violation_not_a_reply`, and one triple from another file chosen in §1) answer as predicted (verdict class and exit) |
 | H6 | what does it cost? | reported, no gate: per refocus the invocation wall and cargo's own build time, the first focus versus later ones distinguished; the shim copies counted and sized under the target directory at the end |
 | H7 | did nothing else move? | corpus every case equal (the three new ones included); Python suite green; `cargo test --workspace` green |
 
@@ -242,7 +242,7 @@ limitation; any change to the comparator or to Python's own refocus branch;
 
 ## 7. Dated amendments
 
-- **B1 (2026-09-07, after Task 0's review) — two sentences of §4 were
+- **B1 (2026-09-07, after Task 0's review), two sentences of §4 were
   wrong as written.** "`fresh_dir` uses fixed names" holds for
   `common::pager::fresh_dir`, which six of the seven files use;
   `pager_refusal_advice_test.rs:60` defines its own pid-plus-sequence form
@@ -255,25 +255,25 @@ limitation; any change to the comparator or to Python's own refocus branch;
   amendment under ruling R-H1) names the discriminator: a DIVERGED on those
   three is the hazard only when the worker tasks' total event count is
   preserved and the MAIN stream MATCHes.
-- **B2 (2026-09-07, after Task 2's review) — two facts §2 did not state.**
+- **B2 (2026-09-07, after Task 2's review) (two facts §2 did not state.**
   (1) The driver refuses a `--refocus-of` value that is not a run id (a path
   separator, `.`, `..`, an absolute path, an empty value) with
   `REFUSED: --refocus-of <v> is not a run id; nothing was built.`, before
-  the store is consulted — without it `--refocus-of ../traces/<real run>`
+  the store is consulted) without it `--refocus-of ../traces/<real run>`
   would stamp a link the store can never resolve; a trailing `.db` is
   stripped once so `<id>.db` names `<id>`. (2) `invocation_processes`
-  counts the RUNNER's processes — every test binary AND every doctest
-  process cargo hands the runner — so §2.3's refusal reads "run <id> is one
+  counts the RUNNER's processes (every test binary AND every doctest
+  process cargo hands the runner) so §2.3's refusal reads "run <id> is one
   of <n> processes of its invocation (test binaries and doctests)"; a
   single-target selector (`--lib`, `--test X`, `--bin X`) excludes doctests
   and is what makes the count 1.
 
-- **B3 (2026-09-07, after the slice's final review) — two things §2.3
+- **B3 (2026-09-07, after the slice's final review), two things §2.3
   promised that the code does not do, both settled in the code's favour.**
   (1) The zero-candidate refusal carries the driver's EXIT and nothing else:
   §2.3 says "with the driver's exit code and its last stderr line as the
   reason", but the same section requires the child's stderr to STREAM through
-  to the user, and a stream is not captured — the two clauses cannot both
+  to the user, and a stream is not captured, the two clauses cannot both
   hold. The stream wins, because a focused rebuild's progress is what the
   person waiting is watching; the refusal therefore reads `the re-run produced
   no trace linked to <run> (driver exit <n>); see the driver's output above`,
@@ -284,5 +284,5 @@ limitation; any change to the comparator or to Python's own refocus branch;
   two refusals; everything after the design's prefix is verbatim, `; nothing
   was re-run` included. The table's sentences are the sentences; the prefix
   in them stood for "this is a refusal". The DRIVER's own two refusals (§2.1,
-  B2) are unaffected — they print `REFUSED:` because nothing else announces
+  B2) are unaffected. They print `REFUSED:` because nothing else announces
   them.

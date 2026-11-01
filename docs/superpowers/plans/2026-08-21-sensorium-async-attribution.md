@@ -2,23 +2,23 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stop the recorder guessing parentage, stamp asyncio task identity on every event, and make `tree`/`frame`/`info`/`watch` state what the trace can and cannot attribute — without making anything inside an `async def` inspectable yet (that is arc 2).
+**Goal:** Stop the recorder guessing parentage, stamp asyncio task identity on every event, and make `tree`/`frame`/`info`/`watch` state what the trace can and cannot attribute, without making anything inside an `async def` inspectable yet (that is arc 2).
 
 **Architecture:** The tracer replaces its per-thread "last opened frame is the caller" stack with a per-thread map of live frames keyed by frame address, verified by code identity, and derives every parent from the caller frame's `f_back`. Each event additionally carries the current asyncio task's minted serial (lazily bound, so programs that never import asyncio pay one `sys.modules` probe per event). The trace format goes 1→2 (additive: `events.task_id`, new `tasks` table, new CALL-payload keys); a format-1 trace still opens and is labelled "parentage assumed". Query commands group by task, render unframed coroutine/generator calls as events with their real caller named, and refuse to explain a missing value with a reason the trace contradicts.
 
-**Tech Stack:** Python 3.12–3.14, `sys.monitoring` (PEP 669), sqlite3, pytest, PyYAML (corpus), `uv` for venvs. Stdlib-only runtime — no new dependencies.
+**Tech Stack:** Python 3.12–3.14, `sys.monitoring` (PEP 669), sqlite3, pytest, PyYAML (corpus), `uv` for venvs. Stdlib-only runtime. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-08-21-sensorium-async-design.md` — read it first; every task below cites the section it implements.
+**Spec:** `docs/superpowers/specs/2026-08-21-sensorium-async-design.md`. Read it first; every task below cites the section it implements.
 
 ## Global Constraints
 
-- Python floor stays `>=3.12`; CI matrix is 3.12 / 3.13 / 3.14 and every task's tests must pass on all three (`uv run -p 3.12 …` etc. — see Task 12 for the exact commands).
+- Python floor stays `>=3.12`; CI matrix is 3.12 / 3.13 / 3.14 and every task's tests must pass on all three (`uv run -p 3.12 …` etc., see Task 12 for the exact commands).
 - Stdlib-only runtime: the recorder must **not** `import asyncio` itself (spec D2: lazy bind via `sys.modules`). A synchronous program's `sys.modules` must be unchanged by recording.
-- Per-event overhead budget for the sync path: one `"asyncio" in sys.modules` probe plus two dict ops (spec "Measurements": ~50 ns against ~6 µs/event). No exception may be raised on the common path (`current_task()` raises outside a loop — gate on `_get_running_loop()`).
+- Per-event overhead budget for the sync path: one `"asyncio" in sys.modules` probe plus two dict ops (spec "Measurements": ~50 ns against ~6 µs/event). No exception may be raised on the common path (`current_task()` raises outside a loop, gate on `_get_running_loop()`).
 - Every new test is **mutation-checked**: after it passes, break the code it covers in the named way, confirm the test fails, restore. Steps say exactly which mutation.
 - Corpus questions are pre-registered: write `ask`/`truth`/`command`/expectations **before** running the command; if the output disagrees, the tool is wrong until proven otherwise.
 - Identity is never `id()` of an object that can die while the key is held, and never a user-supplied name (spec D1 "Why `id()` is sound here", D2).
-- Hostile program objects (`__class__`, `__hash__`, `get_name`, `__repr__`) must never crash the recorder — guard with `try/except BaseException`, count, report; never silently swallow (project precedent: `capture.plain_str`, `_exit_status_of`).
+- Hostile program objects (`__class__`, `__hash__`, `get_name`, `__repr__`) must never crash the recorder, guard with `try/except BaseException`, count, report; never silently swallow (project precedent: `capture.plain_str`, `_exit_status_of`).
 - Output format for **synchronous** traces must stay byte-compatible with v1 wherever a test pins it (`tests/test_tree_frame.py`, `tests/test_runs_info.py`); new lines are additive.
 - Commit messages: conventional (`feat:`, `fix:`, `test:`, `docs:`, `chore:`), no attribution trailer (repo setting).
 - Branch: `feat/async-attribution` (already exists, spec committed on it). Never commit to `main`.
@@ -67,13 +67,13 @@ uv pip install -p .venv/bin/python -e ".[dev]"
 **Files:**
 - Create: `tests/fixtures/format1_async.py`
 - Create: `tests/fixtures/format1_async.db`
-- Create: `tests/fixtures/__init__.py` (empty — keeps pytest rootdir imports simple)
+- Create: `tests/fixtures/__init__.py` (empty. Keeps pytest rootdir imports simple)
 - Test: `tests/test_format1_fixture.py`
 
 **Interfaces:**
-- Produces: `tests/fixtures/format1_async.db` — a trace whose `meta.trace_format == 1`, recorded by sensorium at `e384ef4` from `format1_async.py`. Tasks 2, 6, 7, 8 read it.
+- Produces: `tests/fixtures/format1_async.db`, a trace whose `meta.trace_format == 1`, recorded by sensorium at `e384ef4` from `format1_async.py`. Tasks 2, 6, 7, 8 read it.
 
-The fixture must be recorded by the **old recorder**, not synthesised — the point is that it is old (spec "Verification" case 4). A git worktree at the v1 merge commit is the only honest source.
+The fixture must be recorded by the **old recorder**, not synthesised. The point is that it is old (spec "Verification" case 4). A git worktree at the v1 merge commit is the only honest source.
 
 - [ ] **Step 1: Write the program the fixture records**
 
@@ -209,7 +209,7 @@ git commit -m "test: capture a real v1 (format-1) async trace as a fixture"
 
 ---
 
-### Task 1: Trace format 2 — schema and writer
+### Task 1: Trace format 2: schema and writer
 
 **Files:**
 - Modify: `src/sensorium/store/db.py:6` (`TRACE_FORMAT`), `:41-50` (events table), add `tasks` table after `output`
@@ -264,7 +264,7 @@ def test_add_event_task_id_defaults_to_null_and_round_trips(tmp_path):
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `$PY -m pytest tests/test_store_db.py tests/test_writer.py -q`
-Expected: FAIL — `trace_format == 1`, no `tasks` table, `add_event() got an unexpected keyword argument 'task_id'`.
+Expected: FAIL, `trace_format == 1`, no `tasks` table, `add_event() got an unexpected keyword argument 'task_id'`.
 
 - [ ] **Step 3: Implement**
 
@@ -303,7 +303,7 @@ CREATE TABLE tasks (
 
 Extend the `TraceFormatError` docstring's last sentence with: `Format 2 (async attribution) added events.task_id, the tasks table and CALL-payload keys; a format-1 trace opens and its parentage is reported as assumed -- see reader.Trace.parentage_basis.`
 
-`src/sensorium/store/writer.py` — `__init__` gains `self._tasks: list[tuple] = []`; replace `add_event` and add `add_task`; replace the events insert in `_flush_locked`:
+`src/sensorium/store/writer.py`, `__init__` gains `self._tasks: list[tuple] = []`; replace `add_event` and add `add_task`; replace the events insert in `_flush_locked`:
 
 ```python
     def add_event(self, ts_ns, thread_id, kind, frame_id, code_id, line,
@@ -347,7 +347,7 @@ In `_flush_locked`, replace the events `executemany` and add tasks before `outpu
 Run: `$PY -m pytest tests/test_store_db.py tests/test_writer.py -q` → all pass.
 Run: `$PY -m pytest -q -x` → all pass (the reader still selects 8 named columns, so nothing downstream notices yet).
 
-- [ ] **Step 5: Mutation check** — in `add_event`, change `task_id))` to `None))` (drop the value); `test_add_event_task_id_defaults_to_null_and_round_trips` must fail on `(e2, None)`. Restore.
+- [ ] **Step 5: Mutation check**, in `add_event`, change `task_id))` to `None))` (drop the value); `test_add_event_task_id_defaults_to_null_and_round_trips` must fail on `(e2, None)`. Restore.
 
 - [ ] **Step 6: Commit**
 
@@ -358,7 +358,7 @@ git commit -m "feat(store): trace format 2 -- events.task_id and a tasks table"
 
 ---
 
-### Task 2: Reader — tasks, format, unframed calls, call counts
+### Task 2: Reader: tasks, format, unframed calls, call counts
 
 **Files:**
 - Modify: `src/sensorium/store/reader.py:19-28` (`Event`), add `Task`, `:61-70` (`Trace.__init__`, `_EVENT_COLS` selection), add methods
@@ -368,12 +368,12 @@ git commit -m "feat(store): trace format 2 -- events.task_id and a tasks table"
 - Produces:
   - `Event.task_id: int | None = None` (last field; positional 8-arg construction still valid)
   - `@dataclass(frozen=True) class Task: id: int; name: str | None; thread_id: int`
-  - `Trace.format -> int` — `meta["trace_format"]`, 1 if absent
-  - `Trace.tasks() -> list[Task]` — `[]` on a trace with no `tasks` table
+  - `Trace.format -> int`, `meta["trace_format"]`, 1 if absent
+  - `Trace.tasks() -> list[Task]`, `[]` on a trace with no `tasks` table
   - `Trace.task(task_id) -> Task | None`
-  - `Trace.unframed_calls(code_id: int | None = None) -> list[Event]` — CALL events with no frame whose `call_event_id` is that event; **works on format 1 too** (it is a join, not a payload key)
-  - `Trace.call_counts() -> dict[int, int]` — code_id → number of CALL events
-  - `Trace.parentage_basis() -> str` — `"derived"` if `format >= 2` else `"assumed"`
+  - `Trace.unframed_calls(code_id: int | None = None) -> list[Event]`: CALL events with no frame whose `call_event_id` is that event; **works on format 1 too** (it is a join, not a payload key)
+  - `Trace.call_counts() -> dict[int, int]`, code_id → number of CALL events
+  - `Trace.parentage_basis() -> str`, `"derived"` if `format >= 2` else `"assumed"`
 - Consumes: Task 1 schema.
 
 - [ ] **Step 1: Failing tests**
@@ -436,11 +436,11 @@ def test_format1_trace_reports_no_tasks_and_assumed_parentage():
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `$PY -m pytest tests/test_reader.py tests/test_format1_fixture.py -q`
-Expected: FAIL — `Trace` has no attribute `format`/`tasks`/`unframed_calls`.
+Expected: FAIL, `Trace` has no attribute `format`/`tasks`/`unframed_calls`.
 
 - [ ] **Step 3: Implement**
 
-`src/sensorium/store/reader.py` — extend `Event`, add `Task`, make column selection format-aware:
+`src/sensorium/store/reader.py`, extend `Event`, add `Task`, make column selection format-aware:
 
 ```python
 @dataclass(frozen=True)
@@ -542,7 +542,7 @@ Replace every `{_EVENT_COLS}` f-string in `events`, `event` with `{self._ecols}`
 Run: `$PY -m pytest tests/test_reader.py tests/test_format1_fixture.py -q` → pass.
 Run: `$PY -m pytest -q -x` → all pass.
 
-- [ ] **Step 5: Mutation checks** — (a) in `unframed_calls` change `f.id IS NULL` to `f.id IS NOT NULL`: both unframed tests fail. (b) In `parentage_basis` return `"derived"` unconditionally: the fixture test fails. Restore both.
+- [ ] **Step 5: Mutation checks**, (a) in `unframed_calls` change `f.id IS NULL` to `f.id IS NOT NULL`: both unframed tests fail. (b) In `parentage_basis` return `"derived"` unconditionally: the fixture test fails. Restore both.
 
 - [ ] **Step 6: Commit**
 
@@ -556,17 +556,17 @@ git commit -m "feat(reader): tasks, trace format, unframed calls and call counts
 ### Task 3: Derived parentage in the recorder
 
 **Files:**
-- Modify: `src/sensorium/record/tracer.py` — `_TLS` (`:280-289`), `_on_start` (`:378-421`), `_on_return` (`:422-448`), `_on_unwind` (`:450-469`), `_exc_event` fid lookup (`:548-549`), `_on_line` entry lookup (`:577-579`), module docstring line 30-32
+- Modify: `src/sensorium/record/tracer.py`, `_TLS` (`:280-289`), `_on_start` (`:378-421`), `_on_return` (`:422-448`), `_on_unwind` (`:450-469`), `_exc_event` fid lookup (`:548-549`), `_on_line` entry lookup (`:577-579`), module docstring line 30-32
 - Modify: `docs/superpowers/specs/2026-08-21-sensorium-async-design.md` D1 last paragraph (one sentence)
 - Create: `tests/test_async.py`
 - Test: `tests/test_tracer.py` (existing must stay green)
 
 **Interfaces:**
 - Produces (recorder-internal, used by Task 4/5):
-  - `_TLS.live: dict[int, list]` — `id(frame) -> [frame_id, code, code_id, prev_locals, depth]`; **replaces** `_TLS.stack` entirely
-  - `Tracer._parent_of(tls, caller) -> list | None` — the live entry for `caller` if present **and** `entry[1] is caller.f_code`, else `None`
-  - `Tracer._note_caller(payload, caller)` — writes `payload["caller_code"] = <interned id>` when the caller's code is traced, `payload["caller"] = "untraced"` otherwise, nothing when `caller is None`
-  - `_unframed_kind(code) -> str` — `"generator" | "coroutine" | "async_generator"`
+  - `_TLS.live: dict[int, list]`, `id(frame) -> [frame_id, code, code_id, prev_locals, depth]`; **replaces** `_TLS.stack` entirely
+  - `Tracer._parent_of(tls, caller) -> list | None`, the live entry for `caller` if present **and** `entry[1] is caller.f_code`, else `None`
+  - `Tracer._note_caller(payload, caller)`. Writes `payload["caller_code"] = <interned id>` when the caller's code is traced, `payload["caller"] = "untraced"` otherwise, nothing when `caller is None`
+  - `_unframed_kind(code) -> str`, `"generator" | "coroutine" | "async_generator"`
   - CALL payload keys (spec D1/D4): `caller_code`, `caller`, `unframed`, `parent_frame`
   - `frames.parent_id` = derived parent or NULL; `frames.depth` = parent.depth+1 or 0
 
@@ -694,7 +694,7 @@ def test_parent_of_rejects_a_live_entry_whose_code_is_not_the_callers(tmp_path):
     assert Tracer._parent_of(None, tls, None) is None
 ```
 
-Add to `tests/test_tracer.py` (depth/close path through `live`, sync program — the depth/parent half must hold before AND after; the `live == {}` half is new). Add `record_inproc_full` to the file's `from tests.helpers import …` line.
+Add to `tests/test_tracer.py` (depth/close path through `live`, sync program. The depth/parent half must hold before AND after; the `live == {}` half is new). Add `record_inproc_full` to the file's `from tests.helpers import …` line.
 
 ```python
 def test_frames_close_by_frame_identity_and_leave_no_live_entry(tmp_path):
@@ -725,9 +725,9 @@ def main():
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `$PY -m pytest tests/test_async.py tests/test_tracer.py::test_frames_close_by_frame_identity_and_leave_no_live_entry -q`
-Expected: `test_sync_helper_inside_a_coroutine…` FAILS (parent_id is main's frame, no `caller_code`); `…unframed_with_their_kind` FAILS (no `unframed` key); `…rejects_a_live_entry` FAILS (`_parent_of` missing); the recursion test FAILS on `tracer._tls.live` (no such attribute yet) — its depth/parent assertions already hold.
+Expected: `test_sync_helper_inside_a_coroutine…` FAILS (parent_id is main's frame, no `caller_code`); `…unframed_with_their_kind` FAILS (no `unframed` key); `…rejects_a_live_entry` FAILS (`_parent_of` missing); the recursion test FAILS on `tracer._tls.live` (no such attribute yet), its depth/parent assertions already hold.
 
-- [ ] **Step 3: Implement — `_TLS` and helpers**
+- [ ] **Step 3: Implement, `_TLS` and helpers**
 
 In `tracer.py`, add after `_is_control_flow`:
 
@@ -775,7 +775,7 @@ called it. A framed call whose caller has no open frame gets `parent_id NULL`
 and the same `caller_code` / `caller` keys: the parent is never guessed.
 ```
 
-- [ ] **Step 4: Implement — `_on_start`**
+- [ ] **Step 4: Implement, `_on_start`**
 
 Replace the body of `_on_start` from `tid = tls.thread_serial` to the end of the `try:` block:
 
@@ -843,9 +843,9 @@ Add the two helpers right after `_fp`:
             payload["caller"] = "untraced"
 ```
 
-- [ ] **Step 5: Implement — close, exception and LINE paths through `live`**
+- [ ] **Step 5: Implement, close, exception and LINE paths through `live`**
 
-`_on_return` — replace
+`_on_return`, replace
 
 ```python
             fid = None
@@ -862,7 +862,7 @@ with
                 fid = entry[0]
 ```
 
-`_on_unwind` — replace
+`_on_unwind`, replace
 
 ```python
             if not frameless and tls.stack and tls.stack[-1][1] is code:
@@ -882,7 +882,7 @@ with
                     capture_exc(exc, self.serial_of(exc)))
 ```
 
-`_exc_event` — replace
+`_exc_event`, replace
 
 ```python
             fid = tls.stack[-1][0] if (not frameless and tls.stack
@@ -894,7 +894,7 @@ with
             fid = entry[0] if (entry is not None and entry[1] is code) else None
 ```
 
-`_on_line` — replace
+`_on_line`, replace
 
 ```python
         if not tls.stack or tls.stack[-1][1] is not code:
@@ -921,7 +921,7 @@ Run: `$PY -m pytest -q -x` → all pass. `$PY corpus/run_corpus.py` → `0 failu
   - In `_on_start`, change `caller = frame.f_back` to `caller = None`: `test_sync_helper_inside_a_coroutine…` fails (no `caller_code`) and `…key_fn_finds_main` fails. Restore.
   - In `_parent_of`, delete `or entry[1] is not caller.f_code`: `test_parent_of_rejects_a_live_entry…` fails. Restore.
   - In `_on_return`, change `del tls.live[id(frame)]` to `pass`: `test_frames_close_by_frame_identity_and_leave_no_live_entry` fails on `tracer._tls.live == {}`. Restore.
-  - In `_on_return`, change `entry[1] is code` to `True`: nothing fails (in arc 1 the live entry at a returning frame's address is always that frame's) — expected; the guard is for arc 2 and is pinned in isolation by `_parent_of`'s test.
+  - In `_on_return`, change `entry[1] is code` to `True`: nothing fails (in arc 1 the live entry at a returning frame's address is always that frame's), expected; the guard is for arc 2 and is pinned in isolation by `_parent_of`'s test.
 
 - [ ] **Step 8: Spec edit (the one deviation)**
 
@@ -939,16 +939,16 @@ git commit -m "feat(record): derive parentage from the caller frame; name the ca
 ### Task 4: Task identity in the recorder
 
 **Files:**
-- Modify: `src/sensorium/record/tracer.py` — `Tracer.__init__`, `_TLS.__init__`, every `add_event` call (`_on_start`, `_on_return`, `_exc_event`, two in `_on_line`), `uninstall`
+- Modify: `src/sensorium/record/tracer.py`, `Tracer.__init__`, `_TLS.__init__`, every `add_event` call (`_on_start`, `_on_return`, `_exc_event`, two in `_on_line`), `uninstall`
 - Modify: `src/sensorium/record/boot.py:543-577` (`_finalize_meta`) and the `_finalize_meta(...)` call in `run_target`
 - Test: `tests/test_async.py`, `tests/test_boot_cli.py`
 
 **Interfaces:**
 - Produces:
-  - `Tracer._task_serial(tls) -> int | None` — called inside every `in_hook` region; `None` outside a running loop, when no task is current, or on any failure
-  - `Tracer._bind_asyncio() -> tuple | None` — lazily binds `(asyncio.events._get_running_loop, asyncio.current_task)` from `sys.modules`; never imports
-  - `Tracer.task_errors -> int` — count of lookups that raised (hostile task objects); stamped as `meta["task_errors"]`
-  - `_TLS.task_cache: tuple | None` — `(task, serial)` of the last task seen on this thread (identity check by `is`)
+  - `Tracer._task_serial(tls) -> int | None`. Called inside every `in_hook` region; `None` outside a running loop, when no task is current, or on any failure
+  - `Tracer._bind_asyncio() -> tuple | None`, lazily binds `(asyncio.events._get_running_loop, asyncio.current_task)` from `sys.modules`; never imports
+  - `Tracer.task_errors -> int`, count of lookups that raised (hostile task objects); stamped as `meta["task_errors"]`
+  - `_TLS.task_cache: tuple | None`, `(task, serial)` of the last task seen on this thread (identity check by `is`)
   - every event row carries `task_id`; `tasks` rows carry the name via `capture.plain_str(task.get_name())` or `None`
 - Consumes: Task 1 `add_event(task_id=)`, `add_task`.
 
@@ -1054,9 +1054,9 @@ def test_task_errors_meta_is_stamped_as_zero_on_a_clean_run(tmp_path):
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `$PY -m pytest tests/test_async.py tests/test_boot_cli.py -q`
-Expected: the four new async tests FAIL (`tasks()` empty / `task_id` None), the meta test FAILS with KeyError `task_errors`; `…does_not_import_asyncio` already passes (keep it — it guards the implementation you are about to write).
+Expected: the four new async tests FAIL (`tasks()` empty / `task_id` None), the meta test FAILS with KeyError `task_errors`; `…does_not_import_asyncio` already passes (keep it. It guards the implementation you are about to write).
 
-- [ ] **Step 3: Implement — `Tracer` state and `_task_serial`**
+- [ ] **Step 3: Implement, `Tracer` state and `_task_serial`**
 
 `Tracer.__init__`, after `self._serial_lock`/`_next_serial` lines:
 
@@ -1140,11 +1140,11 @@ Add methods after `_note_caller`:
         return serial
 ```
 
-- [ ] **Step 4: Implement — stamp every event**
+- [ ] **Step 4: Implement, stamp every event**
 
 In `_on_start`, after `tid = tls.thread_serial`: `task = self._task_serial(tls)`; pass `task_id=task` to `add_event`. Same in `_on_return` (`task_id=self._task_serial(tls)`), in `_exc_event` (inside the `try`, before `add_event`), and both `add_event` calls in `_on_line`. In `uninstall`, after `refs.clear()` loop: `self._tls.task_cache = None`.
 
-- [ ] **Step 5: Implement — meta**
+- [ ] **Step 5: Implement, meta**
 
 `boot._finalize_meta` gains a keyword `task_errors` and writes `w.set_meta_final("task_errors", task_errors)`; `run_target` passes `task_errors=tracer.task_errors`.
 
@@ -1155,7 +1155,7 @@ Run: `$PY -m pytest -q -x` and `$PY corpus/run_corpus.py` → green.
 
 - [ ] **Step 7: Mutation checks**
   - In `_task_serial`, change `serial = self._next_task` to `serial = 1` (every task shares one serial): `test_events_inside_tasks_carry_distinct_minted_serials` fails (`by_task` merges) and `test_serials_are_minted_not_names…` fails (`same[0].id == same[1].id`). Restore.
-  - Delete `tls.task_cache = (task, serial)`: nothing fails — the cache is an optimisation over the locked lookup; say so in the commit body.
+  - Delete `tls.task_cache = (task, serial)`: nothing fails. The cache is an optimisation over the locked lookup; say so in the commit body.
   - Replace the `if "asyncio" not in sys.modules: return None` gate with `import asyncio` at the top of the module: `test_recorder_does_not_import_asyncio…` fails. Restore.
   - In `HOSTILE_TASK` handling, remove the `try/except` around `task.get_name()`: `test_a_task_whose_get_name_raises…` fails (the program dies inside a monitoring callback). Restore.
 
@@ -1171,12 +1171,12 @@ git commit -m "feat(record): stamp every event with a minted asyncio task serial
 ### Task 5: `--focus` on coroutine-only code warns at record time
 
 **Files:**
-- Modify: `src/sensorium/record/tracer.py` — `FocusSpec` (`:173-190`), `Tracer.__init__`, `_decide`, add `unframed_focus()`
-- Modify: `src/sensorium/record/boot.py` — `run_target` finally block, `_finalize_meta`
+- Modify: `src/sensorium/record/tracer.py`, `FocusSpec` (`:173-190`), `Tracer.__init__`, `_decide`, add `unframed_focus()`
+- Modify: `src/sensorium/record/boot.py`, `run_target` finally block, `_finalize_meta`
 - Test: `tests/test_focus.py`, `tests/test_boot_cli.py`
 
 **Interfaces:**
-- Produces: `FocusSpec.entries_matching(module, qualname) -> list[str]` (the entry strings as given, e.g. `"main:worker"`); `Tracer.unframed_focus() -> list[str]` — focus entries that matched ≥1 code object and **only** frameless ones; `meta["focus_unframed"]: list[str]`; stderr line from `sensorium run`.
+- Produces: `FocusSpec.entries_matching(module, qualname) -> list[str]` (the entry strings as given, e.g. `"main:worker"`); `Tracer.unframed_focus() -> list[str]`, focus entries that matched ≥1 code object and **only** frameless ones; `meta["focus_unframed"]: list[str]`; stderr line from `sensorium run`.
 - Spec: honesty rule 2, corpus case 5.
 
 - [ ] **Step 1: Failing tests**
@@ -1271,7 +1271,7 @@ Run: `$PY -m pytest tests/test_focus.py tests/test_boot_cli.py -q` → the four 
 
 - [ ] **Step 3: Implement**
 
-`FocusSpec` — keep the original strings and add the method:
+`FocusSpec`, keep the original strings and add the method:
 
 ```python
 class FocusSpec:
@@ -1319,7 +1319,7 @@ class FocusSpec:
         return [e for e, flags in self._focus_hits.items() if flags == {True}]
 ```
 
-`boot.run_target` — in the `finally`, after `gaps = _recording_gaps(...)` printing, add:
+`boot.run_target`, in the `finally`, after `gaps = _recording_gaps(...)` printing, add:
 
 ```python
             for entry in tracer.unframed_focus():
@@ -1336,7 +1336,7 @@ class FocusSpec:
 
 Run: `$PY -m pytest tests/test_focus.py tests/test_boot_cli.py -q` → pass; full suite + corpus green.
 
-- [ ] **Step 5: Mutation check** — in `unframed_focus` change `flags == {True}` to `True in flags`: `test_focus_entry_that_matched_framed_and_unframed_code_is_not_reported` fails (`["prog"]` is reported). Restore. Then in `boot.run_target` delete the warning loop: `test_run_warns_when_focus_matched_only_coroutine_code` fails. Restore.
+- [ ] **Step 5: Mutation check**, in `unframed_focus` change `flags == {True}` to `True in flags`: `test_focus_entry_that_matched_framed_and_unframed_code_is_not_reported` fails (`["prog"]` is reported). Restore. Then in `boot.run_target` delete the warning loop: `test_run_warns_when_focus_matched_only_coroutine_code` fails. Restore.
 
 - [ ] **Step 6: Commit**
 
@@ -1347,7 +1347,7 @@ git commit -m "feat(record): say at record time when --focus matched only unfram
 
 ---
 
-### Task 6: `tree` — task groups, unframed calls, real callers, footers
+### Task 6: `tree`: task groups, unframed calls, real callers, footers
 
 **Files:**
 - Modify: `src/sensorium/query/tree_cmd.py` (whole file; keep `add_parser`, `frame_line` signature, `render_tree`'s `(lines, cut_frames)` contract, `_truncation_note`)
@@ -1784,11 +1784,11 @@ def run(args) -> int:
 
 - [ ] **Step 4: Run**
 
-Run: `$PY -m pytest tests/test_tree_frame.py tests/test_format1_fixture.py -q` → pass. Full suite + corpus green. Then eyeball: `$PY -m sensorium run -- tests/fixtures/format1_async.py && $PY -m sensorium tree last` — matches the output contract above.
+Run: `$PY -m pytest tests/test_tree_frame.py tests/test_format1_fixture.py -q` → pass. Full suite + corpus green. Then eyeball: `$PY -m sensorium run -- tests/fixtures/format1_async.py && $PY -m sensorium tree last`. Matches the output contract above.
 
 - [ ] **Step 5: Mutation checks**
   - In `_caller_tag` return `""` always: `…names_the_real_caller` and the generator test fail.
-  - In `_grouped`, drop the `parentless` loop: the unframed count test still passes (count is computed separately) — so in `test_tree_groups_by_task…` the `worker(name='A')  [coroutine, unframed]` assertion fails. Good.
+  - In `_grouped`, drop the `parentless` loop: the unframed count test still passes (count is computed separately), so in `test_tree_groups_by_task…` the `worker(name='A')  [coroutine, unframed]` assertion fails. Good.
   - In `_footers`, drop the ASSUMED line: fixture test fails. Restore all.
 
 - [ ] **Step 6: Commit**
@@ -1800,7 +1800,7 @@ git commit -m "feat(tree): group by task, show unframed calls, name real callers
 
 ---
 
-### Task 7: `frame` — three answers for `--fn`, task in the header
+### Task 7: `frame`: three answers for `--fn`, task in the header
 
 **Files:**
 - Modify: `src/sensorium/query/frame_cmd.py:18-41` (`_resolve`), `:44-84` (`run`)
@@ -1849,7 +1849,7 @@ def test_frame_on_a_format1_trace_says_unframed_and_assumed(installed_fixture,
     assert "task t" not in out.splitlines()[0]
 ```
 
-- [ ] **Step 2: Run to verify they fail** — `$PY -m pytest tests/test_tree_frame.py tests/test_format1_fixture.py -q`: the three new FAIL.
+- [ ] **Step 2: Run to verify they fail**, `$PY -m pytest tests/test_tree_frame.py tests/test_format1_fixture.py -q`: the three new FAIL.
 
 - [ ] **Step 3: Implement**
 
@@ -1894,9 +1894,9 @@ In `run`, build the header with the task:
 
 (Move the existing `call = trace.event(f.call_event_id)` line up so it is not fetched twice.)
 
-- [ ] **Step 4: Run** — the two files, then full suite + corpus: green.
+- [ ] **Step 4: Run**, the two files, then full suite + corpus: green.
 
-- [ ] **Step 5: Mutation check** — in `_resolve` replace `if calls:` with `if False:`: the unframed tests fail. Restore.
+- [ ] **Step 5: Mutation check**, in `_resolve` replace `if calls:` with `if False:`: the unframed tests fail. Restore.
 
 - [ ] **Step 6: Commit**
 
@@ -1907,7 +1907,7 @@ git commit -m "fix(frame): say 'recorded but not framed' instead of denying the 
 
 ---
 
-### Task 8: `info` — unframed count, tasks, call-based hot list
+### Task 8: `info`: unframed count, tasks, call-based hot list
 
 **Files:**
 - Modify: `src/sensorium/query/info_cmd.py:74-148` (`run`)
@@ -1976,7 +1976,7 @@ def test_info_on_a_format1_trace_says_tasks_not_recorded(installed_fixture,
     assert "2x format1_async.py:worker" in out
 ```
 
-- [ ] **Step 2: Run to verify they fail** — the three FAIL.
+- [ ] **Step 2: Run to verify they fail**, the three FAIL.
 
 - [ ] **Step 3: Implement**
 
@@ -2014,9 +2014,9 @@ Replace the hot-functions block:
 
 (keep the printing loop as is).
 
-- [ ] **Step 4: Run** — the three files, full suite, corpus: green.
+- [ ] **Step 4: Run**, the three files, full suite, corpus: green.
 
-- [ ] **Step 5: Mutation check** — revert `call_counts` to `len(t.frames(code_id=c.id))`: `2x prog.py:worker` assertion fails. Restore.
+- [ ] **Step 5: Mutation check**, revert `call_counts` to `len(t.frames(code_id=c.id))`: `2x prog.py:worker` assertion fails. Restore.
 
 - [ ] **Step 6: Commit**
 
@@ -2027,7 +2027,7 @@ git commit -m "feat(info): count unframed calls, list tasks, count calls not fra
 
 ---
 
-### Task 9: `watch` — the real reason, not a misspelling
+### Task 9: `watch`: the real reason, not a misspelling
 
 **Files:**
 - Modify: `src/sensorium/query/watch_cmd.py:274-300` (`print_never_recorded`), `:444-502` (`run`), add `unframed_note`
@@ -2039,7 +2039,7 @@ git commit -m "feat(info): count unframed calls, list tasks, count calls not fra
 
 - [ ] **Step 1: Failing test**
 
-Append to `tests/test_watch.py` (uses `record_script` + `cli.main`; match the file's existing helper pattern — it has `_rec`-style helpers; if not, inline `record_script` + `monkeypatch.setenv("SENSORIUM_DIR", …)` as in test_runs_info):
+Append to `tests/test_watch.py` (uses `record_script` + `cli.main`; match the file's existing helper pattern. It has `_rec`-style helpers; if not, inline `record_script` + `monkeypatch.setenv("SENSORIUM_DIR", …)` as in test_runs_info):
 
 ```python
 ASYNC_WATCH = """
@@ -2073,7 +2073,7 @@ def test_watch_names_unframed_code_as_the_reason_not_a_misspelling(
     assert "refocus and re-run" not in out       # re-recording cannot help
 ```
 
-- [ ] **Step 2: Run to verify it fails** — FAIL on `"misspelled" not in out`.
+- [ ] **Step 2: Run to verify it fails**: FAIL on `"misspelled" not in out`.
 
 - [ ] **Step 3: Implement**
 
@@ -2151,9 +2151,9 @@ Signatures, exactly: `def print_unavailable(trace, out: Outcome, sites, ever, co
                 "refocus and re-run: " + refocus_cmd(trace, codes)]
 ```
 
-- [ ] **Step 4: Run** — `tests/test_watch.py tests/test_watch_verdict.py`, full suite, corpus: green.
+- [ ] **Step 4: Run**, `tests/test_watch.py tests/test_watch_verdict.py`, full suite, corpus: green.
 
-- [ ] **Step 5: Mutation check** — in `run`, call `print_never_recorded(ghosts)` without `all_unf`: the test fails on `"misspelled" not in out`. Restore.
+- [ ] **Step 5: Mutation check**, in `run`, call `print_never_recorded(ghosts)` without `all_unf`: the test fails on `"misspelled" not in out`. Restore.
 
 - [ ] **Step 6: Commit**
 
@@ -2164,7 +2164,7 @@ git commit -m "fix(watch): name unframed code as the reason, never a misspelling
 
 ---
 
-### Task 10: Corpus cases — pre-registered questions
+### Task 10: Corpus cases: pre-registered questions
 
 **Files:**
 - Create: `corpus/async_interleaved/main.py`, `corpus/async_interleaved/questions.yaml`
@@ -2173,7 +2173,7 @@ git commit -m "fix(watch): name unframed code as the reason, never a misspelling
 - Create: `corpus/async_focus/main.py`, `corpus/async_focus/questions.yaml`
 - Modify: `tests/test_corpus.py:71` (`assert len(cases) >= 11` → `>= 15`)
 
-Write every `questions.yaml` **before** running a single command against its program. Then run `$PY corpus/run_corpus.py --only <case>`; a failure means either the tool is wrong (fix the tool) or the expectation is genuinely mis-registered (fix it and say so in the commit body — never loosen to make it pass).
+Write every `questions.yaml` **before** running a single command against its program. Then run `$PY corpus/run_corpus.py --only <case>`; a failure means either the tool is wrong (fix the tool) or the expectation is genuinely mis-registered (fix it and say so in the commit body, never loosen to make it pass).
 
 - [ ] **Step 1: `async_interleaved`**
 
@@ -2501,7 +2501,7 @@ questions:
       - "refocus and re-run"
 ```
 
-- [ ] **Step 5: Bump the count in `tests/test_corpus.py`** — `assert len(cases) >= 11` → `>= 15`.
+- [ ] **Step 5: Bump the count in `tests/test_corpus.py`**, `assert len(cases) >= 11` → `>= 15`.
 
 - [ ] **Step 6: Run each case, then everything**
 
@@ -2524,7 +2524,7 @@ git commit -m "test(corpus): pre-registered async attribution cases (interleaved
 
 ---
 
-### Task 11: Bench — measure the async path, report it
+### Task 11: Bench: measure the async path, report it
 
 **Files:**
 - Modify: `corpus/_bench/bench.py` (`WORKLOADS`)
@@ -2585,7 +2585,7 @@ git commit -m "chore(bench): add an async call-dense workload so the task-identi
 
 1. After the `Use` code block (the paragraph beginning "Per-line state is opt-in…"), add a paragraph:
 
-   > On an asyncio program `tree` groups by task, shows each coroutine call as an unframed event in its true position, and tags a framed call whose caller opened no frame with that caller's name (`<- worker (unframed)`) instead of re-parenting it. Nothing inside an `async def` is inspectable yet — no `--focus`, `watch` or LINE there — and `run` says so at record time if a `--focus` matched only such code.
+   > On an asyncio program `tree` groups by task, shows each coroutine call as an unframed event in its true position, and tags a framed call whose caller opened no frame with that caller's name (`<- worker (unframed)`) instead of re-parenting it. Nothing inside an `async def` is inspectable yet (no `--focus`, `watch` or LINE there) and `run` says so at record time if a `--focus` matched only such code.
 
 2. New subsection before `### \`exceptions\``:
 
@@ -2665,7 +2665,7 @@ EOF
 git fetch origin && git status -sb | head -1      # verify in sync
 ```
 
-- [ ] **Step 5: Optional follow-up outside the repo** — `~/.claude/skills/debugging-with-sensorium/SKILL.md`: add one rule: "on asyncio code read `tree`'s task groups; a `<- NAME (unframed)` tag means the caller is a coroutine/generator body and is not inspectable yet (no `--focus`/`watch` there)."
+- [ ] **Step 5: Optional follow-up outside the repo**, `~/.claude/skills/debugging-with-sensorium/SKILL.md`: add one rule: "on asyncio code read `tree`'s task groups; a `<- NAME (unframed)` tag means the caller is a coroutine/generator body and is not inspectable yet (no `--focus`/`watch` there)."
 
 ---
 
@@ -2688,13 +2688,13 @@ git fetch origin && git status -sb | head -1      # verify in sync
 | Honesty rule 2 (`watch`/`--focus` on coroutines, record-time warning) | 5, 9, corpus `async_focus` |
 | Honesty rule 3 (never backfill a parent) | 3, 6 |
 | Honesty rule 4 (format-1 assumed) | 2, 6, 7, 8, fixture tests |
-| Honesty rule 5 (`refocus` licence unchanged) | no code change; `causal_stream` untouched — verified by the existing refocus suite staying green in every task |
+| Honesty rule 5 (`refocus` licence unchanged) | no code change; `causal_stream` untouched, verified by the existing refocus suite staying green in every task |
 | Verification: corpus cases 1–3, 5 | 10 |
-| Verification: case 4 (format-1 trace) | 0 + fixture tests in 2, 6, 7, 8 (a pytest fixture, not a corpus case — the corpus harness *records*, and the point of this case is a recording it cannot make) |
+| Verification: case 4 (format-1 trace) | 0 + fixture tests in 2, 6, 7, 8 (a pytest fixture, not a corpus case. The corpus harness *records*, and the point of this case is a recording it cannot make) |
 | Verification: `--bench` in situ | 11 |
 | Verification: matrix 3.12/3.13/3.14 | 12 |
 | Arc-2 constraints (ABANDONED, per-task fingerprints, serial is the key) | 3 comment on `_TLS.live`; no fingerprint change; `task_id` column is the key arc 2 will use |
 
-**Placeholder scan** — no TBD/TODO; every code step carries the code; the unframed-count expectation in Task 6 is pinned against the trace (`test_tree_unframed_count_matches_the_trace`) rather than a guessed literal. One deliberate "nothing fails" mutation is recorded in Tasks 3 and 4 with the reason, so a future reader does not re-discover it.
+**Placeholder scan**. No TBD/TODO; every code step carries the code; the unframed-count expectation in Task 6 is pinned against the trace (`test_tree_unframed_count_matches_the_trace`) rather than a guessed literal. One deliberate "nothing fails" mutation is recorded in Tasks 3 and 4 with the reason, so a future reader does not re-discover it.
 
-**Type consistency** — `Trace.unframed_calls(code_id=None) -> list[Event]`, `Trace.task(id) -> Task|None`, `Trace.tasks()`, `Trace.format`, `Trace.parentage_basis()`, `Trace.call_counts()` are used with those exact names in Tasks 6–9; `TraceWriter.add_event(..., task_id=)` / `add_task(task_id, name, thread_id)` in Tasks 2 and 4; `Tracer._parent_of(tls, caller)` is called unbound as `Tracer._parent_of(None, tls, caller)` in the isolation test (it uses no `self`); `unframed_kind(ev)`/`frame_line`/`unframed_line` are imported from `tree_cmd` by `frame_cmd`; `FocusSpec.entries_matching` / `Tracer.unframed_focus()` in Task 5 and `boot`.
+**Type consistency**, `Trace.unframed_calls(code_id=None) -> list[Event]`, `Trace.task(id) -> Task|None`, `Trace.tasks()`, `Trace.format`, `Trace.parentage_basis()`, `Trace.call_counts()` are used with those exact names in Tasks 6–9; `TraceWriter.add_event(..., task_id=)` / `add_task(task_id, name, thread_id)` in Tasks 2 and 4; `Tracer._parent_of(tls, caller)` is called unbound as `Tracer._parent_of(None, tls, caller)` in the isolation test (it uses no `self`); `unframed_kind(ev)`/`frame_line`/`unframed_line` are imported from `tree_cmd` by `frame_cmd`; `FocusSpec.entries_matching` / `Tracer.unframed_focus()` in Task 5 and `boot`.

@@ -1,10 +1,10 @@
-# Rung-3 entry acceptance — E5′: spawned-task names across a move
+# Rung-3 entry acceptance: E5′: spawned-task names across a move
 
 This document re-verifies the E5 STOP recorded in
 `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`
-(§3, §4) — spawned-task names embedding a source `file:line` broke
+(§3, §4) (spawned-task names embedding a source `file:line` broke
 `diff --ignore-moves`'s pairing across the `registry.rs` split, even though
-the moved tasks' stream hashes matched pairwise — under the qualname-plus-
+the moved tasks' stream hashes matched pairwise) under the qualname-plus-
 ordinal naming rule Brice ruled for rung-3 entry (option (b), spec §11). The
 commit range measured is this branch, `feat/rung3-entry-spawn-names`, from
 its start at `8bf1c3e` (the `feat/rung2-recorder-v1` tip) through the commit
@@ -29,13 +29,13 @@ Lens for every endpoint: dev profile; the clone at `/mnt/extra/sensorium-rung2/b
 
 Measured 2026-09-03T23:46:00-0500 → 2026-09-03T23:46:09-0500 by `rust/tests/acceptance_e5prime.py`, launched detached; the raw facts it recorded are `results-e5prime-raw.json` in the gitignored plan ledger, with every command's log beside it. §3 below is rendered from `2026-09-03-sensorium-rung3-entry-e5prime.results.json`, which `acceptance_schema.assemble_e5prime` derived from that raw file.
 
-**§1 byte-lock.** The runner refuses to start unless §1 is byte-identical to the commit that locked it. Checked at `10f2c59` with `awk '/^## 1/,/^## 2/'`: 3149 bytes, sha256 `2a036074ccf4eca0433f73b6b8e2698eda720078a07ab8afd908359d8ee8b9ff` on both sides — identical: yes.
+**§1 byte-lock.** The runner refuses to start unless §1 is byte-identical to the commit that locked it. Checked at `10f2c59` with `awk '/^## 1/,/^## 2/'`: 3149 bytes, sha256 `2a036074ccf4eca0433f73b6b8e2698eda720078a07ab8afd908359d8ee8b9ff` on both sides, identical: yes.
 
 | Pin | Value |
 |---|---|
 | repo HEAD at the run | `0cb6b8b727735c1ca665a78245421a38d3b4de8b` (branch `feat/rung3-entry-spawn-names`) |
 | driver | `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, mtime 2026-09-03T23:20:07-0500 as recorded (provenance: §5.3) |
-| driver sha256 | `ee3eca57d85c1cfa9bc31bbeb4d2e5c49cca2e72cfa698ecba9fa252df133675` — unchanged across the run: yes |
+| driver sha256 | `ee3eca57d85c1cfa9bc31bbeb4d2e5c49cca2e72cfa698ecba9fa252df133675`, unchanged across the run: yes |
 | toolchain | rustc 1.96.0 (ac68faa20 2026-05-25) / cargo 1.96.0 (30a34c682 2026-05-25) |
 | reader | Python 3.14.4, sensorium 0.6.0 |
 | machine | 16 cpus, governor `powersave` |
@@ -44,9 +44,9 @@ Measured 2026-09-03T23:46:00-0500 → 2026-09-03T23:46:09-0500 by `rust/tests/ac
 | arm B (`e5-split`) | `e8c79be1626f5808eb48a967d02a17217e614843` |
 | arm C (`e5-planted`) | `fea50b14ba453a179e94dc96ca71a89a90c35f26` |
 | clone porcelain before / after | empty / empty; restored to arm A detached: yes; `Cargo.lock` unchanged: yes |
-| target (lens: **WARM** — the rung-2 acceptance target, only the driver changed) | `/mnt/extra/sensorium-rung2/bloomery-target` |
+| target (lens: **WARM**. The rung-2 acceptance target, only the driver changed) | `/mnt/extra/sensorium-rung2/bloomery-target` |
 | manifests cleared before arm A | 185 stale manifests (1513858 bytes), so every `fell_back` counted in §3 belongs to this invocation |
-| traces | `/mnt/extra/sensorium-rung2/sensorium-dir/e5prime` — new and empty at the preflight, refused otherwise |
+| traces | `/mnt/extra/sensorium-rung2/sensorium-dir/e5prime`, new and empty at the preflight, refused otherwise |
 | 1-minute load at the start | 0.12 |
 | free disk at the start | 98.13 GB (target) / 13.58 GB (repo) |
 
@@ -59,7 +59,7 @@ The 1-minute load read at each arm's own first act (the `git checkout` that puts
 | `e5-planted` | 2026-09-03T23:46:08-0500 | 0.26 |
 | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` | 2026-09-03T23:46:08-0500 | 0.26 |
 
-**`/home/brice/workspace/bloomery` was never checked out.** Its HEAD and porcelain were read before and after: `e209ed9b00f7` / empty before, `e209ed9b00f7` / empty after — unchanged: yes.
+**`/home/brice/workspace/bloomery` was never checked out.** Its HEAD and porcelain were read before and after: `e209ed9b00f7` / empty before, `e209ed9b00f7` / empty after, unchanged: yes.
 
 Two environment variables the shared preflight requires belong to phases this runner does not call and were not read: `SENSORIUM_CENSUS_DRIVER`, `SENSORIUM_PROBE_TARGET`.
 
@@ -70,7 +70,7 @@ Rendered by `rust/tests/render_acceptance.py --doc e5prime` from `2026-09-03-sen
 | Id | Value | n | Lens (abridged; the full lens is in the `results.json`) | Dropped |
 |---|---|---|---|---|
 | E5′ | 0 (rule: A/B MATCH-class with ≥1 moved, 0 added, 0 removed, all ten task streams paired; A/C DIVERGED inside the swapped fn) | 7 | pre-registered E5' conditions not met, of 7; three arms on three trees of the clone (A = e209ed9, B = e5-split… | none |
-| E5′-names | 1 (rule: BOTH conjuncts — every spawn@ name exactly the predicted string on A and on B, AND A's multiset of (name, hash) equal to B's) | 2 | §1 E5'-names conjuncts missed, of 2 — (a) every spawn@ name is the predicted string, (b) the multiset of (name… | none |
+| E5′-names | 1 (rule: BOTH conjuncts, every spawn@ name exactly the predicted string on A and on B, AND A's multiset of (name, hash) equal to B's) | 2 | §1 E5'-names conjuncts missed, of 2. (a) every spawn@ name is the predicted string, (b) the multiset of (name… | none |
 | E5′-coverage | 0 (rule: 0 units fell back) | 12 | `fell_back: true` over the manifests each arm's build left in `<target>/sensorium/manifests/`, snapshotted the… | none |
 
 ### The three arms
@@ -83,7 +83,7 @@ Rendered by `rust/tests/render_acceptance.py --doc e5prime` from `2026-09-03-sen
 
 The wall is reported without a gate: nothing pre-registered rests on it.
 
-### E5′ — does `diff --ignore-moves` verify the split now?
+### E5′: does `diff --ignore-moves` verify the split now?
 
 | Pre-registered condition | Met |
 |---|---|
@@ -103,11 +103,11 @@ The wall is reported without a gate: nothing pre-registered rests on it.
 
 **How the A/B verdict line is read.** §1's label `MATCH modulo location` denotes the committed rung-2 `_e5` condition class (verdict token startswith MATCH; >= 1 moved; 0 added; 0 removed; every task paired), because on a trace whose causal events all live in tasks the literal string prints only on the thread-stream branch. Ruled in the ledger before the run, not after the number.
 
-### E5′-names — the four children's names, and their hashes
+### E5′-names: the four children's names, and their hashes
 
 | Quantity | Value | n | Lens | Dropped |
 |---|---|---|---|---|
-| §1 conjuncts missed, of 2 | 1 | 2 | §1 E5'-names conjuncts missed, of 2 — (a) every spawn@ name is the predicted string, (b) the multiset of (name… | none |
+| §1 conjuncts missed, of 2 | 1 | 2 | §1 E5'-names conjuncts missed, of 2. (a) every spawn@ name is the predicted string, (b) the multiset of (name… | none |
 | spawn@ names equal to the predicted string | 8 | 8 | spawned-child task names equal to the predicted string; every task name containing `spawn@` on arms A and B, r… | none |
 | spawn@ names NOT the predicted string | 0 | 8 | spawned-child task names that are NOT the predicted string, of the four on A plus the four on B; every task na… | none |
 | spawn@ task streams on arm A | 4 | 10 | task streams on arm A whose name contains `spawn@`, of every task stream in that trace | none |

@@ -1,4 +1,4 @@
-# S5 rung 3 — naming the ambiguity: the untraced catcher, the window, the key: acceptance (pre-registered)
+# S5 rung 3: naming the ambiguity: the untraced catcher, the window, the key: acceptance (pre-registered)
 
 **Status: DONE.** §1 and §2 were written before any rung-3 code existed;
 §3, §4 and §5 are the measured half and were written once the endpoints had
@@ -7,7 +7,7 @@ run. No endpoint STOPped.
 §1 of this file was written and committed on the feature branch
 `feat/s5-rung3` **before any line of rung-3 code existed**: the commit that
 carried it changed nothing under `src/`, `typescript/src/`, `rust/` or
-`corpus/`. §1 is the locked contract — after a number is read, no threshold
+`corpus/`. §1 is the locked contract, after a number is read, no threshold
 moves, no arm is added and nothing is re-read; an instrument defect found
 before a number is read is fixed and written into §2.3 with its commit, and
 found after, it is a finding. §2 keeps this rung's preflight pins. §3, §4 and
@@ -15,8 +15,8 @@ found after, it is a finding. §2 keeps this rung's preflight pins. §3, §4 and
 record.
 
 The one thing this rung can be tempted to move after the fact is **the
-hand-read table** — the seventeen predictions E6-TS‴ compares the new
-reader's output against — because it is the only part of this
+hand-read table** (the seventeen predictions E6-TS‴ compares the new
+reader's output against) because it is the only part of this
 pre-registration that a human's reading of source decides rather than an
 instrument. It lives in `docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3-handread.md`,
 was written before any rung-3 code existed, and is pinned by sha256 as §1's
@@ -30,7 +30,7 @@ each of its 744 files, and the T5 re-read refuses if any hash differs.
 The lock is enforced by `tests/test_acceptance_s5_rung3_lock.py`, which
 compares the working tree's §1 against the commit that first carried it and,
 separately, compares each of §1's two verbatim bodies against
-`git show <sha>:<source>` — so "verbatim" is a claim a test holds, not one
+`git show <sha>:<source>`, so "verbatim" is a claim a test holds, not one
 this prose makes.
 
 ## 1. Pre-registration
@@ -116,8 +116,8 @@ a117ea30a9a288d4c79aebbf3d11fd3562cfe3ae91a26ebe3dbfce430b624798  docs/superpowe
 ## 2. Ambient pins (preflight, recorded before any rung-3 code exists)
 
 Every value below is the output of the command beside it, run on this box on
-2026-09-10 between 22:50 and 23:20 local time (`-05:00`) — the session that
-opens rung 3 — before any file under `src/`, `typescript/src/`, `rust/` or
+2026-09-10 between 22:50 and 23:20 local time (`-05:00`) (the session that
+opens rung 3) before any file under `src/`, `typescript/src/`, `rust/` or
 `corpus/` was touched. The lens is the VTT frontend **copy** at
 `/mnt/extra/sensorium-s5/vtt/frontend` (VTT `0091e97`);
 `~/workspace/projects/vtt` was neither read nor touched, and the lens was read
@@ -138,16 +138,16 @@ this rung's files.
 | node | `node --version` | `v24.16.0` |
 | npm | `npm --version` | `11.13.0` |
 | nproc | `nproc` | `16` |
-| 1-minute load, at pin time | `date -Iseconds; cat /proc/loadavg` | `2026-09-10T22:58:07-05:00`, then `1.19 0.88 0.63 3/2727 991974` — 1-minute load **1.19**, under the 4.0 refusal threshold. Rung 3 times nothing, so no arm is behind the load guard; the reading is kept because a box under load is a box whose readings deserve a second look |
-| free disk `/` | `df -h /` | `4.7G` available on `/dev/nvme0n1p2` (100% used, 915G total) — the refusal floor is 3 GB; nothing this rung writes goes to `/` |
-| free disk `/mnt/extra` | `df -h /mnt/extra` | `63G` available on `/dev/nvme1n1p1` (86% used, 469G total) — the refusal floor is 8 GB. Rung 3 records nothing, so this number is not expected to move |
+| 1-minute load, at pin time | `date -Iseconds; cat /proc/loadavg` | `2026-09-10T22:58:07-05:00`, then `1.19 0.88 0.63 3/2727 991974`, 1-minute load **1.19**, under the 4.0 refusal threshold. Rung 3 times nothing, so no arm is behind the load guard; the reading is kept because a box under load is a box whose readings deserve a second look |
+| free disk `/` | `df -h /` | `4.7G` available on `/dev/nvme0n1p2` (100% used, 915G total). The refusal floor is 3 GB; nothing this rung writes goes to `/` |
+| free disk `/mnt/extra` | `df -h /mnt/extra` | `63G` available on `/dev/nvme1n1p1` (86% used, 469G total). The refusal floor is 8 GB. Rung 3 records nothing, so this number is not expected to move |
 | worktree | `git rev-parse --abbrev-ref HEAD` | `feat/s5-rung3`, at `/mnt/extra/sensorium-rung2/s5-rung3`, cut from `main` at `51978b1` |
-| `git rev-parse HEAD` | `git rev-parse HEAD` | `11a02a49d6e33742ee8fe9084b195256d1467a53` — the plan's second and final plan commit, this branch's tip when the pins were taken. **T0** for this rung |
+| `git rev-parse HEAD` | `git rev-parse HEAD` | `11a02a49d6e33742ee8fe9084b195256d1467a53`, the plan's second and final plan commit, this branch's tip when the pins were taken. **T0** for this rung |
 | worktree venv | `.venv/bin/python -V` | `Python 3.13.13` (editable install of this worktree) |
-| sensorium, worktree venv | `.venv/bin/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.10.0` — becomes `0.11.0` at Task 6 |
-| sensorium, global tool | `$(dirname $(readlink -f $(which sensorium)))/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.10.0` — the same version. The global tool is **never reinstalled from this worktree** |
-| sensorium-ts | `node -e "console.log(require('./typescript/package.json').version)"` | `0.2.0` — unchanged by this rung |
-| lens manifest, verified | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED** — the lens is byte-identical to the state rung 1 left it in and rung 2 read it in, so the hand read read the same source the lens run recorded. Manifest file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines |
+| sensorium, worktree venv | `.venv/bin/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.10.0`. Becomes `0.11.0` at Task 6 |
+| sensorium, global tool | `$(dirname $(readlink -f $(which sensorium)))/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.10.0`. The same version. The global tool is **never reinstalled from this worktree** |
+| sensorium-ts | `node -e "console.log(require('./typescript/package.json').version)"` | `0.2.0`, unchanged by this rung |
+| lens manifest, verified | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED**. The lens is byte-identical to the state rung 1 left it in and rung 2 read it in, so the hand read read the same source the lens run recorded. Manifest file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines |
 
 ### 2.1 The lens trace set, hashed (what the T5 re-read is refused against)
 
@@ -157,17 +157,17 @@ reads exactly these bytes or is dropped and named.
 
 | Item | Command | Value |
 |---|---|---|
-| the hash list | `(cd <store> && sha256sum traces/*.db spool/20260910-150809-cbc8de/*.jsonl)` → `docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3-tracehashes.txt` | **744 lines** — 372 `traces/*.db` and 372 `spool/20260910-150809-cbc8de/*.jsonl`; every path relative to the store root, no box path in the file |
+| the hash list | `(cd <store> && sha256sum traces/*.db spool/20260910-150809-cbc8de/*.jsonl)` → `docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3-tracehashes.txt` | **744 lines**, 372 `traces/*.db` and 372 `spool/20260910-150809-cbc8de/*.jsonl`; every path relative to the store root, no box path in the file |
 | `.db` lines | `grep -c '^[0-9a-f]\{64\}  traces/.*\.db$' <the hash list>` | `372` |
 | `.jsonl` lines | `grep -c '^[0-9a-f]\{64\}  spool/20260910-150809-cbc8de/.*\.jsonl$' <the hash list>` | `372` |
-| the hash list verifies | `cd <store> && sha256sum -c <the hash list>` | exit `0`, **744 OK, 0 FAILED** — read back against the store it was taken from |
+| the hash list verifies | `cd <store> && sha256sum -c <the hash list>` | exit `0`, **744 OK, 0 FAILED**. Read back against the store it was taken from |
 | the hash list's own sha256 | `sha256sum <the hash list>` | `6624aba596a544ab0f834f45828f10fc0ab9fc1b7860a9e365e075da2862c3bd` |
 | the rung-2 transcript | `sha256sum docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2-e6tsp-exceptions.txt` | `6f7f4687e09ee32b6123e909ff770e68f7fa4b8d4b360b7c92dbd9495b4e12ff`, 167 lines |
-| its catch-all blocks | `grep -c "no rule of this recorder" <the transcript>` | `17` — the seventeen rung 3 exists to name |
-| its SWALLOWED lines | `grep -c "SWALLOWED --" <the transcript>` | `30` — E6-TS′-fence compares every one of them byte-for-byte |
+| its catch-all blocks | `grep -c "no rule of this recorder" <the transcript>` | `17`. The seventeen rung 3 exists to name |
+| its SWALLOWED lines | `grep -c "SWALLOWED --" <the transcript>` | `30`: E6-TS′-fence compares every one of them byte-for-byte |
 | its tally line | `grep "^dispositions:" <the transcript>` | `dispositions: swallowed 261, ambiguous 53` |
-| the rung-2 adjudication | `sha256sum docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2-e6tsp-adjudication.md` | `d9d45489cb6aacc45a6a901ca7b001041159607eb51713e6afd433ac6a8202ca` — the 30 sink sites E-places counts against, S1/S11/S17 being one site printed three times |
-| the hand-read table | `sha256sum docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3-handread.md` | `a117ea30a9a288d4c79aebbf3d11fd3562cfe3ae91a26ebe3dbfce430b624798` — the same value §1's last line carries |
+| the rung-2 adjudication | `sha256sum docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2-e6tsp-adjudication.md` | `d9d45489cb6aacc45a6a901ca7b001041159607eb51713e6afd433ac6a8202ca`. The 30 sink sites E-places counts against, S1/S11/S17 being one site printed three times |
+| the hand-read table | `sha256sum docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3-handread.md` | `a117ea30a9a288d4c79aebbf3d11fd3562cfe3ae91a26ebe3dbfce430b624798`. The same value §1's last line carries |
 | what it predicts | `grep -c '^\| [0-9]' <the hand read>` (the pipe escaped for this table); its last line | **17 rows**, all predicting the untraced-catcher reason with the `returned` variant; 16 predict the parent `<anonymous>.<anonymous>` and one predicts `useCompendiumQuery.queryFn`; 8 needed a second reading; **`predicted unnamed after rung 3: 0`** |
 
 ### 2.2 The counts this rung's endpoints move against
@@ -190,9 +190,9 @@ a `sensorium` that is not this branch's).
 | Item | Command | Value |
 |---|---|---|
 | scripts naming `sensorium` at all | `grep -ln sensorium typescript/acceptance/*.sh typescript/acceptance/*.py` | `26` of the 42 (`14` `.sh`, `28` `.py`) |
-| `.sh` resolving it through the override | `grep -ln 'SENSORIUM_BIN:-sensorium' typescript/acceptance/*.sh` | **6**: `arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`, `e6tsp.sh`, `e7.sh` — each `SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"`, so `SENSORIUM_BIN=.venv/bin/sensorium` points them at this branch |
-| `.py` passing a bare argv | `grep -ln '\["sensorium"' typescript/acceptance/*.py` | **3**: `e11_report.py`, `firstuse.py`, `reported.py` — each `subprocess.run(["sensorium", …])` with no override, so they run the GLOBAL tool whatever the branch holds. The plan's Task-0 prose says "four `.py`"; the measured count is three, and this pin is the measured one |
-| `.py` writing a `"lens"` key outside `lens.py` / `assemble*.py` | `grep -ln '"lens"' typescript/acceptance/*.py` then dropping `lens.py` and `assemble*.py` from the 5 it returns | **1**: `arm_line.py:72` (`"lens": env["LENS"]`) — the redaction surface the no-box-path rule binds |
+| `.sh` resolving it through the override | `grep -ln 'SENSORIUM_BIN:-sensorium' typescript/acceptance/*.sh` | **6**: `arms.sh`, `e10p.sh`, `e3.sh`, `e6pp.sh`, `e6tsp.sh`, `e7.sh`, each `SENSORIUM_BIN="${SENSORIUM_BIN:-sensorium}"`, so `SENSORIUM_BIN=.venv/bin/sensorium` points them at this branch |
+| `.py` passing a bare argv | `grep -ln '\["sensorium"' typescript/acceptance/*.py` | **3**: `e11_report.py`, `firstuse.py`, `reported.py`, each `subprocess.run(["sensorium", …])` with no override, so they run the GLOBAL tool whatever the branch holds. The plan's Task-0 prose says "four `.py`"; the measured count is three, and this pin is the measured one |
+| `.py` writing a `"lens"` key outside `lens.py` / `assemble*.py` | `grep -ln '"lens"' typescript/acceptance/*.py` then dropping `lens.py` and `assemble*.py` from the 5 it returns | **1**: `arm_line.py:72` (`"lens": env["LENS"]`), the redaction surface the no-box-path rule binds |
 
 **The rung-2 E6-TS table, as the corpus stands today** (E6-TS requires set
 equality against it; the four new cases T3 adds are pre-registered at 0 each).
@@ -200,31 +200,31 @@ equality against it; the four new cases T3 adds are pre-registered at 0 each).
 | Item | Command | Value |
 |---|---|---|
 | TypeScript corpus cases asking an `exceptions` question | `grep -l exceptions corpus/typescript/*/questions.yaml \| wc -l` | `17` |
-| cases pinning exactly one SWALLOWED line | `grep -c 'SWALLOWED --' corpus/typescript/*/questions.yaml \| grep ':1$' \| wc -l` | `8`: `await_rejection_caught`, `callback_handled`, `callback_sink`, `dependency_throw`, `finally_return`, `logged_catch`, `rethrow_hop`, `silent_swallow` — one apiece |
-| cases pinning none | the same, `grep ':0$'` | `9`: `asserted_catch`, `callback_escaped`, `callback_opaque`, `escaped_catch`, `primitive_rethrow`, `suspended_handler`, `test_failed`, `translated`, `unhandled_rejection_in_info` — zero apiece |
+| cases pinning exactly one SWALLOWED line | `grep -c 'SWALLOWED --' corpus/typescript/*/questions.yaml \| grep ':1$' \| wc -l` | `8`: `await_rejection_caught`, `callback_handled`, `callback_sink`, `dependency_throw`, `finally_return`, `logged_catch`, `rethrow_hop`, `silent_swallow`, one apiece |
+| cases pinning none | the same, `grep ':0$'` | `9`: `asserted_catch`, `callback_escaped`, `callback_opaque`, `escaped_catch`, `primitive_rethrow`, `suspended_handler`, `test_failed`, `translated`, `unhandled_rejection_in_info`, zero apiece |
 
 **The ceilings** (`tests/test_ceiling.py`, 800 lines; `docs/superpowers/`
 exempt). Every file the plan names as at risk, measured before any edit.
 
 | Item | Command | Value |
 |---|---|---|
-| `src/sensorium/query/exceptions_typescript.py` | `wc -l` | `613` — the reason and the reason table stay inside it unless it crosses 780 |
+| `src/sensorium/query/exceptions_typescript.py` | `wc -l` | `613`, the reason and the reason table stay inside it unless it crosses 780 |
 | `src/sensorium/query/exceptions_group.py` | `wc -l` | `419` |
 | `src/sensorium/query/exceptions_invocation.py` | `wc -l` | `447` |
-| `src/sensorium/query/exceptions_cmd.py` | `wc -l` | `767` — 33 lines of headroom for `Disposition.reason` |
-| `typescript/HONESTY.md` | `wc -l` | `788` — §4's amendment must be net-neutral; new prose goes to the blind-spots file |
+| `src/sensorium/query/exceptions_cmd.py` | `wc -l` | `767`, 33 lines of headroom for `Disposition.reason` |
+| `typescript/HONESTY.md` | `wc -l` | `788`, §4's amendment must be net-neutral; new prose goes to the blind-spots file |
 | `typescript/HONESTY-BLIND-SPOTS.md` | `wc -l` | `279` |
 | `CHANGELOG.md` | `wc -l` | `756` |
 | `docs/CARRIED-DEBT.md` | `wc -l` | `657` |
-| `README.md` | `wc -l` | `790` — at most one sentence |
-| `tests/test_exceptions_typescript.py` | `wc -l` | `610` — new test files rather than growth past 780 |
+| `README.md` | `wc -l` | `790`, at most one sentence |
+| `tests/test_exceptions_typescript.py` | `wc -l` | `610`, new test files rather than growth past 780 |
 
 ### 2.3 Instrument changes made before any endpoint ran
 
 Nine, each with the commit that carried it. Every one was decided and
 committed **before** the endpoint it touches had read a number; a defect
 found after a number is read is a finding in §4 and not an entry here.
-Entries 7, 8 and 9 are all `2564e00` — the three readings this
+Entries 7, 8 and 9 are all `2564e00`. The three readings this
 pre-registration could not settle for itself, all three fixed in the
 instrument's own source before the store was opened, and each measured in §4
 rather than decided there.
@@ -234,19 +234,19 @@ rather than decided there.
 | 1 | The plan's T1 pin names `config.ts` | `11a02a4` | the pinned sentence quotes the file basename the verdict prints, and the fixture's file is `config.ts`; a pin quoting another name would have failed a correct reader |
 | 2 | P3: the untraced-catcher SITE is the parent code object's own `(file, firstlineno, qualname)` | `11a02a4` | a CALL event's line is the CALLEE's definition line, not a place in the parent, so the parent's own first line is the one line on the wire that names the parent frame |
 | 3 | The TypeScript key keeps the verdict's words, under `TS_MASK`, which exempts nothing | `7b849b3` | Gap 1 was never that the key held the sentence. `MASK` exempts `f16`/`f32`/`f64`/`f128` because RUST spells its float types that way (R-G8), so two of the three frame ids in the `useAiAssist` sink's verdicts survived masking as if they were type names and one place printed three blocks. Nothing on this wire is spelled `f<n>` for another reason. Dropping the sentence instead would have merged two re-raises from one origin that ended `→ swallowed` and `→ propagated`, and two propagations naming two different failing tests |
-| 4 | The key names the ORIGIN only where the verdict names no site; the route joins under the same condition | `d4d7a21` | an unconditional origin component splits a sink by the places that reached it — the split the hand-built table had to undo — and §3.2 already says a shape FLAGS the origins its key ignored. Three rung-2 SWALLOWED blocks carry that flag (`useBuilderContent.<anonymous> L72` 3 origins, `GuardedButton.<anonymous> L29` 2, `createHooks.dispatch L98` 2), so an unconditional component would have made E-places read 32 against the locked 28 |
+| 4 | The key names the ORIGIN only where the verdict names no site; the route joins under the same condition | `d4d7a21` | an unconditional origin component splits a sink by the places that reached it (the split the hand-built table had to undo) and §3.2 already says a shape FLAGS the origins its key ignored. Three rung-2 SWALLOWED blocks carry that flag (`useBuilderContent.<anonymous> L72` 3 origins, `GuardedButton.<anonymous> L29` 2, `createHooks.dispatch L98` 2), so an unconditional component would have made E-places read 32 against the locked 28 |
 | 5 | The T0 script census: **six** `.sh` through the insecure default and **three** `.py` with a bare argv, not the plan prose's "five" and "four" | §2.2, read at `61816a5` | the census is the measured count and the pin is the measured one; the plan's prose was written from memory and is not what E-branch is read against |
-| 6 | Four earlier rungs' scripts (`e10.sh`, `e11.sh`, `e5ts_split.sh`, `planted_change.sh`) added to `bin.sh`'s rule | `438c535` | spec §4.3 governs — "every script under `typescript/acceptance/` that invokes `sensorium`" — not the T0 census, which pinned a state and does not bound the fix. Ten scripts qualify; `e10p_eq.sh` and `e6.sh` mention the word and invoke nothing |
+| 6 | Four earlier rungs' scripts (`e10.sh`, `e11.sh`, `e5ts_split.sh`, `planted_change.sh`) added to `bin.sh`'s rule | `438c535` | spec §4.3 governs ("every script under `typescript/acceptance/` that invokes `sensorium`") not the T0 census, which pinned a state and does not bound the fix. Ten scripts qualify; `e10p_eq.sh` and `e6.sh` mention the word and invoke nothing |
 | 7 | **The fence's reading under the pre-registered merge** | `2564e00` | below |
-| 8 | **E-places' gate is read as its three measurable conjuncts** — the SWALLOWED block count is 28, the `useAiAssist.ts` L56 sink prints once, and the three multi-origin sinks stay one block each — with §1's `[×3 …]` literal **excluded from the gate** | `2564e00` | the invocation bracket counts UNITS and PROCESSES (`exceptions_invocation.bracket`), never rung-2 blocks, and this shape's three rung-2 members already carried 130, 1 and 1 chains, so `[×3 …]` is a string the printer cannot produce for it under any implementation. `e6tsppp.py` matches the merged block by its SITE (`MERGED_SITE = "(probeAiConfigured L56)"`) for exactly this reason, decided before the store was opened. The measured `[×132 over 11 processes …]` states the same fact the `3` was reaching for — 130 + 1 + 1 — and §4.4 is its proof |
+| 8 | **E-places' gate is read as its three measurable conjuncts** (the SWALLOWED block count is 28, the `useAiAssist.ts` L56 sink prints once, and the three multi-origin sinks stay one block each) with §1's `[×3 …]` literal **excluded from the gate** | `2564e00` | the invocation bracket counts UNITS and PROCESSES (`exceptions_invocation.bracket`), never rung-2 blocks, and this shape's three rung-2 members already carried 130, 1 and 1 chains, so `[×3 …]` is a string the printer cannot produce for it under any implementation. `e6tsppp.py` matches the merged block by its SITE (`MERGED_SITE = "(probeAiConfigured L56)"`) for exactly this reason, decided before the store was opened. The measured `[×132 over 11 processes …]` states the same fact the `3` was reaching for (130 + 1 + 1) and §4.4 is its proof |
 | 9 | **`translated`'s "parent the test function" is read as the FRAME whose qualname prints `<anonymous>`**, not the test's title | `2564e00` | P3 (entry 2) already chose the frame: the reason names the traced parent of the outermost frame the serial left, and the trace holds that code object's qualname, which for a vitest callback is `<anonymous>`. Every row of the hand read was checked against that spelling with `sensorium tree`, so a collector expecting a title would have failed a correct reader. `e6ts.py`'s `PRE_REGISTERED_REASON_LINE` pins the printed line whole under that reading. §4.5 measures it |
 
 **Entry 7, in full, because it is the one whose two clauses actually
 contradict.** Two of §1's clauses cannot both hold once the rung-3 key
 lands:
 
-* **E-places** pre-registers the merge — the `useAiAssist.ts` L56 sink stops
-  printing three blocks — and with it that the printed SWALLOWED shape count
+* **E-places** pre-registers the merge (the `useAiAssist.ts` L56 sink stops
+  printing three blocks) and with it that the printed SWALLOWED shape count
   falls from 30 to **28**;
 * **E6-TS′-fence** pre-registers every `SWALLOWED --` line of the re-read
   byte-identical to the rung-2 transcript's, *"brackets and ids included"*.
@@ -254,7 +254,7 @@ lands:
 A merge cannot satisfy the second. Two of those three blocks stop being
 printed at all, and the survivor's trailing bracket is the INVOCATION
 bracket, which counts chains and processes across the whole invocation
-(`exceptions_invocation.bracket`) — so merging three shapes necessarily
+(`exceptions_invocation.bracket`), so merging three shapes necessarily
 rewrites it. A literal line-by-line diff would therefore STOP on precisely
 the change the other endpoint exists to pre-register. Nor are the three
 lines "three identical lines" that a set comparison would collapse: they
@@ -265,10 +265,10 @@ The reading taken, committed in `e6tsppp.py`'s docstring at `2564e00` before
 the store was opened: the fence's own question is *"Did the new reader move a
 verdict?"*, a verdict is the SENTENCE, and the trailing bracket is the
 grouper's occurrence bookkeeping and E-places' business. So the gate is read
-on the verdict sentence with its bracket stripped — **(a)** no sentence the
+on the verdict sentence with its bracket stripped. **(a)** no sentence the
 re-read prints may be absent from the rung-2 transcript, **(b)** no rung-2
 sentence may be absent from the re-read except the pre-registered merge's,
-**(c)** the `dispositions:` line compared whole — and the RAW line-by-line
+**(c)** the `dispositions:` line compared whole, and the RAW line-by-line
 diff, brackets and ids included, is carried in the cell (`raw_diff`) and
 quoted verbatim in §4 so the reading can be judged rather than taken. The
 literal reading's own difference count is reported beside it and is not
@@ -295,7 +295,7 @@ assembled by `typescript/acceptance/assemble_rung3.py`. Every cell is
 `{value, n, lens, dropped}` plus `recorder` / `recorder_rev` /
 `recorder_basis`; `recorder_basis` reads `own` on all eight, because every
 instrument recorded its own. The recorder is **`sensorium 0.10.0 on
-feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd`** — the version
+feat/s5-rung3 @ 2564e00be1fa42433dbb788311a22b4e578309fd`**. The version
 does not move in this task: the bump to `0.11.0` is Task 6's, and a cell
 claiming it here would name a recorder that did not take the reading.
 
@@ -320,14 +320,14 @@ the more conservative order, not a looser one.
 
 * §2.1 calls the rung-2 adjudication "the 30 sink sites E-places counts
   against". It is **30 printed `SWALLOWED --` lines over 28 distinct sink
-  sites** — S1/S11/S17 are one site printed three times, which the same
+  sites**. S1/S11/S17 are one site printed three times, which the same
   sentence goes on to say. E-places counts 28 and always did.
 * §2.2 gives the `escape:count` pin as `355:  k.check('escape:count',
   want.length === 13, want.length);`. The pin is the **value**, not the line
   number: `13` before T3, `14` after. Read today, the check sits at line 355
   and asserts **14**.
 * The hand read's row 1 calls TanStack Query's retryer "a library `try`". It
-  is a `.catch` chain on the promise `queryFn` returned, not a `try` block —
+  is a `.catch` chain on the promise `queryFn` returned, not a `try` block,
   which is the row's own point, since a `.catch` the transform never saw
   leaves no handler row either way. The prediction it supports
   (`useCompendiumQuery.queryFn`, `returned`) is the one the reader printed.
@@ -359,7 +359,7 @@ The gated counts were taken on the text before the header, which contains
 none of the five gated line kinds and none of the nine needles.
 
 **What the read nevertheless wrote, stated plainly.** Two paths under the
-store have a new mtime: `traces/` (the directory, not a file in it — SQLite
+store have a new mtime: `traces/` (the directory, not a file in it. SQLite
 opens each `.db` and its transient `-wal`/`-shm` companions come and go, and
 all 372 `.db` files hash exactly as T0 hashed them) and
 `invocations.jsonl`, which gained one line:
@@ -369,7 +369,7 @@ all 372 `.db` files hash exactly as T0 hashed them) and
 ```
 
 That file is the store's own command journal, appended by EVERY `sensorium`
-command a store is asked — one line per read, `argv` and exit status — and
+command a store is asked (one line per read, `argv` and exit status) and
 the T0 hand read wrote lines to it too, with its `tree … --around e2305`
 calls. **The hash list cannot see it**: §2.1's set is the 372 `traces/*.db`
 and the 372 spool `.jsonl` files and nothing else, so a `sha256sum -c` that
@@ -378,7 +378,7 @@ returns 744 OK says nothing about the journal either way. This read appended
 
 **The ruling, stated so the next rung does not have to re-derive it.** The
 append is NOT the forbidden write. "The store is read, never written" in the
-Global Constraints governs the lens and the hashed trace set — no `ts run`,
+Global Constraints governs the lens and the hashed trace set. No `ts run`,
 no `ingest`, no `record`, no `refocus`; none ran, and no byte of either
 moved. A journal the CLI writes on every command, including the ones T0 used
 to build the prediction, is the read's own receipt and not a change to what
@@ -400,7 +400,7 @@ all 32 are now `untraced catcher` and the remaining 21 are the `escaped`
 sentences that already read that way. `unnamed` and `orphan` do not appear:
 the reason line omits zeros, and there are none to print.
 
-### 4.2 E6-TS‴ — the seventeen, against the hand read
+### 4.2 E6-TS‴: the seventeen, against the hand read
 
 Twenty printed untraced-catcher blocks, matched to rows by ORIGIN SITE TEXT
 (the head line's `<qualname> L<line>`, the event id stripped) under the T0
@@ -429,21 +429,21 @@ ruling. Every row was named; none falsely.
 | 16 | `loadImagePixels L117` | `e159 RAISE   loadImagePixels raise Error('Cannot read pixels from a tainted (cross-origin) canvas: https://evil/map.png — SecurityError: The canvas has been tainted by cross-origin data.') L117` | `<anonymous>.<anonymous>` | `<anonymous>.<anonymous>` | `returned` | `returned` | matched |
 | 17 | `loadImagePixels L108` | `e189 RAISE   loadImagePixels raise Error('Could not acquire a 2D canvas context for image analysis') L108` | `<anonymous>.<anonymous>` | `<anonymous>.<anonymous>` | `returned` | `returned` | matched |
 
-**The three splits** — one rung-2 block becoming several, because the rung-3
+**The three splits**, one rung-2 block becoming several, because the rung-3
 key holds the untraced catcher's PARENT and a shape that aggregated raises
 under several test functions has several parents:
 
 * **row 9** (`resolveAttack L115`), rung 2's `[×3 over 1 process: first e98
   …]`, is now three blocks: `e98` under `f38`, `e162` under `f60`, `e182`
-  under `f70` — the three `it` bodies at `attackRoll.test.ts:73`, `:136` and
+  under `f70`, the three `it` bodies at `attackRoll.test.ts:73`, `:136` and
   `:152` the hand read's note 9 names, which predicted the split in as many
   words ("including if rung 3's site-bearing key splits the shape");
 * **row 11** (`evalFormula.parseFactor L94`), rung 2's `[×3: e1387, e1686,
   e1700]`, is now two: `e1387` under `f685` and `e1686` (+`e1700`) under
-  `f864` — the two `it` bodies at `formula.test.ts:33` and `:50` note 11
+  `f864`. The two `it` bodies at `formula.test.ts:33` and `:50` note 11
   names;
 * **row 14** (`evalFormula L42`), rung 2's `[×2: e1446, e1451]`, is split by
-  the same rule, and the two halves land differently — see the joined block
+  the same rule, and the two halves land differently, see the joined block
   below.
 
 **The one block that covers more than one row.** Row 13's block:
@@ -455,7 +455,7 @@ under several test functions has several parents:
       messages: 2 distinct (first shown)
 ```
 
-Its second member is `e1446` — row 14's first half — because the `it` body
+Its second member is `e1446` (row 14's first half) because the `it` body
 at `formula.test.ts:39` contains BOTH expectations, so `parseFactor L76` and
 `evalFormula L42` unwound into the same parent frame `f709` and are one
 shape under a key that holds the parent. The reader cannot show an origin it
@@ -466,7 +466,7 @@ independently matched by its other half, `e1451` under `f731`, which prints
 its own block. Both rows predict `<anonymous>.<anonymous>` and `returned`,
 so nothing in the joined block contradicts either.
 
-**The row that was not a test body.** Row 1 — the hand read's hardest call,
+**The row that was not a test body.** Row 1, the hand read's hardest call,
 and the only one whose parent is not a vitest callback:
 
 ```
@@ -486,7 +486,7 @@ reading `no rule of this recorder reaches a verdict here`. The hand read's
 last line predicted `predicted unnamed after rung 3: 0`; the reason line
 prints no `unnamed` term at all.
 
-### 4.3 E6-TS′-fence — the diff, verbatim
+### 4.3 E6-TS′-fence: the diff, verbatim
 
 The raw difference over the five gated line kinds, ids and brackets
 included, as the instrument carries it in `raw_diff`. Four lines, and all
@@ -504,7 +504,7 @@ ids included, and so is `dispositions: swallowed 261, ambiguous 53`. The
 re-read prints no `RE-RAISED --`, `PROPAGATED --` or `UNCAUGHT --` line, and
 neither did rung 2.
 
-Under §2.3's reading — sentence identical, bracket E-places' — this is **0
+Under §2.3's reading (sentence identical, bracket E-places') this is **0
 differences**. Under the literal reading the cell also reports **21**, which
 is counted as the positions that differ over `zip(rung2, rung3)` (20: the
 `e404` bracket at position 1, and positions 11–29, which are the shift the
@@ -514,7 +514,7 @@ differ** (31 → 29); a straight positional count over the LONGER list would be
 instrument carries the list whole (`literal_detail`), so both readings are on
 the record and the verdict word is attached to the one §2.3 states.
 
-### 4.4 E-places — the merged block, quoted
+### 4.4 E-places: the merged block, quoted
 
 ```
   e404 HANDLED probeAiConfigured handled Error('network down') L56
@@ -525,12 +525,12 @@ the record and the verdict word is attached to the one §2.3 states.
 
 **The measured proof of §2.3's entry 8**, which read `[×3 …]` out of the
 gate before the store was opened. §1's E-places clause says the merged block
-prints "once with `[×3 …]`". It prints once — which is the clause's
-substance — and the bracket reads `[×132 over 11 processes: first e404 in
+prints "once with `[×3 …]`". It prints once (which is the clause's
+substance) and the bracket reads `[×132 over 11 processes: first e404 in
 20260910-150810-4299a0, +131]`. `[×3 …]` was never a string this tool could
 print for this shape: the invocation bracket counts CHAINS and PROCESSES,
 never blocks, and the three rung-2 members already carried 130, 1 and 1
-chains. The arithmetic is conserved exactly — 130 + 1 + 1 = **132** — and the
+chains. The arithmetic is conserved exactly (130 + 1 + 1 = **132**) and the
 process count stays **11** rather than rising to 13, because the two members
 that printed their own block in rung 2 were already among the eleven
 processes contributing to `e404`'s shape: under the new mask their two
@@ -540,14 +540,14 @@ append.
 Entry 8 reads the clause as a prediction of the bracket's SHAPE (printed
 once, with a `×N` bracket) and the `3` as a miscount of what that bracket
 holds; what is measured here is that the shape is right and the arithmetic
-conserved. The endpoint's own measure — "the SWALLOWED shape count on the re-read and the
-set of sink sites" — is met exactly, and §4.3 is the proof that the SET did
+conserved. The endpoint's own measure ("the SWALLOWED shape count on the re-read and the
+set of sink sites") is met exactly, and §4.3 is the proof that the SET did
 not otherwise move: no sentence appeared, and the only two that vanished are
 this merge's. Had the word been read off the literal string, E-places would
 have STOPped on a sentence naming an unprintable number.
 
 The three rung-2 SWALLOWED blocks the pre-registration keeps SINGLE are
-single, with their origin flags intact — which is `d4d7a21`'s fix
+single, with their origin flags intact, which is `d4d7a21`'s fix
 (instrument change 4) measured rather than argued:
 
 | sink | blocks | `origins: N distinct` |
@@ -556,7 +556,7 @@ single, with their origin flags intact — which is `d4d7a21`'s fix
 | `GuardedButton.<anonymous> L29` | 1 | 2 |
 | `createHooks.dispatch L98` | 1 | 2 |
 
-### 4.5 E6-TS — the corpus
+### 4.5 E6-TS: the corpus
 
 `e6ts.py` over every TypeScript corpus case that asks an `exceptions`
 question: **21** of the 32 case directories, which is the 17 rung 2 locked
@@ -590,13 +590,13 @@ and manifest directory outside the repository. `node v24.16.0`, `npm
 spools and ran **96** checks with **0** failures; `escape:count` asserted
 **14**. The markers read from the files: `grep -c '^\s*// ESCAPE '
 escape.probe.test.ts` = **14**, `grep -c '^\s*// SWALLOW '
-swallow.probe.test.ts` = **19** — the post-T3 values §1 pre-registers, the
+swallow.probe.test.ts` = **19**, the post-T3 values §1 pre-registers, the
 14th being T3's `callback_bare_rethrow catch_callback`. `e8pp.py` counts the
 denominator out of the probe sources rather than out of the checker, so a
 checker that stopped asserting a marker would shrink the ratio's numerator
 and not its population: 33 of 33.
 
-**E7‴.** `e7_report.py` with `E7_NEEDLES=rung3` over the saved transcript —
+**E7‴.** `e7_report.py` with `E7_NEEDLES=rung3` over the saved transcript,
 driven directly rather than through `e7.sh`, because nothing had to be run
 again to read it. Nine needles, `oid` / `chain` / `Err` whole-word and
 case-sensitive and the six prose ones substring and case-insensitive, the
@@ -612,15 +612,15 @@ passed, 61 deselected`.
 `tests/test_exceptions_invocation.py` and `tests/test_exceptions_python*.py`
 printed nothing. The fenced tests plus
 `tests/test_exceptions_typescript_grouping.py::test_the_rust_key_is_todays_tuple_verbatim`
-— the one check that states the Rust key as a TUPLE EQUALITY rather than as
-prose — are `75 passed`. `tests/test_acceptance_scripts.py` is `9 passed`.
+(the one check that states the Rust key as a TUPLE EQUALITY rather than as
+prose) are `75 passed`. `tests/test_acceptance_scripts.py` is `9 passed`.
 
 **One dropped reason, carried rather than swallowed.** The fenced pattern
 `tests/test_exceptions_python*.py` matches **no file in this tree**: the
 Python reader is tested by `tests/test_exceptions.py` and
 `tests/test_exceptions_synthetic.py`. The pattern is kept in the cell
 exactly as §1 spells it, the miss is named in `dropped`, and those two files
-are run beside the gate and reported without being folded into it —
+are run beside the gate and reported without being folded into it.
 `43 passed`. The fence's substance (the Python reader still passes its own
 tests) holds under either reading; only the spelling of the pattern was
 wrong, and the record says so rather than quietly widening a locked clause.
@@ -635,7 +635,7 @@ seventeen shapes that read `no rule of this recorder reaches a verdict here`
 on the rung-2 lens all read a reason instead, every one of them the reason a
 human predicted from the source before any of this code existed, and none of
 them a reason the recording does not hold. The catch-all is empty on this
-lens — 32 chains moved out of it and 0 remain — and the tool did not buy that
+lens (32 chains moved out of it and 0 remain) and the tool did not buy that
 by moving a verdict: the 27 swallow sentences it printed in rung 2 and still
 prints are byte-identical, ids and brackets included.
 
@@ -648,10 +648,10 @@ What this rung actually establishes, as distinct from what it shipped:
    available that the new sentence says something true rather than something
    consistent.
 2. **The site-bearing key splits where the hand read said it would.** Three
-   rung-2 shapes became six blocks — 3 for row 9, 2 for row 11, and 1 for
+   rung-2 shapes became six blocks (3 for row 9, 2 for row 11, and 1 for
    row 14, whose other half landed INSIDE row 13's block because both
    expectations sit in one `it` body and unwound into one parent frame
-   (§4.2) — each under its own test frame. No split changed a verdict and
+   (§4.2)) each under its own test frame. No split changed a verdict and
    every split block matched the same row.
 3. **One place stopped printing as three.** Gap 1 was a mask borrowed from
    another language's type names, not a key that held too much, and removing

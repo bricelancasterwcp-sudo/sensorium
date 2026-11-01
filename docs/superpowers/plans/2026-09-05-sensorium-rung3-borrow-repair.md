@@ -1,21 +1,21 @@
-# Rung 3 — Borrow Repair Implementation Plan
+# Rung 3: Borrow Repair Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Repair the escape test's `&e` exemption so an arm that hands a borrow to a function and KEEPS the call's product reads `arm_ambiguous`; give the chain machine's `err` close the text-preferring hop search; and MEASURE the repair where its shapes execute — a `--workspace` E6 arm with no `--lib`, beside a control under the pre-repair driver that shows the arm reaches the shape.
+**Goal:** Repair the escape test's `&e` exemption so an arm that hands a borrow to a function and KEEPS the call's product reads `arm_ambiguous`; give the chain machine's `err` close the text-preferring hop search; and MEASURE the repair where its shapes execute, a `--workspace` E6 arm with no `--lib`, beside a control under the pre-repair driver that shows the arm reaches the shape.
 
 **Architecture:** One transformer change in `rust/sensorium-transform/src/escape.rs` (the borrow exemption becomes a rule about dropped call sites), one converter change in `rust/cargo-sensorium/src/convert/chains/mod.rs::close_frame` (prefer the held chain whose text the RETURN carries), two corpus cases, and a sibling acceptance runner `rust/tests/acceptance_e6q.py` that reuses the committed E6‴ tooling for three arms (A, WS, WS0), a BEFORE/AFTER arm-manifest diff, E6-again′, E7⁗ and E0‴. Pre-registration is byte-locked before any number is read.
 
 **Tech Stack:** Rust 1.96.0 (pinned; `syn` 2 full/visit), Python 3.12+ (stdlib reader), pytest, the corpus and acceptance harnesses under `rust/tests/` and `tests/`, the bloomery clone on `/mnt/extra`.
 
-**Spec:** `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md` (B1–B8, §2 the rule, §3 the hop, §4 the pre-registration — the binding design; committed at `1a235cc`), arguing from `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md` (R2, R7/§2a, R15, R16). Rigor: `~/.claude/skills/rigorous-experiments/SKILL.md`. Prior records never touched: `docs/superpowers/acceptance/2026-09-0{2,3,4,5}-*`.
+**Spec:** `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md` (B1–B8, §2 the rule, §3 the hop, §4 the pre-registration, the binding design; committed at `1a235cc`), arguing from `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md` (R2, R7/§2a, R15, R16). Rigor: `~/.claude/skills/rigorous-experiments/SKILL.md`. Prior records never touched: `docs/superpowers/acceptance/2026-09-0{2,3,4,5}-*`.
 
 ## Global Constraints
 
 - **Branch** `feat/rung3-borrow-repair` from `main` @ `d1b1b57` (exists; design committed at `1a235cc`). PR against `main`; merge is Brice's. Never push `main`.
 - **`/home/brice/workspace/bloomery` is read-only, forever.** The only bloomery built or checked out is the clone `/mnt/extra/sensorium-rung2/bloomery` (HEAD detached at `e209ed9`).
 - **Every artifact set on the second disk**: workspace `CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/rust-target`; HEAD-driver acceptance target `/mnt/extra/sensorium-rung2/bloomery-target`; **control (base-driver) target `/mnt/extra/sensorium-rung2/bloomery-target-control`**; corpus target `/mnt/extra/sensorium-rung2/corpus-target-e6q` (fresh for T5); probe target `/mnt/extra/sensorium-rung2/probe-target`; base worktree `/mnt/extra/sensorium-rung2/base-d1b1b57` with target `/mnt/extra/sensorium-rung2/rust-target-base`; trace store `SENSORIUM_DIR=/mnt/extra/sensorium-rung2/sensorium-dir/e6q`. Root disk ≈ 12 GB free: never a default `target/`. ONE cargo invocation at a time per target.
-- **No box-local path in any committed file** except the acceptance record's lens rows and this plan. Tests read the clone only from `SENSORIUM_BLOOMERY_CLONE`, skipping by name when unset. **[annotation 2026-09-05, final review: the design's §4 lens paragraph and pre-registration table carry the same paths, by construction — §1 is design §4 verbatim]**
+- **No box-local path in any committed file** except the acceptance record's lens rows and this plan. Tests read the clone only from `SENSORIUM_BLOOMERY_CLONE`, skipping by name when unset. **[annotation 2026-09-05, final review: the design's §4 lens paragraph and pre-registration table carry the same paths, by construction, §1 is design §4 verbatim]**
 - **`-D warnings` clean** on 1.96.0 (`cd rust && cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check`); the rustc oracle for goldens stays `-D warnings` with empty stderr.
 - **Every new or changed test is mutation-tested** (the mutation and its failing output in the task report); mutant runs under `setsid` + timeout + kill by pgid + `ps -p`; never `pkill -f`; Python mutants purge `__pycache__` with `PYTHONDONTWRITEBYTECODE=1`.
 - **Pre-registration byte-locked before any number is read** (T4's last commits, §1 ALONE); T5 refuses to run if §1 differs; a completed measurement is never re-rolled; a miss is a STOP with its number. **No code change after the lock**: a residual found by review after the numbers is recorded (design R16, `rust/HONESTY-BLIND-SPOTS.md`, `docs/CARRIED-DEBT.md`), not repaired.
@@ -26,7 +26,7 @@
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`
   `Claude-Session: https://claude.ai/code/session_01D5ALVP7MSxhfTzxp4TFDPn`
 - Every shell command starts `cd /home/brice/workspace/sensorium &&`. Rust commands run from `rust/` with the workspace target set. The Python venv is `.venv/bin/python`; pytest is `.venv/bin/python -m pytest`.
-- Ledger: `.superpowers/sdd/2026-09-05-sensorium-rung3-borrow-repair/progress.md` (gitignored) — every ruling, every measured number that feeds §1, every commit sha.
+- Ledger: `.superpowers/sdd/2026-09-05-sensorium-rung3-borrow-repair/progress.md` (gitignored), every ruling, every measured number that feeds §1, every commit sha.
 
 ---
 
@@ -34,7 +34,7 @@
 
 B1 = the dropped-call-site rule (§2 of the design); B2 = blind spot 23 (d), pinned by a row; B3 = the exit-hop text preference (§3); B4/B5 = the arms and what the control licenses (§4); B6 = versions; B7 = docs by dated pointer; B8 = process. A task that needs a decision the design lacks stops and the controller rules (ledger).
 
-## Pre-registration — §1 of `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`
+## Pre-registration: §1 of `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`
 
 The table is design §4 verbatim, with `<N1>`..`<N5>` filled from the ledger (T0's BEFORE census, T1's AFTER census on the clone) before T4 commits §1 ALONE. T5's runner refuses to start unless `awk '/^## 1/,/^## 2/'` of the working tree equals the locked commit's bytes. Lens rows and "Reported without a gate" as in design §4.
 
@@ -55,7 +55,7 @@ The table is design §4 verbatim, with `<N1>`..`<N5>` filled from the ledger (T0
 - No committed file changes.
 
 **Interfaces:**
-- Produces: the base driver binary `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` (built from `d1b1b57`) with its sha256 in the ledger; the ledger's **census BEFORE** block (`arm sites`, `arms escaped`, `arms handled`, `arms propagate`) — T4's `<N1>`, `<N3>`, `<N5>`; the baseline test counts.
+- Produces: the base driver binary `/mnt/extra/sensorium-rung2/rust-target-base/release/cargo-sensorium` (built from `d1b1b57`) with its sha256 in the ledger; the ledger's **census BEFORE** block (`arm sites`, `arms escaped`, `arms handled`, `arms propagate`). T4's `<N1>`, `<N3>`, `<N5>`; the baseline test counts.
 
 - [ ] **Step 1: Confirm the tree and record the baseline**
 
@@ -74,7 +74,7 @@ Run:
 cd /home/brice/workspace/sensorium && SENSORIUM_CARGO_SENSORIUM=/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium \
 CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/corpus-target PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q 2>&1 | tail -3
 ```
-Expected: the 0.8.0 counts (≈1153 passed, 1 known red at most — the HANDLED-fingerprint mutant pin is the only red the rung-3 close-out left; anything else is a finding: stop and record). Record the counts.
+Expected: the 0.8.0 counts (≈1153 passed, 1 known red at most. The HANDLED-fingerprint mutant pin is the only red the rung-3 close-out left; anything else is a finding: stop and record). Record the counts.
 
 - [ ] **Step 3: Build the base driver from `d1b1b57` in a worktree on the second disk**
 
@@ -94,7 +94,7 @@ Run:
 cd /home/brice/workspace/sensorium/rust && SENSORIUM_BLOOMERY_CLONE=/mnt/extra/sensorium-rung2/bloomery \
 CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/rust-target cargo test -p sensorium-transform --test census census_on_the_bloomery_clone -- --nocapture 2>&1 | grep -E "clone root|arm sites|arms (propagate|panic|escaped|handled)|line moves|test result"
 ```
-Expected: `arm sites: 225`, `arms escaped: 121`, `arms handled: 65`, `arms propagate: 39` (E6‴ §5.6's numbers — if they differ, the clone moved: stop, `git -C /mnt/extra/sensorium-rung2/bloomery status`, record). Ledger block **census BEFORE** with all four numbers and the clone HEAD.
+Expected: `arm sites: 225`, `arms escaped: 121`, `arms handled: 65`, `arms propagate: 39` (E6‴ §5.6's numbers, if they differ, the clone moved: stop, `git -C /mnt/extra/sensorium-rung2/bloomery status`, record). Ledger block **census BEFORE** with all four numbers and the clone HEAD.
 
 - [ ] **Step 5: Ledger + report**
 
@@ -102,7 +102,7 @@ Write the numbers, shas and paths into the ledger's `## Baseline` section; task 
 
 ---
 
-### Task 1: Transformer — the `&e` rule (design B1/B2, §2)
+### Task 1: Transformer: the `&e` rule (design B1/B2, §2)
 
 **Files:**
 - Modify: `rust/sensorium-transform/src/escape.rs` (walker + `format_arg_escapes` + module docs)
@@ -111,9 +111,9 @@ Write the numbers, shas and paths into the ledger's `## Baseline` section; task 
 
 **Interfaces:**
 - Consumes: `arms::{strip, Body}`, `Class`, `LOGGING_MACROS` (unchanged), `bare_name`, `tokens_mention*` (unchanged).
-- Produces: `escape::escapes(body, names) -> bool` unchanged in signature; the ledger's **census AFTER** block (`arms escaped`, `arms handled`, `arm sites`) — T4's `<N2>`, `<N4>`.
+- Produces: `escape::escapes(body, names) -> bool` unchanged in signature; the ledger's **census AFTER** block (`arms escaped`, `arms handled`, `arm sites`): T4's `<N2>`, `<N4>`.
 
-- [ ] **Step 1: Write the failing rows** — add to `rust/sensorium-transform/src/arms.rs` `mod tests` (beside `a_plain_closure_keeps_both_exemptions`):
+- [ ] **Step 1: Write the failing rows**, add to `rust/sensorium-transform/src/arms.rs` `mod tests` (beside `a_plain_closure_keeps_both_exemptions`):
 
 ```rust
     #[test]
@@ -269,7 +269,7 @@ fn is_wild(p: &Pat) -> bool {
 }
 ```
 
-(`use syn::{Expr, ExprPath, Macro, Pat, Stmt};` — extend the import.) The lifetime on `walk_dropped_call`/`visit_arg` is the `Visit<'ast>` lifetime: declare them inside the `impl<'ast> Visit<'ast> for EscapeWalk<'_>` block's sibling `impl<'a> EscapeWalk<'a>` as `fn walk_dropped_call<'ast>(&mut self, e: &'ast Expr) -> bool where Self: Visit<'ast>`; if the borrow checker objects, make them free functions taking `&mut EscapeWalk<'_>` and `&'ast Expr` — the shape is the requirement, not the placement.
+(`use syn::{Expr, ExprPath, Macro, Pat, Stmt};` (extend the import.) The lifetime on `walk_dropped_call`/`visit_arg` is the `Visit<'ast>` lifetime: declare them inside the `impl<'ast> Visit<'ast> for EscapeWalk<'_>` block's sibling `impl<'a> EscapeWalk<'a>` as `fn walk_dropped_call<'ast>(&mut self, e: &'ast Expr) -> bool where Self: Visit<'ast>`; if the borrow checker objects, make them free functions taking `&mut EscapeWalk<'_>` and `&'ast Expr`) the shape is the requirement, not the placement.
 
 In `format_arg_escapes`, after the `bare_name` `continue`, add:
 
@@ -297,7 +297,7 @@ Update the module doc (lines 1–7) and the `visit_expr_reference` doc's content
 - [ ] **Step 4: Run the rows green, then the whole transform crate**
 
 Run: `cd /home/brice/workspace/sensorium/rust && CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/rust-target cargo test -p sensorium-transform 2>&1 | grep -E "^test result|FAILED|panicked"`
-Expected: every `test result: ok`; the goldens unchanged (if any golden fails, STOP: list the case and the changed `how` in the report — the three `note(&e);` shapes are statement-form and must not move).
+Expected: every `test result: ok`; the goldens unchanged (if any golden fails, STOP: list the case and the changed `how` in the report. The three `note(&e);` shapes are statement-form and must not move).
 
 - [ ] **Step 5: clippy + fmt + the oracle**
 
@@ -314,7 +314,7 @@ Expected: no errors; `FMT-OK`.
 
 - [ ] **Step 7: The AFTER census on the clone**
 
-Run the Task-0 Step-4 command again. Expected: `arm sites: 225` (unchanged — the classification moves, sites do not), `arms handled` ≤ 65, `arms escaped` ≥ 121, `arms handled + arms escaped + arms propagate == 225`. Ledger block **census AFTER** with the four numbers and the delta (`65 − handled_after`).
+Run the Task-0 Step-4 command again. Expected: `arm sites: 225` (unchanged. The classification moves, sites do not), `arms handled` ≤ 65, `arms escaped` ≥ 121, `arms handled + arms escaped + arms propagate == 225`. Ledger block **census AFTER** with the four numbers and the delta (`65 − handled_after`).
 
 - [ ] **Step 8: Commit**
 
@@ -335,7 +335,7 @@ Claude-Session: https://claude.ai/code/session_01D5ALVP7MSxhfTzxp4TFDPn" && git 
 
 ---
 
-### Task 2: Converter — the exit hop prefers text (design B3, §3)
+### Task 2: Converter: the exit hop prefers text (design B3, §3)
 
 **Files:**
 - Modify: `rust/cargo-sensorium/src/convert/chains/mod.rs:27-32` (module doc), `:359-414` (`close_frame`)
@@ -345,7 +345,7 @@ Claude-Session: https://claude.ai/code/session_01D5ALVP7MSxhfTzxp4TFDPn" && git 
 - Consumes: `Machine { chains: Vec<Chain>, stack }`, `Chain { holder, merged, sink, last: ErrText, .. }`, `ErrText::matches`, `hop_out`, `open_at_exit`; test helpers `call`, `ret_err`, `ret`, `mint`, `serials`, `last_of` (`tests.rs:6-77`); `Fixture`, `wire::SpoolBuilder`, `site`, `err_site`, `chain_events` (`convert_errflow_chains.rs:1-32`, `tests/common/`).
 - Produces: no interface change; `ChainEvent` unchanged.
 
-- [ ] **Step 1: Write the failing unit test** — append to `rust/cargo-sensorium/src/convert/chains/tests.rs`:
+- [ ] **Step 1: Write the failing unit test**, append to `rust/cargo-sensorium/src/convert/chains/tests.rs`:
 
 ```rust
 /// The keep-first-error shape (design §3, CARRIED-DEBT 2026-09-05): A holds
@@ -391,7 +391,7 @@ fn an_err_close_hops_the_held_chain_whose_text_it_carries_not_the_innermost() {
 Run: `cd /home/brice/workspace/sensorium/rust && CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/rust-target cargo test -p cargo-sensorium --lib an_err_close_hops_the_held_chain 2>&1 | grep -E "^test |panicked|assertion"`
 Expected: FAIL at "the hop is B1's" (today the hop carries C1's serial, `translated: true`).
 
-- [ ] **Step 3: Implement** — in `close_frame`, after `let parent = …;` and before the walk:
+- [ ] **Step 3: Implement**, in `close_frame`, after `let parent = …;` and before the walk:
 
 ```rust
         // The chain the RETURN is ABOUT is the held one whose text it carries
@@ -420,7 +420,7 @@ Update the module doc at lines 27–32 (the CLOSE row now prefers the matching t
 Run: `cd /home/brice/workspace/sensorium/rust && CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/rust-target cargo test -p cargo-sensorium 2>&1 | grep -E "^test result|FAILED|panicked"`
 Expected: all `ok` (the existing chain tests pin the single-chain and wildcard behaviours and must not move).
 
-- [ ] **Step 5: Write the failing e2e test** — append to `rust/cargo-sensorium/tests/convert_errflow_chains.rs`, modelled on `a_sink_absorbs_the_held_chain_it_names_over_the_nested_one` (same header, same builder calls; only the records differ):
+- [ ] **Step 5: Write the failing e2e test**, append to `rust/cargo-sensorium/tests/convert_errflow_chains.rs`, modelled on `a_sink_absorbs_the_held_chain_it_names_over_the_nested_one` (same header, same builder calls; only the records differ):
 
 ```rust
 /// Design B3 (2026-09-05): a frame closing `err` while holding two chains
@@ -468,12 +468,12 @@ fn an_err_close_holding_two_chains_hops_the_one_whose_text_it_returns() {
 
 (If `write_proc_header_caps`'s pid must be unique per fixture in this file, use the next unused value; read the neighbours.)
 
-- [ ] **Step 6: Run the e2e test red-then-green** — it is red only against the pre-Step-3 binary; run it now and confirm green:
+- [ ] **Step 6: Run the e2e test red-then-green**. It is red only against the pre-Step-3 binary; run it now and confirm green:
 
 Run: `cd /home/brice/workspace/sensorium/rust && CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/rust-target cargo test -p cargo-sensorium --test convert_errflow_chains 2>&1 | grep -E "^test |test result"`
 Expected: all `ok`, including the new one.
 
-- [ ] **Step 7: Mutation-test** — replace `preferred.is_none_or(|p| p == i)` with `true` (today's rule) → BOTH new tests must go red (unit: "the hop is B1's"; e2e: serial mismatch). Restore. Second mutant: drop `&& !c.sink` from `preferred` → run the whole crate; `a_sink_then_an_err_close_ends_that_chain_as_handled_then_failed` and the new test must stay green (an equivalent mutant on the corpus? no: a sunk chain is removed before the hop decision — if nothing goes red, ADD a unit test where the matching chain is `sink` and the innermost non-matching chain takes the fallback hop, and record it).
+- [ ] **Step 7: Mutation-test**, replace `preferred.is_none_or(|p| p == i)` with `true` (today's rule) → BOTH new tests must go red (unit: "the hop is B1's"; e2e: serial mismatch). Restore. Second mutant: drop `&& !c.sink` from `preferred` → run the whole crate; `a_sink_then_an_err_close_ends_that_chain_as_handled_then_failed` and the new test must stay green (an equivalent mutant on the corpus? no: a sunk chain is removed before the hop decision, if nothing goes red, ADD a unit test where the matching chain is `sink` and the innermost non-matching chain takes the fallback hop, and record it).
 
 - [ ] **Step 8: clippy + fmt, commit**
 
@@ -488,7 +488,7 @@ Claude-Session: https://claude.ai/code/session_01D5ALVP7MSxhfTzxp4TFDPn" && git 
 
 ---
 
-### Task 3: Corpus — `err_borrowed_into_value` and `keep_first_error`
+### Task 3: Corpus: `err_borrowed_into_value` and `keep_first_error`
 
 **Files:**
 - Create: `corpus/rust/err_borrowed_into_value/Cargo.toml`, `src/main.rs`, `questions.yaml`
@@ -520,7 +520,7 @@ name = "err_borrowed_into_value"
 path = "src/main.rs"
 ```
 
-`src/main.rs` — exactly this (line numbers are pinned by the questions):
+`src/main.rs`, exactly this (line numbers are pinned by the questions):
 ```rust
 //! The fourth side of the line `err_stored`, `logged_arm` and
 //! `err_rendered_into_value` draw: an `Err(e) =>` arm that hands a SHARED
@@ -641,9 +641,9 @@ questions:
 - [ ] **Step 3: Run the case, pin what the run prints**
 
 Run: `cd /home/brice/workspace/sensorium && SENSORIUM_CARGO_SENSORIUM=/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/corpus-target .venv/bin/python corpus/run_corpus.py --only rust/err_borrowed_into_value`
-Expected: both questions pass. If a needle misses on wording that is TRUE (a frame id, an argument rendering), correct the needle to what the tool prints and say so in the report; if the run prints a SWALLOWED line, T1 is wrong — stop and report.
+Expected: both questions pass. If a needle misses on wording that is TRUE (a frame id, an argument rendering), correct the needle to what the tool prints and say so in the report; if the run prints a SWALLOWED line, T1 is wrong, stop and report.
 
-- [ ] **Step 4: Mutate the case** — change the arm to `Err(e) => { report(&e); Reply { code: 503, body: String::new() } }` with `fn report(e: &Unavailable) { eprintln!("{e:?}"); }` → run → the first question must go red with `swallowed 1` in the output (the shape is now `logged_arm`'s through a helper: a true swallow, which is the reading B1 keeps). Restore.
+- [ ] **Step 4: Mutate the case**, change the arm to `Err(e) => { report(&e); Reply { code: 503, body: String::new() } }` with `fn report(e: &Unavailable) { eprintln!("{e:?}"); }` → run → the first question must go red with `swallowed 1` in the output (the shape is now `logged_arm`'s through a helper: a true swallow, which is the reading B1 keeps). Restore.
 
 - [ ] **Step 5: Write `corpus/rust/keep_first_error`**
 
@@ -660,7 +660,7 @@ name = "keep_first_error"
 path = "src/main.rs"
 ```
 
-`src/main.rs` — exactly this:
+`src/main.rs`, exactly this:
 ```rust
 //! A frame that holds TWO different errors and returns the FIRST.
 //!
@@ -766,9 +766,9 @@ questions:
 
 - [ ] **Step 6: Run the case; pin the ambiguous sentence**
 
-Run the Step-3 command with `--only rust/keep_first_error`. Expected: both pass. The line the tool prints for `Refused(2)`'s chain (the ambiguous one) is pinned as an additional `expect_line` group AFTER reading it — copy the sentence, check it is TRUE of the program (it never left `pick`), and add it; record the sentence in the report.
+Run the Step-3 command with `--only rust/keep_first_error`. Expected: both pass. The line the tool prints for `Refused(2)`'s chain (the ambiguous one) is pinned as an additional `expect_line` group AFTER reading it, copy the sentence, check it is TRUE of the program (it never left `pick`), and add it; record the sentence in the report.
 
-- [ ] **Step 7: Mutate the machine** — in the workspace, temporarily replace `preferred.is_none_or(|p| p == i)` with `true` (T2's mutant), rebuild the debug driver, re-run the case → the first question must go red (the hops group names `second L23`, `translated` appears). Restore the source, rebuild, re-run green. **Rebuild into a fresh scratch target for the mutant** (`CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/tmp/mutant-target`) so the corpus target never serves a stale mutant binary (E6‴'s ops lesson).
+- [ ] **Step 7: Mutate the machine**, in the workspace, temporarily replace `preferred.is_none_or(|p| p == i)` with `true` (T2's mutant), rebuild the debug driver, re-run the case → the first question must go red (the hops group names `second L23`, `translated` appears). Restore the source, rebuild, re-run green. **Rebuild into a fresh scratch target for the mutant** (`CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/tmp/mutant-target`) so the corpus target never serves a stale mutant binary (E6‴'s ops lesson).
 
 - [ ] **Step 8: README rows + counts, the corpus test, commit**
 
@@ -801,10 +801,10 @@ Claude-Session: https://claude.ai/code/session_01D5ALVP7MSxhfTzxp4TFDPn" && git 
 - Create: `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md` (header + §1 only; committed ALONE)
 
 **Interfaces:**
-- Consumes (imported, never copied): from `acceptance_e6ppp` — `logs_at`, `arm_paths`, `build_driver`, `phase_prep_build`, `arm_rows`, `executed_arms`, `sweep_other_runs`, `mark_load`, `LOADS`; from `acceptance_rung3` — `byte_lock_check`, `rung3_config`, `preflight`, `cleanup`, `install_load_hook`; from `acceptance_phases_rung3` — `phase_e6prime`, `phase_e6`, `phase_e7pp`, `phase_e0pp`, `SWALLOWED`, `TALLY`, `SWALLOW_LINE`, `_sink_files`; from `acceptance_lib` — `env_paths`, `driver_cmd`, `run`, `plain_env`, `sha256_file`, `Refused`, `step`, `free_gb`.
+- Consumes (imported, never copied): from `acceptance_e6ppp`, `logs_at`, `arm_paths`, `build_driver`, `phase_prep_build`, `arm_rows`, `executed_arms`, `sweep_other_runs`, `mark_load`, `LOADS`; from `acceptance_rung3`, `byte_lock_check`, `rung3_config`, `preflight`, `cleanup`, `install_load_hook`; from `acceptance_phases_rung3`, `phase_e6prime`, `phase_e6`, `phase_e7pp`, `phase_e0pp`, `SWALLOWED`, `TALLY`, `SWALLOW_LINE`, `_sink_files`; from `acceptance_lib`, `env_paths`, `driver_cmd`, `run`, `plain_env`, `sha256_file`, `Refused`, `step`, `free_gb`.
 - Produces: `acceptance_e6q.main()` → `<ledger>/acceptance-e6q/results-e6q-raw.json`, `e6q.DONE|.FAILED`; `assemble_e6q(raw) -> dict` → `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.results.json`; `render_e6q.py` → §3 markdown; env: `SENSORIUM_BASE_DRIVER`, `SENSORIUM_BASE_WORKTREE`, `SENSORIUM_CONTROL_TARGET` (new), plus the E6‴ set.
 
-- [ ] **Step 1: `phase_e6prime` gains the selector tail** — in `rust/tests/acceptance_phases_rung3.py`:
+- [ ] **Step 1: `phase_e6prime` gains the selector tail**, in `rust/tests/acceptance_phases_rung3.py`:
 
 ```python
 def phase_e6prime(paths, cfg, tail: tuple[str, ...] = ("--lib",)) -> dict:
@@ -815,7 +815,7 @@ def phase_e6prime(paths, cfg, tail: tuple[str, ...] = ("--lib",)) -> dict:
 ```
 Only those two lines change. Run: `cd /home/brice/workspace/sensorium && PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_acceptance_e6ppp.py tests/test_acceptance_rung3.py -q 2>&1 | tail -2` → Expected: green (the default keeps every existing caller byte-for-byte; `test_the_two_arms_differ_only_in_the_package_selector` still passes).
 
-- [ ] **Step 2: Write the failing box-free tests** — `tests/test_acceptance_e6q.py`, modelled on `tests/test_acceptance_e6ppp.py` (same `_paths(tmp_path)` helper and skip-by-name lock helper):
+- [ ] **Step 2: Write the failing box-free tests**, `tests/test_acceptance_e6q.py`, modelled on `tests/test_acceptance_e6ppp.py` (same `_paths(tmp_path)` helper and skip-by-name lock helper):
 
 ```python
 def test_the_two_head_arms_differ_only_in_the_selector_and_the_lib_tail(tmp_path):
@@ -893,7 +893,7 @@ Expected: ImportError (`acceptance_e6q` does not exist).
 
 - [ ] **Step 4: Write the runner, schema and renderer**
 
-`rust/tests/acceptance_e6q.py` — the shape of `acceptance_e6ppp.py`, with these definitions (the rest is reuse):
+`rust/tests/acceptance_e6q.py`, the shape of `acceptance_e6ppp.py`, with these definitions (the rest is reuse):
 
 ```python
 PLAN = REPO / ".superpowers" / "sdd" / "2026-09-05-sensorium-rung3-borrow-repair"
@@ -911,7 +911,7 @@ NAMED_ROWS = ["crates/bloomery-daemon/src/api_v1.rs:396", "crates/bloomery-daemo
 FROZEN_CENSUS = {...}     # from the ledger: before/after handled, escaped, arm_sites, source "§1"
 ```
 
-Re-point every shared module's log pointer AFTER the imports (`lib.LEDGER = LEDGER; lib.LOGS = LOGS; ph.LOGS = LOGS; e6ppp.LOGS = LOGS; e6ppp.BASE = BASE`) — `acceptance_rung3` AND `acceptance_e6ppp` both re-point them in their module bodies (the E6‴ record §2's lesson).
+Re-point every shared module's log pointer AFTER the imports (`lib.LEDGER = LEDGER; lib.LOGS = LOGS; ph.LOGS = LOGS; e6ppp.LOGS = LOGS; e6ppp.BASE = BASE`), `acceptance_rung3` AND `acceptance_e6ppp` both re-point them in their module bodies (the E6‴ record §2's lesson).
 
 `env_paths_e6q()` = `lib.env_paths(False)` plus three required variables: `SENSORIUM_BASE_DRIVER` → `paths["sensorium_base_driver"]`, `SENSORIUM_BASE_WORKTREE` → `paths["sensorium_base_worktree"]`, `SENSORIUM_CONTROL_TARGET` → `paths["sensorium_control_target"]`; missing ones refused together.
 
@@ -923,7 +923,7 @@ Re-point every shared module's log pointer AFTER the imports (`lib.LEDGER = LEDG
 
 `flip_diff(before: dict, after: dict) -> dict`: key rows by `(file, line)`; `how` of a row = its single `hows[0]` (a row with more than one `how` is reported under `multi_how` and excluded from transitions); returns `{"changed": [{file, line, qualname, before, after}], "changed_count", "transitions": {"<b>-><a>": n}, "only_handled_to_ambiguous": bool, "only_before": [...], "only_after": [...], "named": {name: {"before", "after", "flipped": True|False|None}}, "named_all_flipped": bool, "multi_how": [...]}`.
 
-`lines_at_flipped_sites(parsed: list, flip: dict, clone_root: str) -> dict`: for every parsed SWALLOWED line whose `sink` (a `"<abs file>:<line>"` string) resolves under `clone_root` to a `(file, line)` in `flip["changed"]`, count it; `{"count", "lines": [...], "unresolved": n}` — the computed EVIDENCE for the WS0 hand adjudication, never its verdict.
+`lines_at_flipped_sites(parsed: list, flip: dict, clone_root: str) -> dict`: for every parsed SWALLOWED line whose `sink` (a `"<abs file>:<line>"` string) resolves under `clone_root` to a `(file, line)` in `flip["changed"]`, count it; `{"count", "lines": [...], "unresolved": n}`, the computed EVIDENCE for the WS0 hand adjudication, never its verdict.
 
 `main()` order: byte-lock → `env_paths_e6q` → config (`rung3.rung3_config` + `e6_workdir`, `frozen_census`, the arms) → `verify_base_driver` → `e6ppp.build_driver` (HEAD) → `rung3.preflight` → prep HEAD (`e6ppp.phase_prep_build(paths, cfg)`, acceptance target; `arms_after = out["arms"]`) → prep BASE (`e6ppp.phase_prep_build(arm_paths_for(paths, ARM_WS0), cfg)`, control target; `arms_before`) → `raw_flip = flip_diff(arms_before, arms_after)` → `raw_arm_a` → `raw_arm_ws` → `raw_arm_ws0` → `raw_flip_lines = {arm: lines_at_flipped_sites(...)}` for ws and ws0 → E6-again (`r3.phase_e6`, corpus target from `SENSORIUM_CORPUS_TARGET`) → E7⁗ (`r3.phase_e7pp`) → E0‴ (`r3.phase_e0pp(arm_paths_for(paths, ARM_WS), cfg, <the ws process with the most events>)`) → `rung3.cleanup` → write `results-e6q-raw.json` → `assemble_only` → `e6q.DONE`/`.FAILED` with `exit=<n>`. Every phase inside its own `logs_at(LOGS / "<phase>")`.
 
@@ -965,7 +965,7 @@ Set `BYTE_LOCK = "<sha>"` in `rust/tests/acceptance_e6q.py`; run `PYTHONDONTWRIT
 
 ---
 
-### Task 5: The measurement — once, detached, then the record
+### Task 5: The measurement: once, detached, then the record
 
 **Files:**
 - Modify: `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md` (§2–§5)
@@ -986,7 +986,7 @@ df -h /mnt/extra | tail -1 && cat /proc/loadavg && pgrep -x cargo || echo no-car
 ```
 Expected: porcelain empty (the untracked exit-status finding doc is Brice's and is fine); clone at `e209ed9`, clean; worktree at `d1b1b57`; the T0 sha; ≥ 40 GB free; load < 4; no cargo running.
 
-- [ ] **Step 2: The launcher** — `<ledger>/acceptance-e6q/launch.sh`, modelled on E6‴'s `launch.sh`, adding:
+- [ ] **Step 2: The launcher** (`<ledger>/acceptance-e6q/launch.sh`, modelled on E6‴'s `launch.sh`, adding:
 ```bash
 export SENSORIUM_BASE_DRIVER=$B/rust-target-base/release/cargo-sensorium
 export SENSORIUM_BASE_WORKTREE=$B/base-d1b1b57
@@ -995,13 +995,13 @@ export SENSORIUM_CORPUS_TARGET=$B/corpus-target-e6q
 export SENSORIUM_DIR=$B/sensorium-dir/e6q
 exec "$REPO/.venv/bin/python" rust/tests/acceptance_e6q.py
 ```
-Launch: `cd /home/brice/workspace/sensorium && setsid nohup bash <ledger>/acceptance-e6q/launch.sh > <ledger>/acceptance-e6q/logs/e6q.log 2>&1 &` — then `ps -p $(cat <ledger>/acceptance-e6q/e6q.pid)` only. Read NOTHING under `logs/` until `e6q.DONE` or `e6q.FAILED` exists; poll with a Monitor/until-loop on the marker or the pid's death (both terminal states covered).
+Launch: `cd /home/brice/workspace/sensorium && setsid nohup bash <ledger>/acceptance-e6q/launch.sh > <ledger>/acceptance-e6q/logs/e6q.log 2>&1 &`) then `ps -p $(cat <ledger>/acceptance-e6q/e6q.pid)` only. Read NOTHING under `logs/` until `e6q.DONE` or `e6q.FAILED` exists; poll with a Monitor/until-loop on the marker or the pid's death (both terminal states covered).
 
-- [ ] **Step 3: On `.DONE`** — read `results-e6q-raw.json`; confirm `byte_lock.identical`, the base-driver verification, both prep builds `rc 0`, every arm `rc 0` or its cargo exit explained (a failing bloomery test is data, a driver refusal is infrastructure — say which), `traces_missing == []`. On `.FAILED` before any arm ran (a Refused): fix the infrastructure and relaunch from zero — that is an infrastructure kill, not a re-roll; on `.FAILED` after an arm produced numbers: STOP, record what was read, no relaunch without a ruling.
+- [ ] **Step 3: On `.DONE`** (read `results-e6q-raw.json`; confirm `byte_lock.identical`, the base-driver verification, both prep builds `rc 0`, every arm `rc 0` or its cargo exit explained (a failing bloomery test is data, a driver refusal is infrastructure) say which), `traces_missing == []`. On `.FAILED` before any arm ran (a Refused): fix the infrastructure and relaunch from zero, that is an infrastructure kill, not a re-roll; on `.FAILED` after an arm produced numbers: STOP, record what was read, no relaunch without a ruling.
 
-- [ ] **Step 4: Hand-adjudicate** — three tables (§4.1 A, §4.2 WS union, §4.3 WS0 union) in the E6‴ record's column shape (`# | Printed line | Sink file:line | log-and-continue? | Verdict (amended) | Reason from the source`), every SWALLOWED line, read fresh from the clone at `e209ed9`; §4.4 the counts under both readings with the guarded-arm column; §4.5 **the discrimination verdict**: the WS0 lines at flip-set arms (the computed `lines_at_flipped_sites` beside your reading of each), and which of `api_v1.rs:396`/`:515` executed in WS and WS0 (`executed_arms`); §4.6 E-flip: the changed rows named, transitions, the named rows, `changed_equals_delta`. Verdicts table: one row per §1 endpoint, the rule verbatim, the number, PASS/STOP — and for E6⁗-WS0 `DISCRIMINATING` / `NOT DISCRIMINATING`.
+- [ ] **Step 4: Hand-adjudicate**, three tables (§4.1 A, §4.2 WS union, §4.3 WS0 union) in the E6‴ record's column shape (`# | Printed line | Sink file:line | log-and-continue? | Verdict (amended) | Reason from the source`), every SWALLOWED line, read fresh from the clone at `e209ed9`; §4.4 the counts under both readings with the guarded-arm column; §4.5 **the discrimination verdict**: the WS0 lines at flip-set arms (the computed `lines_at_flipped_sites` beside your reading of each), and which of `api_v1.rs:396`/`:515` executed in WS and WS0 (`executed_arms`); §4.6 E-flip: the changed rows named, transitions, the named rows, `changed_equals_delta`. Verdicts table: one row per §1 endpoint, the rule verbatim, the number, PASS/STOP, and for E6⁗-WS0 `DISCRIMINATING` / `NOT DISCRIMINATING`.
 
-- [ ] **Step 5: §2 lens, §3 rendered, §5 gaps** — §2 from the raw json (both drivers, both targets, loads, disk, clone before/after, base worktree HEAD); §3 = `render_e6q.py` output pasted; §5: what was not measured, any deviation, the rows a reader may contest, the residuals found (recorded, never repaired post-lock).
+- [ ] **Step 5: §2 lens, §3 rendered, §5 gaps**, §2 from the raw json (both drivers, both targets, loads, disk, clone before/after, base worktree HEAD); §3 = `render_e6q.py` output pasted; §5: what was not measured, any deviation, the rows a reader may contest, the residuals found (recorded, never repaired post-lock).
 
 - [ ] **Step 6: Assemble and commit**
 
@@ -1028,15 +1028,15 @@ Then `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_acceptance
 Run: `cd /home/brice/workspace/sensorium && grep -rn "0\.3\.0\|0\.8\.0\|0\.3\.1\|0\.8\.1" --include=*.py --include=*.rs --include=*.toml --include=*.md . | grep -v "target/\|Cargo.lock\|\.venv\|CHANGELOG\|docs/superpowers\|format3\|fixtures\|async_focus\|test_diff\|stale_cache"`
 Expected: exactly the pins the Global Constraints name (transform + cargo-sensorium Cargo.toml, `driver.rs` ×3 incl. `driver_smoke.rs`, `pyproject.toml`) plus `sensorium-rt`'s which stay. Anything else is a pin to move or to explain in the report.
 
-- [ ] **Step 2: Versions** — `sensorium-transform` and `cargo-sensorium` `version = "0.3.1"`; `DRIVER_VERSION` → `"cargo-sensorium 0.3.1"` and its two `driver.rs` pins and `driver_smoke.rs:125`; `pyproject.toml` `version = "0.8.1"`; `cd rust && cargo update -w -p cargo-sensorium -p sensorium-transform` (lockfile only). Run the Rust workspace tests and `driver_smoke` green.
+- [ ] **Step 2: Versions**, `sensorium-transform` and `cargo-sensorium` `version = "0.3.1"`; `DRIVER_VERSION` → `"cargo-sensorium 0.3.1"` and its two `driver.rs` pins and `driver_smoke.rs:125`; `pyproject.toml` `version = "0.8.1"`; `cd rust && cargo update -w -p cargo-sensorium -p sensorium-transform` (lockfile only). Run the Rust workspace tests and `driver_smoke` green.
 
-- [ ] **Step 3: HONESTY §11** — replace lines 777–789 (the "And one more the review found…" paragraph) with a paragraph of at most the same length: the `&e` exemption is now a rule about the borrowing call's dropped product (design B1, 2026-09-05), measured by E6⁗ (cite the record and the verdicts by name — PASS/STOP/DISCRIMINATING as measured, never assumed), with the one residual it leaves (23 (d): a callee storing a rendering through a side channel). Check `wc -l rust/HONESTY.md` ≤ 800; if over, move §1 (lines 50–156) to `rust/HONESTY-OUTCOMES.md` with a pointer paragraph in its place, the way §8's list moved.
+- [ ] **Step 3: HONESTY §11**, replace lines 777–789 (the "And one more the review found…" paragraph) with a paragraph of at most the same length: the `&e` exemption is now a rule about the borrowing call's dropped product (design B1, 2026-09-05), measured by E6⁗ (cite the record and the verdicts by name: PASS/STOP/DISCRIMINATING as measured, never assumed), with the one residual it leaves (23 (d): a callee storing a rendering through a side channel). Check `wc -l rust/HONESTY.md` ≤ 800; if over, move §1 (lines 50–156) to `rust/HONESTY-OUTCOMES.md` with a pointer paragraph in its place, the way §8's list moved.
 
-- [ ] **Step 4: Blind spots, index, TRACE-FORMAT** — `rust/HONESTY-BLIND-SPOTS.md` item 23: (c) rewritten as *repaired 2026-09-05 (design B1), measured E6⁗ …, pinned by `arms.rs` rows and `corpus/rust/err_borrowed_into_value`*; add (d) the side-channel residual, *pinned as today's reading by `a_dropped_call_that_stores_what_it_is_handed_is_still_handled_and_says_so`; untested by fixture on a real tree*. `rust/HONESTY-INDEX.md`: the §11 SWALLOWED row's falsifier column gains `E6⁗-A/E6⁗-WS/E6⁗-WS0 (2026-09-05 e6q record, <verdicts>)`, and the chain-identity row gains `corpus/rust/keep_first_error`. `docs/TRACE-FORMAT.md` §5 `translated` row: append *"(Since 2026-09-05 the exit hop at an `err` close goes to the held chain whose text the RETURN carries; before that it went to the innermost, which could label the wrong chain `translated`.)"*.
+- [ ] **Step 4: Blind spots, index, TRACE-FORMAT**, `rust/HONESTY-BLIND-SPOTS.md` item 23: (c) rewritten as *repaired 2026-09-05 (design B1), measured E6⁗ …, pinned by `arms.rs` rows and `corpus/rust/err_borrowed_into_value`*; add (d) the side-channel residual, *pinned as today's reading by `a_dropped_call_that_stores_what_it_is_handed_is_still_handled_and_says_so`; untested by fixture on a real tree*. `rust/HONESTY-INDEX.md`: the §11 SWALLOWED row's falsifier column gains `E6⁗-A/E6⁗-WS/E6⁗-WS0 (2026-09-05 e6q record, <verdicts>)`, and the chain-identity row gains `corpus/rust/keep_first_error`. `docs/TRACE-FORMAT.md` §5 `translated` row: append *"(Since 2026-09-05 the exit hop at an `err` close goes to the held chain whose text the RETURN carries; before that it went to the innermost, which could label the wrong chain `translated`.)"*.
 
-- [ ] **Step 5: The rung-3 design's dated pointers** — exactly the three lines design §8 specifies, plus R16 (vii): *"(vii) added 2026-09-05: a callee handed `&e` at a dropped call site that STORES a rendering through `&self`, a capture or a global is invisible — blind spot 23 (d)."* Nothing rewritten.
+- [ ] **Step 5: The rung-3 design's dated pointers** (exactly the three lines design §8 specifies, plus R16 (vii): *"(vii) added 2026-09-05: a callee handed `&e` at a dropped call site that STORES a rendering through `&self`, a capture or a global is invisible) blind spot 23 (d)."* Nothing rewritten.
 
-- [ ] **Step 6: CHANGELOG 0.8.1 and CARRIED-DEBT** — `CHANGELOG.md`: a `## 0.8.1 — <date>` block: the rule (with the before/after clone census), the hop, the two corpus cases, the E6⁗ record with its verdicts in the words §4 used, crates 0.3.1. `docs/CARRIED-DEBT.md`: a new dated section (*Settled* / *Deferred, awaiting rulings* / *Process lessons*), and in the 2026-09-05 section strike through (never delete) the `&e` item, the two-held-chains item, and the "different sets" item **only if** E-flip's `changed_equals_delta` read true (else annotate it with the measured numbers and leave it open). If WS0 read NOT DISCRIMINATING, the `&e` item stays open with that fact.
+- [ ] **Step 6: CHANGELOG 0.8.1 and CARRIED-DEBT**, `CHANGELOG.md`: a `## 0.8.1 — <date>` block: the rule (with the before/after clone census), the hop, the two corpus cases, the E6⁗ record with its verdicts in the words §4 used, crates 0.3.1. `docs/CARRIED-DEBT.md`: a new dated section (*Settled* / *Deferred, awaiting rulings* / *Process lessons*), and in the 2026-09-05 section strike through (never delete) the `&e` item, the two-held-chains item, and the "different sets" item **only if** E-flip's `changed_equals_delta` read true (else annotate it with the measured numbers and leave it open). If WS0 read NOT DISCRIMINATING, the `&e` item stays open with that fact.
 
 - [ ] **Step 7: Full suite, PR body, commit**
 
@@ -1048,9 +1048,9 @@ Expected: all green; both files ≤ 800. Write `<ledger>/pr-body-draft.md` (what
 
 ---
 
-### After Task 6 — final review, fix wave, PR
+### After Task 6: final review, fix wave, PR
 
-Whole-branch review (fable) on `git diff d1b1b57..HEAD` with the design and the record; findings ruled in the ledger; ONE fix wave (doc/test only after the lock — any code finding is recorded, not repaired); scoped re-review; `git push -u origin feat/rung3-borrow-repair`; `git fetch && git rev-parse HEAD origin/feat/rung3-borrow-repair` equal; `gh pr create` against `main` with the PR body; CI watched to green (the runner's toolchain is pinned 1.96.0; if clippy reddens, fix on the branch). Merge is Brice's. Close-out: delete `/mnt/extra/sensorium-rung2/ws-plain-target` and `tmp/ws-plain-20260905`; keep the control target and base worktree until merge, then `git worktree remove /mnt/extra/sensorium-rung2/base-d1b1b57`.
+Whole-branch review (fable) on `git diff d1b1b57..HEAD` with the design and the record; findings ruled in the ledger; ONE fix wave (doc/test only after the lock. Any code finding is recorded, not repaired); scoped re-review; `git push -u origin feat/rung3-borrow-repair`; `git fetch && git rev-parse HEAD origin/feat/rung3-borrow-repair` equal; `gh pr create` against `main` with the PR body; CI watched to green (the runner's toolchain is pinned 1.96.0; if clippy reddens, fix on the branch). Merge is Brice's. Close-out: delete `/mnt/extra/sensorium-rung2/ws-plain-target` and `tmp/ws-plain-20260905`; keep the control target and base worktree until merge, then `git worktree remove /mnt/extra/sensorium-rung2/base-d1b1b57`.
 
 ## Self-review
 

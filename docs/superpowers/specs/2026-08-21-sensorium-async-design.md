@@ -35,8 +35,8 @@ Three defects, all live:
    `6x step, 1x <module>`; `worker` and `main` appear in neither the tree nor
    the summary, and nothing states that four recorded calls were not framed.
 
-This is not a missing feature. It is the founding sentence — *the instrument
-never answers from data it does not have* — violated by a tool that has been
+This is not a missing feature. It is the founding sentence (*the instrument
+never answers from data it does not have*) violated by a tool that has been
 used for three CastleVTT diagnoses on a codebase that is entirely FastAPI.
 
 There is no async test and no async corpus case in v1:
@@ -59,7 +59,7 @@ innermost recorded activation:
 Coroutines are additionally *frameless* (`record/tracer.py:363`, on
 `CO_GENERATOR|CO_COROUTINE|CO_ASYNC_GEN`): no frame is opened, and LINE is
 disabled for their code permanently, "even when focused." That decision was
-correct for v1 and is not reversed here — an abandoned generator never reaches
+correct for v1 and is not reversed here. An abandoned generator never reaches
 `PY_RETURN`/`PY_UNWIND`, so a frame opened for it would never close. Arc 2
 addresses that directly; arc 1 leaves framelessness intact and stops the
 guessing around it.
@@ -85,7 +85,7 @@ cost is ~6 µs/event, so the comparison column is what matters.
 
 | Fact | Measured | Share of one event |
 |---|---|---|
-| `sys._getframe(2)` — read the true caller | 25 ns | 0.4% |
+| `sys._getframe(2)`. Read the true caller | 25 ns | 0.4% |
 | `asyncio.current_task()` inside a running loop | 26 ns | 0.4% |
 | `asyncio.events._get_running_loop()` outside a loop | 19 ns | 0.3% |
 | `asyncio.current_task()` **outside** a loop (raises `RuntimeError`) | 93 ns | 1.6% |
@@ -109,8 +109,7 @@ rather than assuming.
 Verified by direct probe, not inferred: inside a `PY_START` callback,
 `sys._getframe(2)` is the true caller (`caller=worker` for every `step`), and
 `asyncio.current_task()` returns the correct task from inside the callback with
-no reentrancy problem. A coroutine's own `PY_START` reports `caller=_run` —
-the event loop — which is the truthful answer: `main` *created* the task, the
+no reentrancy problem. A coroutine's own `PY_START` reports `caller=_run` (the event loop) which is the truthful answer: `main` *created* the task, the
 loop *entered* it. "Who awaited this" is a different question, answered by
 task identity, not by the frame stack.
 
@@ -140,8 +139,8 @@ at all (step 1), `caller_code` is absent, which is distinct from a miss.
 
 ### Why `id()` is sound here
 
-This project has twice been burned by `id()` — recycled exception addresses,
-recycled thread ids — and the ledger records both. The argument that it is safe
+This project has twice been burned by `id()` (recycled exception addresses,
+recycled thread ids) and the ledger records both. The argument that it is safe
 in this position is specific and must not be generalised:
 
 - The map holds **only regular function frames**. A regular function's frame
@@ -149,8 +148,8 @@ in this position is specific and must not be generalised:
   subscribed, so every entry is removed on the frame's death.
 - An address can therefore never be recycled under a live key: the key is
   removed before the object it names can die.
-- The things that *can* terminate without either event — abandoned generators
-  and coroutines — are exactly the things that are frameless in arc 1 and so
+- The things that *can* terminate without either event (abandoned generators
+  and coroutines) are exactly the things that are frameless in arc 1 and so
   never enter the map at all.
 - The `entry.code is caller.f_code` check in step 3 is a second, independent
   guard, and is what keeps arc 2 honest when coroutine frames do enter the map
@@ -184,7 +183,7 @@ task = current_task() if loop is not None else None
 Identity is a **minted serial**, not `id()` and not the task's name:
 
 - `id()` is recycled, and this project does not trust it for identity.
-- Task names are not unique — `asyncio.create_task(..., name=...)` accepts
+- Task names are not unique, `asyncio.create_task(..., name=...)` accepts
   duplicates, and two tasks sharing a display name must not merge.
 
 A `WeakKeyDictionary` from task object to serial, mirroring the existing
@@ -197,7 +196,7 @@ event recorded outside a running loop, which is the common case and must not
 be rendered as a task called "none".
 
 Erratum (final review): `task_id NULL` means *no current asyncio task*, which
-is wider than *outside a running loop* — loop callbacks (`call_soon`,
+is wider than *outside a running loop*, loop callbacks (`call_soon`,
 `add_done_callback`, protocol/signal callbacks) run inside the loop with
 `current_task() is None` and are NULL too. Arc 2's per-task stacks must not
 inherit the narrower reading.
@@ -230,7 +229,7 @@ order between tasks is wall-clock (event ids), not causal; within one task it is
 
 The `<- worker (unframed)` tag is the parentage statement: `step`'s caller
 is `worker`, which has no frame, so `step` is indented under its task and
-*named* as called by `worker` — not drawn as a child of the `e3` event,
+*named* as called by `worker`, not drawn as a child of the `e3` event,
 which would claim an activation-level link the trace does not hold (that is
 arc 2). The task serial (`t2`) is printed beside the name because names are
 not unique.
@@ -240,7 +239,7 @@ interleaving between tasks is not. Event ids remain globally monotonic, so the
 real execution order stays recoverable from the output without a second
 command and without a flag. `<module>` ran before `asyncio.run` started a loop,
 so it has no task and is not placed in one; "no asyncio task" is a
-statement, not a task called none — and it is deliberately not "outside any
+statement, not a task called none, and it is deliberately not "outside any
 event loop", which would be a narrower claim than the group holds (see the
 erratum under D2).
 
@@ -270,15 +269,15 @@ The backward direction is a new honesty case and the one most easily missed:
 **a format-1 trace opened by a format-2 reader must not render as though its
 parent links were derived.** Its `parent_id` values were assumed, and the
 output must label them assumed, not silently inherit the credibility of the new
-mechanism. Same trace, same command, different claim — because the recording
+mechanism. Same trace, same command, different claim, because the recording
 was made by a recorder that could not tell.
 
-Schema delta, all additive — no existing column changes meaning:
+Schema delta, all additive. No existing column changes meaning:
 
 - `events` gains `task_id INTEGER` (nullable; NULL outside a running loop).
   A column rather than a payload key because `tree` groups on it and `info`
   counts on it, and neither should have to parse every payload to do so.
-- new table `tasks (id INTEGER PRIMARY KEY, name TEXT, thread_id INTEGER)` —
+- new table `tasks (id INTEGER PRIMARY KEY, name TEXT, thread_id INTEGER)`,
   the serial→name mapping written once per task, not once per event.
 - `caller_code` is a CALL payload key (JSON), present only on a parentage miss.
 - `frames` is unchanged.
@@ -295,18 +294,18 @@ What the arc-1 output must state rather than imply:
    must not be readable as a claim about which task ran first; the footer says
    so, and event ids carry the real order.
 2. Nothing inside an `async def` is inspectable. `watch`, `--focus` and LINE
-   against coroutine code must say so explicitly — following the
-   `NOTHING WAS CHECKED` precedent — and must never return an empty result that
+   against coroutine code must say so explicitly (following the
+   `NOTHING WAS CHECKED` precedent) and must never return an empty result that
    reads as "nothing happened."
 
    Measured on v1: `run --focus repro:worker` (a coroutine) is accepted
    silently, and `watch last --at repro:worker --expr 'name == "A"'` reaches
-   `NOTHING WAS CHECKED` — the right verdict — but explains it as
+   `NOTHING WAS CHECKED` (the right verdict) but explains it as
    `NEVER RECORDED: 'name' … either it is misspelled, or it lives in frames
    this run did not record`. Both offered reasons are false: `name` is a
    captured argument of `worker` (it is right there in the CALL payload), and
-   the run did record `worker`. The true reason — *coroutine code opens no
-   frame in this version, and watch sites are frames* — is not among the
+   the run did record `worker`. The true reason (*coroutine code opens no
+   frame in this version, and watch sites are frames*) is not among the
    candidates. Honest-by-accident with a misleading diagnosis is a defect:
    `watch` must name the real reason, and `run` must say at record time that a
    `--focus` pattern matched only code that cannot emit LINE, rather than
@@ -323,7 +322,7 @@ What the arc-1 output must state rather than imply:
 
 Project norms apply: tests written first, each new test mutation-checked
 (a deliberate defect in the code under test must fail it), and the corpus
-extended with questions **pre-registered before any output is looked at** —
+extended with questions **pre-registered before any output is looked at**,
 the question in plain language, the known ground truth, the exact invocation,
 and why `print()` cannot answer it.
 
@@ -334,7 +333,7 @@ New corpus cases:
    because the bug is planted. v1 answers this wrongly today, which makes it a
    regression test for the fabrication itself.
 2. **Callback from untraced C.** `sorted(key=...)` where the key function is
-   user code — parentage derived through a C frame, no async involved. This is
+   user code, parentage derived through a C frame, no async involved. This is
    the case that proves the fix is about parentage and not about asyncio.
 3. **Abandoned task.** A task cancelled while suspended, to pin arc 1's
    behaviour (its calls are recorded and attributed; no frame is claimed) and
@@ -343,7 +342,7 @@ New corpus cases:
    recorder at `e384ef4` (small; the two-task repro above is enough), opened
    by the new reader, asserting the parentage is labelled assumed and that
    the open does not fail. Generated once by a pinned interpreter and
-   committed, not regenerated per run — the point is that it is *old*.
+   committed, not regenerated per run. The point is that it is *old*.
 5. **Focus on a coroutine.** `run --focus` on coroutine-only code warns at
    record time; `watch` against it names the real reason. Pins honesty rule 2
    and is the failing case arc 2 must turn into a working one.
@@ -373,7 +372,7 @@ Unchanged by arc 1, still stated in the README:
    is nondeterministic, so extending the per-thread fingerprint over async
    events would make `MATCH` unreachable on any concurrent program. Arc 2
    fingerprints **per task**: each task's causal stream compared
-   independently, and the interleaving between tasks explicitly not compared —
+   independently, and the interleaving between tasks explicitly not compared,
    stated in the licence, in the same terms as the recorder's own footprint.
 3. Arc 1's `task_serial` must be the identity arc 2's per-task stacks and
    fingerprints key on. It is not a display convenience.

@@ -1,7 +1,7 @@
 # What four answers claim, in detail
 
-`exceptions`, `watch` and `flow` — the three commands whose claims need the
-most saying — **moved here 2026-09-06 (the focus tier, rung 4 slice 1) so
+`exceptions`, `watch` and `flow` (the three commands whose claims need the
+most saying) **moved here 2026-09-06 (the focus tier, rung 4 slice 1) so
 `README.md` stays under 800 lines**. `docs/CARRIED-DEBT.md` named this split
 at the rung-4 entry slice's close ("the next paragraph the README's
 `exceptions` section wants should go to a file it links, not into the
@@ -15,13 +15,13 @@ behaviour and not a relocation of anything. `refocus`'s own three verdicts and
 its licence stay in [`../README.md`](../README.md), and this section is what
 the Rust half of them means.
 
-The rest of *What the answers claim* — `diff`, `refocus`'s general shape,
-`tree`, `info` and `runs` — is still in [`../README.md`](../README.md), and so
+The rest of *What the answers claim* (`diff`, `refocus`'s general shape,
+`tree`, `info` and `runs`) is still in [`../README.md`](../README.md), and so
 is everything about what a trace file holds and what sensorium sees at all.
 Read those first: they are what the commands below answer from. What rule v1
 withholds from a recording is [`redaction.md`](redaction.md).
 
-### `exceptions` — five dispositions, and a real refusal
+### `exceptions`: five dispositions, and a real refusal
 
 Every raise is classified as `swallowed`, `uncaught`, `re-raised`,
 `propagated`, or `ambiguous`, and the tally is printed.
@@ -30,18 +30,18 @@ Every raise is classified as `swallowed`, `uncaught`, `re-raised`,
 event in a frame that either returned normally, or later unwound because a
 *different* exception was thrown into it at a suspension the handler had
 already passed (a cancelled task, a dropped generator, or any other
-thrown-in unwind) — with no later raise carrying the same recorder identity,
+thrown-in unwind), with no later raise carrying the same recorder identity,
 and no later raise that could be that same object at that same address.
 Anything short of that is `ambiguous`, and the reason is printed. In
 particular:
 
-- A bare `finally` emits a handled-event with nothing caught — CPython
-  compiles `finally` as an implicit handler — so a handled-event is never on
+- A bare `finally` emits a handled-event with nothing caught (CPython
+  compiles `finally` as an implicit handler) so a handled-event is never on
   its own read as "something was caught".
 - Generators and coroutines have frames (trace format 3, shipped in 0.3.0),
   so a handler inside one is classified by exactly the rules above. A frame later
   unwound by a *different* exception thrown in after the handler ran does
-  not make that earlier handler ambiguous — the verdict names the frame's
+  not make that earlier handler ambiguous. The verdict names the frame's
   own fate instead of claiming it "returned normally": `never returned
   (frame later cancelled at Ln)`, `(frame later abandoned at Ln)`, or
   `(frame later unwound by X thrown in at Ln)` for any other thrown-in
@@ -49,7 +49,7 @@ particular:
   is `ambiguous … never closed`, the same refusal any unfinished frame gets.
   A trace recorded before format 3 opened no frame for a generator or
   coroutine body at all, so a handler inside one there has no `closed_by` to
-  read and gets no verdict either — the refusal names whichever of the two
+  read and gets no verdict either. The refusal names whichever of the two
   reasons the trace's format actually supports.
 - A handler in untraced code is `propagated`, which says where the exception
   went, not what was done with it.
@@ -59,8 +59,7 @@ it cannot classify. It does not detect all swallowed exceptions.
 
 **On a Rust trace the vocabulary is the language's, and so are the rules.**
 An `Err` value travelling is not an exception unwinding, so `exceptions`
-switches to a Rust rule module with five dispositions of its own —
-`swallowed`, `panicked`, `returned-to-harness`, `propagated`, `ambiguous` —
+switches to a Rust rule module with five dispositions of its own (`swallowed`, `panicked`, `returned-to-harness`, `propagated`, `ambiguous`)
 computed over chains that the converter mints from `?` sites, the four
 written sinks, `let _ =` and classified `Err` arms. **SWALLOWED is claimed
 only where a written sink absorbed the chain and its frame then closed
@@ -75,13 +74,13 @@ the two measurements behind them are in `../README.md`'s Rust section.
 **On a TypeScript trace the words are Python's and the shapes are
 JavaScript's** *(added 2026-09-10, S5 rung 2; `sensorium` 0.10.0 and
 `sensorium-ts` 0.2.0)*. An `Err` value travelling is not an exception, so Rust
-got its own five words — a `throw` unwinding IS one, so TypeScript keeps the
+got its own five words. A `throw` unwinding IS one, so TypeScript keeps the
 originals: `swallowed`, `uncaught`, `re-raised`, `propagated`, `ambiguous`,
 computed over every RAISE and every orphan HANDLED. What is new is where the
 evidence comes from. **The transform decides at load time what each handler
 did with what it caught**, and writes it as a `how` word the rules read: a
 `catch (e)` body that never mentions `e`, or mentions it only as an argument
-of a `console.*` call, is **`catch`** — log-and-continue, the archetypal
+of a `console.*` call, is **`catch`**, log-and-continue, the archetypal
 swallow; a body that does anything else with it is **`catch_escaped`**, and
 the rule does not follow where it went; an empty block is
 **`sink_empty_catch`**. A bare `throw e;` is a traced EXIT and not a mention,
@@ -98,7 +97,7 @@ whose `how` is in the absorbing set (`catch`, `sink_empty_catch`,
 frame that later closed by `return`, with no later raise of that serial and
 **no** HANDLED for it anywhere in the escaping set, checked across the whole
 trace rather than the unit's own window. Everything else is `ambiguous` with
-its reason printed — an escaped or opaque handler, a frame still suspended
+its reason printed, an escaped or opaque handler, a frame still suspended
 at the end of the recording, a frame that later unwound with a different
 serial, a rethrown primitive, **or an untraced catcher** *(added
 2026-09-11, S5 rung 3)*: no HANDLED anywhere in the unit's own window and
@@ -110,7 +109,7 @@ f<n> returned; not followed`, or, where the parent went on to fail for its
 own reasons, `…, its caller f<n> later unwound with <exc>: a translation by
 untraced code, or a later failure, indistinguishable`, or, where the parent
 never closed, `…, its caller f<n> had not closed at the end of the
-recording; not followed` — naming the footprint and claiming nothing about
+recording; not followed`, naming the footprint and claiming nothing about
 what the untraced code did with the failure. **Rule 4's absorbing
 conjunct** is now scoped to the unit's own window, as rule 3's always was;
 what stays trace-global in both rules is the *escaping* conjunct. An
@@ -122,7 +121,7 @@ through, and an UNWIND is never itself a verdict: it is the evidence
 `propagated` reads. `uncaught` is reserved for an unhandled rejection; a
 failing test is `propagated (to the harness)` with the task named. A trace an
 **0.1.x** recorder wrote declares `capabilities.err_flow: false` and is refused
-at exit 3 by the capability sentence — what it lacks is a record, so
+at exit 3 by the capability sentence, what it lacks is a record, so
 re-recording is the fix. What the rules cannot see is
 [`../typescript/HONESTY.md`](../typescript/HONESTY.md) §4 and
 [`../typescript/HONESTY-BLIND-SPOTS.md`](../typescript/HONESTY-BLIND-SPOTS.md)
@@ -134,24 +133,24 @@ TypeScript 2026-09-10**, where the unit is a raise rather than a chain and the
 grouper is one module reading a per-language renderer, so every Rust caller's
 output is byte-unchanged). Two
 chains are one *shape* when they share a disposition, the site the verdict is
-about — the sink for `swallowed`, the arm for an escaped `ambiguous`, the
-origin site for every verdict that names no site — and the verdict text once
+about (the sink for `swallowed`, the arm for an escaped `ambiguous`, the
+origin site for every verdict that names no site) and the verdict text once
 event and frame ids are masked. A shape prints the FIRST chain's block exactly
-as a lone chain prints it and appends a bracket naming the group — two spaces,
-then `[×2: e3, e7]` — to the verdict line
+as a lone chain prints it and appends a bracket naming the group (two spaces,
+then `[×2: e3, e7]`) to the verdict line
 `SWALLOWED -- absorbed by sink_ok at e5 (load L31) in f1, which returned ok`.
-The ids are the members' ORIGIN event ids — what the head line above prints,
-what `--after` filters on, what `grep` and `tree` take — so the
+The ids are the members' ORIGIN event ids (what the head line above prints,
+what `--after` filters on, what `grep` and `tree` take) so the
 printed sentence is always true of a named chain; eight show, then `… +K`.
 The `raised (N):` header and the `dispositions:` tally both still count
-CHAINS, so every tally in every record stays comparable line for line — which
+CHAINS, so every tally in every record stays comparable line for line, which
 means `raised (54):` can stand above three blocks.
 
 **Members differing in something the key does not look at are flagged, never
 merged silently**: `origins: N distinct (first shown)` (different origin
 sites), `messages: N distinct (first shown)` (different error texts),
-`details vary (N distinct; first shown)`, `routes: N distinct (first shown)`
-— with `(this one has none)` in place of `(first shown)` where the printed
+`details vary (N distinct; first shown)`, `routes: N distinct (first shown)`,
+with `(this one has none)` in place of `(first shown)` where the printed
 member has no line of that kind, so a flag never points at a line that is not
 there. `--limit` counts SHAPES, and the continuation raises the limit instead
 of handing back an event cursor, which over grouped output would re-show a
@@ -159,7 +158,7 @@ partial group: `... 2 more; continue with: sensorium exceptions <run>
 --limit 3`.
 
 **`sensorium exceptions <invocation-id>` answers for a whole
-`cargo sensorium test` or `sensorium ts run` invocation** — the id is the one
+`cargo sensorium test` or `sensorium ts run` invocation**. The id is the one
 `runs` already prints above the group. Every member trace is opened,
 **dispatched on its own `lang`** (a member of any other language refuses by
 name: what it is missing is a rule, not a record), classified and merged on the
@@ -174,35 +173,35 @@ finalized is NAMED before any answer about chains, and the tally is the sum:
       e7 RAISE   read_config raise demo::ConfigError('Missing("port")') L14
         SWALLOWED -- absorbed by sink_ok at e9 (load L45) in f1, which returned ok  [in 20260101-000000-aaa002]
     dispositions: swallowed 3
-
-— the tool's own output, pinned by `tests/test_exceptions_invocation.py`. That
-header counts printed BLOCKS — merged shapes whose disposition is swallowed —
+,
+the tool's own output, pinned by `tests/test_exceptions_invocation.py`. That
+header counts printed BLOCKS (merged shapes whose disposition is swallowed)
 and says so: it read `N swallowing sites` through both E6⁗ measurements, and
 the two are not equal on a real sweep (91 and 98 distinct sites where the
 header printed 103 and 105), so the noun was corrected to `swallowed
 shape(s)` on 2026-09-08. `--after` is **refused** in
-this mode and exits **2** — an event id belongs to one process and this answer
-spans many — and a member whose recorder declares `capabilities.err_flow:
+this mode and exits **2** (an event id belongs to one process and this answer
+spans many) and a member whose recorder declares `capabilities.err_flow:
 false` refuses the whole answer, naming it.
 
 **What the grain was measured to be worth.** On the E6⁗ workspace sweep's
 busiest process, 54 SWALLOWED lines print as **3** shapes (20 166 bytes under
 0.8.1 → 3 360 bytes over 32 lines); the 144 per-process answers that sweep
-needed — 182 334 bytes over 1634 lines — become **one** answer of 128 167
+needed (182 334 bytes over 1634 lines) become **one** answer of 128 167
 bytes over 927 lines
 (`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §3;
 the repair's re-measurement under the shipped key reads 129 355 bytes over 936
 lines, its §3). It was measured twice and the second record's H4′ verdict is
-open — read §4 and §5.2 of both records before quoting any of this.
+open. Read §4 and §5.2 of both records before quoting any of this.
 
 **Python traces are untouched**: they still print one block per raise and page
 by event id. Grouping there waits on a definition of the site each Python
 disposition's verdict is about, and is a rung-4 item.
 
-### `watch` — a predicate at every recorded site
+### `watch`: a predicate at every recorded site
 
 `watch` evaluates a restricted expression at every recorded site of the named
-code — a CALL's arguments, a LINE's locals — and prints a tally that accounts
+code (a CALL's arguments, a LINE's locals) and prints a tally that accounts
 for all of them:
 
     sites: 9   evaluated: 7   hits: 0   not-captured: 2   errors: 0
@@ -216,7 +215,7 @@ would fix it, the exact `sensorium run --focus ...` command is printed;
 where it would not, the output says so.
 
 A predicate naming something the trace never recorded anywhere raises a
-warning even when the rest of the predicate produced hits — a typo'd name is
+warning even when the rest of the predicate produced hits. A typo'd name is
 otherwise a silent zero. When there are no hits, `watch` reports the closest
 approaches with their margins, which is the question a threshold log throws
 away: it fires when the condition is true, and it never was. `--misses N`
@@ -226,13 +225,13 @@ sets how many of those near-misses to show (default 5); the pre-0.8.0
 **`--at` takes one spelling and every recorder's `--focus` writes it**
 *(added 2026-09-12, S5 rung 4)*. A site is `<qualname>` or
 `<file>:<qualname>`, and the file half may be the dotted module, the stem,
-the basename or the root-relative path, **in every language** — so
+the basename or the root-relative path, **in every language**, so
 `--at fill`, `--at chain:fill`, `--at chain.ts:fill` and
 `--at focus_let_chain/chain.ts:fill` all name one TypeScript function, and
 `sensorium ts run --focus chain.ts:fill` is the same characters typed at the
 recorder. It stays a boundary: a directory is not a spelling, and a path this
 trace does not hold selects nothing rather than something near it. What
-`watch` PRINTS back — in its no-match listing and its re-record command — is
+`watch` PRINTS back (in its no-match listing and its re-record command) is
 the trace's own `site_spelling`: the dotted module for Python and Rust, the
 root-relative path for TypeScript. The two matchers are two implementations
 of one rule, in two languages, held to one fixture
@@ -241,7 +240,7 @@ of one rule, in two languages, held to one fixture
 **Four words are predicate constants, in every language**: `null`,
 `undefined`, `true` and `false`. `--expr 'm == null'` asks about a JavaScript
 `null` and a Rust `None` alike, and `--expr 'missing == undefined'` is a claim
-about a value and not about an absent name — a name the trace never recorded
+about a value and not about an absent name. A name the trace never recorded
 still raises its own warning, which is the difference. They are excluded from
 the predicate's name list, so no constant is ever reported as NEVER RECORDED.
 
@@ -254,10 +253,10 @@ command line and its own focus rather than as a template with a
 placeholder in it. On a TypeScript trace the capability is a property of the
 RECORDING: an unfocused run declares
 `line: false`, and `watch` refuses at exit 3 naming the recorder the trace
-carries — `sensorium-ts 0.4.0`, not whatever is installed — instead of
+carries (`sensorium-ts 0.4.0`, not whatever is installed) instead of
 reporting `hits: 0`.
 
-### `flow` — lineage, not dataflow analysis
+### `flow`: lineage, not dataflow analysis
 
 `flow --value V` follows a captured value by equality through calls and
 returns. **On a Rust trace, spell the literal as the trace prints it**: `flow`
@@ -265,7 +264,7 @@ compares a `dbg` capture's Debug TEXT while `watch --expr` compares resolved
 values, so `flow --value 5.0` finds no sighting of an integer capture printed
 `5` even though `watch --expr x == 5.0` is true of that same capture (design
 A12). `tree`, `frame` and `grep` all show the spelling to use. `flow --object SPEC` follows one object's **identity by address plus
-type** — and CPython recycles addresses, so this is corroborated rather than
+type**, and CPython recycles addresses, so this is corroborated rather than
 asserted: a lineage is split where a constructor ran on the address, gaps are
 reported as gaps, and the output states what it cannot establish. Both are
 lineage over captured values; neither is static dataflow analysis, and the
@@ -274,7 +273,7 @@ command says so in its own header.
 **On a TypeScript trace the dialect is node's `util.inspect`, and it is
 Rust's opposite in the one place a reader will meet first** *(added
 2026-09-12, S5 rung 4)*. `flow --value 5.0` **sights** a JavaScript `5`,
-because JavaScript has one number type and inspect prints `5` for both — the
+because JavaScript has one number type and inspect prints `5` for both, the
 exact inverse of A12 above, and the reason the dialect is asked of the TRACE
 (`vocab.dbg_dialect`) and never guessed from the text. `--value null`,
 `--value true` and `--value false` are the predicate constants and search for
@@ -285,14 +284,14 @@ approximately (blind spot 35). A string is spelled with its quotes
 before the wire cap saw it: the capture holds a prefix with a
 `… N more characters` tail, `flow` refuses to spell one, and the search
 returns no sighting rather than matching a prefix. Every spelling is
-generated, not reasoned about — 41 measured rows in
+generated, not reasoned about, 41 measured rows in
 `typescript/test/fixtures/inspect-table.json`, read by
 `docs/trace-format/TYPESCRIPT-KEYS.md` § *Under a focus*.
 
 **`flow --object` on a TypeScript trace is exact, and needs no focus.**
 `sensorium-ts` 0.3.0 and later mint a per-object serial from a `WeakMap`, never
-reused, and puts it on every object capture it writes — a RETURN value at the
-call tier included — so `--object` is gated on `object_identity` alone and
+reused, and puts it on every object capture it writes (a RETURN value at the
+call tier included) so `--object` is gated on `object_identity` alone and
 not on `line` (R13). The header says which basis it is on (*identity is a
 per-object serial minted once and never reused: every sighting is the same
 object*), the gap analysis does **not** run, and the footer reads
@@ -302,7 +301,7 @@ trace still needs `line`, and so still needs a `--focus`, because a value
 that only lived in a local between call and return is not in a recording that
 recorded no statement.
 
-### `info`'s two focus lines — what was typed, and what it selected
+### `info`'s two focus lines: what was typed, and what it selected
 
 *Added 2026-09-12 (S5 rung 4).* `info` prints `focus:` for what the run was
 asked for and, when the trace carries `meta.focus_matched`, a second line for
@@ -314,29 +313,29 @@ what that selected:
 Two different facts, which is why both print. `focus:` is the spec as its
 author wrote it, which is what they recognise; `focus matched:` is the
 `<file>:<qualname>` of every function it actually reached, which is what says
-whether the spelling meant what they thought — a spec that selected one
+whether the spelling meant what they thought, a spec that selected one
 function where its author expected three is invisible on the first line
 alone. On the rung-4 lens three typed specs selected **six** sites, because a
 container's spec reaches the function-likes nested inside it.
 
 A third number joins the second line when it differs from it:
 `(6 function(s) focused by the transform)`, from the container's own tally.
-It differs when two function-likes share one `<file>:<qualname>` — two
-anonymous arrows on one line, say — so the matched list is short by one and
+It differs when two function-likes share one `<file>:<qualname>` (two
+anonymous arrows on one line, say) so the matched list is short by one and
 the transform instrumented both. Where they agree the number is folded away,
 because a count that repeats the count beside it says nothing.
 
 The line is gated on the meta KEY and never on the language (R32), so a
-focused **Rust** trace prints it too — that is this reader's rule for every
+focused **Rust** trace prints it too, that is this reader's rule for every
 `info` line. An absent `focus` key and a recorded EMPTY one are different
 records and print differently: `focus: -` for the key nobody wrote, `none`
 for the empty list a recorder wrote down.
 
-### `refocus` on a Rust trace — the recorded command, run again
+### `refocus` on a Rust trace: the recorded command, run again
 
 **Added 2026-09-07 (rung 4 slice 2, `cargo-sensorium` 0.5.0).** `refocus`
 answers on a Rust trace that this driver converted, instead of refusing on
-`capabilities.refocus` — a recording an EARLIER driver made still declares
+`capabilities.refocus`. A recording an EARLIER driver made still declares
 `refocus: false` and still meets that refusal at exit 2, unchanged. The
 three verdicts, their exits and the licence's shape are `../README.md`'s
 `refocus` section, unchanged; what follows is the Rust half.
@@ -345,10 +344,10 @@ three verdicts, their exits and the licence's shape are `../README.md`'s
 this RUN, not about the recorder, and each exits **2** with `nothing was
 re-run` in it:
 
-- `--window` was given — it needs a per-activation runtime check the Rust
+- `--window` was given. It needs a per-activation runtime check the Rust
   runtime does not have, so it is refused by name rather than approximated.
 - The run is one of *n* processes of its invocation. The count is every runner
-  process cargo handed the driver — test binaries **and doctests** — so a
+  process cargo handed the driver (test binaries **and doctests**) so a
   `cargo test -p foo` that builds two integration tests is two processes and
   no single trace is the answer to a question about the invocation. The
   sentence is `corpus/rust/refocus_refused_many`'s pin:
@@ -357,21 +356,21 @@ re-run` in it:
 
   A single-target selector (`--lib`, `--test X`, `--bin X`) excludes doctests
   and is what makes the count 1.
-- The trace records no `workspace_root` — a recording made by
+- The trace records no `workspace_root`. A recording made by
   `cargo-sensorium 0.4.0` or earlier, which wrote no such key.
 - That workspace no longer exists on this machine.
 - There is no `cargo-sensorium` to re-run with: set
   `SENSORIUM_CARGO_SENSORIUM` or put the driver on `PATH`.
 
 Each of these also prints the Rust `no rerun was attempted` note, which names
-what a reader may do INSTEAD — and names the command that can record this
+what a reader may do INSTEAD, and names the command that can record this
 workspace, never `sensorium run`, which cannot
 (`corpus/rust/refocus_refused_many` pins the sentence whole).
 
 **The re-run is the recorded command, from the recorded workspace, into the
 same store.** `refocus` builds the driver argv itself: `--refocus-of <run>`
-first and unconditional, then the ORIGINAL's recorded tier — never one this
-call asserts — then the original's `meta.focus` followed by the values you
+first and unconditional, then the ORIGINAL's recorded tier (never one this
+call asserts) then the original's `meta.focus` followed by the values you
 added, then the original's own cargo argv. So a refocus only ever captures
 MORE. The announced command is `corpus/rust/refocus_match`'s pin:
 
@@ -384,19 +383,19 @@ environment is YOURS**, including `CARGO_TARGET_DIR`: the re-run inherits the
 environment you launch `refocus` from, never the one the original recorded.
 Two consequences, and they no longer bite the same way. A refocus launched
 without the `CARGO_TARGET_DIR` the original had rebuilds **cold** into the
-workspace's own `target/` — a full instrumented build, minutes rather than
+workspace's own `target/`, a full instrumented build, minutes rather than
 seconds, with the artifacts landing where the original left none. **Set it as
 the original had it** to keep the warm rebuild; `sensorium info <run>` prints
 what the original recorded.
 
 **But a target directory that MOVED is not a world that changed** (0.8.5,
 design 2026-09-07 §2). `CARGO_TARGET_DIR` is not one of the recorder's own
-variables — those are `SENSORIUM_*`, `RUSTC_WORKSPACE_WRAPPER` and
-`CARGO_TARGET_<TRIPLE>_RUNNER`, which a focused re-run must change — and cargo
+variables (those are `SENSORIUM_*`, `RUSTC_WORKSPACE_WRAPPER` and
+`CARGO_TARGET_<TRIPLE>_RUNNER`, which a focused re-run must change) and cargo
 hands the test binary three more that embed the root: `CARGO_BIN_EXE_*`,
 `LD_LIBRARY_PATH` and `RUSTDOCFLAGS`. So a re-run from a fresh target used to
 differ on all four and withhold the licence for it, which is a clause that
-cannot not fire rather than a finding. **Nothing is excluded by name** — that
+cannot not fire rather than a finding. **Nothing is excluded by name**, that
 would let a program really handed one extra directory on the loader's path
 earn a full licence. Each key that DIFFERS is asked one question instead: does
 the difference disappear when the original's target root is rewritten to the
@@ -406,7 +405,7 @@ reads, and the root must match at a **path boundary on both sides**: followed
 by a separator or the end of the value, and preceded by the start of it or a
 character no path component may contain. `/build/target-abc` is not
 `/build/target-a` relocated on the right, and `/ws/mytarget-a` is not
-`target-a` relocated on the left — the left anchor matters most for a RELATIVE
+`target-a` relocated on the left. The left anchor matters most for a RELATIVE
 root (`CARGO_TARGET_DIR=target-a`), which carries no leading separator of its
 own to stand in for it. A key the rule explains is
 NAMED, never counted and never dropped:
@@ -415,8 +414,8 @@ NAMED, never counted and never dropped:
 
 The clause is kept in the new trace as well as printed, so `info` replays a
 licence that says exactly what the terminal said. Anything the rule does not
-explain — a value that moved for a second reason, a key present on one side
-only — is a difference and withholds exactly as it did before. A Python pair
+explain (a value that moved for a second reason, a key present on one side
+only) is a difference and withholds exactly as it did before. A Python pair
 records no target root, so every line it prints is the line it printed before
 this rule existed.
 
@@ -424,13 +423,13 @@ this rule existed.
 (0.8.6, design 2026-09-08 R1). `cargo sensorium` links its runtime into the
 build by hand, so `RUSTDOCFLAGS` carries `--extern
 sensorium_rt=<root>/sensorium/rt/<16 hex>/<unwind|abort>/libsensorium_rt.rlib`
-together with the `-L dependency=<the same directory>` that resolves it — and
+together with the `-L dependency=<the same directory>` that resolves it, and
 that hash is a digest of the driver binary and the runtime's own sources, so
 it MOVES every time the driver is rebuilt. E4′ measured what not knowing that
 costs: 61 pairs out of 61 withheld the licence on this one key, under a driver
 that had only been recompiled. Every occurrence is now removed from **both**
 sides before the compare, and whatever the world put in that variable is
-compared exactly as before — equality first, then the relocation rule. **Both
+compared exactly as before, equality first, then the relocation rule. **Both
 tokens must name one directory**: that backreference is the whole fence, and
 two tokens naming two directories are not a shape this recorder writes, so
 they are left for the world's compare. A key the strip touched is NAMED on the
@@ -442,19 +441,19 @@ line and in the trace, beside the relocation clause and separated from it by
 A variable this tool compared less of is never silent, and a `RUSTDOCFLAGS`
 the world also wrote to still withholds on what is left of it.
 
-**Session set 1 — where the re-run was launched from is not what it computes**
+**Session set 1, where the re-run was launched from is not what it computes**
 (0.8.6, design 2026-09-08 R4 as amended). Refocus from another shell, another
 terminal, another agent session, and the two recorded environments differ on
 the handles that session hands a process. Measured on this box against a kept
 original: 73 keys equal, three missing (the previous launcher's own pins) and
-exactly **one** changed — `CLAUDE_CODE_SESSION_ID`. Session set 1 is the
+exactly **one** changed, `CLAUDE_CODE_SESSION_ID`. Session set 1 is the
 positive, versioned list of those handles: exact
 `DBUS_SESSION_BUS_ADDRESS`, `XDG_SESSION_ID`, `TERM_SESSION_ID`, `WINDOWID`,
 `TMUX`, `TMUX_PANE`, `SSH_AGENT_PID`, `SSH_AUTH_SOCK`, `SSH_CLIENT`,
 `SSH_CONNECTION`, `SSH_TTY`, `INVOCATION_ID`, `JOURNAL_STREAM`,
 `SYSTEMD_EXEC_PID`, plus the prefix `CLAUDE_CODE_`. Each names a bus, a
 window, a terminal, a connection, a service manager's invocation or an agent
-session — the identity of where a process was started, and a program has no
+session. The identity of where a process was started, and a program has no
 reason to read one to decide what to compute. A member that differs is
 **counted, named, and never withholds**:
 
@@ -463,8 +462,8 @@ reason to read one to decide what to compute. A member that differs is
 **Everything else still withholds, and that is the point.** The set is *not* a
 list of variables that "bear" on a program, which was the first design and had
 its falsifier already in this repository's suite: a test that records under
-`REFOCUS_TEST_LIMIT=10` and refocuses without it — a variable the program
-demonstrably reads, on no bearing list anyone would write — would have earned a
+`REFOCUS_TEST_LIMIT=10` and refocuses without it (a variable the program
+demonstrably reads, on no bearing list anyone would write) would have earned a
 full licence under that rule. This tool cannot know which variables a program
 reads, so the default stands: any other differing key is a change and withholds
 exactly as it did before. The set carries a **version number in the printed
@@ -480,12 +479,12 @@ whose recording started after the launch.
 
 **Not every linked trace is a candidate** (0.8.5, design 2026-09-07 §3). A test
 that spawns an instrumented program writes a second recorded process, and the
-driver stamps `refocus_of` on every trace of the invocation — so the store
+driver stamps `refocus_of` on every trace of the invocation, so the store
 holds two links where the reader made one re-run, and counting them made the
 lookup refuse "more than one" and advise a single-target selector at a caller
 whose selector was already single. A linked trace whose `ppid` is **another**
-linked trace's `pid` is a **child run**: it is not the pair — the pair is the
-process the reader recorded and asked about — but it is named on the pair line,
+linked trace's `pid` is a **child run**: it is not the pair (the pair is the
+process the reader recorded and asked about) but it is named on the pair line,
 stamped into the pair's trace as `refocus_children`, and still listed by `runs`,
 so a child that is itself the interesting process is unpaired rather than lost
 and `refocus` can be asked about it directly. `another` is load-bearing twice:
@@ -497,22 +496,19 @@ links nothing. The pair line carries the clause
 
     run: <new run>   child runs excluded from the pair: <run id>
 
-Exactly one CANDIDATE is the pair; **zero** —
-the driver refused, cargo failed before recording, the invocation produced
-nothing — is `verdict: REFUSED` after the rerun at exit **3**, carrying the
-driver's exit and pointing back at output you have already seen — the child's
+Exactly one CANDIDATE is the pair; **zero** (the driver refused, cargo failed before recording, the invocation produced
+nothing) is `verdict: REFUSED` after the rerun at exit **3**, carrying the
+driver's exit and pointing back at output you have already seen (the child's
 stderr streamed past rather than being captured, so the sentence reads `(driver
 exit <n>); see the driver's output above` and quotes no line of it; **more than
-one** is REFUSED by count — and that refusal carries the same `child runs
+one** is REFUSED by count) and that refusal carries the same `child runs
 excluded from the pair:` clause, in the same words, because a reader told about
 an excluded trace in two wordings has to work out whether they are one fact.
-Neither guesses. The link is what `runs` prints beside the verdict —
-`refocus-of:<run>  verdict:MATCH(granted:4,see-info)`
-(`corpus/rust/refocus_match`) — and what `info` prints on the new trace.
+Neither guesses. The link is what `runs` prints beside the verdict (`refocus-of:<run>  verdict:MATCH(granted:4,see-info)`
+(`corpus/rust/refocus_match`)) and what `info` prints on the new trace.
 
 **MATCH, DIVERGED and REFUSED mean exactly what they mean on a Python pair**,
-and the comparator is unchanged. For a Rust pair the fingerprint is per task —
-a test, or a spawned thread — over CALL, RETURN, RAISE and HANDLED, and **a
+and the comparator is unchanged. For a Rust pair the fingerprint is per task (a test, or a spawned thread) over CALL, RETURN, RAISE and HANDLED, and **a
 LINE row never enters the hash**, which is what lets the deeper re-run MATCH
 the run it came from. Tasks are compared as an order-independent multiset, so
 a worker pool that split the same work across different workers is not a
@@ -526,7 +522,7 @@ difference. The two verdict lines, from `corpus/rust/refocus_match` and
 Source, environment and exit status are checked for real. `output` and
 `children` are not: `capabilities.output` and `capabilities.children` are
 `false` on a Rust trace, so comparing them would compare two empty sets and
-report agreement — the named bug class. They print under their own heading and
+report agreement, the named bug class. They print under their own heading and
 are stamped, never counted (`corpus/rust/refocus_match`):
 
     checks that could not run on this pair
@@ -539,7 +535,7 @@ are two numbers and are never summed.
 **And `info` replays both halves** (0.8.5). The names were always stamped into
 the new trace's meta; until 0.8.5 `info` printed the `licence verified:` lines
 and not the checks that could not run at all, which leaves a later reader to
-infer that every other check ran and failed. It now prints them — and prints
+infer that every other check ran and failed. It now prints them, and prints
 nothing where the key is absent, because the stamp's absence is not a claim
 that everything was checked:
 
@@ -557,7 +553,7 @@ pins all three):
 all 61 `#[test]` functions of a real workspace one at a time
 (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md`): **61 of 61
 MATCH**, 0 DIVERGED, 0 REFUSED, with source, environment and exit each
-verified 61 of 61 and output and children UNVERIFIABLE 61 of 61 — **and the
+verified 61 of 61 and output and children UNVERIFIABLE 61 of 61, **and the
 licence WITHHELD on every one of the 61**, `licences granted` 0. The cause was
 the untraced-thread clause, and it could not not fire on a `cargo test` trace:
 libtest runs each test on a thread it spawns, so there is always at least one
@@ -568,8 +564,8 @@ not a finding.
 **The rule, applied 0.8.5 and narrowed in 0.8.6** (design 2026-09-07 §2, then
 design 2026-09-08 R3). A **harness thread** is a non-main thread whose **FIRST**
 root frame's site the manifest marks `#[test]` and whose task the runtime did
-**not** name at a spawn site — the recorder's own thread rather than the
-program's — and it comes out of the licence's untraced-thread counts. Each
+**not** name at a spawn site (the recorder's own thread rather than the
+program's) and it comes out of the licence's untraced-thread counts. Each
 clause is load-bearing:
 
 * the **ROOT**: a `#[test]` fn called from deeper on some other thread says
@@ -579,7 +575,7 @@ clause is load-bearing:
   then enters another has two roots, and only the first is how it began;
 * **not spawn-named**: the mark is no proof the other way. A spawn opens no
   frame of its own and a closure gets a frame only where it holds a `?`, so the
-  root of a spawned thread is the first instrumented fn it calls — and a
+  root of a spawned thread is the first instrumented fn it calls, and a
   `#[test]`/`#[bench]` fn is an ordinary fn to rustc, callable from anywhere, so
   `thread::spawn(|| a_test_fn())` puts a MARKED root on a thread the PROGRAM
   started. `sensorium-rt` names a workspace spawn at its site
@@ -588,14 +584,14 @@ clause is load-bearing:
 
 An `async` test fn is skipped by the transform, so it carries no mark at all,
 its harness thread's root is an ordinary fn, and that thread stays counted as
-the program's — the licence withholds, as it did before this rule. That end
+the program's. The licence withholds, as it did before this rule. That end
 always claimed less and is unchanged.
 
 **The history, dated, because the narrowing has one.** As applied in 0.8.5 the
 rule read the mark on ANY root and knew nothing of spawn names, so a thread the
 program spawned onto a marked fn was subtracted, `threads_started − harness`
 could reach 0, and the licence could be **granted** over a thread nothing had
-compared — the direction that claims more. Found by review 2026-09-07 and **not
+compared. The direction that claims more. Found by review 2026-09-07 and **not
 measured then**; built and measured 2026-09-08
 (`rust/HONESTY-BLIND-SPOTS.md` item 28, closed there with its date and its
 evidence). `corpus/rust/refocus_spawned_test_fn` pins it through the real
@@ -604,8 +600,8 @@ harness threads (…)` with `licence: WITHHELD`, where the old rule printed `no
 thread started besides the main one and 3 harness threads` and granted.
 
 The set is empty on any trace whose
-sites carry no marks — every **Python** trace, whose every line is byte for
-byte what it was — and empty unless the main thread is a RECORDED fact rather
+sites carry no marks (every **Python** trace, whose every line is byte for
+byte what it was) and empty unless the main thread is a RECORDED fact rather
 than one inferred from whichever event got id 1, because subtracting on a guess
 is the one way this rule could take a thread out of a count it was never in.
 
@@ -618,7 +614,7 @@ was removed. Three lines carry it, each in the grammar its slot needs. The
     threads: 1 recorded fingerprint(s) compared (events outside any test or spawned thread), all matching; 1 harness thread (libtest's per-test thread, excluded as the recorder's own) is not among these counts
 
 That parenthetical is the Rust vocabulary's, and it is a house meaning: this
-converter writes exactly ONE thread row — the main thread's — and routes every
+converter writes exactly ONE thread row (the main thread's) and routes every
 other thread's events into `task_fingerprints`, so the row covers what ran
 outside every test and spawned thread. `asyncio` there named a runtime that
 never ran. A granted licence's own fact JOINS the count instead:
@@ -631,7 +627,7 @@ fires, with the harness out of its count and named beside it:
       - the original started 4 thread(s) besides the main one and 1 harness thread (libtest's per-test thread, excluded as the recorder's own). A thread that ran no traced code has no fingerprint to compare, and the order the threads ran in was never compared for any of them
 
 `info` takes the same partition on the same screen, so the two commands cannot
-describe one trace differently — and it decides WHETHER to print from the raw
+describe one trace differently, and it decides WHETHER to print from the raw
 count, so a run whose only extra thread is the harness's still says so rather
 than falling silent:
 
@@ -650,27 +646,27 @@ numbers are **E4″**'s
 (`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §4, 2026-09-08,
 **H1 PASS**): over those same 61 pairs, granted on **57** and withheld on the
 four whose tests really do start threads, program-thread counts **1 / 4 / 4 /
-4** — the partition byte-locked before that instrument existed. On a `cargo
+4**, the partition byte-locked before that instrument existed. On a `cargo
 run` pair there is no harness thread at all
 and the licence IS granted, which `corpus/rust/refocus_match` pins over four
 points.
 
 **One caveat about `last`.** A refocus writes a NEW trace whose id no script
-could have spelled in advance, so the way to ask it a question is `last` —
+could have spelled in advance, so the way to ask it a question is `last`,
 which is the store's newest trace **by file mtime**, not by any recorded
 clock. Inside a corpus case that is unambiguous, because the case's store
 holds exactly two traces and the refocus just wrote the second; in a store you
 share between runs it is not, and `sensorium runs` (which prints the
 `refocus-of:` link) is what names the trace you actually mean.
 
-### `refocus` on a TypeScript trace — the recorded invocation, run again
+### `refocus` on a TypeScript trace: the recorded invocation, run again
 
 **Added 2026-09-13 (S5's refocus slice, `sensorium` 0.14.0).** `refocus`
 answers on a TypeScript trace instead of refusing on `capabilities.refocus`;
 a recording a **0.13.0 or earlier** driver converted still declares
 `refocus: false` and still meets that refusal at exit 2. The comparator, the
 store-not-stdout pair rule and the caveat about `last` are the Rust section
-above, word for word — with `threads` joining `output` and `children` among
+above, word for word, with `threads` joining `output` and `children` among
 the checks that print `unverifiable`.
 
 **A vitest invocation is a POOL, so the WHOLE invocation re-runs.** A Rust
@@ -685,18 +681,18 @@ quiet default, because it would be a command nobody typed.
 **Seven refusals come first, and none of them runs anything.** They are about
 this RUN, not the recorder; each exits **2** and ends `; nothing was re-run`:
 
-- `--window` — this recorder has no per-activation gate at all, so the flag
+- `--window`. This recorder has no per-activation gate at all, so the flag
   is refused by name rather than approximated.
 - `--tier off` on the original: no causal stream, so the comparison the
   re-run is FOR could not be made whatever came back.
-- no `harness_command` — a driver before the key existed wrote it, and
+- no `harness_command`. A driver before the key existed wrote it, and
   guessing a command is guessing.
 - no `harness_cwd` (`sensorium ts 0.13.0` or earlier): the harness command's
   own arguments are relative to the directory it was TYPED in, a third
   directory beside the container's `cwd` and the plan's `root`.
 - that directory is gone; or the project `root` is gone, a different fact
   with its own sentence.
-- the container was a **reused worker** — it ran more than one test file, so
+- the container was a **reused worker**. It ran more than one test file, so
   "which container of the re-run is its pair" has no answer at all. The one
   Rust has no counterpart for, pinned whole by
   `corpus/typescript/refocus_refused_reused_worker`:
@@ -705,7 +701,7 @@ this RUN, not the recorder; each exits **2** and ends `; nothing was re-run`:
 
 **Refusal 7 counts the evidence that saw more** (ruling P11): the converter's
 `test_files` where it declared any, and always the trace's own **task root
-frames** — depth-0 frames whose call ran inside a task — counted by the
+frames** (depth-0 frames whose call ran inside a task) counted by the
 distinct code-object files whose basename carries `.test.` or `.spec.`.
 Neither reading may lower the other's, because under `--no-isolate` a reused
 worker records `test_file` singular and never the plural key. **The bound**
@@ -725,7 +721,7 @@ shape, never a guess.
     --- rerunning (the harness's own output follows; the driver's run: lines print with it) ---
 
 `cmd:` is the command as a person would type it; **`via:`** is what this
-process really executed — `sys.executable -m sensorium`, never a `sensorium`
+process really executed, `sys.executable -m sensorium`, never a `sensorium`
 on `PATH`, because a pair compared across two recorders is the one thing a
 verdict may not rest on. `--refocus-of` is first and unconditional, `--tier`
 is the ORIGINAL's, the focus list is the original's then yours (a refocus
@@ -734,8 +730,8 @@ All three streams are inherited and nothing printed is parsed.
 
 **The pair is found in the store, by test file.** Every trace of the new
 invocation carries the driver's `refocus_of` stamp and the store is what is
-asked; the `run:` lines decide nothing. Linked is not PAIRED — a suite of 372
-files re-runs as 372 linked traces — and the key is the container's
+asked; the `run:` lines decide nothing. Linked is not PAIRED (a suite of 372
+files re-runs as 372 linked traces) and the key is the container's
 `test_file` where it ran one, its whole **`argv`** where it ran none (a `node
 --test` process, a script), and a key of its own, matching nothing, for a
 reused worker. Zero candidates is REFUSED after the rerun at exit **3**,
@@ -752,10 +748,10 @@ under the new invocation as `[refocus-of:<run>,verdict:UNVERIFIED]`. The count
 is stamped even at **0**: zero says the lookup ran and found the pair alone,
 an absent key that the trace predates the count.
 
-**Harness set 1 — which worker slot ran the work is not what it computes.**
+**Harness set 1, which worker slot ran the work is not what it computes.**
 vitest's pool mints `VITEST_POOL_ID` and `VITEST_WORKER_ID` per worker
 process, and a re-run takes whichever slot is free. Harness set 1 is the
-positive, versioned list of exactly those two — exact membership, not a
+positive, versioned list of exactly those two, exact membership, not a
 prefix, because `VITEST_` is a family the harness also mints configuration
 into. A member that differs is **counted, named, and never withholds**, in
 session set 1's words above; and every key starting `SENSORIUM_` is the
@@ -767,7 +763,7 @@ It reads `outside session set 1 and harness set 1` where a session key differs
 too. The **1** is the set's version, in the printed line for the reason session
 set 1's is: an exemption from the licence's default is a claim, and a key found
 to bear leaves the set with a date. The recorder's prefix is no optional
-exemption — three of those seven differ on EVERY refocus by construction, and
+exemption, three of those seven differ on EVERY refocus by construction, and
 `SENSORIUM_FOCUS` whenever the call deepens the focus, which is what a refocus
 is for; a check that always fires says nothing.
 
@@ -775,7 +771,7 @@ is for; a check that always fires says nothing.
 `exit: rerun 0 (waited)   original 0 (waited)`. A vitest worker is killed by
 its pool, so the container's own `exit_status` is `null` with basis
 `unwitnessed` on every trace: the shared clause over it compares null with
-null, reads equal and is silent — and silence in a licence check reads as
+null, reads equal and is silent, and silence in a licence check reads as
 agreement. What is compared instead are the two endings somebody did observe:
 `harness_exit`, which the driver WAITED for and alone carries a basis, and
 `exit_self_reported`, the container's own word on the way out. Either absent is

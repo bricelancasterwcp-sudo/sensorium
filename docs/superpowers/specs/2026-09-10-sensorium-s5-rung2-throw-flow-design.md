@@ -1,4 +1,4 @@
-# Sensorium S5 rung 2 — throw flow: `exceptions` on a TypeScript trace: design
+# Sensorium S5 rung 2: throw flow: `exceptions` on a TypeScript trace: design
 
 **Date:** 2026-09-10
 **Status:** design, awaiting Brice's read; then writing-plans
@@ -19,10 +19,10 @@ E6 shape) and its two amendments
 on Rust traces with five of its own, and **refuses a TypeScript trace at
 exit 3**: *"REFUSED: exceptions on a typescript trace needs the TypeScript
 disposition rules (S5 rung 2); the Python rules index exception identity
-this trace does not carry; nothing was judged"*. The rows are there — every
+this trace does not carry; nothing was judged"*. The rows are there (every
 `throw` statement writes a RAISE, every `catch` clause a HANDLED, a frame
 left by throwing an UNWIND with the thrown value, an unhandled rejection a
-meta entry — and `capabilities.err_flow` is `false` because no rule reads
+meta entry) and `capabilities.err_flow` is `false` because no rule reads
 them (rung-1 spec D15; `typescript/HONESTY.md` §4).
 
 **What the wire already settles, and what it does not.** Identity is a
@@ -32,7 +32,7 @@ rethrow across an `await` keeps its serial; a thrown primitive gets a fresh
 serial each time and cannot be followed. HANDLED rows come only from real
 `catch` clauses and one sink, `.catch(() => {})`, so TypeScript has none of
 the implicit-handler noise that makes Python's rule hard (CPython fires
-HANDLED on `finally` and on `await` cleanup — `exceptions_cmd.py`'s
+HANDLED on `finally` and on `await` cleanup, `exceptions_cmd.py`'s
 docstring). Three shapes produce no record today and would generate false
 verdicts under any rule: a `.catch(fn)` with a non-empty body and a
 `.then(_, onRejected)` (a rejection they handle would read *propagated,
@@ -51,15 +51,15 @@ equality) and on the lens (every SWALLOWED line hand-adjudicated against the
 source). Rust's HONESTY §11 defines the adjudication and is quoted in §7.
 
 **Rulings from the brainstorm (2026-09-10).** Brice ruled the scope: the
-**full transfer** — the rules module AND the records the honest verdicts
+**full transfer**. The rules module AND the records the honest verdicts
 need (callback handlers, the escape rule, the `finally` sink), rather than
 rules over today's records with the gaps declared. Brice approved approach
 1 of three (the paragraph below). Design decisions are Claude's under the
 2026-09-07 delegation and are listed with their cost in §11.
 
 **Approach, and the two not taken.** (1) **Taken:** Python's rule shape
-over serial identity — a HANDLED in a frame that then returned, with no
-later RAISE of the same serial, is the swallow candidate — plus Rust's
+over serial identity (a HANDLED in a frame that then returned, with no
+later RAISE of the same serial, is the swallow candidate) plus Rust's
 discipline: ambiguous by default, an escape bucket decided at transform
 time, grouped one-block-per-shape output across an invocation. (2) Rust's
 chain machine at conversion: the wrong tool, since Rust minted chains
@@ -70,8 +70,7 @@ pre-committed falsifier on the lens; ruled out by Brice.
 ## 1. Goal, scope, non-goals
 
 **Goal.** `sensorium exceptions <run>` and `sensorium exceptions
-<invocation>` answer on TypeScript traces with Python's five words —
-`swallowed`, `uncaught`, `re-raised`, `propagated`, `ambiguous` — and every
+<invocation>` answer on TypeScript traces with Python's five words (`swallowed`, `uncaught`, `re-raised`, `propagated`, `ambiguous`) and every
 SWALLOWED they print is one the recording establishes.
 
 **In scope.**
@@ -111,23 +110,23 @@ capability flag.
 
 A `catch (e) { … }` clause's `how` is decided from its body:
 
-- **`catch`** — the body never mentions the binding, or mentions it **only
+- **`catch`**: the body never mentions the binding, or mentions it **only
   as an argument of a logging call**: `console.log`, `console.error`,
   `console.warn`, `console.info`, `console.debug`, `console.trace`, at any
   argument position, including inside a template literal or a `String(e)`
   that is itself that argument. Log-and-continue is the archetypal swallow:
   the failure never reached the caller, the log is where it went.
-- **`catch_escaped`** — the binding appears anywhere else: `return e`, `throw
+- **`catch_escaped`**: the binding appears anywhere else: `return e`, `throw
   new Wrapped(e)`, `expect(e.message)`, `err = e`, `list.push(e)`, a
   template literal or `String(e)` whose value is used, an argument to any
   non-logging call, a closure that captures it. The failure, or a rendering
   of it, reached something; the rule does not follow where.
-- **`sink_empty_catch`** — an empty block, as today.
+- **`sink_empty_catch`**: an empty block, as today.
 - A clause with no binding reads `catch` (nothing can escape); a
   **destructuring** binding reads `catch_escaped` (the runtime cannot see
   what it bound; blind spot 13 becomes a declared escape).
-- A **bare rethrow** — `throw e;`, or `throw (e);`, whose operand after any
-  parentheses is the binding ITSELF — is a traced EXIT and not a mention: it
+- A **bare rethrow** (`throw e;`, or `throw (e);`, whose operand after any
+  parentheses is the binding ITSELF) is a traced EXIT and not a mention: it
   does not count towards `catch_escaped`, and the clause's `how` is decided by
   whatever else its body does with the binding. So `catch (e) { throw e }` and
   `catch (e) { console.error(e); throw e }` read `catch`, while
@@ -135,11 +134,10 @@ A `catch (e) { … }` clause's `how` is decided from its body:
   `catch (e) { throw e.cause }` and `catch (e) { throw wrap(e) }` stay
   `catch_escaped`. The exclusion holds at closure depth 0 only: a `throw e`
   inside a nested function within the body is an escape by the closure rule,
-  because the closure keeps the binding. The value reaches nothing — it leaves
-  the way it arrived — and the RAISE the throw writes carries the same serial,
+  because the closure keeps the binding. The value reaches nothing (it leaves
+  the way it arrived) and the RAISE the throw writes carries the same serial,
   which is what the rule module reads (a rethrow with the same serial is a hop,
-  §3.3 rule 2). The exclusion applies to §2.2's rejection callbacks as well —
-  one rule, two syntaxes — since §2.2 defines a callback's word as this rule
+  §3.3 rule 2). The exclusion applies to §2.2's rejection callbacks as well (one rule, two syntaxes) since §2.2 defines a callback's word as this rule
   applied to its parameter and a rethrow from a handler carries the serial the
   same way: `.catch((e) => { throw e })` reads `catch_callback`, while
   `.catch((e) => { seen.push(e); throw e })` and
@@ -161,18 +159,18 @@ in place of the macro list.
 `spliceEmptyCatchCallback` wraps an empty arrow today:
 `__srt.catchCb(__sf, <line>, <how>, (<arg>))` returns a function that records
 HANDLED `{kind: "rejection"}` with the reason it was given, then calls the
-original with the same `this` and argument and returns its result — a
+original with the same `this` and argument and returns its result. A
 wrapper that must not change what the handler does. `<how>` is decided at
 transform time from the argument's shape:
 
 - an inline arrow or `function` expression with an **empty** body →
   `sink_empty_catch_callback` (today's word, now for the `function` spelling
-  too — blind spot 11 closes);
+  too, blind spot 11 closes);
 - an inline arrow or `function` with a parameter → **`catch_callback`** or
   **`catch_callback_escaped`** by §2.1's rule applied to the parameter over
   the callback's body; a parameterless non-empty body → `catch_callback`;
-- **anything else** — an identifier, a member reference, a call returning a
-  function — → **`catch_callback_opaque`**: the handler is a function
+- **anything else**: an identifier, a member reference, a call returning a
+  function. → **`catch_callback_opaque`**: the handler is a function
   defined elsewhere, and whether it swallows is not this splice's to say.
   (A named handler that is itself instrumented has its own frame; a
   rethrow from it carries the serial and reads as a hop; a return from it
@@ -193,11 +191,11 @@ travelling through that frame: `raise(f, e)` sets `f`'s mark to `e`'s
 serial; `thr(f, e)` (the callee's frame closing by throw) sets the mark of
 `f`'s **parent** frame, where the exception is now in flight; `handled(f, …)`
 clears `f`'s mark. `handledFinally(f)` writes the record when `f`'s mark is
-set — `exc` is `{kind: "throw", serial: <the mark's>, unread: ["type",
+set (`exc` is `{kind: "throw", serial: <the mark's>, unread: ["type",
 "msg"]}`, since the block has no binding and the runtime holds no reference
-to the value — and then clears it. The serial keeps identity intact, so the
+to the value) and then clears it. The serial keeps identity intact, so the
 rule module pairs the sink with its RAISE like any other HANDLED. A throw
-that traced code never raised — a library's, a `reject()`'s — sets no mark,
+that traced code never raised (a library's, a `reject()`'s) sets no mark,
 so a `finally` that discards one records nothing: a declared blind spot. A
 `finally` with no completion statement records nothing, as today.
 
@@ -207,7 +205,7 @@ The BOOT record's `capabilities` gains `err_flow: true`; the converter
 passes it through untouched (`_meta`'s `capabilities` is `dict(CAPABILITIES)`
 today; it becomes the BOOT's). A spool whose BOOT lacks the key reads
 `false`, so a 0.1.x spool converted by this converter still refuses at exit
-3 — with the **capability** sentence now, `caps.require`'s: what it lacks is
+3, with the **capability** sentence now, `caps.require`'s: what it lacks is
 a record.
 
 ### 2.5 The enumeration, and what still produces nothing
@@ -220,7 +218,7 @@ named in HONESTY: a `finally` without a completion statement; `.finally(fn)`;
 a `Promise.reject(v)` (not a `throw`: its handler's HANDLED has no RAISE, and
 reads *born outside a throw statement*); a throw inside a promise executor
 with no open frame (counted in `throw_flow_outside_frames`); a throw in
-untraced code (`JSON.parse`, a library) — its HANDLED has no RAISE and reads
+untraced code (`JSON.parse`, a library). Its HANDLED has no RAISE and reads
 *born outside traced code*.
 
 ## 3. The rules module
@@ -244,7 +242,7 @@ primitive throw carries a fresh serial on every record, the HANDLED's
 included, so its rows never share one: within **one frame**, a primitive
 RAISE pairs with the next HANDLED in that frame carrying equal `type` and
 `msg` and no serial-matched RAISE between them; any other pairing of
-primitives — across frames, or after a rethrow — is `ambiguous (a primitive
+primitives (across frames, or after a rethrow) is `ambiguous (a primitive
 has no identity across a rethrow)`. Two objects are never merged on text.
 
 ### 3.2 The index
@@ -258,19 +256,19 @@ parent, `caller: "untraced"`); meta `unhandled_rejections` by serial; meta
 
 ### 3.3 The classifier, in order, for every RAISE and every orphan HANDLED
 
-1. **uncaught** — the serial is in `unhandled_rejections` and no later RAISE
+1. **uncaught**: the serial is in `unhandled_rejections` and no later RAISE
    carries it. Detail: `unhandled rejection; raised at <site>`, or `unhandled
    rejection; born outside traced code (a reject() or a library)` for an
    orphan.
-2. **re-raised** — a later RAISE with the same serial exists. The origin's
+2. **re-raised**: a later RAISE with the same serial exists. The origin's
    line lists every hop (`e3 raise L12 → e9 raise L30 → …`) and points at
    the last raise's verdict, `re-raised → <that word>`; **every RAISE keeps
    its own block and its own tally entry**, as Python's output does (the
    rethrow's block carries its own verdict by rules 1, 3–5), so tallies
    count RAISE events and stay comparable line for line.
-3. **swallowed** — a HANDLED with `how` in the **absorbing set** — `catch`,
+3. **swallowed**: a HANDLED with `how` in the **absorbing set** (`catch`,
    `sink_empty_catch`, `catch_callback`, `sink_empty_catch_callback`,
-   `sink_finally_return` — sits in a frame that later closed by `return`,
+   `sink_finally_return`) sits in a frame that later closed by `return`,
    no later RAISE of the serial exists, and **no** HANDLED for the serial
    anywhere is in the escaping set (`catch_escaped`,
    `catch_callback_escaped`, `catch_callback_opaque`). Python's thrown-in
@@ -279,26 +277,26 @@ parent, `caller: "untraced"`); meta `unhandled_rejections` by serial; meta
    this one's. Detail: `SWALLOWED -- caught by <how> at e<id> (<qualname>
    L<line>) in f<id>, which returned`, plus `born outside traced code` /
    `born outside a throw statement` for an orphan.
-4. **propagated** — no HANDLED in the absorbing set, and the serial's last
+4. **propagated**: no HANDLED in the absorbing set, and the serial's last
    UNWIND closes the task's **root frame**, or a frame whose parent is
    untraced. Detail: `to the harness: test "<task name>" failed` for a task
    root, else `handler not in traced code`. As coded
    (`src/sensorium/query/exceptions_typescript.py`, `_propagated` and
    `_still_open_absorber`) this rule declines in two further places, both
    narrowings of the sentence above: **(a)** whenever **any** HANDLED for the
-   serial is in the **escaping** set — rule 5 then answers it with the escaped
+   serial is in the **escaping** set (rule 5 then answers it with the escaped
    reason, and since rule 4 runs first the conjunct has to sit here for rule 5
    to be reached at all; and **(b)** when an **absorbing** HANDLED sits in a
-   frame that has **not yet returned** — an absorbing handler whose frame DID
+   frame that has **not yet returned**) an absorbing handler whose frame DID
    return is rule 3's or, for a rethrown serial, an earlier window's and no
    evidence about this one, while a parked `.catch(async …)` frame unwinding
    beneath a live handler is not evidence the harness saw the failure (the
    Task-4 review fix, `7c2ead1`). *(Amended 2026-09-10 at the final review:
-   the rule as coded and as MEASURED — the record's E6-TS′ tally was produced
+   the rule as coded and as MEASURED (the record's E6-TS′ tally was produced
    under it; the coded reading is the safe direction, it never accuses; a
    handler that escaped and then rethrew out of the test root reads AMBIGUOUS
-   where PROPAGATED would be truer — carried in CARRIED-DEBT.)*
-5. **ambiguous** — everything else, each with its reason printed: an escaped
+   where PROPAGATED would be truer) carried in CARRIED-DEBT.)*
+5. **ambiguous**: everything else, each with its reason printed: an escaped
    or opaque handler (`caught at e<id> (<how>), and the error or a rendering
    of it left the handler; not followed`); a handler frame still suspended
    at the end of the recording; a handler frame that later unwound with a
@@ -357,7 +355,7 @@ callable each language module supplies; the printed bracket, the
 
 `invocation <id>: <harness_command as typed> -- 372 processes, 41 with
 throws, 331 with none`, then `raised (N raises over M processes, K swallowed
-shapes):` — the noun corrected on 2026-09-08 for Rust, adopted here from the
+shapes):`, the noun corrected on 2026-09-08 for Rust, adopted here from the
 start.
 
 ## 5. Converter, contract, vectors
@@ -393,7 +391,7 @@ TypeScript paragraph and its own five-word sentence.
 SWALLOWED, exit 0); `v31-exceptions-typescript-escaped-ambiguous` (a
 `catch_escaped` → AMBIGUOUS with its reason, never SWALLOWED);
 `v32-err-flow-typescript-capability-refusal` (a 0.1.x-shaped trace,
-`err_flow: false`, refuses at exit 3 with the capability sentence — the
+`err_flow: false`, refuses at exit 3 with the capability sentence. The
 refusal `corpus/typescript/exceptions_refused` pinned moves here, since no
 new recording can produce it); `v33-exceptions-typescript-invocation-shape`
 (two members, one swallowed shape `[×2 over 2 processes: …]`).
@@ -411,7 +409,7 @@ verdict line and the tally, and a `why_logs_fail` naming all three channels:
 | `silent_swallow` | the existing `exceptions_refused` source: `parse` throws inside `loadConfig`'s empty `catch` | SWALLOWED at the sink; tally `swallowed 1` |
 | `logged_catch` | `catch (e) { console.error(e) }` | SWALLOWED, detail names the logging catch |
 | `escaped_catch` | `catch (e) { return String(e) }` | AMBIGUOUS (escaped), never SWALLOWED |
-| `asserted_catch` | `catch (e) { expect((e as Error).message).toBe(…) }` — the lens's dominant shape | AMBIGUOUS (escaped) |
+| `asserted_catch` | `catch (e) { expect((e as Error).message).toBe(…) }`, the lens's dominant shape | AMBIGUOUS (escaped) |
 | `rethrow_hop` | `catch (e) { throw e }` caught by an outer empty catch | two RAISE blocks: the origin `re-raised → swallowed` with its hop, the rethrow SWALLOWED; tally `re-raised 1, swallowed 1` |
 | `translated` | `catch (e) { throw new Wrapped(e) }` | origin AMBIGUOUS (translation), the wrapper's own raise judged on its own |
 | `callback_sink` | `await Promise.reject(new Error()).catch(() => {})` | SWALLOWED, born outside a throw statement |
@@ -426,13 +424,13 @@ verdict line and the tally, and a `why_logs_fail` naming all three channels:
 | `dependency_throw` | `JSON.parse('{')` inside an empty catch | SWALLOWED, born outside traced code |
 | `suspended_handler` | a handler in an async frame parked at the end | AMBIGUOUS (frame still suspended) |
 
-*Amended 2026-09-10 at Task 6 — four rows read differently in the measured
+*Amended 2026-09-10 at Task 6, four rows read differently in the measured
 output, none moving a count: `silent_swallow` prints `caught by catch` (the
 clause returns; it is not `sink_empty_catch`); `translated`'s origin prints the
 escaped reason, not a translation reason (§3.3 rule 5 reaches the translation
 reason only when no escaping handler exists, and this shape's clause binds
 `e`); `await_rejection_caught` prints no hops line (one RAISE, so there is no
-hop); `test_failed` is a `throw` statement, not a failing `expect` — a failing
+hop); `test_failed` is a `throw` statement, not a failing `expect`, a failing
 `expect` throws inside vitest's untraced code and writes no RAISE row, so
 `exceptions` can only reach `to the harness` from a throw in traced code (an
 assertion failure born in `expect` shows in `info`'s exit line, not in
@@ -490,10 +488,10 @@ guard (1-minute load under 4.0, the reading written beside every wall).
 **The adjudication protocol for E6-TS′**, transferred from Rust's
 HONESTY-ERR-FLOW §11 and R15 and fixed here before any line is read: a
 SWALLOWED line is **true** when the catch (or callback, or `finally`)
-discarded the failure and the caller went on as if the call had succeeded —
+discarded the failure and the caller went on as if the call had succeeded,
 an empty clause, a clause that only logs, a `finally` that returned; it is
 **false** when the failure or a rendering of it reached the caller by any
-route the rule did not see — returned, stored, asserted on, rendered into a
+route the rule did not see, returned, stored, asserted on, rendered into a
 value, re-thrown as another object, or read by a handler the rule called
 opaque and that in fact propagated. Every line is read against the source
 at the site the verdict names; the count of lines and the adjudication of
@@ -558,7 +556,7 @@ carries §3.3, §4.2, §6.1's table and §7 **verbatim**.
 - Ceilings: `docs/TRACE-FORMAT.md` split before any edit (§5.2);
   `exceptions_cmd.py` (757) gains its dispatch lines only; `README.md`
   (782) takes at most one sentence; `docs/CARRIED-DEBT.md` (722) is measured
-  before its section — a cut of its oldest section to volume 6 is expected;
+  before its section, a cut of its oldest section to volume 6 is expected;
   `typescript/HONESTY.md` (757) may need a split of §10's blind spots into
   `typescript/HONESTY-BLIND-SPOTS.md` (Rust's precedent), decided by the
   measured count at task 8.
@@ -569,7 +567,7 @@ carries §3.3, §4.2, §6.1's table and §7 **verbatim**.
 |---|---|---|
 | R1 | Unhandled rejections stay in meta; the rule reads them by serial, no event minted | an orphan rejection prints no site, and says so |
 | R2 | The catch-binding escape rule is decided at transform time and written as `how` (Rust R2 amended, transferred) | a misclassified clause errs toward AMBIGUOUS; E6-TS′ measures the rate |
-| R3 | The logging family is `console.{log,error,warn,info,debug,trace}` only | a project using a logger library reads its log-and-continue as AMBIGUOUS — the safe direction, declared |
+| R3 | The logging family is `console.{log,error,warn,info,debug,trace}` only | a project using a logger library reads its log-and-continue as AMBIGUOUS, the safe direction, declared |
 | R4 | `.catch(<arg>)` / `.then(_, <arg>)` wrap any argument; non-inline arguments are `catch_callback_opaque` | a named handler that swallows is never accused; its rethrow still reads as a hop |
 | R5 | `finally` with a completion statement is a sink recorded only under an in-flight mark | a `finally` that returns on the normal path writes nothing; a mark left by a HANDLED-then-`finally` sequence is cleared by the HANDLED |
 | R6 | `uncaught` is reserved for an unhandled rejection; a failing test is `propagated (to the harness)` | a reader used to Python's word for a crash reads the detail |
@@ -594,7 +592,7 @@ Scope, merges and money only.
 
 *The plan's Task 8 calls this section the home of the execution deltas. In this
 document's layout §12 is Brice's rulings and §13 is the pre-registration
-pointer, so the deltas are **§14** below — "What changed against this design,
+pointer, so the deltas are **§14** below, "What changed against this design,
 and why", slice 2's own §12 by another number. (Added 2026-09-10.)*
 
 ## 13. The pre-registration, in one table
@@ -605,10 +603,10 @@ the plan and the record cite one source.
 
 ## 14. What changed against this design, and why (rung 2, 2026-09-10)
 
-*Added 2026-09-10, at the rung's close — the "execution deltas" §12 promises
+*Added 2026-09-10, at the rung's close, the "execution deltas" §12 promises
 and the plan's Task 8 asks for. Nothing above is deleted; where a sentence of
 this document was narrowed, replaced or falsified, this section is the index
-to it. **§7 is byte-locked** and carried verbatim into the record's §1 — no row
+to it. **§7 is byte-locked** and carried verbatim into the record's §1. No row
 below touches it, and none could: every number in it was fixed before any of
 this code existed (`tests/test_acceptance_s5_rung2_lock.py`). Two amendments
 already stand where they belong rather than here: **§2.1**'s bare-rethrow
@@ -619,41 +617,41 @@ paragraph and **§6.1**'s four-row note under its table, both dated at Task 6.*
 `../plans/2026-09-10-sensorium-s5-rung2-throw-flow.md`), each of which that
 table promised would amend this spec non-silently; this is where that is paid.
 **R-rows** are controller rulings made while shipping, in the order they were
-made (the SDD ledger's `Ruling:` lines) — with one exception, **R15**, which
+made (the SDD ledger's `Ruling:` lines), with one exception, **R15**, which
 is the whole-branch final review's own amendment and is dated as such both
 here and in §3.3.
 
 | # | What this document said, or left open | What rung 2 shipped, and why |
 |---|---|---|
-| P1 | §2.3: a `finally` sink learns a throw is in flight because `raise` and `thr` set a mark | A catch-**less** `try` whose `finally` completes gains a synthetic marking clause `catch(__sfe){__srt.mark(__sf,__sfe);throw __sfe}`; `raise(f, e)` and that clause set `f.mark`, `handled` clears it, and **`thr` sets nothing** — a `Frame` holds no parent reference and an awaited rejection lands in another microtask, so an unwinding callee cannot find its awaiter, while the synthetic clause sees a library throw and an awaited rejection alike and carries the real serial. A `try` with its own `catch` is therefore never marked: blind spot 18. |
-| P2 | Where the escape rule lives was open | `typescript/src/escape.mjs`, exporting `catchHow`, `callbackHow` and `finallyCompletes` as pure functions over AST nodes, unit-tested directly — `transform.mjs` was at 708 of 800 lines and the rule is the largest new thing this rung writes. |
+| P1 | §2.3: a `finally` sink learns a throw is in flight because `raise` and `thr` set a mark | A catch-**less** `try` whose `finally` completes gains a synthetic marking clause `catch(__sfe){__srt.mark(__sf,__sfe);throw __sfe}`; `raise(f, e)` and that clause set `f.mark`, `handled` clears it, and **`thr` sets nothing**. A `Frame` holds no parent reference and an awaited rejection lands in another microtask, so an unwinding callee cannot find its awaiter, while the synthetic clause sees a library throw and an awaited rejection alike and carries the real serial. A `try` with its own `catch` is therefore never marked: blind spot 18. |
+| P2 | Where the escape rule lives was open | `typescript/src/escape.mjs`, exporting `catchHow`, `callbackHow` and `finallyCompletes` as pure functions over AST nodes, unit-tested directly, `transform.mjs` was at 708 of 800 lines and the rule is the largest new thing this rung writes. |
 | P3 | `emptyCatch` records the empty-callback sink | **Replaced** by `catchCb(f, line, how, fn)`, emitted for every rejection handler; `emptyCatch` is deleted, because a 0.1.x transform output never reaches a 0.2.0 runtime (the driver pins the package) and one wrapper with one signature is the whole of §2.2. |
 | P4 | §2.2 wraps `p.then(<x>, <arg>)` | Only a **two-argument** `.then` wraps its second argument; `.then(fn)`, `.catch()` with no argument and `.finally(fn)` are untouched, as §2.2 says. |
 | P5 | §4.2 generalises `exceptions_group` over a `site(disposition)` callable | `group_units(trace, units, idx, classify, render)` with a module-level `Renderer` dataclass `{at, hops_line, site, site_text, site_file, tag_order}` supplied per language; `group_chains` stays as a thin wrapper passing the Rust renderer, which is what keeps every Rust caller and every Rust test byte-unchanged. |
 | P6 | §3.2's "unit" the grouper sees was left to the module | A `Raise` object `{origin, handled, last_raise}` per RAISE serial, and one per orphan HANDLED serial, built by the index; `origin` is what `_at` and the bracket ids print, because the grouper reads `.origin` already. |
-| P7 | §2.4 and R14: the old language refusal retires | `TYPESCRIPT.exceptions_refusal` becomes `None` — dispatched before `_language_refusal`, as `RUST` is — and v23's sentence about `exceptions` refusing at exit 3 is re-pinned to the **capability** sentence on a 0.1.x-shaped trace (the new v32). The old sentence named a rung that has now shipped. |
+| P7 | §2.4 and R14: the old language refusal retires | `TYPESCRIPT.exceptions_refusal` becomes `None` (dispatched before `_language_refusal`, as `RUST` is) and v23's sentence about `exceptions` refusing at exit 3 is re-pinned to the **capability** sentence on a 0.1.x-shaped trace (the new v32). The old sentence named a rung that has now shipped. |
 | P8 | §7's record was unnamed | `../acceptance/2026-09-10-sensorium-s5-rung2.md`, with `.results.json`, `-e6tsp-adjudication.md` and `-e7-exceptions.txt` beside it; lock test `tests/test_acceptance_s5_rung2_lock.py` on the slice-2 pattern; assembler `typescript/acceptance/assemble_rung2.py`. |
-| P9 | §7's adjudication protocol fixes the reading, not the record | One row per SWALLOWED shape — `shape id · site · how · the source lines quoted · TRUE/FALSE · reason under §7` — written to `-e6tsp-adjudication.md` with its counts copied into the record's §3, because the per-line record is what lets the gate be re-read by somebody else. |
+| P9 | §7's adjudication protocol fixes the reading, not the record | One row per SWALLOWED shape, `shape id · site · how · the source lines quoted · TRUE/FALSE · reason under §7`, written to `-e6tsp-adjudication.md` with its counts copied into the record's §3, because the per-line record is what lets the gate be re-read by somebody else. |
 | P10 | §7's E2″ needed an instrument | `typescript/acceptance/census_catch.mjs <root>`, on rung 1's `census.mjs` shape: it walks the lens with the consumer's own TypeScript, counts what a walker sees, and takes its numerator from the transform's own output. |
 | P11 | R14: the corpus's refusal case is renamed | `corpus/typescript/exceptions_refused/` → `silent_swallow/` by `git mv`, same `config.ts`, new questions; the refusal it recorded becomes vector v32, since no recorder produces it any more. |
-| P12 | Where the BOOT-capabilities ingest test goes was open | `tests/test_ts_ingest_caps.py` — `tests/test_ts_ingest_meta.py` was at 777 of 800 lines. |
+| P12 | Where the BOOT-capabilities ingest test goes was open | `tests/test_ts_ingest_caps.py`, `tests/test_ts_ingest_meta.py` was at 777 of 800 lines. |
 | P13 | §9's order of work | The runtime's `catchCb`/`mark`/`handledFinally` land **before** the transform, so no Node test ever executes a transformed call the runtime lacks; the probes are written with the runtime and go green with the transform. |
-| P14 | §10: `sensorium-ts` 0.2.0 and Python 0.10.0 | `sensorium-ts` becomes **0.2.0 at Task 1**, with the runtime whose declaration changed, because Task 6's corpus questions pin the recorder string `info` prints — which is the BOOT's `VERSION`, written before Task 8. Python's **0.10.0** waits for Task 8, with the CHANGELOG entry the release-token gate binds to it. |
-| R1 | §2.3's literal reading of a completing `finally` | `finallyCompletes` counts a `return` at closure depth 0, and a `break`/`continue` only when no loop or switch **inside** the `finally` encloses it — a break that stays inside the finally discards nothing — and the census imports the predicate from `escape.mjs` so E2″'s two halves share one rule. |
-| R2 | §2.3 stores "the serial of the exception now travelling" | The mark stores the whole `exc(e, 'throw')` object rather than the serial, so `raise` and the synthetic clause both hold the value and `handledFinally` writes a complete `exc` — the contract requires `type` on every `exc`. |
+| P14 | §10: `sensorium-ts` 0.2.0 and Python 0.10.0 | `sensorium-ts` becomes **0.2.0 at Task 1**, with the runtime whose declaration changed, because Task 6's corpus questions pin the recorder string `info` prints, which is the BOOT's `VERSION`, written before Task 8. Python's **0.10.0** waits for Task 8, with the CHANGELOG entry the release-token gate binds to it. |
+| R1 | §2.3's literal reading of a completing `finally` | `finallyCompletes` counts a `return` at closure depth 0, and a `break`/`continue` only when no loop or switch **inside** the `finally` encloses it (a break that stays inside the finally discards nothing) and the census imports the predicate from `escape.mjs` so E2″'s two halves share one rule. |
+| R2 | §2.3 stores "the serial of the exception now travelling" | The mark stores the whole `exc(e, 'throw')` object rather than the serial, so `raise` and the synthetic clause both hold the value and `handledFinally` writes a complete `exc`. The contract requires `type` on every `exc`. |
 | R3 | §6.2's probes and the checker's new checks were Task 1's | They move wholly to Task 2: new checker checks would have turned `tests/test_ts_live.py`'s checker test red between the two tasks, so Task 1 ships runtime, tests and the version bump only. |
 | R4 | §7 left E2″'s numerator to the instrument | It comes from the transform's **own output**: `census_catch.mjs` runs `transformSource` over each eligible file and counts `__srt.handled(` / `__srt.catchCb(` / `__srt.handledFinally(` in the result by `how` word. No manifest key is added; the goldens hold the text's shape. |
-| R5 | §2.2 wraps `.catch(<arg>)` "the way `spliceEmptyCatchCallback` does" | The wrap happens on **any receiver**, because the transform cannot type the expression. A non-promise API whose `.catch` calls its callback writes an orphan HANDLED and could reach *SWALLOWED, born outside a throw statement* — a declared blind spot and an explicit E6-TS′ watch item, where such a line counts FALSE. |
-| R6 | §2.1's `String(e)` reading | A mention inside an intermediate call within a `console` argument — `console.log(sanitize(e))` — reads `catch` (logged), the same reading applied consistently; a helper that stores `e` and returns text is therefore read as a swallow, and is declared. |
+| R5 | §2.2 wraps `.catch(<arg>)` "the way `spliceEmptyCatchCallback` does" | The wrap happens on **any receiver**, because the transform cannot type the expression. A non-promise API whose `.catch` calls its callback writes an orphan HANDLED and could reach *SWALLOWED, born outside a throw statement*, a declared blind spot and an explicit E6-TS′ watch item, where such a line counts FALSE. |
+| R6 | §2.1's `String(e)` reading | A mention inside an intermediate call within a `console` argument, `console.log(sanitize(e))`, reads `catch` (logged), the same reading applied consistently; a helper that stores `e` and returns text is therefore read as a swallow, and is declared. |
 | R7 | §6.1: `exceptions_refused` is renamed at Task 6 | Task **4** rewrites that case's `exceptions` question to the verdict it now gets, because the corpus re-records with the 0.2.0 recorder and would go red between Tasks 4 and 6; Task 6 does the rename. |
-| R8 | §2.1 listed only `throw new Wrapped(e)` as an escape | **A bare rethrow — `throw e;` whose operand after any parentheses is the binding itself — is a traced EXIT and not a mention**, so it does not count towards `catch_escaped` and the clause's word is decided by its other mentions. §3.3 rule 2, §6.1's `rethrow_hop` row and R4 all assumed this, while `escape.mjs` counted every `throw` operand: under that reading rule 3's escaping conjunct barred **every** `throw e` hop from SWALLOWED and §7's locked `rethrow_hop` count was unreachable by construction. An instrument defect fixed **before any endpoint was measured**; §2.1 carries the dated amendment. |
+| R8 | §2.1 listed only `throw new Wrapped(e)` as an escape | **A bare rethrow (`throw e;` whose operand after any parentheses is the binding itself) is a traced EXIT and not a mention**, so it does not count towards `catch_escaped` and the clause's word is decided by its other mentions. §3.3 rule 2, §6.1's `rethrow_hop` row and R4 all assumed this, while `escape.mjs` counted every `throw` operand: under that reading rule 3's escaping conjunct barred **every** `throw e` hop from SWALLOWED and §7's locked `rethrow_hop` count was unreachable by construction. An instrument defect fixed **before any endpoint was measured**; §2.1 carries the dated amendment. |
 | R9 | §6.1: `translated`'s wrapper raise | It reads **AMBIGUOUS**, not PROPAGATED: the wrapper is thrown from a traced arrow that vitest's untraced `toThrow` called from **inside** a traced test frame, and the rules cannot see an untraced catcher between two traced frames. AMBIGUOUS is the honest word and §7's pre-registered SWALLOWED count (0) is unaffected. |
 | R10 | §2.2 defines a callback's word as §2.1's rule applied to its parameter | So `callbackHow` carries the **same** bare-rethrow exclusion: `.catch((e) => { throw e })` reads `catch_callback`, while `.catch((e) => { seen.push(e); throw e })` stays `catch_callback_escaped`. Two readings of one rule would make the lens adjudication depend on which syntax a swallow used. |
 | R11 | §6.1's `rethrow_hop` shape column says "an outer empty catch" | The outer sink is a **returning** `catch { return 'defaults' }`, whose word is `catch`: §7's table counts SWALLOWED verdicts, both words are in the absorbing set, and a returning clause is the realistic seeded-bug shape. §6.1's shape column is descriptive. |
-| R12 | §6.1's verdict column for four cases | Those four rows get **one dated amendment note under the table**, not row rewrites — §6.1 is descriptive and outside the §7 lock, and the counts are unmoved: `silent_swallow` prints `caught by catch`, `translated`'s origin prints the escaped reason, `await_rejection_caught` prints no hops line, and `test_failed` is a `throw` statement because a failing `expect` throws inside vitest's untraced code and writes no RAISE row at all. |
+| R12 | §6.1's verdict column for four cases | Those four rows get **one dated amendment note under the table**, not row rewrites, §6.1 is descriptive and outside the §7 lock, and the counts are unmoved: `silent_swallow` prints `caught by catch`, `translated`'s origin prints the escaped reason, `await_rejection_caught` prints no hops line, and `test_failed` is a `throw` statement because a failing `expect` throws inside vitest's untraced code and writes no RAISE row at all. |
 | R13 | §7's only named shipping branch is DONE-WITH-STOP | The rung's word is **DONE**. Every word in the record comes from a rule; §7 names no PASS anywhere, and rung 1 shipped DONE-WITH-STOP under the same convention, so the branch not taken reads DONE. |
 | R14 | §7 left the results file's provenance to the assembler | The assembler writes `recorder_basis` on every cell, `own` on the two that record themselves (E6-TS′, E8″), and the record's provenance sentence stays: a re-assembly of saved cells is not a re-measurement, and a JSON that names its basis per cell is what slice 2's misattribution lesson asked for. |
-| R15 | §3.3 rule 4's one conjunct, "no HANDLED in the absorbing set" | Two narrowings, written into §3.3 rule 4 in place and dated: the rule also declines on an **escaping** HANDLED anywhere for the serial (rule 5 owns that reason, and rule 4 runs first), and its absorbing conjunct is read as "no absorbing HANDLED whose frame has **not yet returned**" (`_still_open_absorber`, the Task-4 review fix `7c2ead1`, which is what keeps rule 3's 3/4 mutation live). Both narrow the verdict, never widen it — no shape gains PROPAGATED that the sentence denied it — and E6-TS′'s 30 shapes were adjudicated under the coded reading. What it costs is in `docs/CARRIED-DEBT.md`: an escaped handler that then rethrows out of the test root reads AMBIGUOUS where PROPAGATED would be truer. |
+| R15 | §3.3 rule 4's one conjunct, "no HANDLED in the absorbing set" | Two narrowings, written into §3.3 rule 4 in place and dated: the rule also declines on an **escaping** HANDLED anywhere for the serial (rule 5 owns that reason, and rule 4 runs first), and its absorbing conjunct is read as "no absorbing HANDLED whose frame has **not yet returned**" (`_still_open_absorber`, the Task-4 review fix `7c2ead1`, which is what keeps rule 3's 3/4 mutation live). Both narrow the verdict, never widen it (no shape gains PROPAGATED that the sentence denied it) and E6-TS′'s 30 shapes were adjudicated under the coded reading. What it costs is in `docs/CARRIED-DEBT.md`: an escaped handler that then rethrows out of the test root reads AMBIGUOUS where PROPAGATED would be truer. |
 
 **What the endpoints read, against what this document expected.** §7's table
 held: **E6-TS 17 of 17**, **E6-TS′ 0 false SWALLOWED of 30**, **E8″ 32 of 32**,
@@ -661,20 +659,20 @@ held: **E6-TS 17 of 17**, **E6-TS′ 0 false SWALLOWED of 30**, **E8″ 32 of 32
 nine needles**; ungated, **E1‴ 1.0608 / 1.1266** and **E10″ 16.0715 s /
 0.1642 s**. Not one endpoint fired its rule's failure word. This document made
 no per-cell predictions of the kind slice 2's §3.3 did, so there is no
-prediction table here; what it did assume and got wrong is R8 above — a rule
-whose literal reading made one of §7's own locked counts unreachable — and the
+prediction table here; what it did assume and got wrong is R8 above (a rule
+whose literal reading made one of §7's own locked counts unreachable) and the
 four instrument corrections the record's §2.3 dates, each made before the
 endpoint it touches had been measured.
 
 **Four findings this design did not anticipate** are the record's §5 gaps
-1–4 — the shape key's Rust-shaped id mask splitting one place into three on a
+1–4, the shape key's Rust-shaped id mask splitting one place into three on a
 TypeScript trace, three reused instruments measuring the global binary, E7″'s
 needle list being unapplicable as written, and rule 5's catch-all being the
 modal ambiguous reason on real code with an unnamed shape behind it. All four
 are carried in `docs/CARRIED-DEBT.md`'s rung-2 section with what closing each
 would take, and the fourth is `typescript/HONESTY-BLIND-SPOTS.md` item 27.
 
-*(2026-09-11: S5 rung 3 closed Gaps 1 and 4 and the Gap-4 neighbour — the
+*(2026-09-11: S5 rung 3 closed Gaps 1 and 4 and the Gap-4 neighbour. The
 shape key now holds the verdict's own words under a mask that exempts
 nothing, and rule 5's catch-all names an untraced catcher before falling
 back to `unnamed`. See

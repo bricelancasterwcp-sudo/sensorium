@@ -1,16 +1,16 @@
-# Rung 2 — acceptance (pre-registered)
+# Rung 2: acceptance (pre-registered)
 
 ## 1. Pre-registration
 
-Lens for every endpoint: dev profile; the bloomery **clone** at `/mnt/extra/sensorium-rung2/bloomery` @ `e209ed9` with `CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/bloomery-target` (sources and target on different filesystems — the configuration this plan ships); `SENSORIUM_DIR=/mnt/extra/sensorium-rung2/sensorium-dir`; this box (AMD Ryzen 7 9800X3D, 16 threads, `powersave` governor); `sensorium-rt` at `opt-level = 3`; tier `call` = CALL and RETURN with outcome and captured return value, PANIC, tasks and `spawn_child` naming — no `?` sites, no locals, no output capture; default `--test-threads` unless a row says otherwise.
+Lens for every endpoint: dev profile; the bloomery **clone** at `/mnt/extra/sensorium-rung2/bloomery` @ `e209ed9` with `CARGO_TARGET_DIR=/mnt/extra/sensorium-rung2/bloomery-target` (sources and target on different filesystems (the configuration this plan ships); `SENSORIUM_DIR=/mnt/extra/sensorium-rung2/sensorium-dir`; this box (AMD Ryzen 7 9800X3D, 16 threads, `powersave` governor); `sensorium-rt` at `opt-level = 3`; tier `call` = CALL and RETURN with outcome and captured return value, PANIC, tasks and `spawn_child` naming) no `?` sites, no locals, no output capture; default `--test-threads` unless a row says otherwise.
 
 | Id | Question | Measurement | Decision rule | Derivation of the threshold |
 |---|---|---|---|---|
 | E2′ | Does the rung-2 transformer still cover bloomery? | From the manifests of one workspace-wide instrumented `--no-run` on the clone: instrumented fn items ÷ eligible fn items, numerator and denominator **over the same file set** (`crates/*/src` + `crates/*/tests`, counted by `sensorium-transform`'s own census: every `fn` item with a body except `const fn` and `extern` fns); units that fell back; spawn sites rewritten and unwrapped (reported) | floor 98% of eligible fn items; **any fell-back unit is a finding that stops the rung until explained** | spec §8 E2, re-read because the transformer changed (exit wraps, spawn rewrite); rung 1 read 2051/2051; the same-file-set rule is findings §5.14's lesson written into the row |
-| E3 | Does the comparator report false DIVERGED? | Build `-p bloomery-daemon --lib` once (`--no-run`), record the test binary's sha256; run `cargo sensorium test -p bloomery-daemon --lib` 20 times with no rebuild (sha256 asserted equal before every run); `sensorium diff <run 1> <run K>` for K = 2..20 | **DIVERGED 0/19 and REFUSED 0/19**; any DIVERGED or REFUSED = the comparator or the recorder is wrong — STOP and diagnose before any other endpoint | spec §8 E3 verbatim; sanity: rung 1's identical `--lib` pair read MATCH with all 57 task streams matched, so a DIVERGED here is new behaviour of new code |
-| E5 | Does `diff --ignore-moves` verify a source-file split? | A = the clone @ `e209ed9`; B = branch `e5-split`: `crates/bloomery-daemon/src/task/registry.rs` split into a `registry/` directory module by moving items verbatim (no body edited, `mod tests` stays where its path is `task::registry::tests`); C = branch `e5-planted`: B plus ONE planted change — two consecutive, independent call statements inside one non-test fn of the registry swapped. Each arm: `cargo sensorium test -p bloomery-daemon --lib -- task::registry`, then `sensorium diff --ignore-moves <A> <B>` and `<A> <C>`; plain `diff <A> <B>` reported | **A/B = `MATCH modulo location` with ≥ 1 moved, 0 added, 0 removed, every `task::registry::tests::*` task paired by name; A/C = `DIVERGED` naming a step inside the swapped fn.** A/C reading MATCH → the verifier is void, STOP; A/B reading DIVERGED → report the step, and if it is a test-order change (a test moved between discovery units) read it as the instrument working (spec §10 amended 2026-09-02), else STOP | spec §8 E5 and §10 rung 2; libtest orders tests by name, so a split that keeps the tests' module path keeps their order |
+| E3 | Does the comparator report false DIVERGED? | Build `-p bloomery-daemon --lib` once (`--no-run`), record the test binary's sha256; run `cargo sensorium test -p bloomery-daemon --lib` 20 times with no rebuild (sha256 asserted equal before every run); `sensorium diff <run 1> <run K>` for K = 2..20 | **DIVERGED 0/19 and REFUSED 0/19**; any DIVERGED or REFUSED = the comparator or the recorder is wrong: STOP and diagnose before any other endpoint | spec §8 E3 verbatim; sanity: rung 1's identical `--lib` pair read MATCH with all 57 task streams matched, so a DIVERGED here is new behaviour of new code |
+| E5 | Does `diff --ignore-moves` verify a source-file split? | A = the clone @ `e209ed9`; B = branch `e5-split`: `crates/bloomery-daemon/src/task/registry.rs` split into a `registry/` directory module by moving items verbatim (no body edited, `mod tests` stays where its path is `task::registry::tests`); C = branch `e5-planted`: B plus ONE planted change, two consecutive, independent call statements inside one non-test fn of the registry swapped. Each arm: `cargo sensorium test -p bloomery-daemon --lib -- task::registry`, then `sensorium diff --ignore-moves <A> <B>` and `<A> <C>`; plain `diff <A> <B>` reported | **A/B = `MATCH modulo location` with ≥ 1 moved, 0 added, 0 removed, every `task::registry::tests::*` task paired by name; A/C = `DIVERGED` naming a step inside the swapped fn.** A/C reading MATCH → the verifier is void, STOP; A/B reading DIVERGED → report the step, and if it is a test-order change (a test moved between discovery units) read it as the instrument working (spec §10 amended 2026-09-02), else STOP | spec §8 E5 and §10 rung 2; libtest orders tests by name, so a split that keeps the tests' module path keeps their order |
 | E7 | Are line numbers and paths preserved? | (a) the probe workspace as in rung 1: a `#[should_panic]` test with a known message, one whose assert message embeds `file!()`/`line!()`, `RUST_BACKTRACE=1`, `--test-threads=1 -- --nocapture`, plain vs off vs call, durations and rustc's `(<tid>)` masked; (b) **on the clone**: `cargo test -p bloomery-daemon --lib -- --test-threads=1` output, plain vs call, durations masked | any difference in a `panicked at <file>:<line>:<col>`, a `file!()`/`line!()` value, a backtrace frame's `<file>:<line>`, or in (b) any difference in a `test … ok/FAILED` line or the `test result:` line → STOP | spec §8 E7; (b) closes findings §5.17 (E7 had only ever run on the probe) |
-| E8 | Does cargo freshness survive, and can a plain build be contaminated? | On the clone, target on `/mnt/extra`, counting `Compiling`/`Fresh` from `cargo -v` **and** asserting the expected `Fresh` set: (a) instrumented `--no-run` twice → the second compiles no workspace unit; (b) append one comment line to `crates/bloomery-core/src/lib.rs` → exactly `bloomery-core` and its dependents recompile, then `git checkout` restores it; (c) plain `--no-run` after an instrumented build → no workspace unit compiles AND the plain `--lib` binary run with `SENSORIUM_SPOOL` set writes 0 spool files while the instrumented one writes > 0; (d) instrumented `--no-run` after (c) → no workspace unit compiles | any failed check → STOP | spec §8 E8; (b) on bloomery for the first time — the clone is writable |
+| E8 | Does cargo freshness survive, and can a plain build be contaminated? | On the clone, target on `/mnt/extra`, counting `Compiling`/`Fresh` from `cargo -v` **and** asserting the expected `Fresh` set: (a) instrumented `--no-run` twice → the second compiles no workspace unit; (b) append one comment line to `crates/bloomery-core/src/lib.rs` → exactly `bloomery-core` and its dependents recompile, then `git checkout` restores it; (c) plain `--no-run` after an instrumented build → no workspace unit compiles AND the plain `--lib` binary run with `SENSORIUM_SPOOL` set writes 0 spool files while the instrumented one writes > 0; (d) instrumented `--no-run` after (c) → no workspace unit compiles | any failed check → STOP | spec §8 E8; (b) on bloomery for the first time. The clone is writable |
 
 Reported without a gate (each with `n` and lens): wall of `cargo test -p bloomery-daemon --lib` plain vs call, 5 rounds interleaved P,C then C,P alternating with a 10 s cool-down, so the return-value capture cost is visible against rung 1's call/plain ×1.0103; events per second and bytes per event; conversion wall for the whole invocation against rung 1's 22.7 s; live threads at process exit and, for each, whether its last record is complete (the `MAP_SHARED` claim); `seq_gaps` and `records_dropped` totals; `truncated_count`; `exit_status_basis` histogram across the invocation (`waited` / `unwitnessed`); `child_runs` counts; `spawn_child` sites rewritten / unwrapped; the driver's fixed cost (release build) and the runtime's rlib build time.
 
@@ -24,21 +24,21 @@ Reported without a gate (each with `n` and lens): wall of `cargo test -p bloomer
 |---|---|---|
 | rustc | `rustc -V` | `rustc 1.96.0 (ac68faa20 2026-05-25)` |
 | cargo | `cargo -V` | `cargo 1.96.0 (30a34c682 2026-05-25)` |
-| toolchains | `rustup toolchain list` | `stable-x86_64-unknown-linux-gnu (active, default)` — stable only, no nightly installed |
+| toolchains | `rustup toolchain list` | `stable-x86_64-unknown-linux-gnu (active, default)`, stable only, no nightly installed |
 | nproc | `nproc` | `16` |
 | governor | `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor` | `powersave` |
 | RUSTFLAGS | `echo "RUSTFLAGS=[$RUSTFLAGS]"` | `RUSTFLAGS=[]` (unset) |
 | CARGO_INCREMENTAL | `echo "CARGO_INCREMENTAL=[$CARGO_INCREMENTAL]"` | `CARGO_INCREMENTAL=[]` (unset) |
 | RUSTC_WRAPPER | `echo "RUSTC_WRAPPER=[$RUSTC_WRAPPER]"` | `RUSTC_WRAPPER=[]` (unset) |
 | RUSTDOCFLAGS | `echo "RUSTDOCFLAGS=[$RUSTDOCFLAGS]"` | `RUSTDOCFLAGS=[]` (unset) |
-| free disk `/` | `df -h /` | `15G` available on `/dev/nvme0n1p2` (99% used, 915G total) — floor is 3 GB, this passes with 12 GB to spare |
-| free disk `/mnt/extra` | `df -h /mnt/extra` | `114G` available on `/dev/nvme1n1p1` (75% used, 469G total) — floor is 8 GB, this passes with 106 GB to spare |
-| 1-minute load | `cat /proc/loadavg` (checked immediately before the clone, gating the preflight decision to proceed) | `0.21 0.26 0.26 1/2183 3604592` — 1-minute load 0.21, well under the 4.0 refusal threshold |
+| free disk `/` | `df -h /` | `15G` available on `/dev/nvme0n1p2` (99% used, 915G total), floor is 3 GB, this passes with 12 GB to spare |
+| free disk `/mnt/extra` | `df -h /mnt/extra` | `114G` available on `/dev/nvme1n1p1` (75% used, 469G total), floor is 8 GB, this passes with 106 GB to spare |
+| 1-minute load | `cat /proc/loadavg` (checked immediately before the clone, gating the preflight decision to proceed) | `0.21 0.26 0.26 1/2183 3604592`, 1-minute load 0.21, well under the 4.0 refusal threshold |
 | clone HEAD | `git -C /mnt/extra/sensorium-rung2/bloomery rev-parse HEAD` | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` |
 | clone status | `git -C /mnt/extra/sensorium-rung2/bloomery status --porcelain` | empty (clean) |
-| clone origin | `git -C /mnt/extra/sensorium-rung2/bloomery remote -v` | `origin  /home/brice/workspace/bloomery (fetch/push)` — local tree, nothing pushable remotely |
+| clone origin | `git -C /mnt/extra/sensorium-rung2/bloomery remote -v` | `origin  /home/brice/workspace/bloomery (fetch/push)`, local tree, nothing pushable remotely |
 | `~/workspace/bloomery` HEAD (before clone) | `git -C /home/brice/workspace/bloomery rev-parse HEAD` | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` |
-| `~/workspace/bloomery` HEAD (after clone) | `git -C /home/brice/workspace/bloomery rev-parse HEAD` | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` — unchanged |
+| `~/workspace/bloomery` HEAD (after clone) | `git -C /home/brice/workspace/bloomery rev-parse HEAD` | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`, unchanged |
 | `~/workspace/bloomery` status (before and after clone) | `git -C /home/brice/workspace/bloomery status --porcelain` | empty (clean) both times |
 | absence: user cargo config (toml) | `[ -e ~/.cargo/config.toml ]` | absent |
 | absence: user cargo config (legacy) | `[ -e ~/.cargo/config ]` | absent |
@@ -48,9 +48,9 @@ Reported without a gate (each with `n` and lens): wall of `cargo test -p bloomer
 | `.venv` python | `.venv/bin/python -V` (sensorium repo) | `Python 3.14.4` |
 | sensorium version | `.venv/bin/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.5.0` |
 | mount: `/mnt/extra` | `findmnt -no SOURCE,FSTYPE /mnt/extra` | `/dev/nvme1n1p1 ext4` |
-| mount: `/` | `findmnt -no SOURCE,FSTYPE /` | `/dev/nvme0n1p2 ext4` — a different block device and filesystem from `/mnt/extra`; every artifact directory (`rust-target`, `bloomery-target`, `corpus-target`, `sensorium-dir`) and the clone itself live on `/mnt/extra`, off the chronically near-full root filesystem |
+| mount: `/` | `findmnt -no SOURCE,FSTYPE /` | `/dev/nvme0n1p2 ext4`, a different block device and filesystem from `/mnt/extra`; every artifact directory (`rust-target`, `bloomery-target`, `corpus-target`, `sensorium-dir`) and the clone itself live on `/mnt/extra`, off the chronically near-full root filesystem |
 
-**Preflight verdict:** all three refusal rules pass (`/mnt/extra` free 114G ≥ 8G; `/` free 15G ≥ 3G; 1-minute load 0.21 ≤ 4.0) — proceeded, did not BLOCK.
+**Preflight verdict:** all three refusal rules pass (`/mnt/extra` free 114G ≥ 8G; `/` free 15G ≥ 3G; 1-minute load 0.21 ≤ 4.0), proceeded, did not BLOCK.
 
 ### Re-recorded immediately before the measured run (2026-09-03)
 
@@ -63,22 +63,22 @@ preflight, seconds before the first measured build. They are `results.json`'s
 |---|---|
 | run started | `2026-09-03T16:12:15-0500` (finished `2026-09-03T16:55:47-0500`) |
 | branch commit under test | `e1993dfe77f0cb678b8921835eaa00cf03874194` on `feat/rung2-recorder-v1` |
-| driver | `cargo-sensorium` 0.1.0, release, sha256 `e897ced8de9c5c3421719039030bc691159fcda30f93f7f6799652ed9fd392dd` — built from that commit before the run and asserted unchanged after it (`driver_unchanged: true`) |
-| census driver | sha256 `367cc9055cf20669e07b37893c1394667d6bb41a69cbf1471b880240cbe5dc07` — a 35-line binary over `sensorium-transform::census`, source in the ledger |
+| driver | `cargo-sensorium` 0.1.0, release, sha256 `e897ced8de9c5c3421719039030bc691159fcda30f93f7f6799652ed9fd392dd`, built from that commit before the run and asserted unchanged after it (`driver_unchanged: true`) |
+| census driver | sha256 `367cc9055cf20669e07b37893c1394667d6bb41a69cbf1471b880240cbe5dc07`, a 35-line binary over `sensorium-transform::census`, source in the ledger |
 | reader | `sensorium` 0.6.0 on Python 3.14.4, from the repo venv |
 | rustc / cargo | `rustc 1.96.0 (ac68faa20 2026-05-25)` / `cargo 1.96.0 (30a34c682 2026-05-25)` |
 | governor / nproc | `powersave` / 16 |
 | RUSTFLAGS, CARGO_INCREMENTAL, RUSTC_WRAPPER, RUSTDOCFLAGS | all empty (unset) |
 | clone HEAD | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`, `git status --porcelain` empty, detached |
-| clone `Cargo.lock` sha256 | `c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca` — unchanged after the run |
+| clone `Cargo.lock` sha256 | `c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca`, unchanged after the run |
 | source tree (read-only) | `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`, porcelain empty, **both before and after** (`source_bloomery_unchanged: true`) |
 | artifact disk free | 115.12 GB before, 105.16 GB after (floor 8 GB) |
 | root disk free | 13.82 GB before, 13.82 GB after (floor 3 GB) |
 | 1-minute load at start | 0.30 (refusal threshold 4.0) |
 | target directory | emptied at `2026-09-03T16:12:15-0500`; it held **0 bytes** (never written before this run), so E8's plain `--no-run` is a genuinely clean build |
-| target emptied again for E2′ | `2026-09-03T16:12:37-0500`, removing 9 480 938 772 bytes — see §3's E2′ lens for why the stronger act is the correct one |
+| target emptied again for E2′ | `2026-09-03T16:12:37-0500`, removing 9 480 938 772 bytes, see §3's E2′ lens for why the stronger act is the correct one |
 
-**Preflight verdict (the run's own):** all three refusal rules pass — proceeded, did not BLOCK.
+**Preflight verdict (the run's own):** all three refusal rules pass, proceeded, did not BLOCK.
 
 **Independent check of the denominator, run by hand before the launch.**
 `SENSORIUM_BLOOMERY_CLONE=<clone> cargo test -p sensorium-transform --test census -- --nocapture`
@@ -90,7 +90,7 @@ from the same crate's `census` function. Two instruments, one number.
 
 ## 3. Results
 
-**Provenance of this section.** It is rendered by `rust/tests/render_acceptance.py` from `results.json`, which was assembled at 2026-09-03T17:35:04-0500 by `rust/tests/acceptance.py --assemble` from `results-raw.json` — the raw facts the run itself recorded — under the committed schema. Re-derived from the raw facts the run recorded, under the committed schema; no gated arm was re-run and no gated value was re-measured -- against the assembly the run itself wrote, only lens text differs, plus the dated `addendum` block when `results-addendum-raw.json` is present, which is a later reading of reported-without-a-gate items and of nothing else. The committed `…acceptance.results.json` is that assembly, byte for byte.
+**Provenance of this section.** It is rendered by `rust/tests/render_acceptance.py` from `results.json`, which was assembled at 2026-09-03T17:35:04-0500 by `rust/tests/acceptance.py --assemble` from `results-raw.json` (the raw facts the run itself recorded) under the committed schema. Re-derived from the raw facts the run recorded, under the committed schema; no gated arm was re-run and no gated value was re-measured -- against the assembly the run itself wrote, only lens text differs, plus the dated `addendum` block when `results-addendum-raw.json` is present, which is a later reading of reported-without-a-gate items and of nothing else. The committed `…acceptance.results.json` is that assembly, byte for byte.
 
 Measured on the §2 pins. Runner: `rust/tests/acceptance.py` (raw logs and `results-raw.json` in the gitignored ledger). Started 2026-09-03T16:12:14-0500, finished 2026-09-03T16:55:47-0500. Every cell below is a number with its `n` and its lens, or `not measured (<reason>)`.
 
@@ -102,7 +102,7 @@ Measured on the §2 pins. Runner: `rust/tests/acceptance.py` (raw logs and `resu
 | E7 | 0 (rule: any difference stops the rung) | 7 | E7(a) failed checks + E7(b) masked differences; (a) `rust/tests/mechanics.sh` on the probe workspace: panic lo… | none |
 | E8 | 0 (rule: any failed check stops the rung) | 5 | failed checks of 5; on the measured workspace with its target directory emptied first, counting Compiling/Fres… | none |
 
-### E2′ — transformer coverage of the measured workspace
+### E2′: transformer coverage of the measured workspace
 
 | Quantity | Value | n | Lens | Dropped |
 |---|---|---|---|---|
@@ -122,7 +122,7 @@ Measured on the §2 pins. Runner: `rust/tests/acceptance.py` (raw logs and `resu
 | units whose mirror was opened and checked | 108 | 108 | units whose mirror crate root was opened and found to name that unit's own -C metadata; a check that examined … | none |
 | mirrors naming another unit's metadata | 0 | 108 | mirrors naming another unit's metadata | none |
 
-Denominators, both from `sensorium-transform`'s own `census` — the parser that did the instrumenting — over the same tree:
+Denominators, both from `sensorium-transform`'s own `census` (the parser that did the instrumenting) over the same tree:
 
 | Denominator (eligible fn items) | Numerator over the SAME files | Reading |
 |---|---|---|
@@ -131,7 +131,7 @@ Denominators, both from `sensorium-transform`'s own `census` — the parser that
 
 Census: 191 files walked, 191 parsed; 2056 `fn` items with a body, 5 `const fn`, 0 `extern` fn, 0 `async fn` → 2051 eligible.
 
-### E3 — does the comparator report a false DIVERGED?
+### E3: does the comparator report a false DIVERGED?
 
 Test binary sha256 `143a4a4dc65ba31e494c23cbfbde91d0c6fc6a8ed51fb9218e9ae6e7a2497986`, asserted equal before every recorded run.
 
@@ -165,7 +165,7 @@ Test binary sha256 `143a4a4dc65ba31e494c23cbfbde91d0c6fc6a8ed51fb9218e9ae6e7a249
 | runs that produced a trace | 20 | 20 | recorded runs that produced a trace | none |
 | runs whose binary sha256 moved | 0 | 20 | runs whose binary sha256 differed from run 1's | none |
 
-### E5 — does `diff --ignore-moves` verify a source-file split?
+### E5: does `diff --ignore-moves` verify a source-file split?
 
 | Arm | Tree | run | events | threads | tests run |
 |---|---|---|---|---|---|
@@ -184,7 +184,7 @@ Test binary sha256 `143a4a4dc65ba31e494c23cbfbde91d0c6fc6a8ed51fb9218e9ae6e7a249
 
 | E5 conditions not met | 2 | 6 | pre-registered E5 conditions not met, of 6; three arms on three trees (original / split / split + one planted … | none |
 
-**A/B `--ignore-moves`** — `sensorium diff --ignore-moves 20260903-161845-767c88 20260903-161847-f822c5`, verbatim:
+**A/B `--ignore-moves`**, `sensorium diff --ignore-moves 20260903-161845-767c88 20260903-161847-f822c5`, verbatim:
 
 ```
 A 20260903-161845-767c88: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670
@@ -210,7 +210,7 @@ moves:
   ... +16 more moved
 ```
 
-**A/C `--ignore-moves`** — `sensorium diff --ignore-moves 20260903-161845-767c88 20260903-161849-c2af01`, verbatim:
+**A/C `--ignore-moves`**, `sensorium diff --ignore-moves 20260903-161845-767c88 20260903-161849-c2af01`, verbatim:
 
 ```
 A 20260903-161845-767c88: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670
@@ -241,7 +241,7 @@ moves:
   ... +16 more moved
 ```
 
-**A/B plain `diff` (reported)** — `sensorium diff 20260903-161845-767c88 20260903-161847-f822c5`, verbatim:
+**A/B plain `diff` (reported)**, `sensorium diff 20260903-161845-767c88 20260903-161847-f822c5`, verbatim:
 
 ```
 A 20260903-161845-767c88: threads 1  compared: t1 [recorded main thread]  fp cae66941d9efbd404e4d88758ea67670
@@ -257,7 +257,7 @@ drill into A: sensorium tree 20260903-161845-767c88 --around e1
 drill into B: sensorium tree 20260903-161847-f822c5 --around e40
 ```
 
-**A/C, one task (drill-down)** — `sensorium diff --ignore-moves --task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion 20260903-161845-767c88 20260903-161849-c2af01`, verbatim:
+**A/C, one task (drill-down)**, `sensorium diff --ignore-moves --task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion 20260903-161845-767c88 20260903-161849-c2af01`, verbatim:
 
 ```
 A 20260903-161845-767c88: compared: task task::registry::tests::spawn_task_runs_in_background_and_get_reflects_completion (t4)
@@ -288,7 +288,7 @@ moves:
   ... +16 more moved
 ```
 
-### E7 — line numbers, paths and backtraces
+### E7: line numbers, paths and backtraces
 
 | Quantity | Value | n | Lens | Dropped |
 |---|---|---|---|---|
@@ -302,7 +302,7 @@ moves:
 
 The driver's sha256 was unchanged across mechanics.sh: True.
 
-### E8 — cargo freshness, and contamination of a plain build
+### E8: cargo freshness, and contamination of a plain build
 
 | Check | Result | Compiled | Fresh |
 |---|---|---|---|
@@ -312,7 +312,7 @@ The driver's sha256 was unchanged across mechanics.sh: True.
 | `d_instrumented_after_plain_compiles_nothing` | PASS | `[]` | `['bloomery-core', 'bloomery-daemon', 'bloomery-substrate']` |
 | `b_touch_recompiles_that_unit_and_its_dependents` | PASS | `['bloomery-core', 'bloomery-daemon']` | `['bloomery-substrate']` |
 
-The expected `Fresh` set is `['bloomery-core', 'bloomery-daemon', 'bloomery-substrate']` — asserted, not merely 'compiled nothing', because a build that dies before its first `Compiling` line also compiles nothing.
+The expected `Fresh` set is `['bloomery-core', 'bloomery-daemon', 'bloomery-substrate']`, asserted, not merely 'compiled nothing', because a build that dies before its first `Compiling` line also compiles nothing.
 
 | Quantity | Value | n | Lens | Dropped |
 |---|---|---|---|---|
@@ -393,9 +393,9 @@ verbatim and the measured number from §3.
 
 | Id | Pre-registered rule (§1, verbatim) | Measured | Verdict |
 |---|---|---|---|
-| E2′ | "floor 98% of eligible fn items; **any fell-back unit is a finding that stops the rung until explained**" | **100.0%** — 2051 instrumented of 2051 eligible, numerator and denominator over the same file set; **0** units fell back, **0** `fell back to the real tree` lines, **0** unreached files | **PASS** |
-| E3 | "**DIVERGED 0/19 and REFUSED 0/19**; any DIVERGED or REFUSED = the comparator or the recorder is wrong — STOP and diagnose before any other endpoint" | **0 DIVERGED, 0 REFUSED** over 19 diffs; 19 MATCH, CLI exit 0 each; the binary's sha256 was equal before all 20 runs | **PASS** |
-| E5 | "**A/B = `MATCH modulo location` with ≥ 1 moved, 0 added, 0 removed, every `task::registry::tests::*` task paired by name; A/C = `DIVERGED` naming a step inside the swapped fn.** A/C reading MATCH → the verifier is void, STOP; A/B reading DIVERGED → report the step, and if it is a test-order change (a test moved between discovery units) read it as the instrument working (spec §10 amended 2026-09-02), else STOP" | **A/C = DIVERGED**, naming `Journal::open` (A) against `ImageStore::new` (B) at causal step 4 inside the swapped fn — the half that had to hold, holds. **A/B = DIVERGED**, with 28 moved, 0 added, 0 removed, and the six `task::registry::tests::<test>` tasks paired — but **four spawned child tasks unpaired**, and the divergence is **not** a test-order change | **STOP** |
+| E2′ | "floor 98% of eligible fn items; **any fell-back unit is a finding that stops the rung until explained**" | **100.0%**, 2051 instrumented of 2051 eligible, numerator and denominator over the same file set; **0** units fell back, **0** `fell back to the real tree` lines, **0** unreached files | **PASS** |
+| E3 | "**DIVERGED 0/19 and REFUSED 0/19**; any DIVERGED or REFUSED = the comparator or the recorder is wrong: STOP and diagnose before any other endpoint" | **0 DIVERGED, 0 REFUSED** over 19 diffs; 19 MATCH, CLI exit 0 each; the binary's sha256 was equal before all 20 runs | **PASS** |
+| E5 | "**A/B = `MATCH modulo location` with ≥ 1 moved, 0 added, 0 removed, every `task::registry::tests::*` task paired by name; A/C = `DIVERGED` naming a step inside the swapped fn.** A/C reading MATCH → the verifier is void, STOP; A/B reading DIVERGED → report the step, and if it is a test-order change (a test moved between discovery units) read it as the instrument working (spec §10 amended 2026-09-02), else STOP" | **A/C = DIVERGED**, naming `Journal::open` (A) against `ImageStore::new` (B) at causal step 4 inside the swapped fn. The half that had to hold, holds. **A/B = DIVERGED**, with 28 moved, 0 added, 0 removed, and the six `task::registry::tests::<test>` tasks paired, but **four spawned child tasks unpaired**, and the divergence is **not** a test-order change | **STOP** |
 | E7 | "any difference in a `panicked at <file>:<line>:<col>`, a `file!()`/`line!()` value, a backtrace frame's `<file>:<line>`, or in (b) any difference in a `test … ok/FAILED` line or the `test result:` line → STOP" | **0 differences**: (a) 6 of 6 E7 checks pass on the probe (44 of 44 `mechanics.sh` checks pass, 0 fail); (b) 0 differences over 56 masked lines on the clone, identical `test result:` lines, and the instrumented arm wrote 60 spool files so the comparison is not vacuous | **PASS** |
 | E8 | "any failed check → STOP" | **0 failed checks of 5**: (a), (c)+sentinel, (d) and (b), all on the clone, with the expected `Fresh` set asserted each time | **PASS** |
 
@@ -403,24 +403,24 @@ verbatim and the measured number from §3.
 pre-registered consequence, taken as written. Nothing below softens it, and no product
 code was changed in this task.
 
-### E2′ — 100.0%, with the estimand fixed before the number was read
+### E2′: 100.0%, with the estimand fixed before the number was read
 
 Two facts make this row readable, and both are measured:
 
 1. Over every file it compiled, the workspace-wide instrumented `--no-run` instrumented
    **2051 of 2051** eligible fn items. **0** manifests carry `fell_back`, **0** build
-   logs contain a `fell back to the real tree` line — the two channels a fallback has
-   to appear in, both empty — **0** files were unreachable by a module walk, and the
+   logs contain a `fell back to the real tree` line (the two channels a fallback has
+   to appear in, both empty) **0** files were unreachable by a module walk, and the
    only items skipped were skipped by rule (10 records, all `const`: bloomery's 5
    `const fn` seen once in each of the two feature-sets the daemon's lib is compiled at).
 2. The **package** build (`-p bloomery-daemon`) instrumented **1723 of 1723** over the
    files *it* reaches. The two readings are the same shape rung 1 reported, and both
    are diagonal: numerator and denominator over the same files. `0` files of the package
-   build's numerator lie outside its denominator's directories — asserted, not assumed,
+   build's numerator lie outside its denominator's directories, asserted, not assumed,
    because rung 1's findings §5.14 is exactly the failure of crossing those scopes.
 
 **The scoping, stated so it can be checked.** Every manifest-derived count is scoped to
-its own build's unit set — the `-C metadata=` values in that build's `cargo -v` log —
+its own build's unit set (the `-C metadata=` values in that build's `cargo -v` log)
 and that set is complete only when cargo compiles every unit, because cargo does not
 invoke the wrapper for a fingerprint-fresh one. The runner therefore emptied the whole
 target directory before the measured workspace-wide build (9 480 938 772 bytes, at
@@ -433,13 +433,13 @@ from-scratch instrumented build, read before E8(b) touched a file.
 **The per-unit assertion, and what it counted.** Every one of the 108 manifests was
 followed to its unit's mirror: **108 checked, 0 naming another unit's metadata**. The
 count is reported because a check that examined nothing proves nothing. 106 distinct
-`(crate_name, crate_type)` pairs declare those 108 manifests — two pairs declare two
+`(crate_name, crate_type)` pairs declare those 108 manifests, two pairs declare two
 manifests each (`bloomery_daemon`/`test` and `bloomery_bench`/`test`), which is why the
 raw spawn-site sum is 13 against the census's 8 distinct literal
 `std::thread::spawn(` sites (§5.8). *Why* those two pairs each produced two manifests
 is not something this run's evidence says, and nothing here asserts it.
 
-### E3 — 0 DIVERGED, 0 REFUSED, over a binary that provably never moved
+### E3: 0 DIVERGED, 0 REFUSED, over a binary that provably never moved
 
 Twenty recorded runs of one `--lib` binary built once; its sha256
 (`143a4a4dc65ba31e…`) was re-read and compared before every single run, and moved
@@ -447,7 +447,7 @@ Twenty recorded runs of one `--lib` binary built once; its sha256
 MATCH with CLI exit 0. This is the endpoint that would have condemned the comparator
 or the recorder, and it is clean.
 
-### E5 — the negative control works; the positive control does not, and the reason is exact
+### E5: the negative control works; the positive control does not, and the reason is exact
 
 **The split, item by item** (branch `e5-split` on the clone; the patch is in the ledger
 as `e5-split.patch`). `crates/bloomery-daemon/src/task/registry.rs` (1395 lines) became a
@@ -457,7 +457,7 @@ still reach them, and nothing else in any item changed.
 
 | Destination | Items moved there |
 |---|---|
-| `registry/mod.rs` | the module docs (lines 1–101, verbatim), `type Entries`, `struct OrganDecision` + `impl OrganDecision`, `struct OrganOutcome<'a>`, `pub struct TaskRegistry`, `impl Default for TaskRegistry`, `impl TaskRegistry` (`new`, `spawn_task`, `get`), and `#[cfg(test)] mod tests` — which is why every test keeps the path `task::registry::tests::*` and libtest's name ordering is unchanged |
+| `registry/mod.rs` | the module docs (lines 1–101, verbatim), `type Entries`, `struct OrganDecision` + `impl OrganDecision`, `struct OrganOutcome<'a>`, `pub struct TaskRegistry`, `impl Default for TaskRegistry`, `impl TaskRegistry` (`new`, `spawn_task`, `get`), and `#[cfg(test)] mod tests`, which is why every test keeps the path `task::registry::tests::*` and libtest's name ordering is unchanged |
 | `registry/helpers.rs` | `panic_message`, `panic_payload_message` (both already `pub(crate)`, re-exported from `mod.rs` so `crate::task::registry::panic_message` still resolves for `codec_probe` and `api_native`), `lock_entries`*, `without_evidence`*, `lock_store`*, `record`*, `degrade`*, `panic_note`, `contained`*, `now_millis`* |
 | `registry/organ.rs` | `classify_probe`*, `organ_before_run`*, `organ_after_run`*, `is_scored_outcome` |
 
@@ -513,14 +513,14 @@ STOP". **STOP.**
 
 What this costs, stated plainly: `diff --ignore-moves` verifies a source-file split for
 every function it traced, and reports a divergence anyway as soon as the split moves a
-`spawn` site — which a split of a file containing one is guaranteed to do. That is the
+`spawn` site, which a split of a file containing one is guaranteed to do. That is the
 use case the endpoint exists for.
 
-### E7 — 0 differences, with one half of (b) declared vacuous
+### E7: 0 differences, with one half of (b) declared vacuous
 
-(a) On the probe workspace, all six E7 checks pass — panic locations, `file!()`/`line!()`
+(a) On the probe workspace, all six E7 checks pass (panic locations, `file!()`/`line!()`
 values and every backtrace frame's `<file>:<line>` byte-identical between plain and both
-instrumented tiers, with durations and rustc's `(<tid>)` masked and nothing else — inside
+instrumented tiers, with durations and rustc's `(<tid>)` masked and nothing else) inside
 a script whose 44 checks all passed. The driver's sha256 was unchanged across the script,
 so the thing measured is the thing pinned in §2.
 
@@ -529,13 +529,13 @@ so the thing measured is the thing pinned in §2.
 (`ok. 53 passed; 0 failed; …`). The instrumented arm wrote **60** spool files during that
 same comparison, so it was not a tool that did nothing.
 
-**The vacuous half, named.** (b) found **0** `panicked at` locations on either side —
+**The vacuous half, named.** (b) found **0** `panicked at` locations on either side,
 libtest captures a passing test's output, and every test in this suite passes, so the
 panic-location half of (b) compared nothing. The (a) arm carries that half, on a suite
 built to panic on purpose. This is a limit of (b) as pre-registered, not a failure, and
 it is §5.7.
 
-### E8 — 0 failed checks, on a real workspace, with (b) for the first time
+### E8: 0 failed checks, on a real workspace, with (b) for the first time
 
 (a) a second instrumented `--no-run` compiled nothing and found exactly
 `['bloomery-core', 'bloomery-daemon', 'bloomery-substrate']` Fresh; (c) a plain
@@ -549,7 +549,7 @@ instrumented one wrote **58**. A plain build cannot be contaminated into recordi
 
 (b) ran on bloomery for the first time (rung 1 could only run it on the probe): appending
 one comment line to `crates/bloomery-core/src/lib.rs` recompiled exactly
-`['bloomery-core', 'bloomery-daemon']` and left `['bloomery-substrate']` Fresh — the
+`['bloomery-core', 'bloomery-daemon']` and left `['bloomery-substrate']` Fresh. The
 derived expectation, since `bloomery-substrate` does not depend on `bloomery-core`. The
 file was restored byte-for-byte and the clone's porcelain is empty.
 
@@ -567,8 +567,8 @@ obstacle to using the recorder at invocation scale.
 Everything this run surfaced that rung 3 must decide, close, or knowingly carry. Each
 entry says what was MEASURED, not what is suspected.
 
-1. **A task's identity is a name that embeds its spawn site, so a file move renames it
-   — and `--ignore-moves` does not project task names.** *Measured: E5's A/B read
+1. **A task's identity is a name that embeds its spawn site, so a file move renames it,
+and `--ignore-moves` does not project task names.** *Measured: E5's A/B read
    DIVERGED with 28 code objects paired, 0 added, 0 removed, all six test tasks matched,
    and four spawned child tasks unmatched whose stream hashes are pairwise identical
    across the two sides* (`04afbcbcacf6`, `5976ef054dbe` ×2, `63737389821f`). The child
@@ -579,7 +579,7 @@ entry says what was MEASURED, not what is suspected.
    declare in the verdict that unpaired-by-name tasks whose projected streams hash equal
    are a move and not a divergence.
 2. **Conversion of one whole invocation costs 1118.9 s (18.6 min) against rung 1's
-   22.7 s — about 49× — for the same workspace and a comparable event count** (119
+   22.7 s (about 49×) for the same workspace and a comparable event count** (119
    processes, 134 394 events, 32.2 MB of traces, 13.8 MB of spool). *Measured as a
    second, warm-cache pass over the same spool the invocation had just converted
    in-process; the in-process conversion inside the invocation cost the same order (the
@@ -587,7 +587,7 @@ entry says what was MEASURED, not what is suspected.
    code and the observed I/O rather than from a second measurement:**
    `convert/sqlite.rs` sets `journal_mode=WAL` but wraps no inserts in an explicit
    transaction and leaves `synchronous` at its default, so every row is its own
-   committed transaction — one fsync each. **OBSERVED, not measured** — read live from
+   committed transaction, one fsync each. **OBSERVED, not measured**. Read live from
    `/proc` and `iostat` while the run was in `D` state, with no artifact in the ledger
    to check them against, unlike every other number in this section: the process
    showed `wchan: jbd2_log_wait_commit`, `/proc/<pid>/io` reported 2.59 GB written for
@@ -595,16 +595,16 @@ entry says what was MEASURED, not what is suspected.
    wrap each trace in one transaction (and consider `synchronous=NORMAL`, which WAL
    makes safe against process crashes) before any conversion number is quoted again.
    **Fixed in `bcc9c9f` (2026-09-03), reviewed clean at `da186e8`: one transaction
-   per trace under WAL with `synchronous=NORMAL`. Re-measured in §3.1 — the same
+   per trace under WAL with `synchronous=NORMAL`. Re-measured in §3.1, the same
    spool, converted again by the same command, now reads 1.197 s (n=3) against the
-   1118.9 s above: about 935× — and the `--lib` call/plain ratio of §5.3 falls from
+   1118.9 s above: about 935×, and the `--lib` call/plain ratio of §5.3 falls from
    ×28.24 to ×2.16.** The paragraph above is left as it was measured; this sentence
    is the amendment, not a replacement.
 3. **The `--lib` call/plain wall ratio is ×28.24 and is dominated by conversion, not by
    recording.** *Measured: median plain 0.059 s against median call 1.666 s, n=5 per
    arm, 0 dropped, 1-minute load **0.51–2.17** at the arm starts (every arm under the
    4.0 refusal threshold, so nothing was dropped and nothing may be).* The two
-   highest-load arms are round 1 — P at 2.17 and C at **1.84** — and round 1's call arm
+   highest-load arms are round 1 (P at 2.17 and C at **1.84**) and round 1's call arm
    is the run's outlier at **3.939 s**, more than twice each of the other four call arms
    (1.661, 1.689, 1.664, 1.666). The medians and the ratio are taken over all five and
    are unaffected; the outlier is named here rather than smoothed away, and its load
@@ -616,8 +616,8 @@ entry says what was MEASURED, not what is suspected.
    converted separately. Whatever
    §5.2 costs, this ratio carries it; a comparable rung-1-style number needs the
    conversion split out of the timed command.
-   **Re-measured after §5.2's fix (2026-09-03, §3.1): ×2.1552 — plain 0.058 s,
-   call 0.125 s, n=5 each — and the conversion of that same `--lib` trace, timed
+   **Re-measured after §5.2's fix (2026-09-03, §3.1): ×2.1552 (plain 0.058 s,
+   call 0.125 s, n=5 each) and the conversion of that same `--lib` trace, timed
    alone, is 0.014 s (n=3). This reading confirms the claim above rather than
    replacing it: the ratio WAS conversion-dominated, and what is left of the gap
    after conversion is mostly the driver's own fixed cost (0.073 s, §3.1). The
@@ -634,7 +634,7 @@ entry says what was MEASURED, not what is suspected.
 5. **100 threads were still alive at process exit, and 0 of 1250 spool files has a torn
    last record.** *Measured by parsing the spool bytes directly, outside the converter
    that wrote them: 100 spool files carry no `THREAD_END`, and every one of them ends on
-   a complete record.* Rung 1's gap 2 — a live thread's buffered tail is lost — is closed
+   a complete record.* Rung 1's gap 2 (a live thread's buffered tail is lost) is closed
    on the record side by the `MAP_SHARED` spool. What is **not** measured here is whether
    any event that thread would have emitted after the last flush is missing; the trace
    still reports `incomplete = false` for a process whose threads did not finish, which
@@ -646,8 +646,8 @@ entry says what was MEASURED, not what is suspected.
    was lost.
 7. **E7(b)'s panic half was vacuous.** *Measured: 0 `panicked at` locations on either
    side.* libtest captures a passing test's output and every test in the daemon's `--lib`
-   suite passes, so (b) compared the test lines and the result line — which is what its
-   rule names — and compared no panic location at all. Rung 3 should either run (b) with
+   suite passes, so (b) compared the test lines and the result line (which is what its
+   rule names) and compared no panic location at all. Rung 3 should either run (b) with
    `--nocapture` or state that the panic half lives only in (a).
 8. **`spawn_sites_rewritten` = 13 is a raw sum across manifests, not a distinct count.**
    *Measured: 13 across the 108 manifests, against the census's 8 distinct literal
@@ -659,7 +659,7 @@ entry says what was MEASURED, not what is suspected.
 9. **The E5 plant could not be placed in production code.** *Measured: the registry's
    production fns that run under `-- task::registry` contain four pairs of consecutive
    statements (`spawn_task` lines 759/760, 763/764, 767/768, 922/923) and every one is
-   either data-dependent or calls only uninstrumented std functions* — so no pair of
+   either data-dependent or calls only uninstrumented std functions*, so no pair of
    consecutive **independent** call statements exists there whose swap the trace could
    see. The swap therefore went in `tests::build_pager`, a non-`#[test]` helper fn of the
    registry (`Journal::open` and `ImageStore::new`), which satisfies the

@@ -1,16 +1,16 @@
-# CARRIED-DEBT — the earlier sections
+# CARRIED-DEBT: the earlier sections
 
 Rung 3, the borrow repair and the rung-4 entry slice, **moved here 2026-09-06
 (the focus tier, rung 4 slice 1) so [`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md)
 stays under 800 lines**. That file named this split itself rather than
-discovering it at the ceiling — "the natural split is by slice, the oldest
-sections moving to a `docs/CARRIED-DEBT-ARCHIVE.md` it links" — and this is
+discovering it at the ceiling ("the natural split is by slice, the oldest
+sections moving to a `docs/CARRIED-DEBT-ARCHIVE.md` it links") and this is
 the file it named. **The wording, the order and the strikes are unchanged**:
 a resolved item is struck through here exactly as it was there, never
 deleted, and the house rule stated in `docs/CARRIED-DEBT.md`'s header governs
 both files. A deferred item below is still open unless it is struck.
 
-## 2026-09-05 — rung 3, Err flow (Python 0.8.0 / crates 0.3.0)
+## 2026-09-05: rung 3, Err flow (Python 0.8.0 / crates 0.3.0)
 
 ### Settled
 
@@ -18,14 +18,14 @@ both files. A deferred item below is still open unless it is struck.
   `let _ =`, classified `Err` arms, closure frames, chains minted at
   conversion, five dispositions behind the shared renderer.
 - **The rule was wrong once and the record says so.** E6′ read STOP at 1
-  false accusation of 15 (`memory.rs:131` — a `format!` PRODUCT escaping);
+  false accusation of 15 (`memory.rs:131`. A `format!` PRODUCT escaping);
   the R2 amendment was pre-registered and re-measured to 0 false of 14 on two
   selectors and both readings (E6‴). Two acceptance documents, neither
   rewritten.
 - A `?` the transformer cannot reach is a declared `partial` row, not a
   silent gap. E2″ 392/401 = 97.76 % with the `partial` count pre-registered
   and met.
-- Panic locations: lines never move; a column shifts in exactly two places —
+- Panic locations: lines never move; a column shifts in exactly two places,
   inside a wrapped `?`/sink/`let _` operand by the 6 bytes of `match `
   (**measured**, predicted before both runs and met at both tiers), and after
   an arm probe or closure guard spliced at a same-line `{` by that probe's own
@@ -45,10 +45,10 @@ both files. A deferred item below is still open unless it is struck.
   and the choice is a ruling: remove it now in a code slice; re-date the
   promise in `README.md`, `watch_cmd.py` and `tests/test_watch.py` together;
   or keep it indefinitely and say so. Doing nothing leaves a 0.8.0 binary
-  printing "(removed in 0.8.0)".~~ — resolved: `--near` removed from the
+  printing "(removed in 0.8.0)".~~, resolved: `--near` removed from the
   parser (this slice); see `CHANGELOG.md` 0.8.0.
 - **A `chain.holder` field on the wire.** The holder frame is derived twice
-  today — once by the converter's chain machine, once by the Python reader
+  today, once by the converter's chain machine, once by the Python reader
   walking outward from a chain's last event (`Index.unwound_holder` and
   `Index.harness_holder` in `query/exceptions_rust.py`). One wire field would delete
   both walks. Deferred because the derivation is sound over every §2a row and
@@ -56,36 +56,36 @@ both files. A deferred item below is still open unless it is struck.
 - **The nested-literal gap, recorded rather than repaired.** A value-format
   macro nested inside a logging macro's argument
   (`eprintln!("{}", keep(format!("{e}")))`) still reads HANDLED and can reach
-  SWALLOWED — the R2 amendment's own class, one nesting level in. Exposure on
+  SWALLOWED, the R2 amendment's own class, one nesting level in. Exposure on
   the bloomery clone was measured **zero** before the decision, and the
   pre-registration was already locked, so a zero-exposure change would have
   bought no measurement. Named in design R16 and
   `rust/HONESTY-BLIND-SPOTS.md` item 23 **(a)**; untested by fixture. Item
-  23 (b), the whole-word-`e` over-escape, is a different kind of thing — safe
-  direction, AMBIGUOUS never an accusation — and its exposure is measured
+  23 (b), the whole-word-`e` over-escape, is a different kind of thing (safe
+  direction, AMBIGUOUS never an accusation) and its exposure is measured
   nowhere; the zero above covers (a) only.
 - ~~**The `&e` rule repair, and the `--workspace` E6 arm that would measure it
-  — one slice, both halves.** *The repair:* the escape test exempts `&e`
+  (one slice, both halves.** *The repair:* the escape test exempts `&e`
   because the borrow proves the arm kept the error, but the exemption is
   silent about what the CALL does with its product, so
   `Err(e) => { let (status, value) = map_error(&e, ..);
   V1Result::json(status, value) }` reads `arm_handled` and could print
-  SWALLOWED while the failure reached the caller as an HTTP error — the R2
+  SWALLOWED while the failure reached the caller as an HTTP error) the R2
   amendment's class, one function call out (`rust/HONESTY-BLIND-SPOTS.md`
   item 23 (c), design R16). The shape of the repair: `&e` exempt only in a
   statement whose value is dropped. Static exposure on the clone is **2 arms**
   (`crates/bloomery-daemon/src/api_v1.rs:396` and `:515`), and **`--lib`
-  executes neither** — which is the other half. *The arm:* E6‴-W widened the
+  executes neither**, which is the other half. *The arm:* E6‴-W widened the
   selector and executed the same 2 of the 29 located blast-radius arms as
   `-p bloomery-daemon --lib`, so the widening bought no reach; integration
   tests, binaries and doctests are where reach would come from. A
   `--workspace` E6 arm with no `--lib` is what makes the repair measurable
   rather than asserted, so both are pre-registered together. Found by the
   whole-branch review AFTER the numbers were read; recorded, not repaired, for
-  the reason the process lesson below states.~~ — resolved 2026-09-05 by the
+  the reason the process lesson below states.~~ (resolved 2026-09-05 by the
   borrow repair: the exemption now holds only where the borrowing call's
   product is provably dropped (design B1), and the
-  `--workspace` arm measured it — **E6⁗-A PASS** (0 false accusations of 14),
+  `--workspace` arm measured it) **E6⁗-A PASS** (0 false accusations of 14),
   **E6⁗-WS PASS** (0 false of 782 over 144 processes), **E6⁗-WS0
   DISCRIMINATING** (the pre-repair driver printed 30 more lines, every one
   false, at 7 of the 11 flipped arms; the repaired driver printed none). See
@@ -101,7 +101,7 @@ both files. A deferred item below is still open unless it is struck.
   that diff for ITS repair (E-flip): two from-scratch
   `--workspace --no-run` builds, 225 arm sites declared by each, **11**
   changed rows, every transition `arm_handled → arm_ambiguous`,
-  `only_before = only_after = []`, and every row named —
+  `only_before = only_after = []`, and every row named,
   `crates/bloomery-daemon/src/api_native/agents.rs:57, :82, :93, :104,
   :156`, `api_native/models.rs:25, :140`, `api_v1.rs:396, :515`,
   `codec_probe/boot.rs:110`, `pager/paging.rs:673`. That settles the
@@ -110,7 +110,7 @@ both files. A deferred item below is still open unless it is struck.
   and the E6‴-era census, neither of which was ever enumerated side by
   side, and no diff taken here identifies them. Open until someone
   enumerates those two sets, or rules that the question no longer needs
-  answering.~~ — **Closed by a dated note 2026-09-08** (ruling
+  answering.~~, **Closed by a dated note 2026-09-08** (ruling
   R8): **the question no longer needs answering.** E-flip settled the METHOD
   (a BEFORE/AFTER manifest diff over two from-scratch builds, every changed
   row named), and the repair it was asked about has shipped and been measured
@@ -119,12 +119,12 @@ both files. A deferred item below is still open unless it is struck.
   any record turns on. Nobody is owed the diff.
 - ~~**`corpus/run_corpus.py::_run_ids` reads any stdout line starting `run: `
   as a trace id.** A case that printed `run: Err(..)` was misread; the case
-  worked around it. Key the id line unambiguously in a later slice.~~ — **Taken 2026-09-08** at `a9a5ed1` (with
+  worked around it. Key the id line unambiguously in a later slice.~~. **Taken 2026-09-08** at `a9a5ed1` (with
   `245dee4`): the reader is anchored on `RUN_LINE`, the id line's own keyed
   shape, so a case that prints `run: Err(..)` is no longer read as a trace
   id; the comment beside it names all three shapes the writer emits.
 - **`rust/tests/mechanics.sh` is at 795 of 800 lines.** The next check added
-  to it must split it first — and there is now a named check waiting for that
+  to it must split it first, and there is now a named check waiting for that
   split: **an E7 check for the second place a column can move.** The clause
   adopted at the final fix wave says a column shifts inside a wrapped operand
   by 6 bytes (measured) *and* after an arm probe or closure guard spliced at a
@@ -134,31 +134,30 @@ both files. A deferred item below is still open unless it is struck.
   `rust/sensorium-transform/tests/golden/err_arms_three_ways.out.rs:14`.
 - ~~**`rust/HONESTY.md` is at 796 of 800** after §11, even with §8's list
   moved out. The next promise added to it needs the next split chosen
-  deliberately — the index, or §1 — rather than discovered at the
-  ceiling.~~ — the split was taken at the final fix wave: the
+  deliberately (the index, or §1) rather than discovered at the
+  ceiling.~~. The split was taken at the final fix wave: the
   promise→falsifier index is `rust/HONESTY-INDEX.md`. It bought 17 lines and
   the wave's two clauses (the two-place column rule, the `&e` residual) spent
   them, so **the file is at 796 of 800 again** and the next split is now
   named: **§1**. Stated rather than left to be discovered, which is the point.
-  — and taken 2026-09-05 by the borrow repair: §1 is now
+and taken 2026-09-05 by the borrow repair: §1 is now
   `rust/HONESTY-OUTCOMES.md`, wording and order unchanged, leaving
   `rust/HONESTY.md` at 713 lines after §11's repaired `&e` clause.
 - ~~**The parent spec is at 1 458 lines**, over the house ceiling and already
   over it (1 407) before this slice added §11's rung-3 verdict and §13's
-  deltas table. Splitting a design spec's history is not a docs pass's call.~~ — **Closed 2026-09-08** by **ruling R1** at
+  deltas table. Splitting a design spec's history is not a docs pass's call.~~ (**Closed 2026-09-08** by **ruling R1** at
   `e531200`: the 800-line ceiling covers code and living docs, and
-  `docs/superpowers/{acceptance,plans,specs}/` are records — dated history,
-  some byte-locked, amended only by appended notes — exempt by name in
+  `docs/superpowers/{acceptance,plans,specs}/` are records) dated history,
+  some byte-locked, amended only by appended notes, exempt by name in
   `tests/test_ceiling.py`. The parent spec is not owed a split; a record is
   read by section.
 - **E2″'s numerator is `(file, line)`-deduped**, so the 97.76 % is a floor
   and the 9-site residual is an instrument artifact, not unreached code (the
   per-file recount is 401/401). A numerator that counts sites rather than
   lines would remove the footnote.
-- ~~**Rung-2's `acceptance_lib.read_manifests` breaks on rung-3 manifests** —
-  it killed the first E6′ launch before any number was read, and was worked
-  around in a rung-3 module rather than fixed at the source.~~ — **Taken 2026-09-08** at `05148e8`: fixed at
-  source — `line` where `firstlineno` is absent, `kind` joining the site key —
+- ~~**Rung-2's `acceptance_lib.read_manifests` breaks on rung-3 manifests** (it killed the first E6′ launch before any number was read, and was worked
+  around in a rung-3 module rather than fixed at the source.~~) **Taken 2026-09-08** at `05148e8`: fixed at
+  source (`line` where `firstlineno` is absent, `kind` joining the site key)
   and `acceptance_phases_rung3.read_manifests_rung3`, the workaround, is
   deleted. A rung-2 manifest counts exactly as it did, so no published number
   moves, and a manifest whose format has no `partial` key reads `null` WITH
@@ -173,24 +172,23 @@ both files. A deferred item below is still open unless it is struck.
   §2a and R16 on 2026-09-05, found by the whole-branch review after the
   numbers were read. The fix (`held_matching` first, innermost as the
   fallback) rides the next pre-registered slice, with a converter test on a
-  hand-built spool as its falsifier.~~ — resolved 2026-09-05 by the borrow
+  hand-built spool as its falsifier.~~, resolved 2026-09-05 by the borrow
   repair (design B3): `close_frame` now runs the text-preferring search
   first and falls back to the innermost.
   Falsifiers:
   `chains/tests.rs::an_err_close_hops_the_held_chain_whose_text_it_carries_not_the_innermost`,
   `rust/cargo-sensorium/tests/convert_errflow_chains.rs`, and
   `corpus/rust/keep_first_error`.
-- ~~**Three `chain.terminal` values have no conformance vector** —
+- ~~**Three `chain.terminal` values have no conformance vector**,
   `panicked`, pinned by `tests/test_exceptions_rust.py` alone
   (`test_a_panic_on_the_holder_quotes_the_panic_and_claims_no_cause`), and
   `left_thread` and `handled_then_failed`, pinned by
   `tests/test_exceptions_rust_ambiguous.py` alone
   (`test_a_chain_that_left_a_spawned_threads_outermost_frame_is_ambiguous`,
-  `test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed`).~~ —
+  `test_a_sink_whose_frame_then_failed_is_ambiguous_not_swallowed`).~~,
   **Taken 2026-09-08 by the queue slice's final fix wave** (inventory row #23):
   `v20-exceptions-rust-panicked`, `v21-exceptions-rust-left-thread` and
-  `v22-exceptions-rust-handled-then-failed`. Built the way every vector is —
-  hand-written JSON through `tests/vectors.py`'s real `TraceWriter` — and run
+  `v22-exceptions-rust-handled-then-failed`. Built the way every vector is (hand-written JSON through `tests/vectors.py`'s real `TraceWriter`) and run
   by `tests/test_vectors.py` against the shipped CLI in a subprocess. Each was
   mutated by setting its `terminal` to a value the rules do not know, and each
   reddened, so the three pin the field they exist for. The Python tests above
@@ -199,7 +197,7 @@ both files. A deferred item below is still open unless it is struck.
   pre-correction wording ("each frame the chain crosses"), which
   `docs/TRACE-FORMAT.md` §5 corrected on 2026-09-05 to count in-frame hops
   too. A comment-only fix, deferred because this slice may not touch
-  `rust/**/src`.~~ — resolved at `50c21c3`: the comment now states in-frame
+  `rust/**/src`.~~, resolved at `50c21c3`: the comment now states in-frame
   hops and cites `docs/TRACE-FORMAT.md` §5.
 
 ### Process lessons
@@ -209,7 +207,7 @@ both files. A deferred item below is still open unless it is struck.
   being cut, and the bump made a shipped sentence false. Grep the tree for
   the version you are about to write before you write it.
 - **Mutation-testing the Python side needs `PYTHONPATH`, not a scratch
-  copy.** A copy of the repo is not what pytest imports — the editable
+  copy.** A copy of the repo is not what pytest imports, the editable
   install's `.pth` points at the real tree, so a mutant in the copy is never
   executed and every test stays green, which reads as "the mutation
   survived". Either set `PYTHONPATH=<scratch>/src` so the scratch tree is
@@ -227,13 +225,13 @@ both files. A deferred item below is still open unless it is struck.
   are in the ledger, in the design, and in the acceptance record's own gaps
   section instead.
 
-## 2026-09-05 — the borrow repair (Python 0.8.1 / transform + driver 0.3.1)
+## 2026-09-05: the borrow repair (Python 0.8.1 / transform + driver 0.3.1)
 
 ### Settled
 
 - **The `&e` exemption is a rule about the borrowing call's dropped product**
   (design B1). A shared borrow is a provable non-escape only as a direct
-  argument of a call that is a dropped call site — an expression statement, a
+  argument of a call that is a dropped call site, an expression statement, a
   `let _ =` with a plain wildcard, or a logging macro's argument; everywhere
   else it ESCAPES. On the bloomery clone (`e209ed9`) the census moves
   arms handled (`arm_handled`) 65 → 54 and arms escaped (`arm_ambiguous`)
@@ -244,7 +242,7 @@ both files. A deferred item below is still open unless it is struck.
   PASS** (0 false accusations of 14 SWALLOWED lines, both readings, 2
   guarded); **E6⁗-WS PASS** (0 false of 782 lines over 144 recorded processes
   at 91 sink sites, both readings, 374 guarded lines at 6 sites); **E6⁗-WS0
-  DISCRIMINATING** (the pre-repair driver printed 812 — the same 782 plus 30,
+  DISCRIMINATING** (the pre-repair driver printed 812, the same 782 plus 30,
   all 30 false, at 7 of the 11 flipped arms; the repaired driver printed none
   there); **E-flip PASS** (11 changed rows, all `arm_handled →
   arm_ambiguous`, `11 == 65 − 54`, `only_before = only_after = []`);
@@ -254,8 +252,8 @@ both files. A deferred item below is still open unless it is struck.
   `c911724b…550e7c27`, and measured once.
 - **The exit hop prefers text** (design B3). `close_frame` on `Outcome::Err`
   now gives the hop to the innermost hop-eligible held chain whose `last`
-  text matches the RETURN's, falling back to the innermost — the pre-repair
-  rule — only when none matches. Hop data only; no disposition and no wire field
+  text matches the RETURN's, falling back to the innermost (the pre-repair
+  rule) only when none matches. Hop data only; no disposition and no wire field
   moved.
 - **Two Rust corpus cases**, taking the Rust corpus to thirty-one:
   `err_borrowed_into_value` and `keep_first_error`.
@@ -264,7 +262,7 @@ both files. A deferred item below is still open unless it is struck.
   version bump runs after the measurement; this release moves
   `sensorium-transform` and `cargo-sensorium` to 0.3.1 and leaves
   `sensorium-rt` at 0.3.0.
-- **`rust/HONESTY.md` §1 is `rust/HONESTY-OUTCOMES.md`** — the split rung 3
+- **`rust/HONESTY.md` §1 is `rust/HONESTY-OUTCOMES.md`**: the split rung 3
   named rather than one discovered at the ceiling. Wording and order
   unchanged; the file is at 713 lines with §11's repaired `&e` clause in it.
 - **Two stale doc counts corrected**: `tests/test_corpus.py`'s docstring said
@@ -282,7 +280,7 @@ both files. A deferred item below is still open unless it is struck.
   design R15's ruled reading (the disposition is the BODY's), and every table
   reports the guarded count beside both readings. E6‴ could call this a
   wording debt at 2 lines of 14; it should be **paid in §1's wording before
-  rung 4** rather than inherited a third time.~~ — resolved 2026-09-05 at its
+  rung 4** rather than inherited a third time.~~, resolved 2026-09-05 at its
   source (rung-4 entry, N1): the definition now lives once, in
   `rust/HONESTY.md` §11, and says **"Reading the error does not carry it
   out"** and **"a guarded arm's disposition is its body's"** in the rule
@@ -296,9 +294,9 @@ both files. A deferred item below is still open unless it is struck.
   `drift.rs:694`'s re-worded absence, 14 lines (inside the guarded 374).
   None is a `&e`-through-a-function shape, so this repair touches none of
   them. **A per-site `--allow`, or an in-source marker, is the shape that
-  would settle all three** — a design question, not a record's to answer.
+  would settle all three**, a design question, not a record's to answer.
   *Annotated 2026-09-05 (rung-4 entry): grouping makes the three classes
-  READABLE — each is now a shape with a `×N` count instead of N scattered
+  READABLE. Each is now a shape with a `×N` count instead of N scattered
   lines, which is what let the E6⁗ adjudicator's hand-built per-site table be
   printed by the tool. It settles none of them. The in-source acknowledgment
   marker is still the settlement, its notation decided under N8 and its
@@ -312,10 +310,10 @@ both files. A deferred item below is still open unless it is struck.
   from the error survives the arm. **`pager/paging.rs:673` is the one site in
   the record whose verdict could turn on which path ran** (three downstream
   endings),
-  and its row's stated reason had to be corrected in fix round 1.~~ — **Closed by a dated note 2026-09-08**
+  and its row's stated reason had to be corrected in fix round 1.~~, **Closed by a dated note 2026-09-08**
   (ruling R8): `pager/paging.rs:673`'s collapse **stands as read**. The
-  record's own §5.2 is the evidence — it names the site, states that its
-  verdict could turn on which path ran, and carries the corrected reason —
+  record's own §5.2 is the evidence (it names the site, states that its
+  verdict could turn on which path ran, and carries the corrected reason)
   and a reading a record states against itself is the honest form of a
   contestable reading. Re-adjudicating it would be a new derivation of a
   closed record, not a repair of one.
@@ -323,13 +321,13 @@ both files. A deferred item below is still open unless it is struck.
   run (record §5.5): `api_native/agents.rs:93`, `:104`,
   `api_native/models.rs:25`, `codec_probe/boot.rs:110`. Three are the same
   `Err(e) => map_error(&e),` tail as arms that did run; `boot.rs:110` is the
-  one genuinely distinct shape — a borrow nested inside another call's
-  argument — so **the repaired rule's treatment of the nested-argument shape
+  one genuinely distinct shape (a borrow nested inside another call's
+  argument) so **the repaired rule's treatment of the nested-argument shape
   is asserted and unit-tested, not measured on a running tree**.
 - **Two rows §1 asks for are ABSENT, not zero** (record §5.6): the
   plain-versus-instrumented `--workspace` wall (the rung-2 addendum lens) was
-  not taken — no uninstrumented `--workspace` run was timed; and the
-  **doctest-process split is not something the runner computes** — it records
+  not taken. No uninstrumented `--workspace` run was timed; and the
+  **doctest-process split is not something the runner computes**. It records
   144 processes per WS arm and does not classify them by target kind. The
   second needs a per-process target-kind field in the instrument.
 - **The side-channel residual, blind spot 23 (d).** A callee handed `&e` at a
@@ -348,16 +346,16 @@ both files. A deferred item below is still open unless it is struck.
   before this branch. Rustdoc is not in the gate set (workspace tests,
   clippy `-D warnings`, `cargo fmt --check`, pytest), so nothing red was
   introduced and nothing was fixed here; the ruling is whether rustdoc joins
-  the gate.~~ — **Taken 2026-09-08** at `059ac7b`, the repair
+  the gate.~~ (**Taken 2026-09-08** at `059ac7b`, the repair
   half: **five** private-module intra-doc links (not the two this bullet
-  counted — the count had drifted with the file) are repaired and
+  counted) the count had drifted with the file) are repaired and
   `RUSTDOCFLAGS="-D warnings" cargo doc -p sensorium-transform --no-deps`
   passes. Whether rustdoc JOINS the gate set is the ruling half and stays a C
   item: it is a policy question about what a green tree must prove, not a
   repair.
 - ~~**`tests/test_acceptance_e6q.py` is at 800 of 800 lines.** The next test
-  added there must split the file first — the `rust/tests/mechanics.sh`
-  precedent, stated before it is discovered at the ceiling.~~ — **Taken 2026-09-08** at `1bd523d`, before a test
+  added there must split the file first (the `rust/tests/mechanics.sh`
+  precedent, stated before it is discovered at the ceiling.~~) **Taken 2026-09-08** at `1bd523d`, before a test
   was added to it: split at the schema banner into
   `tests/test_acceptance_e6q_record.py` (800 → 510 + 327), a pure move, which
   is what unblocked the e6q runner's stale-docs sweep below.
@@ -366,9 +364,9 @@ both files. A deferred item below is still open unless it is struck.
   format argument and a shared borrow, the only two uses design R2 calls
   provable". Goldens were deliberately untouched this slice (E7⁗ rests on
   nothing moving), so the sweep waits for the next legitimate golden
-  re-derivation.~~ — **Closed by a dated note 2026-09-08** (ruling
+  re-derivation.~~, **Closed by a dated note 2026-09-08** (ruling
   R8): design **B1** (2026-09-05, the borrow repair) superseded R2's "only two
-  provable uses" — `err_arm_escaped.in.rs:59-60` records the pre-repair
+  provable uses", `err_arm_escaped.in.rs:59-60` records the pre-repair
   reading and is not edited for it. Golden bytes move when the golden is
   legitimately re-derived, and a comment is not that occasion.
 - ~~**The acceptance runner's own docs still carry the falsified expectation.**
@@ -376,18 +374,18 @@ both files. A deferred item below is still open unless it is struck.
   `test_each_arms_driver_version_is_read_from_the_trace_that_arm_wrote` in
   `tests/test_acceptance_e6q.py`) say the control's traces must read
   `cargo-sensorium 0.3.0` and the HEAD arms' the repaired version. Record
-  §5.7 falsifies it — all three arms read 0.3.0 — and the measurement is
+  §5.7 falsifies it (all three arms read 0.3.0) and the measurement is
   complete, so the instrument was left as it stood rather than edited after
-  the lock. Sweep when that runner is next legitimately touched.~~ — **Taken 2026-09-08** at `a3b29b7`, the sweep
+  the lock. Sweep when that runner is next legitimately touched.~~, **Taken 2026-09-08** at `a3b29b7`, the sweep
   this row asked for: the module doc, `driver_identity`'s docstring and the
   test's docstring now say what the run FOUND (all three arms read 0.3.0) and
-  name the reading that does discriminate — `tool_hash`, which the test pins
+  name the reading that does discriminate, `tool_hash`, which the test pins
   per run.
 - **Review minors, deferred rather than repaired after the lock**, one line
   each: the escape walker's `visit_stmt` match guard
   `Some(e) if self.walk_dropped_call(e)` is side-effecting (it walks before
   the arm is chosen; harmless today); no unit row pins a dropped call in
-  RECEIVER position (`note(&e).ok();` reads Escaped — design-correct,
+  RECEIVER position (`note(&e).ok();` reads Escaped, design-correct,
   unpinned); `close_frame` computes `preferred` on every outcome though only
   the `Err` branch reads it; `rust/tests/render_e6q.py` is not reachable from
   `render_acceptance.py --doc`; the base driver's sha256 is verified before
@@ -395,22 +393,22 @@ both files. A deferred item below is still open unless it is struck.
   real_config(paths)["pkg"]` is unpinned; the E0‴ lens substitution
   yields the grammar "events's size" in two cells; **added at the final
   review**: no unit row pins the escape walker's CALLEE walk
-  (`walk_dropped_call`'s `self.visit_expr(&c.func)`) — no test has a dropped
+  (`walk_dropped_call`'s `self.visit_expr(&c.func)`). No test has a dropped
   call whose callee mentions the bound name; `phase_e6prime`'s step text now
   prints the selector, so the E6‴ runner's step line changed while its
   command did not; and `rust/tests/acceptance_schema_e6q.py::_prep`'s
   `arm_sites_distinct` cell can go null via `dropped = _drop(raw, key)`,
-  which can be `[]` — a null with no reason, against the module's own rule,
-  unreachable today because `arm_rows` always writes `distinct`. — **Six of the ten closed 2026-09-08** at
+  which can be `[]`, a null with no reason, against the module's own rule,
+  unreachable today because `arm_rows` always writes `distinct`., **Six of the ten closed 2026-09-08** at
   `ae58c54`: `--doc` is a table and every renderer with a `document(argv)`
   entry point is reachable from it; the control driver's sha256 is re-read at
   cleanup and reported (`null` WITH its reason on either side, never a
   refusal); `ARM_A["selector"]` is pinned against `real_config`'s `pkg`; the
   E0‴ lens substitution has a slot per grammar, so "events's size" is
-  unreachable — and it appears in **no committed record**, the defect having
+  unreachable, and it appears in **no committed record**, the defect having
   been latent; and `arm_sites_distinct`'s guard tests the CELL's value, so a
   null with no reason cannot be published. `phase_e6prime`'s step text needed
-  no repair — the bullet records a step line that had already changed. The
+  no repair. The bullet records a step line that had already changed. The
   **four crate-side minors stand** (the side-effecting `visit_stmt` guard, no
   receiver-position dropped-call row, `close_frame`'s always-computed
   `preferred`, no CALLEE-walk row): they are `rust/` crate code and crate
@@ -418,7 +416,7 @@ both files. A deferred item below is still open unless it is struck.
 - **`.await`/`?` wrapping a dropped call is not recognized as a dropped
   site.** `log(&e).await;` and `note(&e)?;` are, after `strip`, an
   `Expr::Await`/`Expr::Try` over the call, not the call itself, so
-  `walk_dropped_call` does not match and the borrow ESCAPES — the safe
+  `walk_dropped_call` does not match and the borrow ESCAPES. The safe
   direction (a lost AMBIGUOUS read, never a false SWALLOWED). Not exercised
   on the bloomery clone (E-flip's 11 changed rows == the frozen census
   delta) and not measured elsewhere. A later slice may unwrap
@@ -453,7 +451,7 @@ both files. A deferred item below is still open unless it is struck.
   it, so an arm that trusted the path would have measured the control twice
   and called it a PASS.
 
-## 2026-09-05 — rung-4 entry, the grain of exceptions (Python 0.8.2)
+## 2026-09-05: rung-4 entry, the grain of exceptions (Python 0.8.2)
 
 ### Settled
 
@@ -495,7 +493,7 @@ both files. A deferred item below is still open unless it is struck.
   review, fixed `9d17d62`). `phase_h4` runs `measure_sites` on an arm's stdout
   whether or not the 60 s kill fired, and the schema built `site_differences`,
   `groups`, `chains`, `tally_equal` and `header_counts_equal` out of that
-  partial text without consulting `timed_out` — so H4 could have PASSED on half
+  partial text without consulting `timed_out`, so H4 could have PASSED on half
   a sweep. Those five cells are now `null` with `killed at <kill_s> s; the
   answer is partial`; the wall, the rc, the bytes, the log, the INCOMPLETE
   members and the unresolved sinks stay measured, because a partial answer
@@ -505,7 +503,7 @@ both files. A deferred item below is still open unless it is struck.
   `disambiguated_shapes: null`) changed.
 - **`null` with an empty `dropped` is now unreachable in H5's headline**
   (same review, same commit). `raw_h4` present with an empty `walls` gave
-  `value: null, dropped: []` — the one shape this schema forbids, since the
+  `value: null, dropped: []`, the one shape this schema forbids, since the
   renderer prints it as not-measured while naming no reason. H4 having RUN is
   not H4 having timed an arm, and the guard says which.
 
@@ -514,8 +512,8 @@ both files. A deferred item below is still open unless it is struck.
 - **H4′'s verdict is OPEN, and the ruling is Brice's** (repair record §5.2).
   §1′ asked for "exactly 91 / 98 shapes, one per (file, line) site" and the
   answer printed 103 and 105 over exactly 91 and 98 sites, with 0 site
-  differences per arm. Under the gate reading — the (site, count) multiset,
-  which is the instrument's committed rule at `4525227`, before either lock —
+  differences per arm. Under the gate reading. The (site, count) multiset,
+  which is the instrument's committed rule at `4525227`, before either lock.
   H4′ is a PASS; under the strict conjunctive reading it is a STOP at 103 /
   105. **No number in either record turns on it**, and §1′ is not edited
   either way. If the strict reading binds, the slice ships with two STOP
@@ -523,13 +521,13 @@ both files. A deferred item below is still open unless it is struck.
 - ~~**The first record's `results.json` no longer re-assembles byte-identical**
   apart from `assembled.at`: `34ab82e` added `disambiguated_shapes` keys the
   first raw record does not carry, so a re-assembly today emits five
-  `disambiguated_shapes: null` — unmeasured, which is the none-vs-zero rule
+  `disambiguated_shapes: null`, unmeasured, which is the none-vs-zero rule
   holding rather than breaking. The committed file was left as measured and
   derived at `62d8956`. **Ruling owed**: either pin a schema version in each
   `results.json`, or accept that a re-derivation under a later schema is a NEW
-  derivation and say so once, in the renderer.~~ — **Closed by a dated note 2026-09-08**
-  (ruling R8): the first half shipped at `e0f469c` — every raw and assembled
-  results file carries `schema_version` — and the second half is the note:
+  derivation and say so once, in the renderer.~~ (**Closed by a dated note 2026-09-08**
+  (ruling R8): the first half shipped at `e0f469c`) every raw and assembled
+  results file carries `schema_version`, and the second half is the note:
   **both grain `results.json` predate the field, and a later re-derivation of
   either is a NEW derivation, not a repair of the published one.** The
   committed records are not edited. What that costs is now measured rather
@@ -558,23 +556,23 @@ both files. A deferred item below is still open unless it is struck.
 - ~~**`exceptions_cmd` dispatch sniffs an error MESSAGE.** The fall-through from
   a run reference to an invocation lookup tests the text `"no trace matches"`.
   It is correct today and pinned, and it will break silently the day that
-  sentence is reworded.~~ — **Taken 2026-09-08** at `0d685ad`: the
+  sentence is reworded.~~, **Taken 2026-09-08** at `0d685ad`: the
   fall-through tests a typed exception, `paths.NoSuchTrace`, not the text.
-  One recorded value moved with it — the invocation log's `error` field reads
+  One recorded value moved with it. The invocation log's `error` field reads
   `NoSuchTrace` where it read `TraceLookupError`, which is the class that was
   actually raised.
 - ~~**Rung-3 blind spot R16 (v) is in no ledger but this one.** A `Result` born
   in an instrumented callee and handed BY VALUE to a helper that sinks it
   produces a HANDLED matching no chain the helper's frame holds: a chainless
   swallow whose detail prints a false *born outside this thread's instrumented
-  frames* — it was born inside, one frame away — beside a second AMBIGUOUS
+  frames* (it was born inside, one frame away) beside a second AMBIGUOUS
   line for the chain the callee's `err` close opened. The verdict class is
   right and the DETAIL is wrong, which sends a reader looking outside the
-  workspace for an error the workspace raised.~~ — **Taken 2026-09-08**, both halves: the printed
-  detail was qualified at `edc2bce` (pinned at `6490a14`) — it now leads with
+  workspace for an error the workspace raised.~~ (**Taken 2026-09-08**, both halves: the printed
+  detail was qualified at `edc2bce` (pinned at `6490a14`)) it now leads with
   the record's own fact, *no chain of this thread was open where it was
   absorbed*, and names both readings that admit it, so the sentence no longer
-  claims a birthplace it cannot know — and the ledger half is
+  claims a birthplace it cannot know, and the ledger half is
   `rust/HONESTY-BLIND-SPOTS.md` **item 30**, added by the queue slice, which
   is the ledger this row said the shape was missing from.
 - ~~**The §11 sweep N1 did not finish.** `rust/HONESTY-INDEX.md`'s §11 row still
@@ -583,7 +581,7 @@ both files. A deferred item below is still open unless it is struck.
   25 beside it; `docs/trace-format/vectors/v18-exceptions-rust-ambiguous-merge.json`
   asserts the tool's SENTENCE as prose rather than any structure; and
   `tests/test_honesty_prose.py` pins its four phrases to §11 as a whole, not
-  to the SWALLOWED bullet.~~ — **Taken 2026-09-08 by the queue slice's final fix
+  to the SWALLOWED bullet.~~, **Taken 2026-09-08 by the queue slice's final fix
   wave** (inventory row #29), all four. The INDEX row states the post-N1
   definition, clause for clause, and its falsifier column gained the three
   vectors row #23 added. §11's `JoinHandle` bullet names `left_thread`, carries
@@ -592,24 +590,24 @@ both files. A deferred item below is still open unless it is struck.
   paraphrases the rule: it says the sentence its question pins IS
   `exceptions_rust.ESCAPED_DETAIL`, a verbatim quotation of §11 held there in
   both directions by `tests/test_honesty_prose.py`. And that test reads the
-  SWALLOWED bullet rather than the whole section — with a check that the slice
+  SWALLOWED bullet rather than the whole section, with a check that the slice
   is a proper one, since a `_swallowed_bullet` that quietly returned all of §11
   would restore the hole while passing everything.
 - ~~**The invocation header's noun is wrong at both ends.** It reads
-  `N swallowing sites` where N counts printed BLOCKS — `ws` prints 103 and
+  `N swallowing sites` where N counts printed BLOCKS (`ws` prints 103 and
   `ws0` 105 where the published record has 91 and 98 SITES, and R-G12 widened
-  that gap precisely by making the addressing right — and it says `sites`
+  that gap precisely by making the addressing right) and it says `sites`
   when N is 1. The phrase was frozen through both measurements deliberately;
-  it is free to fix now.~~ — **Taken 2026-09-08** at `edc2bce`: the header
-  reads `N swallowed shape(s)` — this command's own word for a merged block,
-  which is what N counts — with the singular. One reader downstream moved
+  it is free to fix now.~~ (**Taken 2026-09-08** at `edc2bce`: the header
+  reads `N swallowed shape(s)`) this command's own word for a merged block,
+  which is what N counts, with the singular. One reader downstream moved
   with it: the grain runner's `RAISED_INV` regex, repointed at `aefb7ca` and
   now BUILT from the line the tool prints rather than retyped.
 - ~~**Two residuals the repair recorded and did not touch**: `details vary`
   printed **0** times in every answer either run read (measured-and-zero,
-  never absent — so the flag is unexercised on real data), and the header's
+  never absent (so the flag is unexercised on real data), and the header's
   `panics: 8 recorded` counts panic EVENTS beside a tally reading
-  `panicked 2`, two different questions under one word.~~ — **Taken 2026-09-08** at `edc2bce`: the panics
+  `panicked 2`, two different questions under one word.~~) **Taken 2026-09-08** at `edc2bce`: the panics
   line says which question it answers rather than putting two under one word,
   and `details vary` has a fixture, so the flag is exercised where real data
   never exercised it.
@@ -619,8 +617,8 @@ both files. A deferred item below is still open unless it is struck.
   never amended: there is no second sha"* and then interpolates the second sha
   (`:75`). All three are struck and corrected in the repair record's PROSE
   (§5.7); the code was not repaired, because `OVERRIDES` covers the runner's
-  own literals and not a collaborator's. That boundary is the debt.~~ — **Taken 2026-09-08** at `a3b29b7`: all three are
-  derived — the raw record's name from `assembled.from`, the ids from the
+  own literals and not a collaborator's. That boundary is the debt.~~ (**Taken 2026-09-08** at `a3b29b7`: all three are
+  derived) the raw record's name from `assembled.from`, the ids from the
   record's `endpoint_ids` (falling back to its own keys), and the byte-lock
   sentence chosen by whether an original lock exists instead of asserting
   there is none and then interpolating it. The published records are not
@@ -631,11 +629,11 @@ both files. A deferred item below is still open unless it is struck.
   where the shipped header counts BLOCKS (103 on the measured `ws` arm), and
   N6's `--after` refusal quotes `spans 144 — page with --limit` where the tool
   prints `spans 144 processes -- page with --limit`. Corrected the way every
-  other amendment in that document is — beside the text, dated — rather than
+  other amendment in that document is (beside the text, dated) rather than
   rewritten, because a design two measurements were pre-registered against is
-  evidence and not a description.~~ — **Struck 2026-09-08**: this bullet records its
-  own item as taken — the dated in-place amendments ARE the fix that row
-  asked for — and it stood unstruck only because nothing came back to close
+  evidence and not a description.~~ (**Struck 2026-09-08**: this bullet records its
+  own item as taken) the dated in-place amendments ARE the fix that row
+  asked for, and it stood unstruck only because nothing came back to close
   it.
 - **Files at or near the 800-line ceiling**: the repair acceptance record is
   **795** after the post-review fix wave struck two sentences in place (it was
@@ -646,32 +644,32 @@ both files. A deferred item below is still open unless it is struck.
   `tests/test_acceptance_grain.py` 506. The next paragraph added to the record
   must split it first, and ~~the next paragraph the README's `exceptions`
   section wants should go to a `docs/exceptions.md` it links, not into the
-  README~~ — the split is named here rather than discovered at the ceiling.
+  README~~. The split is named here rather than discovered at the ceiling.
   **Taken 2026-09-06 by the focus tier**, one filename over from the one
   named here: the README's `exceptions`, `watch` and `flow` sections are
   `docs/query.md`, wording and order unchanged, and the README keeps a
   paragraph carrying each command's load-bearing claim and a link. It went
-  from 783 lines to 688 with the focus tier's own section already added. — **And closed 2026-09-08** by **ruling R1** at
+  from 783 lines to 688 with the focus tier's own section already added. (**And closed 2026-09-08** by **ruling R1** at
   `e531200`: the repair acceptance record at 795 is a RECORD, and records
   (`docs/superpowers/{acceptance,plans,specs}/`) are exempt from the ceiling
-  by name in `tests/test_ceiling.py` — dated history, amended by appended
-  notes and never restructured — so no split is owed there. The four test
+  by name in `tests/test_ceiling.py`) dated history, amended by appended
+  notes and never restructured, so no split is owed there. The four test
   files named here are all under the gate and green.
 - ~~**`tests/test_acceptance_grain.py`'s box-path scan does not list
   `rust/tests/acceptance_grain_repair.py`.** The sibling runner names no box
-  path today, and nothing asserts that it goes on naming none.~~ — **Taken 2026-09-08** at `a3b29b7`: the
+  path today, and nothing asserts that it goes on naming none.~~. **Taken 2026-09-08** at `a3b29b7`: the
   five-name list is a glob over `acceptance_grain*.py` + `render_grain.py`,
   parametrised, with a companion test that the glob covers the named five and
-  includes the repair runner. Measured DISCRIMINATING — a box path planted in
+  includes the repair runner. Measured DISCRIMINATING, a box path planted in
   the repair runner passes the old hand list and fails the new scan.
 - ~~**Design §5's test line still spells the continuation note
   `... 1 more shape; continue with: …`**, which ruling R-G7 replaced with
   `fmt.more_note`'s wording (no "shape(s)" word). The tests and the tool are
   right; the design's example is stale. Amend at the next legitimate touch of
-  that document.~~ — **Taken 2026-09-08** by the queue slice's ledger
+  that document.~~, **Taken 2026-09-08** by the queue slice's ledger
   commit: `2026-09-05-sensorium-rung4-entry-grain-design.md` §5 carries a
-  dated in-place amendment — `fmt.more_note` prints `... N more; continue
-  with: <hint>`, with no "shape" word — beside the stale example rather than
+  dated in-place amendment (`fmt.more_note` prints `... N more; continue
+  with: <hint>`, with no "shape" word) beside the stale example rather than
   over it, which is how every other amendment in that document is made.
 - **Review minors, deferred rather than repaired**, one line each:
   `_at`/`_hops_line` became cross-module API without being named as such; the
@@ -680,13 +678,13 @@ both files. A deferred item below is still open unless it is struck.
   (watched at H5 and cheap there, unbounded in principle);
   `resolve_invocation` does not close the `Trace` handles it opens;
   `grain_config` is a fifth override on the acceptance runner; and the repair
-  runner restates its sibling's `main`. — **Two of the six closed 2026-09-08**:
+  runner restates its sibling's `main`.. **Two of the six closed 2026-09-08**:
   `grain_config` is named as the FIFTH override with its reason at `eba4db1`,
   and the module doc now asserts it names every function in `OVERRIDES`; and
   the repair runner's restatement of its sibling's `main` is an accepted
   design, stated in its own module doc (rebinding a live module's globals
   would repoint them for every importer), now with an accurate count. The
-  other four stand — `_at`/`_hops_line` as unnamed cross-module API,
+  other four stand, `_at`/`_hops_line` as unnamed cross-module API,
   `group_chains` rendering before clipping, `resolve_invocation`'s unclosed
   `Trace` handles (all three `src/sensorium/query/`), and the Python-path pin
   asserting substrings rather than a whole answer, whose two options are
@@ -696,14 +694,14 @@ both files. A deferred item below is still open unless it is struck.
 
 - **A pre-registration written AFTER a first measurement must be checked
   against that measurement's published numbers for satisfiability before it is
-  locked — and we did not check.** §1′'s H4′ clause asked for "exactly 91 / 98
+  locked, and we did not check.** §1′'s H4′ clause asked for "exactly 91 / 98
   shapes, one per site" at a moment when the first measurement had already
   published 100 and 103 shapes; adding a component to a key can only SPLIT
   shapes, so no outcome could have satisfied it. A clause no result can
   satisfy does not discriminate.
 - **The controller wrote that clause, after being asked in writing not to.**
-  §1′ was authored by the controller — the design authority for this slice,
-  not the implementer — and it repeated verbatim the shape-count equality the
+  §1′ was authored by the controller (the design authority for this slice,
+  not the implementer) and it repeated verbatim the shape-count equality the
   FIRST record's §5.2 had already falsified, in the same document whose §5.8
   told the successor: *"whose §1 … also carries the two clauses §5.2 and §5.3
   falsified here."* Of the two corrections that record sent forward, the tally
@@ -714,8 +712,8 @@ both files. A deferred item below is still open unless it is struck.
   failure this project is least likely to catch by review.
 - **A reader fix after a lock is a dated lens amendment, never a rewrite**
   (ruling R-G13). §1′'s lens was amended pre-measurement in its own commit
-  (`ae9a15b`), and the record carries BOTH locks — original `9bf64df`,
-  amended `ae9a15b` — with the sha256 checked before and after the run.
+  (`ae9a15b`), and the record carries BOTH locks (original `9bf64df`,
+  amended `ae9a15b`) with the sha256 checked before and after the run.
 - **File ceilings are checked at every fix round, not only at task end.** A
   test file crossed 800 lines mid-slice and had to be split under a fix
   (`eb110fc`), which is a worse moment to restructure than any planned one.

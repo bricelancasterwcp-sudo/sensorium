@@ -1,4 +1,4 @@
-# The TypeScript recorder's honesty ledger — §13: Redaction
+# The TypeScript recorder's honesty ledger: §13: Redaction
 
 Section 13 of [`typescript/HONESTY.md`](HONESTY.md), **written here 2026-09-14
 (secrets redaction part B) rather than in that file, which is one line under
@@ -21,7 +21,7 @@ runtime does all of it before a line is appended to the spool:
 - **The environment**, once at boot. `bootEnv` writes the stored `env`, its
   `envHash`, the `envRedaction` name → digest table and the `redaction`
   object into the BOOT record, and deletes `SENSORIUM_REDACT_KEY` from what
-  it stores — the driver mints or reads the store's key and hands the hex
+  it stores. The driver mints or reads the store's key and hands the hex
   over, because a runtime linked into somebody else's program has no business
   creating files.
 - **Every captured value**, under the name it was bound to.
@@ -40,23 +40,23 @@ runtime does all of it before a line is appended to the spool:
 
 **What a taken capture keeps.** The kind stays `dbg`, `v` becomes
 `<redacted>`, `trunc` is written **false** rather than dropped (nothing was
-clipped — the whole of it was taken), `oid` and `type` stay so `flow --object`
+clipped. The whole of it was taken), `oid` and `type` stay so `flow --object`
 can still follow the thing, and `redacted: {by, digest}` says which rule took
 it. Two captures are left exactly as they arrived because there is nothing to
 take: an `unread`, which never held a text, and a `dbg` whose text is exactly
 `undefined` or `null`, which is how node's inspector spells a function that
-produced no value (ruling R19). Whole texts and nothing near them — `NaN` is a
+produced no value (ruling R19). Whole texts and nothing near them, `NaN` is a
 value the program had.
 
 **The wire stays v1.** A JSON object with one more optional key is additive:
 an ingest older than this version copies a capture verbatim, so the key rides
 through unread, and a READER older than it ignores the key and prints the
-marker text — which leaks nothing either way. The ingest of this version
+marker text, which leaks nothing either way. The ingest of this version
 carries a 0.6.0 recorder's
 judgement through untouched, applies the NAME rule itself to a spool from
 0.5.0 or earlier (whose captures nobody judged), applies the CONTENT rule on
 every path because it is idempotent, and counts `redaction.values` at the
-WRITE — one per stored capture carrying a `redacted` object, whichever hand
+WRITE, one per stored capture carrying a `redacted` object, whichever hand
 put it there, so the count is a function of the trace's contents.
 
 **`by` names the LAST hand.** `recorder` only where the BOOT says `mode: "on"`
@@ -71,7 +71,7 @@ trace that says `converter` where it used to say `recorder`.**
 - A secret in a binding named `x`, or in a bare `key`, or one whose shape is
   on none of the nineteen content patterns. The rule is a floor, not a
   scanner.
-- **`argv`** — the harness command line is stored in plaintext.
+- **`argv`**: the harness command line is stored in plaintext.
 - **Anything at all under `SENSORIUM_NO_REDACT`**, which the trace records,
   and which the ingest obeys rather than overruling: a recording made with
   the rule off is converted as it was written.
@@ -85,8 +85,8 @@ trace that says `converter` where it used to say `recorder`.**
   absent (§7) and stores none.
 
 **Falsified by** `typescript/test/redact.test.mjs`, which reads
-[`../docs/trace-format/redaction-v1.json`](../docs/trace-format/redaction-v1.json)
-— the same file the Python and Rust suites read, so three implementations of
+[`../docs/trace-format/redaction-v1.json`](../docs/trace-format/redaction-v1.json),
+the same file the Python and Rust suites read, so three implementations of
 one rule agree only on what all three are asked;
 `typescript/test/rt.redaction.test.mjs` (a focused run withholds the value
 under a firing name and the secret in every text; a return the seal defers is
@@ -97,5 +97,5 @@ case, the `mode: "off"` case, `values` counting captures and not records, and
 the RETURN under a firing qualname); `tests/test_ts_driver_redaction.py` for
 the key hop and the spool's modes; and `corpus/typescript/secret_in_env`,
 which plants a token in the environment of a real vitest run and asks `info`,
-`frame`, `watch` and `flow` what became of it — every one of its questions
+`frame`, `watch` and `flow` what became of it, every one of its questions
 asserting the token itself appears nowhere in the answer.

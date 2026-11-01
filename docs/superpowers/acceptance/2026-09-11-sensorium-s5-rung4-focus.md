@@ -1,4 +1,4 @@
-# S5 rung 4 — the focus tier for TypeScript: acceptance (pre-registered)
+# S5 rung 4: the focus tier for TypeScript: acceptance (pre-registered)
 
 **Status: PRE-REGISTERED.** §1 and §2 were written before any rung-4 code
 existed; §3, §4 and §5 are the measured half and are written once the
@@ -7,7 +7,7 @@ endpoints have run.
 §1 of this file was written and committed on the feature branch
 `feat/s5-rung4` **before any line of rung-4 code existed**: the commit that
 carried it changed nothing under `src/`, `typescript/src/`, `rust/` or
-`corpus/`. §1 is the locked contract — after a number is read, no threshold
+`corpus/`. §1 is the locked contract, after a number is read, no threshold
 moves, no arm is added and nothing is re-run; an instrument defect found
 before a number is read is fixed and written into §2.3 with its commit, and
 found after, it is a finding. §2 keeps this rung's preflight pins. §3, §4 and
@@ -15,7 +15,7 @@ found after, it is a finding. §2 keeps this rung's preflight pins. §3, §4 and
 record.
 
 The one thing this rung can be tempted to move after the fact is **the hand
-count** — the nine LINE rows H3 judges the transform against — because it is
+count** (the nine LINE rows H3 judges the transform against) because it is
 the only part of this pre-registration that a human's reading of source
 decides rather than an instrument. It lives in
 `docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-handcount.md`, was
@@ -24,9 +24,8 @@ the runtime had a `line` and before the converter had an `_on_line`, and is
 pinned by sha256 as §1's last line; the lock test recomputes that sha and
 refuses a table that has moved by a byte.
 
-**This rung records.** Six `vitest run` invocations of one lens test file —
-three unfocused (U1 U2 U3) and three focused (F1 F2 F3), interleaved
-U1 F1 U2 F2 U3 F3 — into a store that is EMPTY at T0, named `<store>` in
+**This rung records.** Six `vitest run` invocations of one lens test file (three unfocused (U1 U2 U3) and three focused (F1 F2 F3), interleaved
+U1 F1 U2 F2 U3 F3) into a store that is EMPTY at T0, named `<store>` in
 every committed file of this rung and reached only through `SENSORIUM_DIR`.
 The lens is read-only for the whole rung and is bracketed by `sha256sum -c`
 of its manifest.
@@ -34,7 +33,7 @@ of its manifest.
 The lock is enforced by `tests/test_acceptance_s5_rung4_lock.py`, which
 compares the working tree's §1 against the commit that first carried it and,
 separately, compares each of §1's two verbatim bodies against
-`git show <sha>:<source>` — so "verbatim" is a claim a test holds, not one
+`git show <sha>:<source>`, so "verbatim" is a claim a test holds, not one
 this prose makes.
 
 ## 1. Pre-registration
@@ -289,8 +288,8 @@ df0fe871d17b7762f716bb326cd841425505895a13fe9777d4357ed7f04518b7  docs/superpowe
 ## 2. Ambient pins (preflight, recorded before any rung-4 code exists)
 
 Every value below is the output of the command beside it, run on this box on
-2026-09-11 between 17:55 and 18:20 local time (`-05:00`) — the session that
-opens rung 4 — before any file under `src/`, `typescript/src/`, `rust/` or
+2026-09-11 between 17:55 and 18:20 local time (`-05:00`) (the session that
+opens rung 4) before any file under `src/`, `typescript/src/`, `rust/` or
 `corpus/` was touched. The lens is the VTT frontend **copy** (VTT `0091e97`)
 that the first row below pins, abbreviated `<lens>` throughout the rest of
 this rung's files; *the VTT working tree* was neither read nor touched,
@@ -299,8 +298,8 @@ of `src/lib/diceQueue.ts` and the whole of `src/lib/diceQueue.test.ts`, all
 of which only read. The store this rung records into is the second row's,
 abbreviated `<store>`; it does not exist yet.
 
-Box paths are written **only in the pin tables of this section** — this
-table and §2.1's, §2.1 being part of §2 — because a pin without its location
+Box paths are written **only in the pin tables of this section** (this
+table and §2.1's, §2.1 being part of §2) because a pin without its location
 is not a pin, and the tables are the one place this record sanctions them.
 This prose names the lens and the store by their labels alone, so every box
 path in §2 is a table row. The rule that no box path is committed binds
@@ -309,20 +308,20 @@ and rung 3.
 
 | Item | Command | Value |
 |---|---|---|
-| `<lens>`, the label | `ls -d /mnt/extra/sensorium-s5/vtt/frontend` | exists — the VTT frontend **copy** at VTT `0091e97`, read-only for the whole rung. `<lens>` abbreviates this path throughout the rest of this rung's files |
-| `<store>`, the label | `ls -d /mnt/extra/sensorium-s5/store-rung4ts` | **does not exist** at T0 — `<store>` abbreviates this path throughout the rest of this rung's files; it is created empty by the first arm, reached only through `SENSORIUM_DIR`, and hashed at T9 |
+| `<lens>`, the label | `ls -d /mnt/extra/sensorium-s5/vtt/frontend` | exists, the VTT frontend **copy** at VTT `0091e97`, read-only for the whole rung. `<lens>` abbreviates this path throughout the rest of this rung's files |
+| `<store>`, the label | `ls -d /mnt/extra/sensorium-s5/store-rung4ts` | **does not exist** at T0, `<store>` abbreviates this path throughout the rest of this rung's files; it is created empty by the first arm, reached only through `SENSORIUM_DIR`, and hashed at T9 |
 | node | `node --version` | `v24.16.0` |
 | npm | `npm --version` | `11.13.0` |
 | nproc | `nproc` | `16` |
-| 1-minute load, at pin time | `date -Iseconds; cat /proc/loadavg` | `2026-09-11T18:00:51-05:00`, then `0.44 0.45 0.39 2/2615 2776919` — 1-minute load **0.44**, under the 4.0 threshold H7's load guard (`e6pp.sh`'s) waits for |
-| free disk `/` | `df -h /` | `4.4G` available on `/dev/nvme0n1p2` (100% used, 915G total) — the refusal floor is 3 GB; nothing this rung writes goes to `/` |
-| free disk `/mnt/extra` | `df -h /mnt/extra` | `63G` available on `/dev/nvme1n1p1` (86% used, 469G total) — the refusal floor is 8 GB, and this rung's six arms write into `<store>` on this device |
+| 1-minute load, at pin time | `date -Iseconds; cat /proc/loadavg` | `2026-09-11T18:00:51-05:00`, then `0.44 0.45 0.39 2/2615 2776919`, 1-minute load **0.44**, under the 4.0 threshold H7's load guard (`e6pp.sh`'s) waits for |
+| free disk `/` | `df -h /` | `4.4G` available on `/dev/nvme0n1p2` (100% used, 915G total). The refusal floor is 3 GB; nothing this rung writes goes to `/` |
+| free disk `/mnt/extra` | `df -h /mnt/extra` | `63G` available on `/dev/nvme1n1p1` (86% used, 469G total). The refusal floor is 8 GB, and this rung's six arms write into `<store>` on this device |
 | worktree | `git rev-parse --abbrev-ref HEAD` | `feat/s5-rung4`, at `/mnt/extra/sensorium-rung2/s5-rung4`, cut from `main` at `aea6b47` |
-| `git rev-parse HEAD` | `git rev-parse HEAD` | `c70b2cfe498788667766ef41257f61e5fc6af73f` — the plan's single plan commit, this branch's tip when the pins were taken. **T0** for this rung |
+| `git rev-parse HEAD` | `git rev-parse HEAD` | `c70b2cfe498788667766ef41257f61e5fc6af73f`, the plan's single plan commit, this branch's tip when the pins were taken. **T0** for this rung |
 | worktree venv | `.venv/bin/python -V` | `Python 3.13.13` (editable install of this worktree) |
-| sensorium, worktree venv | `.venv/bin/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.11.0` — becomes `0.12.0` at Task 10 |
-| sensorium, global tool | `$(dirname $(readlink -f $(which sensorium)))/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.11.0` — the same version. The global tool is **never reinstalled from this worktree**; this rung's binary is `.venv/bin/sensorium` |
-| sensorium-ts | `node -e "console.log(require('./typescript/package.json').version)"` | `0.2.0` — becomes `0.3.0` at Task 2 |
+| sensorium, worktree venv | `.venv/bin/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.11.0`. Becomes `0.12.0` at Task 10 |
+| sensorium, global tool | `$(dirname $(readlink -f $(which sensorium)))/python -c "import importlib.metadata as m; print(m.version('sensorium'))"` | `0.11.0`. The same version. The global tool is **never reinstalled from this worktree**; this rung's binary is `.venv/bin/sensorium` |
+| sensorium-ts | `node -e "console.log(require('./typescript/package.json').version)"` | `0.2.0`. Becomes `0.3.0` at Task 2 |
 
 ### 2.1 The lens and the store
 
@@ -331,31 +330,31 @@ rung quotes instead of a path.
 
 | Item | Command | Value |
 |---|---|---|
-| the lens line | `cat typescript/acceptance/LENS.txt` | `VTT frontend at 0091e97 — vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)` — one line, the whole file |
-| lens manifest, verified | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED** — the lens is byte-identical to the state rung 1 left it in and rungs 2 and 3 read it in, so the hand count read the same source the arms will record. Manifest file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines |
-| the subject | `wc -l <lens>/src/lib/diceQueue.ts <lens>/src/lib/diceQueue.test.ts` | `212` and `188` lines; `parseDiceGroups` at line 68, `forcedDiceFromSource` at 127, `buildDiceQueueEntry` at 194 — the three the F arms focus |
-| the rung-2 store, not read | `du -sh /mnt/extra/sensorium-s5/store-rung2ts` | `6.2G` — not opened by this rung; spec §8 leaves freeing it to Brice, named in the ledger |
+| the lens line | `cat typescript/acceptance/LENS.txt` | `VTT frontend at 0091e97 — vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores (powersave); snapshot taken under sensorium 0.8.7 / sensorium-ts 0.1.0 at 29c5059 (the snapshot's own provenance; each cell names its own recorder)`, one line, the whole file |
+| lens manifest, verified | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-rung1-before.txt` | exit `0`, **748 OK, 0 FAILED**. The lens is byte-identical to the state rung 1 left it in and rungs 2 and 3 read it in, so the hand count read the same source the arms will record. Manifest file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines |
+| the subject | `wc -l <lens>/src/lib/diceQueue.ts <lens>/src/lib/diceQueue.test.ts` | `212` and `188` lines; `parseDiceGroups` at line 68, `forcedDiceFromSource` at 127, `buildDiceQueueEntry` at 194, the three the F arms focus |
+| the rung-2 store, not read | `du -sh /mnt/extra/sensorium-s5/store-rung2ts` | `6.2G`, not opened by this rung; spec §8 leaves freeing it to Brice, named in the ledger |
 
-**What the one session left behind**, measured at T9 — after the six arms
-and before any read — and, for the two rows that say so, after the reads.
+**What the one session left behind**, measured at T9 (after the six arms
+and before any read) and, for the two rows that say so, after the reads.
 Box paths appear here for the same reason they appear in the table above: a
 pin without its location is not a pin, and §2's tables are the only place
 this record sanctions one.
 
 | Item | Command | Value |
 |---|---|---|
-| `<store>`, created empty | `ls -A <store>` at T0 | **absent**, then created by `e12.sh`, which refuses a store that exists and is not empty — §1 records into a store that is EMPTY at T0, and a session that recorded into somebody else's traces would hash a set this rung never wrote |
+| `<store>`, created empty | `ls -A <store>` at T0 | **absent**, then created by `e12.sh`, which refuses a store that exists and is not empty, §1 records into a store that is EMPTY at T0, and a session that recorded into somebody else's traces would hash a set this rung never wrote |
 | the six arms | `arms.jsonl` | U1 F1 U2 F2 U3 F3, interleaved, each behind the load guard (1-minute load `0.72`, `0.72`, `0.72`, `0.72`, `0.83`, `0.83`, all under 4.0), all six exit `0`, all six printing ` Test Files  1 passed (1)` and `      Tests  26 passed (26)` |
-| the traces | `ls <store>/traces/*.db` | **6** — one container per arm; `du -sh <store>` `1.3M` |
-| the hash list | `(cd <store> && sha256sum traces/*.db spool/*/*.jsonl invocations.jsonl)` → `docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus-tracehashes.txt` | **13 lines** — 6 `traces/*.db`, 6 `spool/<invocation>/*.jsonl`, 1 `invocations.jsonl`; every path relative to the store root, and `grep -c "/mnt/\|/home/"` over the file is `0` |
+| the traces | `ls <store>/traces/*.db` | **6**, one container per arm; `du -sh <store>` `1.3M` |
+| the hash list | `(cd <store> && sha256sum traces/*.db spool/*/*.jsonl invocations.jsonl)` → `docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus-tracehashes.txt` | **13 lines**, 6 `traces/*.db`, 6 `spool/<invocation>/*.jsonl`, 1 `invocations.jsonl`; every path relative to the store root, and `grep -c "/mnt/\|/home/"` over the file is `0` |
 | the hash list's own sha256 | `sha256sum <the hash list>` | `32a5612111e981b461061efd32f0d6d1d4dc1da561fc34ae6701f26b336deafc` |
-| the hash list verifies, after every read | `cd <store> && sha256sum -c <the hash list>` | **12 of 13 OK.** The thirteenth is `invocations.jsonl`, the one entry of the hashed set the reads themselves append to; it is checked as an APPEND instead — the journal's first 6 lines still hash to the listed `3a619cbb77356d191489828beaeb70f90cdc1a053e682cf29e1296a39df8221c`, which is what "appended, not rewritten" means. No trace and no spool moved: reading a trace does not write to it |
-| the journal's delta | `wc -l <store>/invocations.jsonl` at T9 and after the reads | **6 → 19**, a delta of **13** — one line per read command in §1.5's list, whose length the assembler reads from this record and never from a literal |
+| the hash list verifies, after every read | `cd <store> && sha256sum -c <the hash list>` | **12 of 13 OK.** The thirteenth is `invocations.jsonl`, the one entry of the hashed set the reads themselves append to; it is checked as an APPEND instead, the journal's first 6 lines still hash to the listed `3a619cbb77356d191489828beaeb70f90cdc1a053e682cf29e1296a39df8221c`, which is what "appended, not rewritten" means. No trace and no spool moved: reading a trace does not write to it |
+| the journal's delta | `wc -l <store>/invocations.jsonl` at T9 and after the reads | **6 → 19**, a delta of **13**, one line per read command in §1.5's list, whose length the assembler reads from this record and never from a literal |
 | lens manifest, before the arms | `cd <lens> && sha256sum -c /mnt/extra/sensorium-s5/manifest-after.txt` | exit `0`, **748 OK, 0 FAILED** |
-| lens manifest, after the arms | the same command, the arms the last thing to have touched the lens | exit `0`, **748 OK, 0 FAILED** — identical |
-| the manifest file | `sha256sum /mnt/extra/sensorium-s5/manifest-after.txt` | `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines — the same sha the table above pins for `manifest-rung1-before.txt`: two names, one file's content, so the lens the hand count was read on is the lens the arms recorded |
-| the recorder, read from a BOOT | `head -1 <store>/spool/<invocation>/*.jsonl` | `"version": "0.3.0"`, `"tier": "call"` on all six. The three U spools declare `{err_flow, object_identity}` and the three F spools `{err_flow, object_identity, line, locals}` — **`sensorium-ts 0.3.0`**, the version §2's last row says Task 2 makes it, and the split every arm's capability line is read from |
-| the binary every instrument ran | `bin.sh`, `lens.sensorium_bin()` | `<repo>/.venv/bin/sensorium` — the branch's own, resolved two parents above `typescript/acceptance/` and refused if its `realpath` leaves the worktree. The global tool was never reinstalled from this worktree |
+| lens manifest, after the arms | the same command, the arms the last thing to have touched the lens | exit `0`, **748 OK, 0 FAILED**, identical |
+| the manifest file | `sha256sum /mnt/extra/sensorium-s5/manifest-after.txt` | `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`, 748 lines, the same sha the table above pins for `manifest-rung1-before.txt`: two names, one file's content, so the lens the hand count was read on is the lens the arms recorded |
+| the recorder, read from a BOOT | `head -1 <store>/spool/<invocation>/*.jsonl` | `"version": "0.3.0"`, `"tier": "call"` on all six. The three U spools declare `{err_flow, object_identity}` and the three F spools `{err_flow, object_identity, line, locals}`. **`sensorium-ts 0.3.0`**, the version §2's last row says Task 2 makes it, and the split every arm's capability line is read from |
+| the binary every instrument ran | `bin.sh`, `lens.sensorium_bin()` | `<repo>/.venv/bin/sensorium`, the branch's own, resolved two parents above `typescript/acceptance/` and refused if its `realpath` leaves the worktree. The global tool was never reinstalled from this worktree |
 
 ### 2.2 The ceilings, and the counts this rung's endpoints move against
 
@@ -364,14 +363,14 @@ exempt). Every file the plan names as at risk, measured before any edit.
 
 | Item | Command | Value |
 |---|---|---|
-| `CHANGELOG.md` | `wc -l` | `800` — **at the ceiling**; cut at Task 1 before anything else |
-| `typescript/HONESTY.md` | `wc -l` | `799` — one line of headroom; §9 moves at Task 1 |
-| `typescript/src/transform.mjs` | `wc -l` | `765` — the task-boundary code moves to `tasks.mjs` at Task 1; the focus splices live in a new `probe.mjs` |
-| `docs/TRACE-FORMAT.md` | `wc -l` | `781` — three sentences, nothing more |
-| `tests/test_ts_ingest_meta.py` | `wc -l` | `777` — the converter's focus tests go to a new `tests/test_ts_ingest_focus.py` |
-| `src/sensorium/query/flow_cmd.py` | `wc -l` | `742` — about 30 lines to come; if it would cross, the serial branch goes to `flow_values.py` |
-| `typescript/src/rt.mjs` | `wc -l` | `705` — about 45 lines to come |
-| `docs/CARRIED-DEBT.md` | `wc -l` | `530` — appended to |
+| `CHANGELOG.md` | `wc -l` | `800`, **at the ceiling**; cut at Task 1 before anything else |
+| `typescript/HONESTY.md` | `wc -l` | `799`, one line of headroom; §9 moves at Task 1 |
+| `typescript/src/transform.mjs` | `wc -l` | `765`. The task-boundary code moves to `tasks.mjs` at Task 1; the focus splices live in a new `probe.mjs` |
+| `docs/TRACE-FORMAT.md` | `wc -l` | `781`, three sentences, nothing more |
+| `tests/test_ts_ingest_meta.py` | `wc -l` | `777`, the converter's focus tests go to a new `tests/test_ts_ingest_focus.py` |
+| `src/sensorium/query/flow_cmd.py` | `wc -l` | `742`, about 30 lines to come; if it would cross, the serial branch goes to `flow_values.py` |
+| `typescript/src/rt.mjs` | `wc -l` | `705`, about 45 lines to come |
+| `docs/CARRIED-DEBT.md` | `wc -l` | `530`, appended to |
 
 **The version tokens.** `sensorium-ts` becomes `0.3.0` at Task 2. Every
 `0.2.0` in the plan's list, counted as it stands, so that the bump can be
@@ -379,8 +378,8 @@ checked as a count rather than as a claim.
 
 | Item | Command | Value |
 |---|---|---|
-| `0.2.0` tokens in the plan's named set | `grep -rc "0\.2\.0"` over `typescript/package.json`, `typescript/package-lock.json`, `typescript/src/index.mjs`, `typescript/test/rt.test.mjs`, `src/sensorium/ts/wrapper.py`, `tests/test_ts_wrapper.py`, `tests/test_ts_live.py`, `tests/ts_traces.py`, `docs/trace-format/vectors/v30…v34*.json` and the four `corpus/typescript/*/questions.yaml` | **25** — `package-lock.json` 2, `package.json` 1, `index.mjs` 1, `rt.test.mjs` 1, `wrapper.py` 1, `test_ts_wrapper.py` 1, `test_ts_live.py` 1, `ts_traces.py` 3, v30 2, v31 2, v33 2, v34 2, `object_refused` 2, `silent_swallow` 2, `pass_vs_fail` 1, `watch_refused` 1 |
-| the vector that must NOT move | `grep -n recorder docs/trace-format/vectors/v32-err-flow-typescript-capability-refusal.json` | `"recorder": "sensorium-ts 0.1.1"` — v32 is the 0.1.x capability refusal and carries no `0.2.0` token at all. The plan's Global Constraints say "vectors v30–v34's `recorder`"; the measured set is **v30, v31, v33, v34**, and this pin is the measured one |
+| `0.2.0` tokens in the plan's named set | `grep -rc "0\.2\.0"` over `typescript/package.json`, `typescript/package-lock.json`, `typescript/src/index.mjs`, `typescript/test/rt.test.mjs`, `src/sensorium/ts/wrapper.py`, `tests/test_ts_wrapper.py`, `tests/test_ts_live.py`, `tests/ts_traces.py`, `docs/trace-format/vectors/v30…v34*.json` and the four `corpus/typescript/*/questions.yaml` | **25**, `package-lock.json` 2, `package.json` 1, `index.mjs` 1, `rt.test.mjs` 1, `wrapper.py` 1, `test_ts_wrapper.py` 1, `test_ts_live.py` 1, `ts_traces.py` 3, v30 2, v31 2, v33 2, v34 2, `object_refused` 2, `silent_swallow` 2, `pass_vs_fail` 1, `watch_refused` 1 |
+| the vector that must NOT move | `grep -n recorder docs/trace-format/vectors/v32-err-flow-typescript-capability-refusal.json` | `"recorder": "sensorium-ts 0.1.1"`, v32 is the 0.1.x capability refusal and carries no `0.2.0` token at all. The plan's Global Constraints say "vectors v30–v34's `recorder`"; the measured set is **v30, v31, v33, v34**, and this pin is the measured one |
 | Python version | `.venv/bin/python -c "…version('sensorium')"` | `0.11.0` → `0.12.0` at Task 10; `tests/test_release_tokens.py` binds `pyproject` to the CHANGELOG's newest header |
 
 **The E7 needle list.** H8 runs `e7_report.py` with `E7_NEEDLES=rung2` over
@@ -390,8 +389,8 @@ command line, and it is pinned here as it stands at T0.
 
 | Item | Command | Value |
 |---|---|---|
-| the list | `grep -n "NEEDLES_RUNG2" -A 11 typescript/acceptance/e7_report.py` | nine needles — `oid`, `chain`, `Err` word-bounded and case-sensitive; `asyncio`, `python ?`, `cargo`, `coroutine`, `Rust disposition`, `Python's own` substring and case-insensitive |
-| the selector | `grep -n "^LISTS" typescript/acceptance/e7_report.py` | `LISTS = {"rung2": NEEDLES_RUNG2, "rung3": NEEDLES_RUNG2}` — `rung2` is the list H8 names; anything else falls back to rung 1's |
+| the list | `grep -n "NEEDLES_RUNG2" -A 11 typescript/acceptance/e7_report.py` | nine needles, `oid`, `chain`, `Err` word-bounded and case-sensitive; `asyncio`, `python ?`, `cargo`, `coroutine`, `Rust disposition`, `Python's own` substring and case-insensitive |
+| the selector | `grep -n "^LISTS" typescript/acceptance/e7_report.py` | `LISTS = {"rung2": NEEDLES_RUNG2, "rung3": NEEDLES_RUNG2}`, `rung2` is the list H8 names; anything else falls back to rung 1's |
 | what it means for this rung | — | `oid` is one of the nine, and §5.1 mints an `oid` on the wire. A reader that PRINTS the word would be a hit: the identity a reader shows is a serial, and `oid` is the runtime's own key. This is a pre-registered risk, not a threshold to move later |
 
 
@@ -451,15 +450,15 @@ diffs earlier tasks made.
 
 | # | what changed | commit | why |
 |---|---|---|---|
-| 1 | **§1.5's ninth and tenth commands run in the other order**: `grep F1 dice --kind LINE` immediately before `flow F1 --object e<id>:dice` | `68b7eb9` | §1.5 lists the flow ninth and the grep tenth, and §1.4 makes the grep the LOOKUP that produces `e<id>` — the ninth command's argument is the tenth command's answer, so both orders cannot be run. The SET and the COUNT are §1.5's, and the count is what the journal's pre-registered delta is about; §1.5's own prose already calls that grep "§1.4's lookup". `e12_report.py`'s docstring and `e12-reads.json`'s `order_change` both name the swap |
-| 2 | **The fence glob carries exactly ONE changed line, named in advance** — `tests/test_exceptions_rust_grouping.py:697`, the plan-mandated `site=site` after `Shape.site` became required (ruling R12) | `68b7eb9` | that file is inside `tests/test_exceptions_rust*.py`, so E-legacy's first claim reads one changed line and not zero. R12 names line 696; the measured line is **697** and this pin is the measured one. `e_fences.py`'s docstring names it |
-| 3 | **Two further diffs the legacy reading names** (ruling R35): `docs/trace-format/vectors/v23-lang-typescript-prose.json`'s re-pin, forced by the `timeline_hint` rewrite (`frame` now names `sensorium ts run --focus <file>:<qualname>` where it used to say per-line capture is rung 3's), and `corpus/typescript/object_refused`'s rewrite into `object_identity` | a NOTE, at `68b7eb9`, on `3895a51` and `f0606b5`/`f501545` | this row is the only one in this table that is not a change `68b7eb9` carried: the two diffs are EARLIER tasks' — v23's re-pin at `3895a51` (Task 6's vectors), the corpus case's answer at `f0606b5` and its rename into `object_identity` at `f501545` (Task 8's) — and what `68b7eb9` carries is the decision to name them here before E-legacy was read. Neither is inside the fence, so neither moves E-legacy; both are the kind of change a reader of "did nothing else move?" should be handed rather than left to discover |
+| 1 | **§1.5's ninth and tenth commands run in the other order**: `grep F1 dice --kind LINE` immediately before `flow F1 --object e<id>:dice` | `68b7eb9` | §1.5 lists the flow ninth and the grep tenth, and §1.4 makes the grep the LOOKUP that produces `e<id>`. The ninth command's argument is the tenth command's answer, so both orders cannot be run. The SET and the COUNT are §1.5's, and the count is what the journal's pre-registered delta is about; §1.5's own prose already calls that grep "§1.4's lookup". `e12_report.py`'s docstring and `e12-reads.json`'s `order_change` both name the swap |
+| 2 | **The fence glob carries exactly ONE changed line, named in advance**. `tests/test_exceptions_rust_grouping.py:697`, the plan-mandated `site=site` after `Shape.site` became required (ruling R12) | `68b7eb9` | that file is inside `tests/test_exceptions_rust*.py`, so E-legacy's first claim reads one changed line and not zero. R12 names line 696; the measured line is **697** and this pin is the measured one. `e_fences.py`'s docstring names it |
+| 3 | **Two further diffs the legacy reading names** (ruling R35): `docs/trace-format/vectors/v23-lang-typescript-prose.json`'s re-pin, forced by the `timeline_hint` rewrite (`frame` now names `sensorium ts run --focus <file>:<qualname>` where it used to say per-line capture is rung 3's), and `corpus/typescript/object_refused`'s rewrite into `object_identity` | a NOTE, at `68b7eb9`, on `3895a51` and `f0606b5`/`f501545` | this row is the only one in this table that is not a change `68b7eb9` carried: the two diffs are EARLIER tasks' (v23's re-pin at `3895a51` (Task 6's vectors), the corpus case's answer at `f0606b5` and its rename into `object_identity` at `f501545` (Task 8's)) and what `68b7eb9` carries is the decision to name them here before E-legacy was read. Neither is inside the fence, so neither moves E-legacy; both are the kind of change a reader of "did nothing else move?" should be handed rather than left to discover |
 | 4 | `existing(FENCED_TESTS)` hoisted above the `git diff` in `e_fences.py`'s `legacy()` | `68b7eb9` | a fence pattern matching no file refuses the whole run, and refusing AFTER a diff has been taken leaves a reading nobody can use beside a refusal nobody asked for (Task 1's minor) |
 | 5 | **H3's N is read from the hand-count FILE's LAST line** (`N = 9`), and `e12_h3.py` refuses when that line and the table's row count disagree | `68b7eb9` | the table and the sentence are two statements of one prediction and §1 calls the last line the gate. A prediction that contradicts itself has not been made, and nothing is measured against it (Task 0's minor) |
 | 6 | **Each `--expr` is passed as ONE argv element**: the reader takes the rest of §1.5's line after `--expr ` | `68b7eb9` | §1.5 writes the predicate unquoted and last (`--expr groups == 0`) and says each `--expr` is one shell argument; `shlex.split` alone would hand `watch` three arguments and a usage error (Task 0's minor) |
-| 7 | **The journal is verified as an APPEND, not as an unchanged file** | `68b7eb9` | the hash list is taken after the arms and BEFORE any read, as §1's plan block fixes, so the reads themselves append to `invocations.jsonl` and that one entry of the hashed set must fail a plain `sha256sum -c`. `assemble_rung4.py` checks the journal's first `<T9 line count>` lines against the listed hash — an append leaves them untouched, a rewrite does not — and its growth against §1.5's length, read from the record and never typed (ruling R6) |
+| 7 | **The journal is verified as an APPEND, not as an unchanged file** | `68b7eb9` | the hash list is taken after the arms and BEFORE any read, as §1's plan block fixes, so the reads themselves append to `invocations.jsonl` and that one entry of the hashed set must fail a plain `sha256sum -c`. `assemble_rung4.py` checks the journal's first `<T9 line count>` lines against the listed hash (an append leaves them untouched, a rewrite does not) and its growth against §1.5's length, read from the record and never typed (ruling R6) |
 | 8 | **`E12_RECORD`, a dry-run-only override of which record §1 is read from, with an assembler guard** | `68b7eb9` | every instrument was rehearsed end to end on `typescript/probes` against a scratch §1 shaped like this one, which is the only way the lookup, the thirteen reads and the journal arithmetic could be checked before the lens was opened. `e12-reads.json` records which file was read AND its sha256, and `assemble_rung4.py` REFUSES to assemble reads taken against a §1 that is not this record's |
-| 9 | **An arm's run id is the container whose `run:` line names the subject file**, not the first line printed | `68b7eb9` | one `vitest run` of one file records one container here, but position is not the fact, and a second container would otherwise be silently dropped. Every `run:` line is carried in `arms.jsonl` and the id is `null` — a dropped run, not a guess — when more than one names the subject |
+| 9 | **An arm's run id is the container whose `run:` line names the subject file**, not the first line printed | `68b7eb9` | one `vitest run` of one file records one container here, but position is not the fact, and a second container would otherwise be silently dropped. Every `run:` line is carried in `arms.jsonl` and the id is `null` (a dropped run, not a guess) when more than one names the subject |
 | 10 | **H5's gated population is the three qualnames §1 names, exactly** | `68b7eb9` | `--focus`'s prefix rule also selects a function-like nested inside a named one (`X.<anonymous>`), and §1.3's hand analysis enumerated the deltas of the three functions' OWN statements and reasoned about no other. A nested row is reported in `elsewhere_not_gated`, never gated: widening the gate past what the prediction covered would manufacture a STOP the prediction never risked |
 | 11 | **`cargo test --workspace` runs from `rust/`** | `68b7eb9` | the workspace manifest is `rust/Cargo.toml`; from the repository root the command exits 101 with "could not find `Cargo.toml`". The dry run on the probe project read that 101 before any number of H8 was read, which is what a dry run is for |
 
@@ -467,20 +466,20 @@ diffs earlier tasks made.
 
 **Status: DONE-WITH-STOP.** Eight endpoints, every one read once, in the
 order Task 9 fixes: the two fences, then the ONE session, then the thirteen
-reads, then H3, H7, H8 and the assembler. Three endpoints STOPped — H2, H4
-and H5 — so the word this rung ships is `DONE-WITH-STOP` and not `DONE`.
+reads, then H3, H7, H8 and the assembler. Three endpoints STOPped (H2, H4
+and H5) so the word this rung ships is `DONE-WITH-STOP` and not `DONE`.
 Nothing was re-run, no focus was narrowed and no threshold moved after a
 number was read; §4 says of each STOP what the reading actually showed, and
 two of the three are findings about the INSTRUMENT that read the endpoint
-rather than about the recorder it was pointed at — which is a difference §4
+rather than about the recorder it was pointed at, which is a difference §4
 states and §3 does not use to soften a word.
 
 The numbers below are
 `docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.results.json`,
 assembled by `typescript/acceptance/assemble_rung4.py`, **with one stated
-exception**: H8's four SUITE AGGREGATES — cargo's 773/0/23, node's 521/0,
+exception**: H8's four SUITE AGGREGATES (cargo's 773/0/23, node's 521/0,
 the probes' 12 spools and 146 checks, and cargo's count of 44 `test result`
-sections — are read from the session's own suite logs under `<out>/h8/logs`,
+sections) are read from the session's own suite logs under `<out>/h8/logs`,
 which are NOT committed. The H8 cell commits each suite's exit status and
 the last three lines of its log and nothing more (`e12_h8.sh`'s `suite_in`
 and its `tail`), so those four aggregates are traceable to a log this record
@@ -493,7 +492,7 @@ actually shown them. Every cell is
 `recorder_basis`; `recorder_basis` reads `own` on all eight, because every
 instrument recorded its own. The recorder is **`sensorium 0.11.0 /
 sensorium-ts 0.3.0` on `feat/s5-rung4` @
-`68b7eb942b445c954881fcfbafabf63e448b0c34`** — the Python version does not
+`68b7eb942b445c954881fcfbafabf63e448b0c34`**. The Python version does not
 move in this task: the bump to `0.12.0` is Task 10's, and a cell claiming it
 here would name a recorder that did not take the reading.
 
@@ -504,8 +503,8 @@ hashed set verified 12 of 13 with the thirteenth, `invocations.jsonl`,
 appended and not rewritten; and the journal grew by exactly 13 lines, the
 length of §1.5's list read from this file.
 
-That first sha is of the record FILE as it stood at assembly time — §1 and
-§2 written, §3, §4 and §5 still the pre-registration's placeholder — so the
+That first sha is of the record FILE as it stood at assembly time (§1 and
+§2 written, §3, §4 and §5 still the pre-registration's placeholder) so the
 check is a ONE-SHOT provenance check and not a standing one: writing these
 three sections moves the file's sha, and re-running `assemble_rung4.py`
 against this record now refuses. That is the guard doing what it was built
@@ -517,30 +516,30 @@ which is what `tests/test_acceptance_s5_rung4_lock.py` already does.
 
 | # | endpoint | cell (`value` of `n`) | the rule | word |
 |---|---|---|---|---|
-| H1 | does an unfocused run stay unfocused? | **4 of 4** — U1 declares `line: false` and `locals: false`; `SELECT count(*) … kind='LINE'` = **0**; `watch U1 --at parseDiceGroups --expr groups == 0` printed §1's sentence byte-for-byte and exited **3**. Second reading: the version token inside that sentence, `sensorium-ts 0.3.0`, IS the trace's own `recorder` | both readings as §1 writes them → PASS | **PASS** |
-| H2 | does a focus resolve and run? | **3 of 4** — the resolver named **six** sites where §1 pre-commits three; F1's `Test Files  1 passed (1)` and `Tests  26 passed (26)` equal U1's, both arms exit 0; `grep F1 parseDiceGroups --kind CALL` printed `e10 CALL    parseDiceGroups(formula='1d20')` first | exactly three sites named, the counts unmoved → PASS; a focused file that fails to load, or a suite whose counts move, is a STOP | **STOP** |
-| H3 | one LINE per completed statement? | **4 of 4** — the first `parseDiceGroups` activation in F1 (`f6`, `args: formula='1d20'`) carries **9** LINE rows; their `line` values in order are **69, 70, 71, 72, 73, 74, 76, 75, 72**; every row's delta names and every row's `unbound` names equal the hand count's, in order. `diff_of_lines` is empty | **N = 9 → PASS**; any other count a STOP with the diff of lines | **PASS** |
-| H4 | does `watch` answer? | **2 of 3** — W1 `sides == 20` SATISFIED exit 0, W3 `m == null` SATISFIED exit 0, W2 `count == 1` SATISFIED exit 0 *and* two HIT rows at line 72, which the cell reads as W2's extra clause failing. No verdict disagreed with its exit | all three triples as §1.2 predicts → PASS; a verdict/exit disagreement is a finding, reported | **STOP** |
-| H5 | does `flow --value` see it? | **2 of 3** — S1 (`20`, `sides`, `diceQueue.ts:74`) found, 9 LINE sightings of it; S2 (`'1d20'`, `formula`, the CALL's `arg formula`) **not seen by the cell**, though the transcript prints it; no unpredicted triple in the gated population | both sightings found and no third triple in the population → PASS; sightings elsewhere reported, not gated | **STOP** |
-| H6 | is identity exact? | **4 of 4** — §1.4's lookup found `e367` (the fourth `dice` LINE row of `forcedDiceFromSource` at L138, the first whose activation `buildDiceQueueEntry` called); `flow F1 --object e367:dice` printed **`sightings: 2 event(s), 2 capture(s)`** at `diceQueue.ts:138` and `diceQueue.ts:202`, **one serial** (`#64` covers both), `continuity: exact (serial identity)`, and both captures' `type` is `Array` | exactly two sightings, one serial, continuity exact, both `Array` → PASS | **PASS** |
+| H1 | does an unfocused run stay unfocused? | **4 of 4**: U1 declares `line: false` and `locals: false`; `SELECT count(*) … kind='LINE'` = **0**; `watch U1 --at parseDiceGroups --expr groups == 0` printed §1's sentence byte-for-byte and exited **3**. Second reading: the version token inside that sentence, `sensorium-ts 0.3.0`, IS the trace's own `recorder` | both readings as §1 writes them → PASS | **PASS** |
+| H2 | does a focus resolve and run? | **3 of 4**, the resolver named **six** sites where §1 pre-commits three; F1's `Test Files  1 passed (1)` and `Tests  26 passed (26)` equal U1's, both arms exit 0; `grep F1 parseDiceGroups --kind CALL` printed `e10 CALL    parseDiceGroups(formula='1d20')` first | exactly three sites named, the counts unmoved → PASS; a focused file that fails to load, or a suite whose counts move, is a STOP | **STOP** |
+| H3 | one LINE per completed statement? | **4 of 4**. The first `parseDiceGroups` activation in F1 (`f6`, `args: formula='1d20'`) carries **9** LINE rows; their `line` values in order are **69, 70, 71, 72, 73, 74, 76, 75, 72**; every row's delta names and every row's `unbound` names equal the hand count's, in order. `diff_of_lines` is empty | **N = 9 → PASS**; any other count a STOP with the diff of lines | **PASS** |
+| H4 | does `watch` answer? | **2 of 3**: W1 `sides == 20` SATISFIED exit 0, W3 `m == null` SATISFIED exit 0, W2 `count == 1` SATISFIED exit 0 *and* two HIT rows at line 72, which the cell reads as W2's extra clause failing. No verdict disagreed with its exit | all three triples as §1.2 predicts → PASS; a verdict/exit disagreement is a finding, reported | **STOP** |
+| H5 | does `flow --value` see it? | **2 of 3**. S1 (`20`, `sides`, `diceQueue.ts:74`) found, 9 LINE sightings of it; S2 (`'1d20'`, `formula`, the CALL's `arg formula`) **not seen by the cell**, though the transcript prints it; no unpredicted triple in the gated population | both sightings found and no third triple in the population → PASS; sightings elsewhere reported, not gated | **STOP** |
+| H6 | is identity exact? | **4 of 4**, §1.4's lookup found `e367` (the fourth `dice` LINE row of `forcedDiceFromSource` at L138, the first whose activation `buildDiceQueueEntry` called); `flow F1 --object e367:dice` printed **`sightings: 2 event(s), 2 capture(s)`** at `diceQueue.ts:138` and `diceQueue.ts:202`, **one serial** (`#64` covers both), `continuity: exact (serial identity)`, and both captures' `type` is `Array` | exactly two sightings, one serial, continuity exact, both `Array` → PASS | **PASS** |
 | H7 | what does it cost? | unfocused median **0.7955 s** (n=3, walls 1.1162 / 0.7955 / 0.7874), focused median **1.8946 s** (n=3, walls 1.8946 / 1.9147 / 1.8899), ratio **×2.3816**; the resolver **1.132 s** over 830 files scanned; 0 runs dropped; every arm guarded at a 1-minute load of 0.72–0.83 | reported, not gated | **reported** |
-| H8 | did nothing else move? | **6 of 6** — five suite exits all `0` and the needle total `0`, which is what the cell holds. From the cell: corpus `105 cases, 220 questions, 0 failures, 0 error(s)`; `pytest -q` `4090 passed, 33 skipped`; `e7_report.py` with `E7_NEEDLES=rung2` over all **13** transcripts, **0** occurrences of the nine needles. From the session's logs, named and not committed: `cargo test --workspace` 44 `test result: ok` sections summing to **773 passed, 0 failed, 23 ignored** (`<out>/h8/logs/cargo.log`; the cell's committed tail is the LAST of those 44 sections, `sensorium_transform`'s doc-tests, `test result: ok. 0 passed; 0 failed; 14 ignored` — one section, not the total, and not a contradiction of it); `npm --prefix typescript test` **pass 521, fail 0** (`npm-typescript.log`); `npm --prefix typescript/probes run probe` `ok: true`, 12 spools, **146 checks, 0 failures** (`npm-probes.log`) | every corpus case equal, the suites green, E7's needles at 0 → else STOP | **PASS** |
+| H8 | did nothing else move? | **6 of 6**, five suite exits all `0` and the needle total `0`, which is what the cell holds. From the cell: corpus `105 cases, 220 questions, 0 failures, 0 error(s)`; `pytest -q` `4090 passed, 33 skipped`; `e7_report.py` with `E7_NEEDLES=rung2` over all **13** transcripts, **0** occurrences of the nine needles. From the session's logs, named and not committed: `cargo test --workspace` 44 `test result: ok` sections summing to **773 passed, 0 failed, 23 ignored** (`<out>/h8/logs/cargo.log`; the cell's committed tail is the LAST of those 44 sections, `sensorium_transform`'s doc-tests, `test result: ok. 0 passed; 0 failed; 14 ignored`, one section, not the total, and not a contradiction of it); `npm --prefix typescript test` **pass 521, fail 0** (`npm-typescript.log`); `npm --prefix typescript/probes run probe` `ok: true`, 12 spools, **146 checks, 0 failures** (`npm-probes.log`) | every corpus case equal, the suites green, E7's needles at 0 → else STOP | **PASS** |
 
 **Reported beside H8, gating nothing** (the two fences, read FIRST, before
 the session opened the store):
 
 | endpoint | cell | reading |
 |---|---|---|
-| E-legacy | **1 of 2** | `git diff aea6b47..HEAD --stat` over the fenced paths prints ` tests/test_exceptions_rust_grouping.py \| 2 +-` — the ONE line §2.3's entry 2 named in advance. The fenced tests and the Rust key's tuple equality are green: `118 passed` |
+| E-legacy | **1 of 2** | `git diff aea6b47..HEAD --stat` over the fenced paths prints ` tests/test_exceptions_rust_grouping.py \| 2 +-`, the ONE line §2.3's entry 2 named in advance. The fenced tests and the Rust key's tuple equality are green: `118 passed` |
 | E-branch | **1 of 1** | `tests/test_acceptance_scripts.py` green |
 
 ## 4. Decisions
 
-### 4.1 H1 — the unfocused arm stayed unfocused, and said so in its own words
+### 4.1 H1: the unfocused arm stayed unfocused, and said so in its own words
 
 U1's `capabilities` map reads `line: false, locals: false` (the converter's
 floor, `sensorium.ts.build.CAPABILITIES`, unridden because the U arms' BOOT
-declares only `{err_flow, object_identity}` — §2.1's BOOT row). Its
+declares only `{err_flow, object_identity}`, §2.1's BOOT row). Its
 `events` table holds **0** rows of kind `LINE`. And `watch` refused with the
 sentence §1 pre-committed, byte for byte:
 
@@ -554,11 +553,11 @@ token inside it (`sensorium-ts 0.3.0`) was compared against the TRACE's own
 `recorder` value, read from the same database, and they are equal. The
 refusal names the recorder that recorded, not the recorder that is installed.
 
-### 4.2 H2 — a spec names a function AND every function-like nested in it
+### 4.2 H2: a spec names a function AND every function-like nested in it
 
 The suite half held exactly: F1 and U1 both printed ` Test Files  1 passed
 (1)` and `      Tests  26 passed (26)`, both exited 0, and the focused CALL
-printed as §1 writes it — `e10 CALL    parseDiceGroups(formula='1d20')`,
+printed as §1 writes it, `e10 CALL    parseDiceGroups(formula='1d20')`,
 first row of `grep F1 parseDiceGroups --kind CALL`. Neither of the two
 failures §1's H2 sentence names as STOPs occurred: no focused file failed to
 load, and no count moved.
@@ -575,8 +574,8 @@ src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>
 src/lib/diceQueue.ts:buildDiceQueueEntry.<anonymous>
 ```
 
-This is `focus.mjs`'s prefix rule working as designed and as documented —
-*"`Fog` selects `Fog.compute`"* — applied to function-likes the
+This is `focus.mjs`'s prefix rule working as designed and as documented,
+*"`Fog` selects `Fog.compute`"*, applied to function-likes the
 pre-registration did not enumerate: the arrow in
 `groups.reduce((sum, g) => sum + g.count, 0)` inside `forcedDiceFromSource`,
 and the two default-parameter arrows of `buildDiceQueueEntry`
@@ -586,7 +585,7 @@ source" and predicted three sites; the source it was read from carries three
 more function-likes inside those three, and a spec that names a container
 selects them. The STOP is on the pre-committed number, and the finding is
 that **"how many functions does a spec select" is not answerable from the
-names a reader types** — it depends on what is nested inside them, which is
+names a reader types**. It depends on what is nested inside them, which is
 exactly the sort of thing `resolve.mjs` exists to be asked BEFORE a run, and
 exactly what it answered.
 
@@ -604,10 +603,10 @@ is a set of `<file>:<qualname>` strings and the two default-parameter arrows
 of `buildDiceQueueEntry` share one qualname
 (`buildDiceQueueEntry.<anonymous>`), while the transform instrumented both.
 R31's parenthetical is the only place a reader is told the two numbers are
-not the same number — without it, `focus matched: 5` would have been the
+not the same number, without it, `focus matched: 5` would have been the
 whole story and one instrumented function would have been invisible.
 
-### 4.3 H3 — the hand count was right, row for row
+### 4.3 H3: the hand count was right, row for row
 
 Nine LINE rows, and the diff of lines is empty. `frame F1 --fn
 parseDiceGroups` prints the activation whole:
@@ -629,20 +628,20 @@ return: [ { count: 1, sides: 20 } ]
 ```
 
 Every clause of §1.1 is in that block. **N = 9.** The `line` values are 69,
-70, 71, 72, 73, 74, 76, 75, 72 — line 72 twice (the head row at entry and
+70, 71, 72, 73, 74, 76, 75, 72, line 72 twice (the head row at entry and
 the `while` statement's own completion row), lines 77, 78 and 80 not at all,
 and 76 before 75 because the `if` completes after its body. Three rows carry
 empty deltas (70, the place write; 76, the expression statement; 75, the
 `if` completing). Exactly one row carries `unbound`, and it is the `while`'s
 own: `unbound:count,sides`. `m` is `undefined` at 71, a match array at the
-head row and `null` at the completion row — plan P1(a)'s reading, which the
+head row and `null` at the completion row, plan P1(a)'s reading, which the
 per-entry rule alone would have left unreported.
 
 This is the endpoint the rung exists for, and it is the one the pressure to
 fudge was pre-registered against (§1's opening, and the hand count's own
 sha256 as §1's last line, recomputed by the lock test). It needed no fudging.
 
-### 4.4 H4 — two triples as predicted, and one clause the instrument read too strongly
+### 4.4 H4: two triples as predicted, and one clause the instrument read too strongly
 
 All three verdicts and all three exits are §1.2's: `SATISFIED` / 0 three
 times, and no verdict disagreed with its status. W1 hit at 31 of 64
@@ -651,12 +650,12 @@ are 101, 88 and 45 of 165 recorded sites, reported and not predicted, as
 §1.2 says.
 
 W3 is the head-binding reading and it held cleanly: all fifteen of its HITs
-are at line 72 carrying `m=null  unbound:count,sides` — the `while`
+are at line 72 carrying `m=null  unbound:count,sides`, the `while`
 statement's own completion rows, the row that only exists because plan P1(a)
 gives a guarded statement's completion row its head's assignment targets.
 
 W2's extra clause is where the cell reads a miss. §1.2 predicts **"no HIT at
-line 72's `while`-completion row"** — the `unbound` reading: `count` dies on
+line 72's `while`-completion row"**, the `unbound` reading: `count` dies on
 that row, so the predicate cannot be evaluated there. The cell tested "no HIT
 at line 72", which is a STRICTLY STRONGER claim, because line 72 carries two
 different rows: the completion row AND the head row minted on each entry.
@@ -678,19 +677,19 @@ number stands.
 a finding and not a fix** (§1's own rule, and the reason it is here in §4
 rather than in §2.3). The defect is one line of `e12_report.py`: `h4`
 compares a HIT's `line` against §1.2's, and a `line` alone cannot tell a
-`while`'s head row from its completion row. The row's own payload can — the
-completion row is the one with `unbound` — and the fix, if a later rung wants
+`while`'s head row from its completion row. The row's own payload can (the
+completion row is the one with `unbound`) and the fix, if a later rung wants
 one, is to read the clause off `unbound` rather than off the line number.
 Recorded as carried debt; the number is not re-measured.
 
-### 4.5 H5 — S1 found, S2 printed but not parsed
+### 4.5 H5: S1 found, S2 printed but not parsed
 
 `flow F1 --value 20` sights `sides` at `diceQueue.ts:74` nine times inside
 `parseDiceGroups`, which is S1, and the population held no other triple.
 Its tenth sighting is outside the gate and is reported: `e288 RETURN
 buildForcedNotation.<anonymous> -> 20   [return]`. §1.3's own ungated hand
-reading — "the file drives fifteen `parseDiceGroups` activations, exactly
-one of them with `formula === '1d20'`" — is measured exactly: `tree F1`
+reading ("the file drives fifteen `parseDiceGroups` activations, exactly
+one of them with `formula === '1d20'`") is measured exactly: `tree F1`
 prints 15 `parseDiceGroups(formula=…)` activations and exactly one of them
 `parseDiceGroups(formula='1d20')`.
 
@@ -731,22 +730,22 @@ it makes a REPORTED field incomplete rather than a gated one wrong: a
 `RETURN` row (`e288 RETURN  buildForcedNotation.<anonymous> -> 20
 [return]`) has one space before its `->` where the parser requires two, so
 `elsewhere_not_gated` in the H5 cell lists one row where the two transcripts
-between them print five. The counts the transcripts print — `sightings: 10`
-and `sightings: 5` — are the honest totals and are quoted above and in the
+between them print five. The counts the transcripts print (`sightings: 10`
+and `sightings: 5`) are the honest totals and are quoted above and in the
 committed transcripts; the cell's `elsewhere_not_gated` list is not.
 
 None of the three touches H6, whose two sightings are both LINE rows and
 whose independent check is the printed `sightings: 2 event(s), 2
 capture(s)`.
 
-### 4.6 H6 — the identity is exact, and §1.4's correction was the right one
+### 4.6 H6: the identity is exact, and §1.4's correction was the right one
 
 The lookup ran as §1.4 writes it. `grep F1 dice --kind LINE` printed seven
 rows at `forcedDiceFromSource L138`; the trace's frame parentage says the
 first three were called from `<anonymous>.<anonymous>` (the test callbacks
 of the `forcedDiceFromSource` describe block) and the last four from
 `buildDiceQueueEntry`. The first row `buildDiceQueueEntry` called is
-**`e367`** — the FOURTH `dice` LINE row of `forcedDiceFromSource` in F1,
+**`e367`**, the FOURTH `dice` LINE row of `forcedDiceFromSource` in F1,
 which is precisely what §1.4's "reported, not gated" sentence predicted by
 hand.
 
@@ -764,19 +763,19 @@ continuity: exact (serial identity)
 Exactly two sightings, at `diceQueue.ts:138` and `diceQueue.ts:202`; one
 serial (`#64` is the oid of the capture at both events, read from the two
 payloads); `continuity: exact (serial identity)`; and both captures' `type`
-is `Array`. The array is EMPTY at 138 and holds one die at 202 — the same
+is `Array`. The array is EMPTY at 138 and holds one die at 202. The same
 object, two contents, which is the whole of what a serial buys over a
 rendered value.
 
-§1.4's amendment earns its place here. The plain first-row reading — "the
-first LINE row of `forcedDiceFromSource` carrying `dice`" — would have
+§1.4's amendment earns its place here. The plain first-row reading ("the
+first LINE row of `forcedDiceFromSource` carrying `dice`") would have
 picked `e101`, whose activation the test file called directly; that array is
 sighted once, and H6 would have STOPped on a correct recorder. The
 correction was made at T0, before any rung-4 code existed, and the measured
 parentage (`e101`, `e151`, `e237` → `<anonymous>.<anonymous>`; `e367`,
 `e420`, `e463`, `e511` → `buildDiceQueueEntry`) is its proof.
 
-### 4.7 H7 — what the focus tier cost here
+### 4.7 H7: what the focus tier cost here
 
 Reported, not gated. One test file, 26 tests, three runs each way,
 interleaved, every run guarded at a 1-minute load between 0.72 and 0.83:
@@ -788,9 +787,9 @@ interleaved, every run guarded at a 1-minute load between 0.72 and 0.83:
 
 **×2.3816** on the median, 0 runs dropped. Two readings sit beside it and
 neither is a threshold. The U arm's first wall is its slowest by 40% and the
-F arm's three are within 25 ms of each other — a cold-start cost that the
+F arm's three are within 25 ms of each other, a cold-start cost that the
 focused arm paid on the U side of the interleave. And the two arms recorded
-the same call tier — `CALL 117  RETURN 117` in both — with the F arm adding
+the same call tier (`CALL 117  RETURN 117` in both) with the F arm adding
 **295 LINE rows** on top (234 events against 529, `info U1` against
 `info F1`), so what the wall bought is a per-statement record of six
 functions and not a slower run of the same recording.
@@ -801,7 +800,7 @@ root, 0 unparsable. That is paid once per invocation, before the harness
 starts, and it is what turns a mistyped spec into a refusal in a second
 rather than into a suite that recorded the wrong thing.
 
-### 4.8 H8 and the two fences — nothing else moved
+### 4.8 H8 and the two fences: nothing else moved
 
 Six clauses, all held. The corpus ran all three directories with
 `--require-driver`: **105 cases, 220 questions, 0 failures, 0 errors**, the
@@ -819,8 +818,8 @@ the same place.** The H8 cell holds, per suite, an exit status and the last
 three lines of that suite's log, and nothing else (`e12_h8.sh`'s `suite_in`
 writes `<out>/h8/logs/<label>.log` and the cell's `tail` takes three lines
 off it). So the corpus counts, the pytest counts and the needle total above
-ARE cells — they are the last line of their logs, or `e7_report.py`'s own
-`value` — and the four aggregates are not: cargo's **773 passed, 0 failed,
+ARE cells (they are the last line of their logs, or `e7_report.py`'s own
+`value`) and the four aggregates are not: cargo's **773 passed, 0 failed,
 23 ignored** and its **44** sections are an `awk` sum over every `test
 result:` line of `<out>/h8/logs/cargo.log`, node's **521 passed, 0 failed**
 is the `ℹ pass` / `ℹ fail` block of `npm-typescript.log`, and the probes'
@@ -830,7 +829,7 @@ committed; the exits that gate the clause are.
 
 One of those numbers needs a sentence of its own, because the committed cell
 appears to contradict it. Cargo's tail in the results file reads `test
-result: ok. 0 passed; 0 failed; 14 ignored` — that is the LAST of the 44
+result: ok. 0 passed; 0 failed; 14 ignored`, that is the LAST of the 44
 `test result:` sections `cargo test --workspace` prints, `sensorium_
 transform`'s doc-tests, and 44 is one section per test target of this
 workspace with the doc-test sections among them. The **773** above is the
@@ -841,16 +840,16 @@ paragraph names.
 
 §2.2's pre-registered risk did not fire. `oid` is one of the nine needles,
 matched word-bounded and case-sensitively, and §5.1 mints an `oid` on the
-wire; the reader prints that number as a SERIAL — `flow of object #64
+wire; the reader prints that number as a SERIAL (`flow of object #64
 (Array)`, and the caveat line calls it *"a per-object serial minted once and
-never reused"* — and never prints the wire key's NAME. `grep -rnw oid` over
+never reused"*) and never prints the wire key's NAME. `grep -rnw oid` over
 the thirteen committed transcripts returns nothing. The risk was named
 before the reading and the reading is 0.
 
 The two fences were read FIRST, before the session opened the store, so that
 no fence could fail after a number had been taken. E-legacy is **1 of 2**:
 its diff clause reads one changed line, not zero, and the line is the one
-§2.3's entry 2 named in advance —
+§2.3's entry 2 named in advance,
 `tests/test_exceptions_rust_grouping.py:697`, the `site=site` the plan's own
 `Shape.site` requirement forces on a fixture inside the fence glob. Its test
 clause is green (`118 passed`, the fenced tests plus the Rust key's tuple
@@ -879,18 +878,18 @@ real frontend rather than on a probe:
 * **The tier is opt-in and says so.** H1: an unfocused arm declares
   `line: false` / `locals: false`, writes zero LINE rows, and `watch`
   refuses it in a sentence that names the recorder the TRACE carries at exit
-  3 — absence of the record reported as the recorder's declaration, not as a
+  3, absence of the record reported as the recorder's declaration, not as a
   fact about the program.
 * **Identity is exact and the reader shows it as a serial.** H6: two
   sightings of one array across two functions, one serial, `continuity:
-  exact (serial identity)`, both `Array` — empty at `diceQueue.ts:138` where
+  exact (serial identity)`, both `Array`, empty at `diceQueue.ts:138` where
   it is created and holding one die at `diceQueue.ts:202` where it is
   destructured, which is the same object under two renderings and is exactly
   what a serial buys over a printed value. And the wire key's NAME never
   reaches a printed line (H8's needle grep for `oid`, 0 over 13
   transcripts).
 * **Nothing else moved.** H8: the whole corpus equal (105 cases, 220
-  questions, 0 failures — a cell), four suites green by exit status (cells),
+  questions, 0 failures, a cell), four suites green by exit status (cells),
   the probes' 146 checks green (read from `<out>/h8/logs/npm-probes.log`,
   named in §4.8 and not committed), and the two fences read before the
   session.
@@ -908,7 +907,7 @@ real frontend rather than on a probe:
    three because it counted the functions a reader names, not the
    function-likes a spec selects. Anyone who writes "focus these three
    functions" on a real file should expect the resolver to answer with more
-   than three, and `resolve.mjs` is where they will find out — before the
+   than three, and `resolve.mjs` is where they will find out, before the
    run. Whether `--focus` should offer a spelling that means "this function
    and not its nested arrows" is a design question this rung raises and does
    not answer.
@@ -917,7 +916,7 @@ real frontend rather than on a probe:
    one `<file>:<qualname>`. R31's parenthetical is what makes the second
    number visible at all; without it a reader would have been told five and
    the transform would have instrumented six. A qualname is not an identity
-   for an anonymous function-like — a fact worth carrying into any later
+   for an anonymous function-like, a fact worth carrying into any later
    work on `--focus` spellings.
 3. **Two of this rung's three STOPs are the instrument's, not the
    recorder's (H4, H5).** H4's cell tested "no HIT at line 72" where §1.2
@@ -945,6 +944,6 @@ and the design question of item 1.
 
 **What a reader can do with this that they could not before.** Ask a
 TypeScript test suite what a function's statements actually wrote, one row
-per completed statement, with the names that went out of scope named — and
+per completed statement, with the names that went out of scope named, and
 be told, by the recording itself, when the run they are holding cannot
 answer.

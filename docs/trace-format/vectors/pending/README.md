@@ -15,7 +15,7 @@ not be promoted before it passes. Authored 2026-09-05 (S0); promotion is S1's fi
 | `m04-diff-first-divergence-and-margin` | `p`, pieces, both margins; a token outside top-k reports `> topk-floor` |
 | `m05a` / `m05b` / `m05c` `-diff-within-noise-needs-blessed-band` | no band → `DIVERGED` and one line saying why the reading did not happen; a blessed band → `MATCH (within noise)` naming its baseline; a band measured under other weights → `REFUSED` |
 | `m06-exit-status-not-a-process-exit` | `exit: n/a (model trace)`; never `None`, never `0` |
-| `m07a-spans-exec-ref-joins-program-trace` / `m07b-spans-exec-ref-trace-not-found` | the two exit sources printed as two labeled facts: the daemon's own witness, and the program trace's — present, and not found |
+| `m07a-spans-exec-ref-joins-program-trace` / `m07b-spans-exec-ref-trace-not-found` | the two exit sources printed as two labeled facts: the daemon's own witness, and the program trace's, present, and not found |
 | `m08-join-group-in-runs` | `runs` groups by `join.group`; a trace without `join` lists in place |
 | `m09-attention-declared-unwitnessable-under-fa` | `info` prints the flash-attention gap sentence, not `0` and not "predates" |
 | `m10-zero-token-generation-row` | a zero-token generation has a `task_fingerprints` row with `n_events 0`, and `gens` prints `H̄:n/a minH:n/a` with no position |

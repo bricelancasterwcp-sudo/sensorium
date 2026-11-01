@@ -1,19 +1,19 @@
-# Changelog — the earlier entries, volume 2
+# Changelog: the earlier entries, volume 2
 
 `0.9.1` and `0.9.0`, **moved here 2026-09-12 (S5 rung 4's debts) so
-[`CHANGELOG.md`](CHANGELOG.md) stays under 800 lines** — the fifth cut, and
+[`CHANGELOG.md`](CHANGELOG.md) stays under 800 lines**. The fifth cut, and
 the first that could not be taken into
 [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md). Volume 1 stood at **742**
 lines when this cut was sized; these two entries are **271**, so appending them
 there would have put the archive itself at 1,013 and broken the same ceiling
 the cut exists to respect. `tests/test_ceiling.py` holds every tracked document
-to 800 lines, an archive included — a file nobody edits any more is still a
+to 800 lines, an archive included. A file nobody edits any more is still a
 file somebody reads. `0.11.0` and `0.10.0` **moved here 2026-09-15 (secrets
 redaction PR C)** for the same reason, volume 2 at **479** lines before the
 move.
 
 So the archive becomes **numbered volumes, each kept under 800 lines, never
-one growing file** — the rule
+one growing file**, the rule
 [`docs/CARRIED-DEBT-ARCHIVE-2.md`](docs/CARRIED-DEBT-ARCHIVE-2.md) set for the
 debt ledger when the same thing happened to it, and which that ledger is now
 eight volumes deep in. Volume 1 is closed: nothing is appended to it again.
@@ -22,29 +22,29 @@ eight volumes deep in. Volume 1 is closed: nothing is appended to it again.
 NEWER than every entry in volume 1, which runs `0.8.6` down to `0.6.0`: a
 volume is opened when the previous one fills, and what fills it is the size of
 the entries that happened to be cut, not their dates. The version numbers are
-the index that matters — `0.9.0` follows `0.8.7`, which the sixth cut below
+the index that matters, `0.9.0` follows `0.8.7`, which the sixth cut below
 brought here too, and `0.9.1` follows `0.9.0`, wherever each file happens to
 sit.
 
 `CHANGELOG.md` stood at **702** lines before the move and at **437** after it,
-the 0.13.0 entry not yet written — 363 lines of room, where the largest entry
+the 0.13.0 entry not yet written, 363 lines of room, where the largest entry
 this project has ever shipped is 161 (`0.9.0`, below). The cut is taken before
 the entry is drafted, which is what the second cut's confession in volume 1
 asks for: size the cut against the room the next entry needs, never by eye.
 
 `0.8.7` joined them **2026-09-14 (secrets redaction A)**, the sixth cut and
 the second into this volume. `CHANGELOG.md` stood at **808** lines when it was
-sized — over the ceiling, `tests/test_ceiling.py` red, because 0.15.0's own
+sized, over the ceiling, `tests/test_ceiling.py` red, because 0.15.0's own
 entry is 119 lines and the room the fifth cut left had been spent by 0.14.0
 and 0.13.0 before it. The entry is **159** lines, which puts `CHANGELOG.md` at
 **649** and this volume at **467**: room for the next entry and for the one
 after it, sized the way the paragraph above asks rather than by eye. Volume 2
-is not closed by this — 467 leaves 333, and the largest entry this project has
+is not closed by this, 467 leaves 333, and the largest entry this project has
 ever shipped is 161.
 
 **The wording, the order and the dates are unchanged**: every entry below is
-byte for byte the entry that was removed from `CHANGELOG.md` — checked by
-`diff` against the pre-cut file, empty — never rewritten, and a release that
+byte for byte the entry that was removed from `CHANGELOG.md` (checked by
+`diff` against the pre-cut file, empty) never rewritten, and a release that
 happened stays a release that happened. `CHANGELOG.md` remains newest-first
 and its newest header is still the released version's, the one thing
 `tests/test_release_tokens.py` reads.
@@ -53,7 +53,7 @@ and its newest header is still the released version's, the one thing
 
 **The converter's ladder, the plain band re-measured, and `node --test` made
 honest.** No new verb and no new key: S5 slice 2 answers the two questions
-rung 1 shipped open — E6′'s STOPped timing clause and E10's design input —
+rung 1 shipped open (E6′'s STOPped timing clause and E10's design input)
 and fixes the four things the `node --test` path was getting wrong. Python
 **0.9.1** (the converter's write path and its spool reader, the no-spool
 refusal); **`sensorium-ts 0.1.1`** (the loader hook). The Rust crates do not
@@ -61,23 +61,23 @@ move. `TRACE_FORMAT` stays **4**: no trace key, vector or vocabulary string
 changed, and a 372-pair equivalence gate is the evidence rather than the
 claim.
 
-Everything below is measured on one lens — the tabletop VTT frontend at
+Everything below is measured on one lens (the tabletop VTT frontend at
 `0091e97`, **372 test files, 4,278 tests**, under vitest 4.1.9, vite 6.4.3,
-jsdom 29.1.1, node v24.16.0, 16 cores — against a pre-registration byte-locked
+jsdom 29.1.1, node v24.16.0, 16 cores) against a pre-registration byte-locked
 before any of this code existed
 (`docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md` §1).
 **Every cell this slice pre-registered was measured**: the four gated clauses
-whose rule supplies a PASS word — E10′-suite, E10′-file, E10′-eq and E6″ —
+whose rule supplies a PASS word (E10′-suite, E10′-file, E10′-eq and E6″)
 read **PASS**, and the H-probes clause, whose rule carries only a STOP,
 **held with no STOP**.
 
-- **E6″ — PASS on all five clauses; E6′'s STOP is answered** (`ecdc631`,
+- **E6″: PASS on all five clauses; E6′'s STOP is answered** (`ecdc631`,
   record §3.11 and §4.3). A new pre-registration, not a second look: the
   instrument now carries the load guard E6′ lacked, the band is **derived**
   from the before arm rather than chosen, the comparison is **medians over
   n=5** on each side, and the manifest is verified *after* the after arm. One
-  guarded session on the lens — five plain runs, one call-tier recording, five
-  plain runs — read the manifest **748 OK / 0 FAILED** before and after, every
+  guarded session on the lens (five plain runs, one call-tier recording, five
+  plain runs) read the manifest **748 OK / 0 FAILED** before and after, every
   one of the ten plain runs at `372 passed (372)` / `4278 passed (4278)` with
   nothing dropped, **0** `__srt` markers over the 2 cache directories that
   exist, `node_modules/.sensorium` **absent**, and the after arm's median
@@ -85,16 +85,16 @@ read **PASS**, and the H-probes clause, whose rule carries only a STOP,
   median (**22.1743**) and range (**0.1909**) define. The after arm is 0.0607 s
   *faster* than the before arm. What that closes is bounded and the record says
   so: one session, one lens, one recorder.
-- **E10′ — PASS on all three gated clauses: the converter stays Python**
+- **E10′: PASS on all three gated clauses: the converter stays Python**
   (record §3.6–§3.9, §4.1). Rung 1 measured full-suite `ingest` at 45.5293 s
   against a 22.5925 s plain wall and made it a design input. Two levers
   answered it, each a commit of its own with its cells measured before the
   next was written:
-  - **`TraceWriter(durable=False)`** — one transaction per trace and
+  - **`TraceWriter(durable=False)`**: one transaction per trace and
     `PRAGMA synchronous=NORMAL` under the WAL `create_trace` already sets,
     committed once in `close()` instead of once per 512-event batch. The
     Python recorder keeps the durable default; one argument, one meaning.
-  - **A streaming spool reader** — `spool.read` opens the file, reads BOOT
+  - **A streaming spool reader**: `spool.read` opens the file, reads BOOT
     from line 1 and **yields** every later record, where it had materialised
     the whole spool. `exit` and `torn_tail` are filled by the walk, and
     `TraceWriter.discard()` (rollback, then close) is what `Builder.abort()`
@@ -106,17 +106,17 @@ read **PASS**, and the H-probes clause, whose rule carries only a STOP,
   for falls **0.3624 s → 0.1648 s** (n=5, **2.1990×**, against a 0.4002 s
   bound whose failure was the one thing allowed to STOP the ladder). The
   heaviest worker's peak resident falls **2,269,696 kB → 290,948 kB** on the
-  same suite cell — **7.8010×** — which was the streaming reader's own
+  same suite cell (**7.8010×**) which was the streaming reader's own
   pre-registered quantity. **A2** (largest-first dispatch) and **A4** (the
   per-record Python cost) were **not built**: the spec conditioned them on the
   first two levers leaving the suite above the bound, and they did not. **Arm
   B**, a Node or Rust converter, is not raised.
 - **And the trace did not move** (record §3.9, §5.A). The pinned set was
-  converted twice — once by 0.9.0's converter, once by this one — and all
+  converted twice (once by 0.9.0's converter, once by this one) and all
   **372** pairs read **MATCH** under `sensorium diff`, 0 DIVERGED, 0 REFUSED,
   every diff run by one reader over both traces in one store. `diff` compares
   causal structure and not recorded values, which the record states as the
-  ceiling on that PASS — so a second, ungated check was pre-registered *after*
+  ceiling on that PASS, so a second, ungated check was pre-registered *after*
   the gate was read and could not move it: every row of `events`, `frames`,
   `code_objects`, `tasks`, `fingerprints`, `task_fingerprints` and `output`
   compared column for column across all 372 pairs. **372 / 372 identical**;
@@ -124,8 +124,8 @@ read **PASS**, and the H-probes clause, whose rule carries only a STOP,
 - **The loader hook returns Node's own format and erases nothing**
   (`05e5338`, `sensorium-ts 0.1.1`). It had classified by extension and forced
   `format: 'module'`, which meant an eligible `.mts` was instrumented and then
-  never type-stripped — Node threw a `SyntaxError` on the file's first
-  annotation — and a `.tsx`/`.jsx` was reported as an exclusion it is not.
+  never type-stripped (Node threw a `SyntaxError` on the file's first
+  annotation) and a `.tsx`/`.jsx` was reported as an exclusion it is not.
   The hook now asks `nextLoad` and takes the answer: **Node strips**, the
   recorder splices, and neither pretends to do the other's job. `.tsx`/`.jsx`
   are outside Node's own scope under `node --test` and are not counted as
@@ -133,12 +133,12 @@ read **PASS**, and the H-probes clause, whose rule carries only a STOP,
   controls now run under `node --test` in CI: **25 checks, 0 failures**, and
   both controls fail *identically* plain and hooked
   (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, `ERR_UNKNOWN_FILE_EXTENSION`). The
-  controls are what makes this a check rather than a hope — measured against
+  controls are what makes this a check rather than a hope, measured against
   the pre-fix hook, `enum.ts` loaded under the recorder and failed plain.
 - **A no-spool run whose transform excluded everything says so** (`5af2def`).
   `ingest` on a spool directory with no spools said "nothing was recorded, or
   the recorder wrote somewhere else" even when the tallies beside it recorded
-  exactly why — every file CommonJS, or a parse error. It now names them by
+  exactly why, every file CommonJS, or a parse error. It now names them by
   reason with counts (`commonjs x2, parse-error x1`) and appends the
   ES-modules-only clause only when `commonjs` is among them. R27's precedent:
   one bare reason loses the split as soon as there are two.
@@ -146,8 +146,8 @@ read **PASS**, and the H-probes clause, whose rule carries only a STOP,
   hold as written, and all three gated clauses pass** (record §4.2). Arm 0's
   0b missed by more than three times (154.3012 s against a predicted 40–50 s);
   all three of the first lever's predictions were falsified, including
-  "0e unchanged" — the one-file spool turned out to be commit-*dominated* at
-  2.2004× — and the streaming reader's wall prediction ("within noise") was
+  "0e unchanged". The one-file spool turned out to be commit-*dominated* at
+  2.2004×, and the streaming reader's wall prediction ("within noise") was
   falsified **in the fast direction** on both large cells by about 1.25 s
   each. Its RSS prediction is the one that held, with room. The numbers are
   the pre-registered cells'; no threshold moved and nothing was re-rolled.
@@ -163,7 +163,7 @@ read **PASS**, and the H-probes clause, whose rule carries only a STOP,
 **A third recorder.** `sensorium ts run -- vitest run` records a TypeScript or
 JavaScript test suite the way `cargo sensorium test` records a Rust workspace:
 one trace per test-file process, trace format **4**, read by the same
-`sensorium` command line. Python **0.9.0** — a new verb, a third vocabulary, a
+`sensorium` command line. Python **0.9.0**, a new verb, a third vocabulary, a
 refusal for a fourth, seven conformance vectors and thirteen corpus cases;
 **`sensorium-ts 0.1.0`**, one private npm package with `magic-string` as its
 only runtime dependency. The Rust crates do not move. `TRACE_FORMAT` stays
@@ -175,7 +175,7 @@ any of this code existed
 the twelve gated endpoints and both §10 controls **PASS**; **E6′ is a STOP**
 on its plain-band clause and **E10 is REPORTED** on the design-input branch of
 its own rule. One lens under every number: a tabletop VTT frontend at
-`0091e97` — **372 test files, 4,278 tests** — under vitest 4.1.9, vite 6.4.3,
+`0091e97` (**372 test files, 4,278 tests**) under vitest 4.1.9, vite 6.4.3,
 jsdom 29.1.1, node v24.16.0, 16 cores.
 
 - **The transform** (`typescript/src/transform.mjs`): the consumer's own
@@ -187,7 +187,7 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
   of 5,378 eligible** over 367 files, ratio **1.0000**, no unnamed exclusion
   (n = 5,378 sites). Sites keep their lines and columns: **20/20** shapes on
   their exact line, and a planted failing assertion's `FAIL` header and
-  `…:44:13` identical plain against driven — on the narrower reading the
+  `…:44:13` identical plain against driven, on the narrower reading the
   record's §5 gap 8 states, since the driven report also carries two frames
   inside the recorder's own runtime.
   Rulings that changed the design here: **R8/R8b** made the test-wrap rule
@@ -212,7 +212,7 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
   `trunc` keys and leave paths uncapped; **R17** counts `#k` per NAME, not per
   registration, so a five-row `.each` is five names and not `… = 5#2`;
   **R16** declares `rt.mjs` external to vite's module runner so one Node
-  module instance serves the setup file and the instrumented modules — and is
+  module instance serves the setup file and the instrumented modules, and is
   named in the ledger as insurance, because at vitest 4.1.9 the
   one-BOOT-per-spool probe reads the same with it and without it.
 - **The driver and converter** (`sensorium ts run`, `sensorium ts ingest`):
@@ -224,7 +224,7 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
   24, an uninstalled package, an unwritable `node_modules`, a spool directory
   already ingested (`ingested.json`, **P6**) and one no driver wrote.
   **R21** keeps the container's own EXIT as `exit_self_reported` while
-  `exit_status` stays `null`/`unwitnessed` — a self-observation is not a
+  `exit_status` stays `null`/`unwitnessed`. A self-observation is not a
   borrowed status. **R26** records the command AS TYPED (`harness_command`),
   because `node-test --test` is a command nobody typed. **R24**: `--tier off`
   records nothing by design and returns the harness's status, not an exit 2
@@ -232,7 +232,7 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
 - **The reader, in this recorder's words.** A `TYPESCRIPT` column in
   `vocab.py`; the unit of work is a *test*; `terms()` indexes strictly and
   `db.open_trace` **refuses an unknown `lang` at exit 2** naming the language
-  and the recorder (**P3** — one choke point, so every command refuses
+  and the recorder (**P3**, one choke point, so every command refuses
   identically). `info_typescript.py` beside `info_rust.py`; `runs` gates its
   TypeScript header and `file:` member on `meta.lang`, never on a key's
   presence, and prints exclusions per reason with counts (**R27**). Two
@@ -245,14 +245,14 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
   vector is: the TypeScript prose, the unknown-`lang` refusal, `exc.kind`
   throw against rejection, the kind labels (`[async]`, not `[coroutine]`), an
   unhandled rejection in meta, `harness_exit` waited, and the `runs` file
-  header. **Thirteen corpus cases** under `corpus/typescript/` — six ports,
+  header. **Thirteen corpus cases** under `corpus/typescript/` (six ports,
   three refusals and four TypeScript-only (`each_naming`,
   `unhandled_rejection_in_info`, `suspended_at_end`,
-  `timer_callback_parentless`) — one shared vitest project (**P9**), run
+  `timer_callback_parentless`)) one shared vitest project (**P9**), run
   through the real driver, with `--require-driver` turning a skipped case into
   exit 1. **R31** holds every TypeScript case's `why_logs_fail` to naming all
   three channels, the way the Rust cases are held.
-- **CI**: a `typescript` job — Node 24, `npm ci --prefix typescript`,
+- **CI**: a `typescript` job: Node 24, `npm ci --prefix typescript`,
   `npm --prefix typescript run check` (**R4**: the bare `npx tsc -p …` form
   resolves a decoy `typescript` from the repository root, measured rc=1
   against rc=0), the golden and runtime tests under `node --test`, the probe
@@ -262,7 +262,7 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
   the acceptance was measured on.
 - **What it cost, with `n` and lens.** Recording: `off/plain` **1.0587**,
   `call/plain` **1.1324** (n=5 per arm, interleaved, 0 dropped, conversion
-  excluded) — inside the pre-registered 1.10 bound, so the transform stays
+  excluded), inside the pre-registered 1.10 bound, so the transform stays
   uncached and the source-sha cache stays a later slice. Conversion:
   full-suite `ingest` **45.5293 s** (n=3) against the same run's plain wall of
   **22.5925 s**, ×2.02; one file's spool **0.3638 s** (n=3). Reading: `info`
@@ -270,16 +270,16 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
   Verification: **0/19** false DIVERGED over twenty recordings of one file; a
   split control reading `MATCH modulo location` with exactly its two moved
   code objects; and a **value-preserving** planted swap reading DIVERGED at
-  causal step 16 — invisible to the consumer's own 56/56 suite, visible only
+  causal step 16, invisible to the consumer's own 56/56 suite, visible only
   to the recording.
 - **The STOP, stated as a STOP** (**R32**). E6′ asks whether a plain run
   afterwards is contaminated, in four clauses. The three that ask about
-  contamination directly hold exactly — sources identical by sha256 manifest
+  contamination directly hold exactly, sources identical by sha256 manifest
   (**748 OK, 0 FAILED**), **0** `__srt` markers in any cache directory, the
   wrapper directory absent. The fourth is a timing clause and it did not: the
   plain-after wall **22.8678 s** against the plain arm's own min–max band
   **[22.3136, 22.7221]**, 0.1457 s (0.65%) above it. The number stands as
-  measured — nothing re-rolled, no band moved, no verdict renamed — and the
+  measured (nothing re-rolled, no band moved, no verdict renamed) and the
   two instrument gaps it rests on are recorded rather than argued away
   (`e6.sh` took its one timed reading with no load guard, and a five-run
   min–max is a range, not a tolerance). It is re-measured next slice under a
@@ -288,27 +288,26 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
 - **The REPORTED, taken as design input** (**R33**). Converting a whole
   372-file suite costs twice the suite's own wall, so a Node converter on
   `node:sqlite`, or a binary wire, is the next slice's pre-registered design
-  question — the second branch E10's rule named, not a STOP. The one-file
+  question, the second branch E10's rule named, not a STOP. The one-file
   number is reported beside it, because 0.36 s is what a debugging loop
   actually pays.
 - **A finding about the consumer, which the pre-registration committed to
   reading as one**: **8 of 372** test files (2.2%) record differently across
   two runs of the same suite. The comparator refused nothing and mis-called
   nothing; the eight are named in the record's §3.4.
-- **Documentation.** `typescript/HONESTY.md` — written before the runtime
+- **Documentation.** `typescript/HONESTY.md`, written before the runtime
   existed and now struck against the measurement, with eight new blind spots
   (10–17) and E6′'s STOP in its cost section. `typescript/README.md` is the
   full reference; this repository's README gains a compact `## TypeScript`
   section beside `## Rust`. The TypeScript-only meta keys live in
   `docs/trace-format/TYPESCRIPT-KEYS.md` (**R25**: `docs/TRACE-FORMAT.md` was
-  at 752 lines when the ruling was made, and gained only what R25 allowed —
-  the `lang` value, the `exc.kind`/`how` enumerations, the `runs` header
-  sentence, the vocabulary column and a pointer — which took it to **799** in
+  at 752 lines when the ruling was made, and gained only what R25 allowed (the `lang` value, the `exc.kind`/`how` enumerations, the `runs` header
+  sentence, the vocabulary column and a pointer) which took it to **799** in
   Task 7; the doc pass then edited it no further, under **R35**). The design's
-  own deltas — one row per plan decision and per ruling that moved a
-  sentence — are §14 of
+  own deltas (one row per plan decision and per ruling that moved a
+  sentence) are §14 of
   `docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`.
-  This file's `0.8.2`, `0.8.1` and `0.8.0` entries — three of them — moved to
+  This file's `0.8.2`, `0.8.1` and `0.8.0` entries (three of them) moved to
   [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) **before** this entry was
   written (**R35**), a pure move, wording and dates unchanged.
 
@@ -316,14 +315,14 @@ jsdom 29.1.1, node v24.16.0, 16 cores.
 answered a debugging question nobody planted, and none was measured on a
 second consumer. Arguments are unread (`locals: false`), there are no LINE
 events (`line: false`), and the `exceptions` disposition rules do not exist
-yet (`err_flow: false`) — so a 0.1.0 trace stays refused by `exceptions` after
+yet (`err_flow: false`), so a 0.1.0 trace stays refused by `exceptions` after
 rung 2 lands, and re-recording is what changes that. Each of those is declared
 in the trace and refused by name, never silently missing.
 
 ## 0.8.7 — 2026-09-08
 
 **The queue, buttoned up.** No new capability: this slice pays the carried
-debt four ledgers had accumulated — 116 open bullets at `f14d2f6` — and ships
+debt four ledgers had accumulated (116 open bullets at `f14d2f6`) and ships
 the ledgers to prove it. Brice funded three of the four buckets: **A**, 54
 mechanical rows whose fix was already written (47 taken whole, 3 in part, 4
 declined with reasons); **B**, the 800-line ceiling; **D**, 5 rows closable
@@ -336,21 +335,21 @@ new key into a trace.
 
 - **One `sha256`, in the crate with zero dependencies** (row #13, ruling R3,
   `a0580d3`). The same ~300-line from-scratch implementation stood in all
-  three crates, kept in sync by the same NIST vectors. `sensorium-rt` — the
-  only crate the other two can both depend on — owns it as `pub mod sha256`
+  three crates, kept in sync by the same NIST vectors. `sensorium-rt` (the
+  only crate the other two can both depend on) owns it as `pub mod sha256`
   and the copies are deleted. **The one observable consequence is a token.**
   `sensorium-rt`'s `RT_VERSION` is a literal by necessity (the bare `rustc`
   line that builds the runtime has no cargo environment, so `env!` will not
   compile) and a unit test holds it to the manifest, so the rt bump changes
   what every Rust trace declares: `recorder: sensorium-rt 0.4.1`. Three corpus
   expectations, one E9 cross-check and the living docs moved with it, each
-  re-pinned **by value** — the sentence names the recorder, so loosening it
+  re-pinned **by value**. The sentence names the recorder, so loosening it
   would have deleted the check. Nothing the runtime records changed: no wire
   kind, no record shape, no capability. The sha256 vectors the consolidation
   dropped came back at `bde3a66`.
-- **Seventeen files split — thirteen before anything edited them, four
+- **Seventeen files split, thirteen before anything edited them, four
   after, which is what R9 asks for** (rulings R2/R9).
-  Thirteen the design's seam map named — `tests/programs.py` (`b05046b`),
+  Thirteen the design's seam map named, `tests/programs.py` (`b05046b`),
   `test_tree_frame.py` (`718a013`), `test_boot_cli.py` (`5ef40e5`),
   `test_exceptions.py` (`71d18b8`), `test_diff.py` (`d3823b4`),
   `test_tracer.py` (`4267251`), `test_refocus.py` (`f24745c`),
@@ -358,7 +357,7 @@ new key into a trace.
   (`91242c2`), `rust/cargo-sensorium/tests/convert.rs` (#56, `4b98c3f`),
   `convert/chains/tests.rs` (`9bd2647`), `src/sensorium/record/tracer.py`
   1193 → 672 + two modules (`e87996e`), `src/sensorium/query/refocus_world.py`
-  (#55, `f350b9c`) — and four more that this slice's own edits took past 780,
+  (#55, `f350b9c`), and four more that this slice's own edits took past 780,
   split at their banners under R9 (`bb6b2c4` and the fix commits). Every one a
   pure move, proved by `--color-moved=zebra` and equal collection counts, with
   seven falsified pointers repointed at `b6e2125`.
@@ -366,16 +365,16 @@ new key into a trace.
   fix wave). `tests/test_ceiling.py` holds every tracked `*.py`, `*.rs`,
   `*.sh` and `*.md` under 800 lines and exempts the three record directories
   under
-  `docs/superpowers/` **by name** — dated history, some byte-locked, amended
+  `docs/superpowers/` **by name**, dated history, some byte-locked, amended
   by appended notes and never restructured. Both mutations were measured: the
   limit lowered to 700 names 37 files; a fourth exemption fails the test that
-  pins the list. The ruling closes two ledger rows without code — the parent
-  spec at 1458 (#59) and the repair acceptance record at 795 (#60) — because
+  pins the list. The ruling closes two ledger rows without code (the parent
+  spec at 1458 (#59) and the repair acceptance record at 795 (#60)) because
   neither is owed a split. The wave widened the markdown half from three
   named patterns to `*.md` whole, which closes the class rather than the
   three files it happened to be missing: `CHANGELOG.md`, `ORIGIN.md` and
   `corpus/rust/README.md` join the enumeration, and this file's own pre-0.8
-  entries move to `CHANGELOG-ARCHIVE.md` first — a pure move, off 798 lines
+  entries move to `CHANGELOG-ARCHIVE.md` first, a pure move, off 798 lines
   and two from a ceiling nothing was checking. `docs/CARRIED-DEBT.md`'s
   near-ceiling list carries the measured number.
 - **The E4″ instrument's five gaps, with the measurement closed** (rows #1–#5,
@@ -386,7 +385,7 @@ new key into a trace.
   disagree; `driver_version` is read from the copied original too; H2's
   fragment counts are published per side and per pair; and `walls_s` carries
   `driver_build`, `dry` and a per-arm cargo summary. No published number is
-  re-derived and no `results.json` is re-assembled — every fix changes what
+  re-derived and no `results.json` is re-assembled. Every fix changes what
   the NEXT run publishes and is pinned by a unit test on synthetic records.
   **Both schema tokens moved with the shapes their assemblers publish:
   `e4pp/2` and `e9/2`**, raw and assembly together, so a fresh run's two
@@ -400,7 +399,7 @@ new key into a trace.
   manifest reader for rung 2 and rung 3, its workaround deleted (#22,
   `05148e8`); the e6q runner's falsified expectation swept (#25),
   `render_grain`'s three literals derived (#32) and the grain box-path scan
-  walking the directory (#33) — all three at `a3b29b7`, the last two measured
+  walking the directory (#33), all three at `a3b29b7`, the last two measured
   discriminating; five runner-side review minors (#26, `ae58c54`); the fifth
   override named (#35, `eba4db1`); and the grain reader's `RAISED_INV` regex
   BUILT from the line the tool prints (`aefb7ca`).
@@ -409,12 +408,12 @@ new key into a trace.
   `is_relocation_note` → `is_env_rule_note` (#6/#7, `fc72550`); `focus: -` for
   an absent key against `focus: none` for a recorded empty one (#14,
   `36a6f5f`); the printed `HONESTY.md` citation (#18), the born-outside claim
-  qualified (#28), the invocation header's noun — `N swallowed shape(s)`,
-  which is what N counts (#30) — and the panics line's unit (#31), at
-  `edc2bce` with `6490a14`; a typed lookup failure — `cli.py:91` stamps
+  qualified (#28), the invocation header's noun (`N swallowed shape(s)`,
+  which is what N counts (#30)) and the panics line's unit (#31), at
+  `edc2bce` with `6490a14`; a typed lookup failure (`cli.py:91` stamps
   `type(e).__name__`, so the invocation log's `error` value for a prefix
   miss now reads `NoSuchTrace` where it read `TraceLookupError`, the class
-  actually raised, and no reader keys on it — a language-free `diff --task`
+  actually raised, and no reader keys on it) a language-free `diff --task`
   help line, the `or "?"` fixture and "modulo location" on the
   all-in-tasks branch (#27/#36/#37/#51, `0d685ad`); and a MATCH that says it
   is not a statement about the schedule (#20, `13475a2` with `245dee4`).
@@ -438,13 +437,13 @@ new key into a trace.
   the tid-mask justification written into the suite (#44 nit 2, `91f737d`).
 - **The ledgers themselves** (`b498caa`). Every row struck where it was
   raised, across this file's live volume and three archives, with the rung-3
-  inbox — a spec — taking appended dated lines instead of strikes. Five **D**
+  inbox (a spec) taking appended dated lines instead of strikes. Five **D**
   rows closed by dated note (#62–#66, ruling R8), including the measured cost
   of #66: re-rendering the two committed grain `results.json` today differs
   from their published §2 in exactly three lines, two of which remove a
   falsehood the records struck by hand in prose. Seven **X** rows struck for
   work that shipped in earlier slices and was never marked (#67–#73). Two
-  blind spots declared — `rust/HONESTY-BLIND-SPOTS.md` items **30** (design
+  blind spots declared, `rust/HONESTY-BLIND-SPOTS.md` items **30** (design
   R16 (v), the ledger half of #28) and **31** (a spawn in an expression
   position the container visitors skip, #49's A half). The stale
   `rust/target/release/cargo-sensorium` deleted from the root disk (#15,
@@ -454,19 +453,19 @@ new key into a trace.
   measured before the ceiling was met rather than after.
 - **What was declined, and why** (all in `docs/CARRIED-DEBT.md`'s new
   section): the six converter functions of 88–274 lines are **C, not A**
-  (ruling R4 — behaviour-risk work with no failing test behind it); and of
+  (ruling R4, behaviour-risk work with no failing test behind it); and of
   #26, #35 and #44 the parts that stand are named individually. Rows #11,
   #23 and #29 were declined for wanting one task holding two file scopes at
-  once, and the final fix wave — one task, both scopes — took all three:
+  once, and the final fix wave (one task, both scopes) took all three:
   the re-export idiom's file counts dropped everywhere they were spelled,
   three `chain.terminal` conformance vectors (`v20`–`v22`, for `panicked`,
   `left_thread` and `handled_then_failed`), and the §11 sweep finished.
-  The **C** list — the inventory's 43, plus **C117**, which the final fix
-  wave's review added rather than ruled on — is restated in one line each so
+  The **C** list (the inventory's 43, plus **C117**, which the final fix
+  wave's review added rather than ruled on) is restated in one line each so
   it can be read without opening four volumes.
 
-**Earlier entries** — `0.9.1` and `0.9.0`, and `0.8.6`, `0.8.5`, `0.8.4`,
-`0.8.3`, `0.8.2`, `0.8.1`, `0.8.0`, `0.7.0` and `0.6.0` below them — are in
+**Earlier entries** (`0.9.1` and `0.9.0`, and `0.8.6`, `0.8.5`, `0.8.4`,
+`0.8.3`, `0.8.2`, `0.8.1`, `0.8.0`, `0.7.0` and `0.6.0` below them) are in
 the archive, which is **numbered volumes, each under 800 lines**, never one
 growing file. [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) is volume 1 and
 holds `0.8.6` down to `0.6.0`: `0.7.0`/`0.6.0` moved there 2026-09-08,
@@ -474,7 +473,7 @@ holds `0.8.6` down to `0.6.0`: `0.7.0`/`0.6.0` moved there 2026-09-08,
 `0.8.6`/`0.8.5` 2026-09-11. [`CHANGELOG-ARCHIVE-2.md`](CHANGELOG-ARCHIVE-2.md)
 is volume 2, opened 2026-09-12 for `0.9.1` and `0.9.0` because volume 1 had no
 room left for a 271-line section. Every cut so this file stays under the
-repo-wide 800-line ceiling `tests/test_ceiling.py` holds it to — and note that
+repo-wide 800-line ceiling `tests/test_ceiling.py` holds it to, and note that
 a volume's number is its cut order, not its age: `0.9.1` and `0.9.0` are newer
 than everything in volume 1. A count of moved entries in this sentence goes
 stale at the next cut, which is why it names them rather than counting them.
@@ -484,22 +483,22 @@ Pure moves: same wording, same order, same dates.
 
 **The catch-all gets a name.** S5 rung 3 closes rung 2's Gap 4: the
 seventeen blocks reading *"no rule of this recorder reaches a verdict
-here"* now read a reason, `untraced catcher`, in three variants — `its
+here"* now read a reason, `untraced catcher`, in three variants (`its
 caller f<n> returned; not followed`, `later unwound with <exc>: a
 translation by untraced code, or a later failure, indistinguishable`, and
-`had not closed at the end of the recording; not followed` — each
+`had not closed at the end of the recording; not followed`) each
 predicted by a human from source before this code existed. Rule 4's
 absorbing conjunct is now window-scoped, not trace-global, so a logged
 rethrow to the harness reads `PROPAGATED` where rung 2 read this same
 catch-all (`corpus/typescript/logged_rethrow_to_harness`); a second tally
-line prints only when non-empty — `ambiguous by reason: escaped 21,
+line prints only when non-empty, `ambiguous by reason: escaped 21,
 untraced catcher 32` on the kept lens. Python **0.11.0** (the reason, the
-window scope, the site-bearing TypeScript key — the verdict's own words
+window scope, the site-bearing TypeScript key, the verdict's own words
 under a mask `\b[ef]\d+\b` that exempts nothing, closing Gap 1's borrowed
 Rust float-type exclusion; the origin site enters only where the verdict
 names none of its own); **`sensorium-ts` stays 0.2.0**, no runtime,
 transform or wire change. `TRACE_FORMAT` stays **4**, wire **v1**; nothing
-is recorded this rung — one re-read of the kept rung-2 invocation, hashed
+is recorded this rung, one re-read of the kept rung-2 invocation, hashed
 before and after, against a pre-registration byte-locked first
 (`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung3.md` §1).
 
@@ -510,7 +509,7 @@ closes a rung-2 debt with no probe pin; every acceptance script resolves
 `<repo root>/.venv/bin/sensorium` and refuses outside it, only `lens.py`
 stamps the `lens` label, and the E7 checker prints its matching rule.
 
-**All eight endpoints ran once, none fired its rule's failure word — the
+**All eight endpoints ran once, none fired its rule's failure word. The
 rung ships DONE** (record §3, §5): **E6-TS‴** 0 false names over 20
 blocks, 17 of 17 rows named, `unnamed` 0; **E6-TS′-fence** 0 differences
 over 29 gated lines; **E-places** 28 of 28 SWALLOWED blocks; **E6-TS** 21
@@ -528,27 +527,27 @@ record, and gains new debts.
 
 **`exceptions` answers on a TypeScript trace.** S5 rung 2 gives the throw-flow
 rows rung 1 recorded a rule to be read by: the same five dispositions
-`exceptions` has always printed — `swallowed`, `uncaught`, `re-raised`,
-`propagated`, `ambiguous` — computed over JavaScript's own shapes, per trace
+`exceptions` has always printed (`swallowed`, `uncaught`, `re-raised`,
+`propagated`, `ambiguous`) computed over JavaScript's own shapes, per trace
 and across a whole `sensorium ts run` invocation. Python **0.10.0** (a third
 rules module, the per-member invocation dispatch, four vectors, seventeen new
 corpus cases); **`sensorium-ts 0.2.0`** (the escape rule, the rejection-callback
 wrapper, the `finally` sink, `capabilities.err_flow: true`). The Rust crates do
 not move. `TRACE_FORMAT` stays **4** and the wire stays **v1**: the BOOT record
-gains `capabilities`, HANDLED gains `how`, and nothing else changes shape —
+gains `capabilities`, HANDLED gains `how`, and nothing else changes shape,
 every Python and Rust `exceptions` output, every existing vector and every
 Python and Rust corpus case is byte-identical, which is what the suites that
 did not move are the evidence for.
 
-Everything below is measured on one lens — the tabletop VTT frontend at
+Everything below is measured on one lens (the tabletop VTT frontend at
 `0091e97`, **372 test files, 4,278 tests**, under vitest 4.1.9, vite 6.4.3,
-jsdom 29.1.1, node v24.16.0, 16 cores — against a pre-registration byte-locked
+jsdom 29.1.1, node v24.16.0, 16 cores) against a pre-registration byte-locked
 before any of this code existed
 (`docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §1). **Every
 one of the nine endpoints ran, once, and not one fired its rule's failure
 word.** No row reads PASS and neither does the rung, because no rule of this
 pre-registration supplies that word: six name only a failure word, three name
-none at all. **The rung ships DONE** — the DONE-WITH-STOP branch §1 spells out
+none at all. **The rung ships DONE**. The DONE-WITH-STOP branch §1 spells out
 is the one not taken.
 
 - **The recorder classifies a catch binding where the syntax is, and says so
@@ -557,7 +556,7 @@ is the one not taken.
   the binding or mentions it only as an argument of a `console.*` call
   (log-and-continue is the archetypal swallow), **`catch_escaped`** when it
   appears anywhere else, **`sink_empty_catch`** for an empty block. Rejection
-  handlers get the same rule applied to their parameter —
+  handlers get the same rule applied to their parameter,
   **`catch_callback`**, **`catch_callback_escaped`**,
   **`sink_empty_catch_callback`** (now for the `function` spelling too, closing
   blind spot 11), and **`catch_callback_opaque`** for a handler defined
@@ -581,7 +580,7 @@ is the one not taken.
   `capabilities.err_flow` is **true** on a 0.2.0 recording and the converter
   passes the BOOT record's own capabilities through untouched. A trace a 0.1.x
   runtime wrote declares `false` and is refused at exit **3** by the capability
-  sentence — naming the recorder and saying nothing was checked — because what
+  sentence (naming the recorder and saying nothing was checked) because what
   it lacks is a record and not a rule. Re-recording is the fix; the cost was
   pre-committed at rung 1, not discovered here. Vector
   `v32-err-flow-typescript-capability-refusal` pins that sentence, and the old
@@ -589,7 +588,7 @@ is the one not taken.
 - **SWALLOWED is claimed only where the recording establishes it.** A HANDLED
   whose `how` is in the absorbing set, in a frame that later closed by
   `return`, with no later raise of the serial and **no** escaping handler for
-  it anywhere. Everything else is `ambiguous` with its reason printed —
+  it anywhere. Everything else is `ambiguous` with its reason printed,
   an escaped or opaque handler, a handler frame still suspended, a primitive
   rethrow, a frame that unwound with a different serial. Nothing reaches
   SWALLOWED by falling through, and an UNWIND is never itself a verdict.
@@ -600,37 +599,37 @@ is the one not taken.
   grouper Rust has used since 0.8.2 is now generalised over a per-language
   renderer, and every Rust caller and test is byte-unchanged.
 - **A swallow corpus that runs itself.** `corpus/typescript/` grows from
-  thirteen cases to **28** — one shape per case, each with an `exceptions`
+  thirteen cases to **28**, one shape per case, each with an `exceptions`
   question pinning the verdict line and the tally, and a `why_logs_fail` naming
   all three channels. `exceptions_refused` is renamed **`silent_swallow`**: the
   refusal it recorded is one no recorder produces any more, and it is a vector
   now.
-- **What the endpoints read** (record §3). **E6-TS** — the corpus's verdicts,
-  **17 of 17** equal to the locked table. **E6-TS′** — the gate that decides
+- **What the endpoints read** (record §3). **E6-TS**, the corpus's verdicts,
+  **17 of 17** equal to the locked table. **E6-TS′**, the gate that decides
   the shipping word: **0 false SWALLOWED of 30** hand-adjudicated shapes on a
   consumer's own suite, every line's adjudication written into
   `-e6tsp-adjudication.md` under a protocol fixed before any of them was read;
   the tally over that run is `swallowed 261, ambiguous 53` across 314 raises in
-  53 of 372 processes. **E2″** — **287 spliced of 287** eligible sites
+  53 of 372 processes. **E2″**, **287 spliced of 287** eligible sites
   (177 catch clauses, 108 `.catch`, 2 `.then`, 0 completing `finally`) over 741
-  files, ratio **1.0000**, zero named exclusions needed. **E8″** — **32 of 32**
-  probe markers. **E3-TS″** — **0/19** false DIVERGED over twenty recordings of
-  one file. **E5″** — both harnesses green. **E7″** — **0** occurrences of nine
-  Python/Rust leak needles over both transcripts. **E1‴** — `off/plain`
+  files, ratio **1.0000**, zero named exclusions needed. **E8″**, **32 of 32**
+  probe markers. **E3-TS″**, **0/19** false DIVERGED over twenty recordings of
+  one file. **E5″**, both harnesses green. **E7″**, **0** occurrences of nine
+  Python/Rust leak needles over both transcripts. **E1‴**, `off/plain`
   **1.0608** and `call/plain` **1.1266** (n=5 per arm, interleaved, every load
-  reading under 4.0), against rung 1's 1.0587 / 1.1324. **E10″** — the fresh
+  reading under 4.0), against rung 1's 1.0587 / 1.1324. **E10″**, the fresh
   372-spool set converts in **16.0715 s** (n=5), beside slice 2's 16.3859 s.
-- **Four gaps, none of them an endpoint's rule** (record §5). **Gap 1** — the
+- **Four gaps, none of them an endpoint's rule** (record §5). **Gap 1**. The
   shape key's id mask carries Rust's float-type exclusion (`f32` and its
   siblings are Rust type names) onto TypeScript FRAME ids, so the lens's 30
   SWALLOWED shapes are **28 distinct places**; no verdict and no tally moves.
-  **Gap 2** — `arms.sh`, `e3.sh` and `e7.sh` hard-coded the global `sensorium`,
+  **Gap 2**, `arms.sh`, `e3.sh` and `e7.sh` hard-coded the global `sensorium`,
   which is an editable install of `main`: three reused instruments were
-  measuring the wrong binary, fixed before any of the three ran here. **Gap 3**
-  — E7″'s needle list cannot be applied as written, because `Err` as a
+  measuring the wrong binary, fixed before any of the three ran here. **Gap 3**:
+E7″'s needle list cannot be applied as written, because `Err` as a
   case-insensitive substring is matched by every `Error('…')` an answer prints;
   the three identifier needles are matched word-bounded and case-sensitively,
-  fixed before the count was taken. **Gap 4** — on real code the modal
+  fixed before the count was taken. **Gap 4**, on real code the modal
   AMBIGUOUS reason is the classifier's catch-all (**17** of 30 ambiguous
   shapes), and the shape behind it is an untraced catcher sitting *inside* a
   traced frame. The rules decline instead of guessing, which is what keeps the

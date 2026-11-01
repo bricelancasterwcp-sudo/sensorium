@@ -1,7 +1,7 @@
-# CARRIED-DEBT — volume 15
+# CARRIED-DEBT: volume 15
 
-The 2026-09-16 section — secrets redaction, PR C: the retrofit,
-`sensorium redact` — moved here **2026-09-17** (the MCP stdio slice, at its
+The 2026-09-16 section (secrets redaction, PR C: the retrofit,
+`sensorium redact`) moved here **2026-09-17** (the MCP stdio slice, at its
 ledger task) so [`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md) stays under 800
 lines. It is the fifteenth numbered volume, on the rule
 [`docs/CARRIED-DEBT-ARCHIVE-2.md`](CARRIED-DEBT-ARCHIVE-2.md) set when it was
@@ -10,35 +10,35 @@ growing file.
 
 The move was measured before it was made, the way the ledger's own lesson
 asks: the MCP stdio slice's section was drafted at **425** lines against a
-live file of **538**, which would have taken it to **963** — a hundred and
-sixty-three over the ceiling — so the oldest section was cut rather than the
+live file of **538**, which would have taken it to **963** (a hundred and
+sixty-three over the ceiling) so the oldest section was cut rather than the
 content trimmed. The section moved here is **378** lines.
 
 **The wording, the order and the strikes are unchanged.** A deferred item in
 this volume is still open unless it is struck where it stands. The MCP stdio
-slice touched none of PR C's subject matter — `redact` is deliberately not a
-tool (**D1**) — and so closed nothing it carried; in particular the live
+slice touched none of PR C's subject matter (`redact` is deliberately not a
+tool (**D1**)) and so closed nothing it carried; in particular the live
 store's own retrofit (**C18**, **P14**) travels open here, its outcome to be
 recorded by whichever slice runs the chore.
 
-## 2026-09-16 — secrets redaction, PR C (the retrofit: `sensorium redact`)
+## 2026-09-16: secrets redaction, PR C (the retrofit: `sensorium redact`)
 
 The last of the design's three PRs
 (`docs/superpowers/specs/2026-09-13-sensorium-secrets-redaction-design.md`
 §7): A took the recorded environment, B took everything a recording
 CAPTURES, and this takes the traces that were already on disk when the rule
-shipped — on this box, **all 273 of them**, every one predating rule v1 and
+shipped, on this box, **all 273 of them**, every one predating rule v1 and
 holding a live token in `meta.env` at 0644. Fourteen plan decisions
 (**P1–P14**), twenty decisions written before any code (**C1–C20**) and
 nineteen rulings (**R1–R19**) are in the design's **§13** with what each
 costs if wrong, beside every place the shipped code differs from §§1–12.
-**DONE** — E16 part C was measured **once**, on 2026-09-16
+**DONE**. E16 part C was measured **once**, on 2026-09-16
 (`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §4):
 **H4 PASS**, all four clauses, on a COPY of `~/.sensorium/traces`. The live
 store's own retrofit is a post-merge chore (**C18**, **P14**), not a
 repository change.
 
-### Settled — closed here
+### Settled: closed here
 
 - **`sensorium redact [<run>|--all] [--dry-run]` exists, and a trace that
   predates the rule can be brought under it.** One pass does to an old
@@ -48,25 +48,25 @@ repository change.
   "retrofit"` / `mode: "on"`, and the file left at 0600.
   `src/sensorium/query/redact_cmd.py` (`caa1a46`, `f0f54f2`), registered in
   `cli._QUERY_MODULES` after `refocus_cmd`. The limit
-  `docs/redaction.md` carried since PR A — *a trace that predates the rule
-  is not covered by it* — is gone, replaced by the section *The retrofit:
+  `docs/redaction.md` carried since PR A (*a trace that predates the rule
+  is not covered by it*) is gone, replaced by the section *The retrofit:
   `sensorium redact`* (`2ff1908`).
 - **One judgement, one writer** (**C14**, **P1**). `redact_store.plan()`
-  decides a whole trace in memory — the new environment and its hash,
+  decides a whole trace in memory (the new environment and its hash,
   every changed payload row, `unwind_exc`, output row and `children`
   element, the stamp, the counts, the refusal or the skip, the original's
-  mode — and writes nothing; `redact_store.apply()` is the only hand that
+  mode) and writes nothing; `redact_store.apply()` is the only hand that
   writes and touches no row the plan did not name. `--dry-run` is `plan()`
   alone, so the dry run is not a different code path making a different
   claim. `ece24d1`, `7f85dbb`, `f73f387`, `49b5498`.
 - **The rewrite is backup → rewrite → checkpoint → fsync → rename →
   sidecars** (**C7**). The original is copied with
-  `sqlite3.Connection.backup` (not a byte copy — the backup API carries
+  `sqlite3.Connection.backup` (not a byte copy. The backup API carries
   committed-but-uncheckpointed WAL pages) into
   `.<run>.db.redact.<pid>.tmp` created `O_CREAT|O_EXCL|0o600`; the copy is
   rewritten in one transaction, `wal_checkpoint(TRUNCATE)`ed, fsynced,
   `os.replace`d, the directory fsynced, and only then the DISPLACED
-  inode's `-wal`/`-shm` unlinked — in a `finally`, so a directory fsync
+  inode's `-wal`/`-shm` unlinked, in a `finally`, so a directory fsync
   that raises cannot leave a stale `-wal` beside the rewritten file for
   the next reader to recover plaintext out of (**R7**, the fix round's
   finding: "self-healing" was never verified, and WAL recovery of old
@@ -75,8 +75,8 @@ repository change.
   `49b5498`.
 - **`env_hash` is reproduced before it is recomputed** (**C3**). The
   STORED hash must come back out of the STORED environment under the
-  trace's own language formula — the JSON one for a Python trace with no
-  `lang`, the sorted `k=v` join for `rust`/`typescript` — or the trace is
+  trace's own language formula (the JSON one for a Python trace with no
+  `lang`, the sorted `k=v` join for `rust`/`typescript`) or the trace is
   refused by name (`env_hash does not reproduce under the <lang>
   formula`). A retrofit that cannot get the old hash out of the old
   environment cannot claim the new one is the same formula. It held in
@@ -86,8 +86,8 @@ repository change.
   digests and their marker; a value already equal to the marker is never
   digested (a digest of `<redacted>` is a wrong digest); captures already
   carrying `redacted` come back as they are. An UNKEYED `mode: "on"` trace
-  under a keyed store proceeds — its null digests stay null, new ones are
-  the store's, and the stamp becomes keyed — because the fallback loses
+  under a keyed store proceeds (its null digests stay null, new ones are
+  the store's, and the stamp becomes keyed) because the fallback loses
   comparability and never safety. A trace keyed under ANOTHER key is
   REFUSED (`digests under key <id>, the store's is <id>; nothing
   rewritten`).
@@ -97,7 +97,7 @@ repository change.
   from the trace; the sum of the hands' counts is the honest number, and
   the per-trace line prints what THIS run did.
 - **`--dry-run`'s stdout is the real run's, byte for byte** (**C10**,
-  **P3**) — the same per-trace lines, the same summary, in the same order,
+  **P3**), the same per-trace lines, the same summary, in the same order,
   with `dry run: no trace was changed` on STDERR (**R19**: no trace's bytes
   and no trace's mode change and no key is minted, but the call is logged
   and an absent store is created by the walk that looks for its traces; the
@@ -115,21 +115,21 @@ repository change.
   nothing to redact; mode 644 -> 600`); `--all` also tightens `traces/` to
   0700 and says so on the summary. `redaction.key`'s mode stays `info`'s
   to report.
-- **A stale `redaction.key.<pid>.tmp` is swept** (**C13**) —
+- **A stale `redaction.key.<pid>.tmp` is swept** (**C13**),
   `redact_key.sweep_stale(root)`, pure, never raising, called once per
   `redact` invocation before any trace and counted on the summary. It
-  closes PR A's **R15** hazard, the one this ledger's *PR C — the
+  closes PR A's **R15** hazard, the one this ledger's *PR C, the
   retrofit* bullet carried: a process killed between `_write_key` and
   `load_or_create`'s `finally` left 32 bytes of key material nothing would
   ever remove. A middle that is not a POSITIVE int is left alone, and a
-  pid `os.kill` cannot check reads as ALIVE (**R4**) — `PermissionError`
+  pid `os.kill` cannot check reads as ALIVE (**R4**), `PermissionError`
   is somebody else's live process and `OverflowError` is a number no pid
   ever is; keeping a file is the safe direction. Recorders do not sweep.
   `67a5355`, `fd23a43`.
 - **Nothing escapes an `--all` walk** (**C9**). Seven foreseen refusals
-  are sentences on the `Plan` — a newer `trace_format`, a format-4 trace
+  are sentences on the `Plan` (a newer `trace_format`, a format-4 trace
   missing meta, an unknown `lang`, a non-reproducing hash, another key, a
-  live tmp, a database SQLite cannot open — and the residual surprises
+  live tmp, a database SQLite cannot open) and the residual surprises
   sqlite reads lazily (a corrupt page, a payload that is not JSON, a file
   another process moved) are caught around BOTH `plan` and `apply` as
   `REFUSED: cannot judge: …` / `REFUSED: the rewrite failed: …`
@@ -139,7 +139,7 @@ repository change.
   digests the retrofit wrote, so a variable it took is still checkable on
   a later run: equal holds the licence, rotated withholds it and names the
   variable. Both halves are asserted in one test, because only the pair
-  discriminates — a granted run alone cannot tell a digest that was
+  discriminates, a granted run alone cannot tell a digest that was
   compared and agreed from one that was never looked at, and "never looked
   at" granting a full licence over a rotated secret is the failure §6.2
   exists to refuse.
@@ -151,7 +151,7 @@ repository change.
   `nothing to redact`), `info` (`by retrofit`, `values redacted: 4`) and
   `grep --kind RETURN` (the marker, never the value). The harness's
   `expect_absent` sweep holds the token off every output. `d890399`.
-- **E16 part C, measured once, 28.8 s wall clock — H4 PASS.** A `cp -a`
+- **E16 part C, measured once, 28.8 s wall clock: H4 PASS.** A `cp -a`
   copy of `~/.sensorium/traces` and its `redaction.key`: **273** traces
   against §9's 273, retrofitted in the work root so the live store was
   read and never written. All four clauses: every one of the 273 traces
@@ -162,7 +162,7 @@ repository change.
   `traces/` at 0700. The token was not minted (**P10**) and it was not
   one value: the store held **four** distinct values of that variable
   (`sha256[:8]` `41285dda` ×254, `61e4ad5f` ×11, `876f167c` ×5,
-  `426ae10d` ×3 — it had rotated over the store's life), each read from
+  `426ae10d` ×3. It had rotated over the store's life), each read from
   its own trace through a read-only connection, swept one at a time, never
   printed (**R15**). `92d31e9`, `54012d6`, `159be82`.
 
@@ -176,7 +176,7 @@ repository change.
   redact --all --dry-run` then `sensorium redact --all`, transcripts kept
   beside the record's work root and the outcome recorded here next slice.
   *Cost if wrong:* the box this was built on is the one store the slice
-  did not fix.~~ — **settled 2026-09-17**. The store is still 273 traces.
+  did not fix.~~, **settled 2026-09-17**. The store is still 273 traces.
   Oldest (`20260819-225537-ea9b8a`), a 93283-event format-1
   (`20260901-210236-2d791a`, 183 values redacted) and newest
   (`20260912-125149-d82847`) all read `redaction: rule v1, keyed (key
@@ -209,7 +209,7 @@ repository change.
   disk, which the line itself refuses.
 - **`seal` is still §11's, and `redact` reverses nothing.** The command
   applies rule v1 and does not re-key a store, un-redact a trace, or hold
-  a lock across traces — two concurrent `--all` runs contend per trace
+  a lock across traces, two concurrent `--all` runs contend per trace
   through **C7**'s tmp and each refuses what the other holds. *Cost if
   wrong:* two passes over one store print refusals a single pass would
   not.
@@ -227,13 +227,13 @@ repository change.
   into non-JSON would pin the refusal that branch prints. *Cost if wrong:*
   a foreseen refusal that is not pinned, which is how a refusal becomes a
   traceback under a later edit.
-- **`db.open_trace` orphans a connection on `sqlite3.DatabaseError`** —
+- **`db.open_trace` orphans a connection on `sqlite3.DatabaseError`**:
   pre-existing, found by Task 2's review, outside this PR's diff and
   therefore not fixed in it. *Cost if wrong:* one leaked connection per
   unopenable trace, on a path that ends the call anyway.
 - **Brice owed: free the part C work root.** `$E16C_DIR` holds a whole
-  second copy of the store — 273 retrofitted traces, a `redaction.key`,
-  the transcripts and the instrument's output — on the same disk the box
+  second copy of the store (273 retrofitted traces, a `redaction.key`,
+  the transcripts and the instrument's output) on the same disk the box
   runs short of. *Cost if wrong:* a few hundred MB, and a second copy of
   a store that used to hold live tokens.
 
@@ -243,8 +243,8 @@ Measured at this slice's last commit against the 800-line gate
 (`tests/test_ceiling.py`, `LIMIT = 800`, tracked `*.py *.rs *.sh *.md
 *.mjs *.ts *.tsx` outside the three record directories). What PR C moved:
 
-- **`README.md` 797** (was 796) and **`docs/redaction.md` 600** (was 518)
-  — the two documents the command's shipping had to touch. README took the
+- **`README.md` 797** (was 796) and **`docs/redaction.md` 600** (was 518).
+The two documents the command's shipping had to touch. README took the
   `redact` row and one line of prose; `redaction.md` took the whole
   section *The retrofit: `sensorium redact`* in place of *Coming in later
   versions*. `docs/query.md` **798** and `docs/TRACE-FORMAT.md` **797**
@@ -254,9 +254,9 @@ Measured at this slice's last commit against the 800-line gate
   entry was written rather than discovered at 800 (**C19**): 0.11.0 and
   0.10.0 (162 lines) moved to **`CHANGELOG-ARCHIVE-2.md` 644** (was 479)
   under a dated note, and the live file's pointer names **0.8.7–0.11.0**,
-  volume 2's true range (**R2** — the plan's literal said 0.9.0 and was
+  volume 2's true range (**R2**. The plan's literal said 0.9.0 and was
   wrong).
-- **`tests/acceptance_e16/e16c.py` 727** — the part C instrument, the
+- **`tests/acceptance_e16/e16c.py` 727**: the part C instrument, the
   largest file this slice created and the one to watch. **R16** accepted
   553 at the implementer (the 400 in the brief was a hint; part B's
   `e16b.py` is 537), and **R15**'s four-value sweep plus **R17**'s repairs
@@ -265,14 +265,14 @@ Measured at this slice's last commit against the 800-line gate
   reading and its cells already live.
 - **New and clear:** `src/sensorium/redact_store.py` **462** (**R5**
   accepted 301 at Task 2 against a ≤300 hint, **R7** relaxed 450 to 480 at
-  Task 3 to close the stale-sidecar window — the binding limits are the
+  Task 3 to close the stale-sidecar window. The binding limits are the
   800 ceiling and "no new file past 600 at creation"),
   `src/sensorium/query/redact_cmd.py` **257**,
   `src/sensorium/redact_key.py` **317** (was 262).
 - **Unchanged and still at the gate:** `rust/HONESTY-BLIND-SPOTS.md`
-  **800** — zero headroom, as PR B left it; the next blind spot needs the
+  **800**, zero headroom, as PR B left it; the next blind spot needs the
   file cut first.
-- **This file 525** after the fourteenth cut — see the pointer paragraph
+- **This file 525** after the fourteenth cut, see the pointer paragraph
   above, which measured the move before it was made (the section was 342
   lines when the cut was decided and **365** as it stands; these last two
   bullets and the corpus-setup half of the second process lesson are the
@@ -280,7 +280,7 @@ Measured at this slice's last commit against the 800-line gate
   the next slice cuts again; that is the rule working, not a surprise.
 - **What this list does NOT cover.** Twenty-odd tracked files sit between
   770 and 800 and are not named above, because PR C touched none of them
-  and none is its seam — the four documents PR B named (`docs/query.md`,
+  and none is its seam, the four documents PR B named (`docs/query.md`,
   `docs/TRACE-FORMAT.md`, `typescript/HONESTY.md`,
   `rust/tests/mechanics.sh`) and the test modules around them are where
   they were. `tests/test_ceiling.py`'s by-pattern enumeration is the list;
@@ -293,7 +293,7 @@ None of these blocks the merge. The list is flat: an order nobody argued
 for would read as one somebody did.
 
 - **T0 (record, lock, CHANGELOG cut):** the lock test's box-path guard was
-  widened from `E16_DIR=` to the two sanctioned pins — necessary for part
+  widened from `E16_DIR=` to the two sanctioned pins, necessary for part
   C's `E16C_DIR=`, and outside the brief's edit list.
 - **T1 (the sweep):** the re-review's full-suite count moved 4944→4947
   against two tests added, unreconciled and non-blocking (the file-scoped
@@ -303,15 +303,15 @@ for would read as one somebody did.
 - **T2 (the judgement):** `live_tmp` stops at the first live pid; **P8**'s
   parsed-object half (`new != obj` on the decoded object, not the text) is
   unpinned by a discriminating test; the `plan()`-level `except
-  ValueError` has no falsifier. The dry run's read-write open — a WAL
-  database needs a writable `-shm` even to read — may leave a `-wal`/`-shm`
+  ValueError` has no falsifier. The dry run's read-write open (a WAL
+  database needs a writable `-shm` even to read) may leave a `-wal`/`-shm`
   beside a trace whose content nothing touched; **closed in Task 6**,
   stated in `docs/redaction.md`.
 - **T3 (the writer):** the failed-replace test does not pin "the original
   keeps its sidecars"; sidecar-path construction is spelled twice
   (`_sidecar_paths` when the ceiling allows).
 - **T4 (the command):** `cli.py`'s docstring understates the
-  argparse-after-dispatch hole — `parser.error` inside `run()` ends the
+  argparse-after-dispatch hole, `parser.error` inside `run()` ends the
   call with no `invocations.jsonl` row, as every argparse error does
   (**R12**); `_dir_mode`'s `except OSError` branch is not
   mutation-coverable as the owning user. The degenerate `env 0 redacted
@@ -319,15 +319,15 @@ for would read as one somebody did.
   line a pre-rule or `mode: "off"` trace with nothing to take now prints,
   and `test_a_trace_rewritten_only_for_its_stamp_prints_the_counted_form`
   pins it against `e16c_cells.LINE`. The test helper's
-  `_traces()` now creates `traces/` at 0700 — every `--all` test had been
+  `_traces()` now creates `traces/` at 0700. Every `--all` test had been
   exercising the directory clause silently until the fix round.
-- **T5 (the corpus case):** the case leaves the `print` chunk plaintext —
+- **T5 (the corpus case):** the case leaves the `print` chunk plaintext,
   the content rule's documented floor, the rule and not a defect
   (pre-flight scan, adjudicated). `questions.yaml`'s `truth` now names the
   variable instead of a count (**R13**), because **P9** says the env
   line's `N` is the launching shell's and not a test's.
 - **T6 (docs, 0.17.0):** the CHANGELOG entry is 46 lines against a 40-line
-  hint (accepted — the ceiling is the rule); **P6**'s null-digest nuance
+  hint (accepted. The ceiling is the rule); **P6**'s null-digest nuance
   (an unkeyed `mode: "on"` trace keeps null digests and gains keyed ones)
   is omitted from the docs, which are true as they stand.
 - **T7 (the instrument):** `assemble_e16c.py` renders `0` unreadable files
@@ -348,14 +348,13 @@ for would read as one somebody did.
   when it lands on `main`.** PR A's **R4** put `main`'s hotfix (PR #41)
   onto `feat/redaction-b` so every task's whole-suite gate would be green
   from Task 0; #41 then merged to `main` separately, and this branch
-  edited the same hunks again. The fix is not to avoid the cherry-pick —
-  a red suite under every task is worse — but to MERGE `main` into the
+  edited the same hunks again. The fix is not to avoid the cherry-pick (a red suite under every task is worse) but to MERGE `main` into the
   branch the day the hotfix lands there, so the two histories meet once,
   deliberately, instead of at the PR. *A cherry-pick is a promise to
   merge later.*
 - **A driver on `PATH` answers about the binary somebody built, not the
   tree.** Task 0's whole-suite run showed one failure,
-  `test_corpus_harness::test_corpus_passes`, on six `rust/*` cases — the
+  `test_corpus_harness::test_corpus_passes`, on six `rust/*` cases, the
   `cargo-sensorium` on `PATH` embedded `sensorium-rt` 0.6.0 while `main`'s
   `Cargo.toml` pinned 0.7.0. Nothing on the branch was wrong; the fresh
   worktree had simply never rebuilt the driver. PR B's own lesson (*a
@@ -367,31 +366,31 @@ for would read as one somebody did.
   this slice's own full-green run: `corpus/typescript/node_modules` and
   `typescript/node_modules` are both untracked, so a fresh worktree
   SKIPS all 48 TypeScript cases until the first is installed and
-  FAILS all 48 until the second is — `npm ci` under `corpus/typescript`
+  FAILS all 48 until the second is, `npm ci` under `corpus/typescript`
   and under `typescript`, the recorder's own error naming the second by
   path. The runner is not the quiet one here: it marks each skipped case
   `skip`, names every distinct reason on the count line (*115 cases (48
   skipped: …), 157 questions, 0 failures*) and has carried
-  `--require-driver` — exit 1 if any case could not run — all along. What
+  `--require-driver` (exit 1 if any case could not run) all along. What
   read as a pass was a *reader* taking `0 failures` for an answer about
   48 cases nobody asked. So the pre-merge gate has a spelling, and it is
   the flag: **`corpus/run_corpus.py --require-driver`**, which turns a
   skip into a verdict on the run. **A fresh worktree is green only after
-  the venv, the driver and both Node installs** — and a corpus total that
+  the venv, the driver and both Node installs**, and a corpus total that
   moved (157 questions to 253) is the tell that a language was not being
   asked anything.
 - **An instrument's premise about a LIVE subject must be censused before
   the run, not assumed.** Part C pre-registered the token as *the* value
   of `CLAUDE_CODE_MESSAGING_TOKEN`, read from the first trace's
   `meta.env`, with "every trace holds it" as the precondition. The store
-  held FOUR values — the token had rotated, 254/11/5/3 across 273 traces —
+  held FOUR values (the token had rotated, 254/11/5/3 across 273 traces)
   and the first trace in sorted order carried the one held by 11, so the
   pre-registered reading would have refused 262 of 273 traces for a reason
   that has nothing to do with the retrofit. The rehearsal could not have
   caught it: it runs on a FABRICATED store, where the premise is whatever
   the fabricator wrote. The controller's own read-only census of the live
   store did, hours before launch, and **R15** amended the clause beside
-  the locked text into something strictly stronger — sweep the DISTINCT
+  the locked text into something strictly stronger, sweep the DISTINCT
   set, every trace must hold ITS OWN value, every value must read 0
   everywhere after. *A dry run proves the plumbing; only a census proves
   the premise.*
@@ -402,5 +401,5 @@ for would read as one somebody did.
   assembler's scrubbed copy to "refresh" it, putting five box-path lines
   back into a committed artifact, and caught it only on the box-path
   audit. Regenerating through `--artifacts` fixed it. *A scrubber that can
-  be bypassed by a copy is a convention, not a control — so audit the
+  be bypassed by a copy is a convention, not a control, so audit the
   committed bytes, every time.*

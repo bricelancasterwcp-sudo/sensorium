@@ -1,10 +1,10 @@
-# The TypeScript recorder's honesty ledger — §10: Blind spots
+# The TypeScript recorder's honesty ledger: §10: Blind spots
 
 The numbered list of [`typescript/HONESTY.md`](HONESTY.md) §10, **moved here
 2026-09-10 (S5 rung 2) so that file stays under 800 lines**, on the precedent
 [`../rust/HONESTY-BLIND-SPOTS.md`](../rust/HONESTY-BLIND-SPOTS.md) set
 2026-09-05. The section's own framing paragraph stays there; **the numbering is
-unchanged**, so item *n* here is `typescript/HONESTY.md` §10 item *n* — the
+unchanged**, so item *n* here is `typescript/HONESTY.md` §10 item *n*, the
 spelling every earlier document, `docs/CARRIED-DEBT.md` and the ledger's own
 index already use.
 
@@ -29,8 +29,8 @@ which container cannot be paired at all, and what one question costs.
 numbered.** The design's §6.4 named seven items 28–34 and *a falsy `if`
 head's assignment* was one of them: `if ((x = f()))` whose test is falsy
 wrote `x` and, under §3.2's per-entry rule alone, would have reported it
-nowhere. Plan **P1** closed it — a guarded statement's own completion row
-carries its head's assignment targets whichever branch ran — and the same
+nowhere. Plan **P1** closed it (a guarded statement's own completion row
+carries its head's assignment targets whichever branch ran) and the same
 rule is what puts `m = null` on a `while`'s row after the loop. So the list
 below has seven rung-4 shapes and the seventh is `enum`/`namespace`/`static
 {}` names, not the falsy head; the falsy head is a promise §11 makes and
@@ -50,8 +50,8 @@ struck nor narrowed but **rewritten in place**, at rung 2's own final review:
 what it claimed was never true of the shipped runtime, and its note says what
 it used to say.
 
-**Item 27 is narrowed 2026-09-11, S5 rung 3.** The shape it named — an
-untraced catcher between two traced frames — is no longer invisible: the
+**Item 27 is narrowed 2026-09-11, S5 rung 3.** The shape it named (an
+untraced catcher between two traced frames) is no longer invisible: the
 reader now prints a reason, `untraced catcher`, naming which of three
 variants it saw. What the item still says is narrower than before but not
 struck: naming the footprint is not the same as reading what the untraced
@@ -64,12 +64,11 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 
 1. **Same-line anonymous twins share a fingerprint key.** Two anonymous
    functions on one line intern to one site, because interning is per site and
-   `<anonymous>` carries no ordinal (§7). The trace says exactly what it knows —
-   `<anonymous>` at that line — and claims nothing about which of the two ran.
+   `<anonymous>` carries no ordinal (§7). The trace says exactly what it knows (`<anonymous>` at that line) and claims nothing about which of the two ran.
    *Falsifier:* `typescript/test/transform.test.mjs`, `E2′`.
 2. ~~**A `.catch(fn)` with a non-empty body is not seen.** Only the empty-callback
    sink records a HANDLED; the `how` enumeration of §4 is the list of shapes
-   that produce a record, and this is not on it.~~ — **Closed 2026-09-10, S5
+   that produce a record, and this is not on it.~~, **Closed 2026-09-10, S5
    rung 2** (`sensorium-ts 0.2.0`, §4): every `.catch(<arg>)` and every
    two-argument `.then(<x>, <arg>)` is wrapped and records a HANDLED, whose
    word is `catch_callback`, `catch_callback_escaped`,
@@ -81,7 +80,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
    `typescript/probes/src/swallow.probe.test.ts`, `E8″`, `E2″`.
 3. ~~**`finally` records nothing.** Not a RAISE, not a HANDLED, not a hop. Rung 2
    decides whether it should; until then `capabilities.err_flow: false` says no
-   disposition may be read from these rows at all.~~ — **Closed 2026-09-10, S5
+   disposition may be read from these rows at all.~~, **Closed 2026-09-10, S5
    rung 2** (§4): a `finally` block that `return`s, `break`s or `continue`s at
    closure depth 0 discards an in-flight throw and records HANDLED
    `sink_finally_return`. A `finally` with no completion statement still
@@ -113,7 +112,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
    no open frame. *Falsifier:* `typescript/test/transform.test.mjs`, `E2′`.
 8. **A generator driven by `yield*` runs its inner frames parentless.** The
    delegating frame has parked, so the inner frames open at depth 0 with
-   `caller: "untraced"` — the same marker §3 gives a timer callback, and the
+   `caller: "untraced"`. The same marker §3 gives a timer callback, and the
    same limit. *Falsifier:* `typescript/probes/src/async.probe.test.ts`,
    `typescript/test/rt.test.mjs` (`stack pops at yield`).
 9. **An `async` `describe` callback registers its tests after the lexical chain
@@ -134,16 +133,16 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 11. ~~**A `.catch(function () {})` is not a sink; only the arrow spelling is.**
     §4's empty-callback sink matches an arrow function with an empty block
     body. The same empty body written as a `function` expression records
-    nothing at all — not a HANDLED, not a count. Which shapes are sinks is
+    nothing at all, not a HANDLED, not a count. Which shapes are sinks is
     rung 2's question, and this is one of the shapes it inherits.~~
-    *(Added 2026-09-09; **closed 2026-09-10, S5 rung 2** — rung 2 answered
+    *(Added 2026-09-09; **closed 2026-09-10, S5 rung 2**, rung 2 answered
     the question it inherited: an inline arrow **or** `function` expression
     with an empty body reads `sink_empty_catch_callback`, one rule for two
     spellings.)* *Falsifier:*
     `typescript/probes/src/swallow.probe.test.ts`, `E8″`,
     `typescript/test/escape.test.mjs`.
 12. **A class static block is neither instrumented nor counted.** `static { … }`
-    is not a function, so nothing wraps it — and unlike every other in-scope
+    is not a function, so nothing wraps it, and unlike every other in-scope
     thing the transform declines, it produces no `excluded` entry either, so it
     is invisible in the coverage number rather than named in it. It should be
     counted as `static-block`; that it is not is this ledger's, not the
@@ -157,8 +156,8 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     what the recorder knows about the value, and it is not the claim that the
     program caught `undefined`. The clause still records a HANDLED with its
     line and its `how`. *(Added 2026-09-09. **Narrowed 2026-09-10, S5 rung 2:**
-    that `how` is now `catch_escaped` — §2.1's rule reads a destructuring
-    pattern as an escape, because the transform cannot see what it bound — so
+    that `how` is now `catch_escaped` (§2.1's rule reads a destructuring
+    pattern as an escape, because the transform cannot see what it bound) so
     the clause is in the ESCAPING set and its verdict is AMBIGUOUS, never
     SWALLOWED. The direction is under-claiming: a destructuring clause that
     really does swallow is not accused.)* *Falsifier:*
@@ -166,7 +165,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `typescript/test/escape.test.mjs`.
 14. **The untraced caller is on the wire and no reader prints it.** §3's
     `caller: "untraced"` is in the CALL payload, and the reader renders
-    nothing for it — the Python core's own caller renderer has only ever
+    nothing for it. The Python core's own caller renderer has only ever
     printed a caller it has a code object for, and `caller: "untraced"` is on
     the Python wire too. So a parentless continuation reads as depth 0 inside
     the right task, with no tag saying why. Rendering one is a reader feature
@@ -178,12 +177,12 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     shipped.** (a) `rt.mjs` is declared external to vite's module runner in
     every config the recorder writes, so the setup file and the instrumented
     modules resolve one Node module instance; at vitest **4.1.9** the probe
-    that would catch a second instance — exactly one BOOT line per spool —
+    that would catch a second instance (exactly one BOOT line per spool)
     reads the same with the declaration and without it, so the declaration is
     **insurance whose effect was not observed on this version**, and it is
     named here rather than presented as a measured guarantee. (b)
-    `meta.test_files` — the key a container that ran more than one file
-    carries — is written by the converter and was exercised by **no run**: the
+    `meta.test_files` (the key a container that ran more than one file
+    carries) is written by the converter and was exercised by **no run**: the
     acceptance measured **0** traces carrying it, and a `--pool=threads` probe
     produced none either. The reader's `files: N` line is therefore code no
     recording has printed. *(Added 2026-09-09.)* *Falsifier:*
@@ -192,7 +191,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 16. **One reader fallback is unreachable today and would print a raw wire
     word if it were reached.** `tree`'s unframed-kind line falls back to the
     contract's own `generator`/`coroutine` spelling where it has no label for a
-    kind — Python's words, in this recorder's output. Every call in a
+    kind: Python's words, in this recorder's output. Every call in a
     TypeScript trace is framed, so nothing has ever reached it; it is named
     because an unreachable branch that would print the wrong vocabulary is
     still a place this ledger's central promise could break. *(Added
@@ -201,20 +200,19 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     measured zero.** Blind spot 5 says the cross-check cannot reach a
     `.concurrent.each`. What rung 1 adds is the measurement: over the full
     suite, `task_name_conflicts` is **0** and tasks equal `tests_seen` at
-    **4,278**, so nothing the check CAN see disagreed — which is evidence
+    **4,278**, so nothing the check CAN see disagreed, which is evidence
     about the shapes it covers and none at all about the one it does not.
     *(Added 2026-09-09.)* *Falsifier:* `E9`,
     `typescript/probes/src/concurrent.probe.test.ts`.
 
 18. **A `try` that has its own `catch` clause is never marked, so its
-    `finally` sink can miss a throw.** §4's mark is set by `raise(f, e)` —
-    which only traced code's own `throw` statements reach — and by the
+    `finally` sink can miss a throw.** §4's mark is set by `raise(f, e)` (which only traced code's own `throw` statements reach) and by the
     synthetic marking clause spliced into a **catch-less** `try` whose
     `finally` completes. A `try` that already has a `catch` gets no synthetic
     clause, so a rejection **awaited inside that catch body** (which lands in
     another microtask, where no frame can find its awaiter) followed by a
-    completing `finally` records **nothing at all**. `thr` — a callee's frame
-    closing by throw — sets no mark either. A synchronous throw inside that
+    completing `finally` records **nothing at all**. `thr` (a callee's frame
+    closing by throw) sets no mark either. A synchronous throw inside that
     catch body IS a `raise` and does mark. Declared before the runtime was
     built (plan P1) and never measured away. *(Added 2026-09-10.)*
     *Falsifier:* `typescript/test/rt.test.mjs` (`mark` / `handledFinally`),
@@ -224,13 +222,13 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     logs through `pino`, `debug`, or its own `logger.error(e)` has its
     log-and-continue read as `catch_escaped`, so the verdict is AMBIGUOUS
     where the shape is in fact the archetypal swallow. That is the safe
-    direction — a swallow is under-claimed, never invented — and it is a
+    direction (a swallow is under-claimed, never invented) and it is a
     declared limit, not a measured absence: nothing counts how often it
     happens. *(Added 2026-09-10, design R3.)* *Falsifier:*
     `typescript/test/escape.test.mjs`, `E6-TS′`.
 20. **A mention inside an intermediate call within a `console` argument still
     reads `catch`.** `console.log(sanitize(e))` is a logged mention, the
-    spec's `String(e)` reading applied consistently — so a helper that
+    spec's `String(e)` reading applied consistently, so a helper that
     **stores** `e` and returns text is read as a swallow when the value did
     reach something. Ruled at Task 2 and declared then; the lens adjudication
     watched for it and found no such shape among the 30. *(Added 2026-09-10.)*
@@ -244,22 +242,22 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `typescript/test/escape.test.mjs`, `typescript/test/golden/`.
 22. **The `finally` sink sees only what the mark holds.** `sink_finally_return`
     names the sink, the line and the serial, and its `exc` is the marked
-    throw's **own, complete** one — `kind`, `type`, `msg` and `serial`, nothing
-    `unread` — so what the sink cannot know is not the *value* but the *throw*:
+    throw's **own, complete** one (`kind`, `type`, `msg` and `serial`, nothing
+    `unread`) so what the sink cannot know is not the *value* but the *throw*:
     a throw nothing marked reaches a completing `finally` invisibly. Those are
-    P1's own two shapes and they are argued at item **18** — a `try` with its
+    P1's own two shapes and they are argued at item **18**, a `try` with its
     own `catch` clause gains no synthetic marking clause, and `thr` (a callee's
     frame closing by throw) sets no mark. *(Added 2026-09-10. **Corrected
     2026-09-10, at the rung's final review:** this item first said the sink
     "records no value" and wrote `unread: ["type","msg"]`, which was the
-    design's pre-R2 wording and never the shipped runtime's — ruling R2 made
+    design's pre-R2 wording and never the shipped runtime's, ruling R2 made
     the mark hold the whole `exc(e, 'throw')` object. Rewritten in place,
     keeping its number, per this file's own rule.)* *Falsifier:*
     `typescript/test/rt.throw.test.mjs` (`a marked frame whose finally
     completes`), `docs/trace-format/TYPESCRIPT-KEYS.md`,
     `corpus/typescript/finally_return`.
-23. **An opaque rejection handler is never accused.** `.catch(handler)` — an
-    identifier, a member reference, a call returning a function — reads
+23. **An opaque rejection handler is never accused.** `.catch(handler)` (an
+    identifier, a member reference, a call returning a function) reads
     `catch_callback_opaque`, which is in the ESCAPING set, so its verdict is
     AMBIGUOUS however plainly the handler swallows. If `handler` is itself
     instrumented it has its own frame, and a rethrow from it carries the
@@ -279,7 +277,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 25. **A `Promise.reject(v)` raises nothing, and neither does a dependency.**
     `Promise.reject(v)` is not a `throw` statement, so its handler's HANDLED
     has no RAISE and reads *born outside a throw statement*; a throw inside
-    untraced code — `JSON.parse`, any dependency — reads *born outside traced
+    untraced code (`JSON.parse`, any dependency) reads *born outside traced
     code*. An unhandled rejection is `meta.unhandled_rejections`, never an
     event, because a causal event with no `code_id` would put a site in the
     program that has none. The verdicts say which of the two it is rather
@@ -290,8 +288,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 26. **An assertion failure born in `expect` writes no RAISE row at all.**
     vitest's `expect` throws inside vitest's own untraced code, so
     `exceptions` never sees it: the `propagated (to the harness)` verdict is
-    reachable only from a `throw` in traced code. The failure is not lost —
-    `info`'s exit line and the task's own outcome carry it — but the command
+    reachable only from a `throw` in traced code. The failure is not lost (`info`'s exit line and the task's own outcome carry it) but the command
     a reader would reach for first cannot answer about it. This is why
     `corpus/typescript/test_failed` is a `throw` statement and not a failing
     `expect` (spec §6.1's dated amendment). *(Added 2026-09-10.)*
@@ -304,7 +301,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     serial exists anywhere. Rule 1 declines (not an unhandled rejection),
     rule 2 declines (no later raise), rule 3 declines (no absorbing handler),
     and rule 4 declines because the last unwind closes neither a task root nor
-    a frame whose parent is untraced — so rule 5's catch-all is the verdict.
+    a frame whose parent is untraced, so rule 5's catch-all is the verdict.
     Measured on the lens: **17 of the 30 AMBIGUOUS shapes** read that reason,
     which makes this the modal ambiguous shape on real code (record §5,
     gap 4). The rules declining rather than guessing is exactly what keeps the
@@ -312,9 +309,9 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     needs before it can decide whether it is judgeable at all. *(Added
     2026-09-10. **Narrowed 2026-09-11, S5 rung 3:** the reader now NAMES
     this footprint under a new reason, `untraced catcher`, in three
-    variants — the parent returned, the parent later unwound with its own
+    variants (the parent returned, the parent later unwound with its own
     error (a translation or a later failure, indistinguishable), or the
-    parent never closed — still AMBIGUOUS. What is narrowed is the shape's
+    parent never closed) still AMBIGUOUS. What is narrowed is the shape's
     invisibility, not its depth: the rule says WHICH shape this is and
     still claims nothing about what the untraced code did with the
     failure, which stays exactly as unread as it always was. Measured
@@ -325,7 +322,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 
 28. **A place write is a row with no delta.** `a.b = e`, `a[i] = e`,
     `a.b++` and `delete a.b` write through an object the statement did not
-    bind, and `writesOf` reports identifier targets only — so the LINE row
+    bind, and `writesOf` reports identifier targets only, so the LINE row
     exists, at the right line, with empty `deltas`. The row is the honest
     artifact: the statement ran and this recorder cannot say what it
     changed. Reading it would mean a snapshot-and-diff of every reachable
@@ -348,18 +345,18 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     happened.** `x ||= f()`, `x &&= f()` and `x ??= f()` may not assign at
     all, and `writesOf` names `x` regardless; the row reports the binding's
     value AFTER the statement either way. So a row showing `x` unchanged is
-    two different facts wearing one shape — the operator short-circuited, or
+    two different facts wearing one shape, the operator short-circuited, or
     it assigned the same value. What is claimed is the value at the end of
     the statement, which is what every later site reads, and that much is
     exact. *(Added 2026-09-12.)* *Falsifier:*
     `typescript/test/bindings.test.mjs`, `typescript/test/golden/`.
 31. **A `switch` discriminant's assignment is reported nowhere.**
     `switch ((k = key(o))) { … }` writes `k`, and a `switch` has no body to
-    enter, so it mints no head row (design §3.2, §3.9) — `headBindingsOf`
+    enter, so it mints no head row (design §3.2, §3.9), `headBindingsOf`
     returns nothing for it and the statement's own completion row carries
     the discriminant's targets only through plan P1's rule for guards, which
-    a `switch` is not. The declared shape is rare and the alternative — a
-    seventh guard form with a synthetic row per case clause — was not worth
+    a `switch` is not. The declared shape is rare and the alternative (a
+    seventh guard form with a synthetic row per case clause) was not worth
     the grain. *(Added 2026-09-12.)* *Falsifier:*
     `typescript/test/bindings.test.mjs`.
 32. **Object identities are top-level captures only.** `oid` is minted for
@@ -369,7 +366,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     printed in. Python's `_walk` over samples finds nested identities and
     this recorder does not, because `util.inspect` hands back TEXT and there
     is nothing behind it to walk. What the trace holds instead is the
-    container's own serial and the rendering at each sighting — which is how
+    container's own serial and the rendering at each sighting, which is how
     a mutation shows (the same `#64` printed `[]` at one site and
     `[ { sides: 20, value: 17 } ]` at the next). *(Added 2026-09-12.)*
     *Falsifier:* `corpus/typescript/object_identity`, `E12` H6,
@@ -378,8 +375,8 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     spec selects a qualname and everything under it on a `.` boundary, so
     `--focus outer` reaches `outer.inner` and `--focus inner` reaches
     nothing (the prefix runs one way). A callback defined inside a focused
-    function but reached by no spec — a handler passed to a dependency, an
-    arrow in a file the spec's file part excluded — records its CALL and its
+    function but reached by no spec (a handler passed to a dependency, an
+    arrow in a file the spec's file part excluded) records its CALL and its
     RETURN and no statements, and `writesOf` never attributes its writes to
     the enclosing statement either. The count of what a spec DID select is
     `meta.focus_matched` and `resolve.mjs` answers it before the run.
@@ -388,7 +385,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 34. **`enum` and `namespace` binding names, and a class `static {}` block,
     are reported by neither `writesOf` nor `declaredIn`.** An
     `EnumDeclaration` and a `ModuleDeclaration` execute where they stand and
-    each binds a name, so each keeps its row — but the row's `deltas` are
+    each binds a name, so each keeps its row, but the row's `deltas` are
     **empty**, and the name is not listed `unbound` when its block ends
     either. A class `static {}` block is a member body that runs at
     definition time and is not walked at all, so what it writes to the
@@ -401,8 +398,8 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `UNDEFINED` sentinel and `123n` to a BigInt, so `watch --expr 'x ==
     undefined'` answers; `inspect_text` returns `None` for either target, so
     `flow --value undefined` and `flow --value 123n` sight nothing rather
-    than sighting approximately. The asymmetry is deliberate — reading wider
-    than writing is `rust_debug`'s rule too — but it means one of the two
+    than sighting approximately. The asymmetry is deliberate (reading wider
+    than writing is `rust_debug`'s rule too) but it means one of the two
     commands can answer about a value the other cannot search for.
     *(Added 2026-09-12.)* *Falsifier:* `tests/test_js_inspect.py`,
     `corpus/typescript/flow_value_inspect`.
@@ -411,19 +408,19 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     cap is cut by the FORMATTER, long before the 200-byte wire cap looks at
     the rendering, so the capture's `trunc` flag is `false` and the counter
     that reads it does not see the cut. The evidence is in the text instead
-    — the `… N more characters` tail outside the closing quote, which
-    `read_inspect` reads as TRUNCATED and `inspect_text` refuses to spell —
+    (the `… N more characters` tail outside the closing quote, which
+    `read_inspect` reads as TRUNCATED and `inspect_text` refuses to spell)
     so `watch` reports such a site as *recorded truncated* while `info`'s
     total says none was. A reader trusting the count alone under-counts what
     was clipped. *(Added 2026-09-12.)* *Falsifier:*
     `corpus/typescript/flow_value_inspect` (the 150-character value),
-    `tests/test_js_inspect.py`.~~ — **Closed 2026-09-12, S5 rung 4's
+    `tests/test_js_inspect.py`.~~, **Closed 2026-09-12, S5 rung 4's
     debts** (`sensorium` 0.13.0, design §6.1): the converter counts the tail
     as well as the flags. `ts/build.py`'s capture walk asks `js_inspect`'s
-    own `_body` whether a `dbg` capture's text is a CUT string — the closing
+    own `_body` whether a `dbg` capture's text is a CUT string (the closing
     quote is what tells that from a string whose CONTENT ends `… 50 more
     characters`, and it is the rule `watch --expr` and `flow --value` already
-    read these texts by, not a second one — so an inspect-side cut lands in
+    read these texts by, not a second one) so an inspect-side cut lands in
     `truncated_count` beside `trunc`, `type_trunc` and `name_trunc`, and
     `info`'s total now says what `watch` says site by site. *Falsifier:*
     `corpus/typescript/focus_long_string` (100 characters spelled whole, 101
@@ -433,7 +430,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     content ends that way is not).
 37. ~~**A new TypeScript corpus case cannot ask an `exceptions` question.**
     `typescript/acceptance/e6ts.py` carries a locked `PRE_REGISTERED` table
-    — the rung-2 verdicts, hand-adjudicated before that code existed — and
+    (the rung-2 verdicts, hand-adjudicated before that code existed) and
     the E6-TS fence reads every `exceptions` question in
     `corpus/typescript/` against it, so a case added later that asks one
     would be an unpredicted row in a closed pre-registration. Rung 4's
@@ -443,7 +440,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     it** means the next rung that touches E6-TS either re-registers the table
     or scopes the fence to the cases it was written over. *(Added
     2026-09-12.)* *Falsifier:* `corpus/typescript/focus_catch_binding`,
-    `typescript/acceptance/e6ts.py`.~~ — **Closed 2026-09-12, S5 rung 4's
+    `typescript/acceptance/e6ts.py`.~~, **Closed 2026-09-12, S5 rung 4's
     debts** (design §6.2): the fence was scoped, not the table -- rung 3's
     own procedure (add the case's row to `e6ts.PRE_REGISTERED`, hand-adjudicated
     in its own commit BEFORE the case's `exceptions` question exists, then
@@ -454,7 +451,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     hand-adjudicated before its `exceptions` question existed, corrected once
     (997f168, a54b754, then the SWALLOWED-count fix once the question was
     written and run showed the hand read had used a sibling command's
-    vocabulary — controller ruling P16), and its `did-anything-record-the-
+    vocabulary, controller ruling P16), and its `did-anything-record-the-
     catch-itself` question now runs `exceptions` and is checked against that
     row like every other case's. *Falsifier:*
     `corpus/typescript/focus_catch_binding/questions.yaml` (question 2),
@@ -465,18 +462,18 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     and `ret` sets the frame's `open` to false before the program's own
     `finally` runs; `line` drops every row that arrives on a closed frame. So
     in `try { return x } finally { cleanup = true }` under a focus the trace
-    carries the RETURN and **nothing at all** for the finally's statements —
-    the row is not present-and-empty, it is absent, and no `info` line counts
+    carries the RETURN and **nothing at all** for the finally's statements.
+    The row is not present-and-empty, it is absent, and no `info` line counts
     it. The gap is **asymmetric**: the same `finally` reached by a `throw` IS
     recorded in full, because `thr` has not run yet when it executes. The
-    runtime change that would close it — seal the frame AFTER the finally,
-    which also moves the RETURN row past those statements — is a next-slice
+    runtime change that would close it (seal the frame AFTER the finally,
+    which also moves the RETURN row past those statements) is a next-slice
     design item in [`../docs/CARRIED-DEBT.md`](../docs/CARRIED-DEBT.md), so
     the falsifier named below pins the ABSENCE and a later fix must change it
-    deliberately. *(Added 2026-09-12, R42.)*~~ — **Closed 2026-09-12, S5 rung
+    deliberately. *(Added 2026-09-12, R42.)*~~, **Closed 2026-09-12, S5 rung
     4's debts** (`sensorium-ts 0.4.0`, design §4.2): a function whose own body
     returns from inside a `try` with a `finally` is spliced with a DEFERRED
-    exit — `return x` becomes `return __srt.pend(__sf,(x))`, which stores the
+    exit, `return x` becomes `return __srt.pend(__sf,(x))`, which stores the
     value and leaves the frame open, and the wrapper gains
     `finally{__srt.seal(__sf)}`, which closes it after the program's `finally`
     has run. So the finally's statements mint their rows, the RETURN row
@@ -493,16 +490,16 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     §5.5, R4), which is when both recorders' shared reading was written down
     for the first time. `declaredIn` answers about a block's OWN declarations
     and knows nothing of what encloses it, so the row for `{ let x = 2; }`
-    inside a function already holding `let x = 1;` unbinds `x` — the NAME, not
-    the inner scope — and `watch`'s fold keys on names too. From that row on it
+    inside a function already holding `let x = 1;` unbinds `x` (the NAME, not
+    the inner scope) and `watch`'s fold keys on names too. From that row on it
     reports the outer `x` *not in scope at this site* until something writes
     `x` again, though JavaScript's outer binding is alive and the code below
     may read it. That is ABSENCE and never a stale value: a fold that kept
     `x = 2` alive past the block would answer about a binding that no longer
     exists, which is worse. Its cost is that a reader watching a shadowed
     binding must ask at a site BEFORE the block, or after its next write.
-    *Declared by* the row itself — `frame` prints `unbound:x` at the block's
-    own line — and by `watch` tallying *not in scope* apart from *not
+    *Declared by* the row itself (`frame` prints `unbound:x` at the block's
+    own line) and by `watch` tallying *not in scope* apart from *not
     captured*. *Falsified by* `typescript/test/bindings.test.mjs`
     (*declaredIn a block that SHADOWS an outer binding still lists the name*),
     which asserts both halves: the outer statement writes `x`, and the block
@@ -514,8 +511,8 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     and R4). A vitest invocation is a pool and no harness can be asked for one
     container, so the whole recorded command re-runs: a suite of 372 test
     files produces 372 linked traces, of which one is the pair. The other 371
-    really ran — their assertions, their fixtures, their writes and their own
-    failures — and **nothing compared any of them to anything**. A reader who
+    really ran (their assertions, their fixtures, their writes and their own
+    failures) and **nothing compared any of them to anything**. A reader who
     reads MATCH on the pair learns nothing about the suite around it, and in
     particular nothing about a sibling that behaved differently this time.
     Counting them as candidates instead would make "more than one" the answer
@@ -530,8 +527,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `test_the_sibling_count_is_of_the_siblings_and_not_of_the_pair`,
     `test_find_pair_puts_another_containers_test_file_among_the_siblings`) and
     `corpus/typescript/refocus_match`, whose `siblings in the re-run: 0` is
-    the same claim at n = 1. Closing it is **refocus by invocation id** —
-    every pair compared and a roll-up verdict over them — which is a different
+    the same claim at n = 1. Closing it is **refocus by invocation id** (every pair compared and a roll-up verdict over them) which is a different
     report shape with its own brainstorm, named as not-in-this-slice by
     [`../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
     §7.
@@ -540,7 +536,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     (S5's refocus slice, design §3.3). vitest's pool mints `VITEST_POOL_ID`
     and `VITEST_WORKER_ID` per worker process and a re-run takes whichever
     slot is free, so those two differ on a pair that differs in nothing else.
-    They are counted and named and they **never withhold** — which is right
+    They are counted and named and they **never withhold**, which is right
     for the ordinary program that never reads them, and wrong for the one
     that shards its fixtures by slot, seeds from it or writes a per-slot file:
     that program got different input, and the licence would say the
@@ -548,9 +544,8 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     positive and exact rather than a `VITEST_` prefix, because a prefix would
     exempt names nobody put on the list; the cost is that these two are
     exempted whatever the program does with them. *Declared by* the env line,
-    which names the set with its version and then its members —
-    `unchanged outside harness set 1 (…; 2 harness variable(s) differ:
-    VITEST_POOL_ID, VITEST_WORKER_ID)` — and by the verdict's own blind-spot
+    which names the set with its version and then its members, `unchanged outside harness set 1 (…; 2 harness variable(s) differ:
+    VITEST_POOL_ID, VITEST_WORKER_ID)`, and by the verdict's own blind-spot
     line, `the harness's worker-slot variables (harness set 1) were not
     compared`. *Falsified by* `tests/test_refocus_world_threads.py`
     (`test_the_env_line_names_harness_set_1_and_counts_it`,
@@ -562,12 +557,12 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     Closing it is what the **version number** in the printed line is for: a
     key found to bear on what a program computes leaves the set with a date,
     and a reader can tell which list a given trace was judged against.
-42. **A container that ran two test files cannot be refocused — and a second
+42. **A container that ran two test files cannot be refocused, and a second
     test file whose tests all root in a helper is not seen as a second file.**
     *Added 2026-09-13* (S5's refocus slice, ruling P3 amending R4). A reused
     worker has no pair: which container of a re-run would correspond to it is
     the harness's scheduling, not a fact, so it is refused at exit 2 before
-    anything runs. The count is read twice and the larger decides — the
+    anything runs. The count is read twice and the larger decides, the
     converter's `test_files` where it declared any, and always the trace's own
     task ROOT frames, depth-0 frames whose call ran inside a task, counted by
     the distinct code-object files whose basename carries `.test.` or
@@ -576,7 +571,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     own, so a container that really ran two files can look like a container
     that ran one. It is then not refused: it pairs by its first file, and the
     comparator reports DIVERGED at a named step or a MATCH of that
-    container's shape — never a guess, and never a verdict about the second
+    container's shape, never a guess, and never a verdict about the second
     file. That direction was chosen deliberately: counting every distinct root
     file instead would refuse every suite that keeps its assertions in a
     helper, and a refusal on a single-file container is the worse error,
@@ -592,13 +587,13 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `test_a_reused_worker_is_never_the_pair_of_an_argv_keyed_original`).
     Closing it needs the driver-written setup file to mark **every** file
     start under a shared module cache, so the converter can write
-    `test_files` where vitest reuses a worker — a runtime change, not this
+    `test_files` where vitest reuses a worker, a runtime change, not this
     slice's (ruling R11).
 43. **The whole suite is the unit of cost: one question re-runs every
     container of the invocation.** *Added 2026-09-13* (S5's refocus slice,
     ruling R1). `refocus` announces the command it runs and that command is
     the one that was typed, so asking about one container of a 372-file suite
-    spends the 372-file suite — its wall, its spool, its side effects — and
+    spends the 372-file suite (its wall, its spool, its side effects) and
     does it again for the next question. This is not a defect the tool hides
     behind a default: a narrowing spelling was considered and rejected for
     this slice, because a narrowed command is a command the reader never
@@ -609,11 +604,11 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     recorded invocation was re-run; its other containers were not compared
     and stay UNVERIFIED`. *Falsified by* `E15` `H9`, which reports per refocus
     the wall from launch to verdict, the harness's own duration, the
-    conversion's wall and the spool and trace bytes the invocation added —
+    conversion's wall and the spool and trace bytes the invocation added,
     reported, gating nothing, and **measured 2026-09-13**: over 31 refocuses
     of one 372-container suite the wall from launch to verdict ran
     38.971–46.337 s, median **41.693 s**, against vitest's own near-flat
-    24.40–24.76 s `Duration` — so what `refocus` adds on top of re-running
+    24.40–24.76 s `Duration`, so what `refocus` adds on top of re-running
     the whole suite is 14.4–21.7 s, and what the suite costs is the rest.
     Each invocation added ~425 MB of spool and ~687 MB of trace; the 31
     together added 13 188 510 863 spool bytes and 21 302 018 048 trace

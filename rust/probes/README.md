@@ -1,4 +1,4 @@
-# `probes/` — the mechanics probe workspace
+# `probes/`: the mechanics probe workspace
 
 A workspace small enough to read whole and shaped to make every promise in
 [`rust/HONESTY.md`](../HONESTY.md) falsifiable in a few seconds. It is what
@@ -11,9 +11,9 @@ Run the checks:
 
     rust/tests/mechanics.sh
 
-They build into `$SENSORIUM_PROBE_TARGET` when that is set — point it at a
+They build into `$SENSORIUM_PROBE_TARGET` when that is set (point it at a
 directory on a different filesystem from these sources and the run proves that
-it is one, which is the configuration the acceptance run uses — and into
+it is one, which is the configuration the acceptance run uses) and into
 `ws/target` otherwise.
 
 ## Its own workspace
@@ -73,7 +73,7 @@ probes/
   non-member to the wrapper.
 - **No registry dependency.** The probe carried `libc` so that a unit the
   wrapper links `sensorium_rt` into already had a `libc` in its graph at a
-  different `-C metadata` — rung 1's open question. Plan decision D1 closed it
+  different `-C metadata`, rung 1's open question. Plan decision D1 closed it
   by construction (`sensorium-rt` has no dependencies and is built by one bare
   rustc invocation), so the second `libc` cannot exist and the dependency only
   cost every CI run a network round trip. `probe-ext` still covers "a crate
@@ -82,8 +82,7 @@ probes/
   declared dependency would make the measurement circular and would put the
   runtime in `Cargo.lock`.
 - **The E7 tests are `#[should_panic]`.** The panic hook still prints
-  `panicked at <file>:<line>:<col>` and the backtrace under `--nocapture` —
-  which is the text E7 diffs — while the suite stays green in all three arms.
+  `panicked at <file>:<line>:<col>` and the backtrace under `--nocapture` (which is the text E7 diffs) while the suite stays green in all three arms.
 - **`threads.rs` uses `std::thread::spawn`, not `Builder`.** Only the plain
   path form is rewritten to `::sensorium_rt::spawn_child`; the builder form
   carries a name of its own and is declared rather than rewritten

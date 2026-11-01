@@ -1,8 +1,8 @@
-# Rung-4 acceptance, the recorder's footprint and the licence word — E4″ (H1–H8)
+# Rung-4 acceptance, the recorder's footprint and the licence word: E4″ (H1–H8)
 
 The record of whether the recorder's own footprint is out of the licence's
-way — the driver's `RUSTDOCFLAGS` fragment, a program thread mistaken for the
-harness's, and the session variables of the shell a re-run was launched from —
+way (the driver's `RUSTDOCFLAGS` fragment, a program thread mistaken for the
+harness's, and the session variables of the shell a re-run was launched from)
 and of what the harness-thread rule then does to the word `sensorium refocus`
 prints beside a Rust pair's verdict. Measured by re-reading the same 61 kept
 originals E4′ read, under a **different driver build**, plus two four-pair
@@ -14,20 +14,19 @@ control arms.
 are written.** E4′ (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`)
 measured the harness-thread rule once over 61 kept originals and STOPPED on
 H1 with `granted` = **0**: the licence's environment clause read the driver's
-own `RUSTDOCFLAGS` fragment — `--extern sensorium_rt=…/sensorium/rt/<16
-hex>/<unwind|abort>/libsensorium_rt.rlib` with its `-L dependency=…` — as a
+own `RUSTDOCFLAGS` fragment (`--extern sensorium_rt=…/sensorium/rt/<16
+hex>/<unwind|abort>/libsensorium_rt.rlib` with its `-L dependency=…`) as a
 change the world had made, so all 61 pairs were WITHHELD for a reason with
-nothing to do with the rule under test (E4′ §5, whose ruling — not this
-record's — is that E4″ must read an original recorded under a *different*
-driver build). This slice's design —
-`docs/superpowers/specs/2026-09-08-sensorium-rung4-footprint-design.md`,
+nothing to do with the rule under test (E4′ §5, whose ruling (not this
+record's) is that E4″ must read an original recorded under a *different*
+driver build). This slice's design (`docs/superpowers/specs/2026-09-08-sensorium-rung4-footprint-design.md`,
 committed **`0badf65`**, amended **`7de5565`** (amendment **A-§3**, which
-supersedes §3 and rewrites §7's arms and H4–H6) — strips that fragment as the
+supersedes §3 and rewrites §7's arms and H4–H6)) strips that fragment as the
 recorder's own (R1), anchors the harness thread on a thread's FIRST root and
 never on a `spawn@` name (R3), and exempts **session set 1** from withholding
 (R4 as A-§3 rules it: a session set, not a bearing set). **E4″ is a second
-pass over the same 61 originals** — kept, recorded by `cargo-sensorium`
-**0.5.0**, never re-recorded — read this time by this slice's driver,
+pass over the same 61 originals**. Kept, recorded by `cargo-sensorium`
+**0.5.0**, never re-recorded. Read this time by this slice's driver,
 `cargo-sensorium` **0.5.2**, built by the preflight from the measurement
 commit. The two builds differ by construction, and the rt hash the fragment
 carries is a digest of the driver binary and the `sensorium-rt` sources, so
@@ -39,13 +38,13 @@ create. E4′ is not re-opened and no number in it is re-measured.
 `strip_recorder_fragment` exists in `refocus_env.py`, before `SESSION_EXACT`
 exists, before `harness_threads` has ever read a `spawn@` name, before
 `rust/tests/acceptance_e4pp.py` exists, and while `cargo-sensorium` is still
-**0.5.1** — so no value below was chosen after seeing an instrument behave.
+**0.5.1**, so no value below was chosen after seeing an instrument behave.
 Each of those five is checkable at this commit. The lock is
 `awk '/^## 1/,/^## 2/' | sha256sum`; the runner refuses to start unless the
 range is byte-identical to the commit that locked it, and refuses outright
 while no lock sha is set. §1 references no footnote, so the extended lock
 range and the `awk` range are the same bytes. §1.1's subject table lives in a
-**sibling file** whose sha256 §1.1 prints, so the subject is locked too — by
+**sibling file** whose sha256 §1.1 prints, so the subject is locked too, by
 digest rather than by range.
 
 **A completed measurement is never re-rolled, and a miss is a STOP with its
@@ -430,7 +429,7 @@ Measured 2026-09-08T05:52:35-0500 → 2026-09-08T06:03:21-0500 by `rust/tests/ac
 
 **Schema.** This record is `e4pp/1`: the raw record and this assembly were written under the same schema version.
 
-**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it. Range awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references, checked at `2acdc21`: 28208 bytes, sha256 `5717507e8e0f4beb82a449df6312ac1427a276596fb1ee71e1cf106c7d547759` — identical: yes. The 61-row subject sibling is locked by DIGEST: `e3bd5313231ce2d65c190b4e2ac11355033920a3e1a8a2a17e4a15cf17d50aa8` — identical: yes. §1 has never been amended (amended: no).
+**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it. Range awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references, checked at `2acdc21`: 28208 bytes, sha256 `5717507e8e0f4beb82a449df6312ac1427a276596fb1ee71e1cf106c7d547759`, identical: yes. The 61-row subject sibling is locked by DIGEST: `e3bd5313231ce2d65c190b4e2ac11355033920a3e1a8a2a17e4a15cf17d50aa8`, identical: yes. §1 has never been amended (amended: no).
 
 | what | value |
 |---|---|
@@ -439,8 +438,8 @@ Measured 2026-09-08T05:52:35-0500 → 2026-09-08T06:03:21-0500 by `rust/tests/ac
 | the KEPT E4 store (READ-ONLY input) | `/mnt/extra/sensorium-rung2/sensorium-dir/e4`, 122 `.db` file(s); unchanged across the whole run: yes |
 | the copy | §1.3's `VACUUM INTO`, executed by ['python sqlite3 module'] (SQLite 3.46.1; `sqlite3` CLI on PATH: none) |
 | the driver | `/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium` sha256 `4b18cad4844cb288b0db47a2fab648f6b041f5df566806c828b9d203adfabcb1`, built by this run from HEAD `3d1a723cdd80c4bf7dca8fc03c258dbeffe9c7b9` (rebuilt: no); unchanged after: yes |
-| the driver's version token | `cargo-sensorium 0.5.2` — read from the TRACE's own `meta.driver_version`, never from the instrument |
-| the launch guard | `session_parity`: 61 original(s) over 77 compared key(s); differing OUTSIDE session set 1: none (a difference there is a refusal to launch). Session keys differing: ['CLAUDE_CODE_SESSION_ID'] — expected ['CLAUDE_CODE_SESSION_ID'], as expected: yes. A different set is REPORTED, never a STOP |
+| the driver's version token | `cargo-sensorium 0.5.2`. Read from the TRACE's own `meta.driver_version`, never from the instrument |
+| the launch guard | `session_parity`: 61 original(s) over 77 compared key(s); differing OUTSIDE session set 1: none (a difference there is a refusal to launch). Session keys differing: ['CLAUDE_CODE_SESSION_ID'], expected ['CLAUDE_CODE_SESSION_ID'], as expected: yes. A different set is REPORTED, never a STOP |
 | the arms | B injects `E4PP_INPUT`; C injects `TERM_SESSION_ID`, chosen at preflight as the first of session set 1's fourteen exact names absent from both sides. Rows: ['unmeasured_model_is_fail_closed_read_only_and_status_shows_null', 'unknown_model_mutating_verbs_is_false', 'stored_keep_gate_enables_mutating_verbs_and_populates_status', 'a_pager_can_be_shared_across_threads'] |
 | the fresh trace store | `/mnt/extra/sensorium-rung2/sensorium-dir/e4pp`; invocation log 69 row(s) |
 | the fresh cargo target | `/mnt/extra/sensorium-rung2/bloomery-target-e4pp`; H8's corpus target `/mnt/extra/sensorium-rung2/bloomery-target-e4pp-corpus` (from an env var: no) |
@@ -459,7 +458,7 @@ Measured 2026-09-08T05:52:35-0500 → 2026-09-08T06:03:21-0500 by `rust/tests/ac
 **The two dry runs, 2026-09-08, before any number of this record existed.** §1.3
 makes a dry run that shows the strip clause fire a condition of the launch. The
 **first** (`05:38:55` → `05:39:23`) came back `exit=9` with
-`dry_check.showed_the_strip_on_differing_hashes` **empty** on 2 of 2 rows — an
+`dry_check.showed_the_strip_on_differing_hashes` **empty** on 2 of 2 rows, an
 **instrument** defect, not a reading: the strip-clause regex over-ran the
 two-space join between the env line's clauses, so what it reported as the
 stripped key carried the next clause's names too. §1.3's words make that a
@@ -468,23 +467,23 @@ infrastructure, so it was fixed at the measurement commit `3d1a723` before a
 single number was read; no byte of §1 moved and no expectation was edited. The
 **second** (`05:51:34` → `05:52:02`) came back `exit=0`:
 `showed_the_strip_on_differing_hashes` names **2 of 2** rows, `did_not_show_it`
-is empty, and `arms_rehearsed` is **true** — arms B and C, two rows each,
+is empty, and `arms_rehearsed` is **true**, arms B and C, two rows each,
 `never_run` and `rows_without_a_pair` empty on both. Both were archived under
 `acceptance-e4pp/dry-1/` and `dry-2/` and their `-dry` siblings emptied before
 the real launch, as §1.3 requires.
 
 **The rows sibling, and where the measured columns went.** §1.1 locks the 61-row
 subject **by digest**, and `tests/test_acceptance_e4pp_lock.py` asserts it
-against the printed value and the file both — so appending measured columns
+against the printed value and the file both, so appending measured columns
 there would have made a **different subject**, not a result. The locked file is
 left byte-identical: `…-e4pp-rows.md` hashes to
 `e3bd5313231ce2d65c190b4e2ac11355033920a3e1a8a2a17e4a15cf17d50aa8` **before this
-write and after it**, the value §1.1 prints. The four measured columns — licence
-word, program threads, verdict, pair count — are in a **second sibling**,
+write and after it**, the value §1.1 prints. The four measured columns (licence
+word, program threads, verdict, pair count) are in a **second sibling**,
 [`…-e4pp-rows-measured.md`](2026-09-08-sensorium-rung4-e4pp-rows-measured.md),
 sha256 `7d7dc62b08788a39e9fe69843e4566b4538f91b67ce0e34e3d6c39cf65c92890`,
-written after the measurement from `pairs.rows[*]` — `arm` `A` in `index` order
-for the 61, `armB`/`armC` for the eight control rows — each row's `#`, name and
+written after the measurement from `pairs.rows[*]` (`arm` `A` in `index` order
+for the 61, `armB`/`armC` for the eight control rows) each row's `#`, name and
 original run id checked equal to the locked file's before a measured column was
 written beside it.
 
@@ -492,7 +491,7 @@ written beside it.
 
 The gate of each row, and both readings where §1 pre-committed two. A `null` is not-measured with its reason; `0` is a measured zero; a KILLED cell has no numeric reading at all. The per-pair tables are in `results.json`.
 
-### H1 — does the harness rule change the licence word as predicted?
+### H1: does the harness rule change the licence word as predicted?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -506,7 +505,7 @@ Rule: granted = 57 AND the WITHHELD set is exactly §1.2's four, by name, with 1
 
 Withheld only here: none; withheld missing: none; count mismatches: none. Harness phrase(s): ["libtest's per-test thread, excluded as the recorder's own"]. Pairs whose licence could not be read: none.
 
-### H2 — is the recorder's fragment gone from the compare?
+### H2: is the recorder's fragment gone from the compare?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -581,11 +580,11 @@ Expected set: ['CLAUDE_CODE_SESSION_ID', 'TERM_SESSION_ID'] (K 2); names matchin
 | the verified/unverifiable counts (non-null) | source verified 61, env verified 61, exit verified 61, output unverifiable 61, children unverifiable 61, n 61 | 61 | the four verified/unverifiable counts, COUNTED over `raw_pass2.refocuses[*].licence` and never summed | none |
 | the version probe | 0.8.5 | 1 | `/home/brice/workspace/sensorium/.venv/bin/python -c import importlib.metadata as m; print(m.version('sensoriu… | none |
 
-Rule: 0 null partition cells on a printed licence, every count carrying its source line, non-null verified counts, and a version probe that is a token or null WITH its reason — a miss is a STOP of the INSTRUMENT. Verdict: **PASS** (as predicted: yes).
+Rule: 0 null partition cells on a printed licence, every count carrying its source line, non-null verified counts, and a version probe that is a token or null WITH its reason. A miss is a STOP of the INSTRUMENT. Verdict: **PASS** (as predicted: yes).
 
 Null partition cells: none; counts with no source line: none. Probe reason: none. Every `dropped` list this run wrote: none. A miss here is a STOP of the instrument, not of the subject: §1.4's kill 2 distinguishes the two in the record.
 
-### H8 — did nothing else move?
+### H8: did nothing else move?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -609,7 +608,7 @@ Corpus: 63 case(s), args ['--require-driver'], require_driver yes; failures none
 
 **The four verified/unverifiable counts, in kind and never summed.** source 61, environment 61, exit 61 verified; output 61, children 61 UNVERIFIABLE by construction, over n 61.
 
-**The store.** 61 original(s) copied, 21770240 byte(s), by ['python sqlite3 module']; the fresh store held 61 file(s) when the loop opened and only the copies: yes; 130 trace(s) at the end. The KEPT store: 122 file(s) before, 122 after; identical: yes. The invocation log: 69 row(s) — this record's own.
+**The store.** 61 original(s) copied, 21770240 byte(s), by ['python sqlite3 module']; the fresh store held 61 file(s) when the loop opened and only the copies: yes; 130 trace(s) at the end. The KEPT store: 122 file(s) before, 122 after; identical: yes. The invocation log: 69 row(s). This record's own.
 
 **Arm B's verdicts.** {'unmeasured_model_is_fail_closed_read_only_and_status_shows_null': 'MATCH', 'unknown_model_mutating_verbs_is_false': 'MATCH', 'stored_keep_gate_enables_mutating_verbs_and_populates_status': 'MATCH', 'a_pager_can_be_shared_across_threads': 'MATCH'}. a variable the program actually READ would change the re-run's behaviour, so arm B's verdicts may not all be MATCH. That is a FINDING, not a gate.
 
@@ -618,28 +617,28 @@ Corpus: 63 case(s), args ['--require-driver'], require_driver yes; failures none
 ## 4. Verdicts
 
 **H1–H7 PASS, H8 STOP on an instrument cell.** The two questions this slice
-asked — *does the harness-thread rule change the licence word as predicted*, and
-*is the recorder's own fragment gone from the compare* — are answered **PASS at
+asked, *does the harness-thread rule change the licence word as predicted*, and
+*is the recorder's own fragment gone from the compare* are answered **PASS at
 n = 61**, under a driver build different from the originals': the rt hash the
 fragment carries moved from `d9ce385a08c6646b` on every original to
 `45773c80095d5b87` on every re-run (`reported.rt_hashes.by_pair`), the one
 condition E4′ could not create, on all 61 pairs. The eighth row is `H8`: it
 missed on a cell of this record's own reader while its three commands came back
-green — under §1.4's kill 2 a **STOP with its number**, and under kill 6 not
+green, under §1.4's kill 2 a **STOP with its number**, and under kill 6 not
 something this record may repair into a PASS. The marker is `e4pp.FAILED`,
 **`exit=7`**, `numbers_read` **true** since 05:52:44: under §1.4's rule 5 a
 `.FAILED` after a number has been read is a STOP and **the numbers already read
 stand**.
 
-**H1 — PASS.** `endpoints.H1.headline` = **57** granted of 61 against
+**H1. PASS.** `endpoints.H1.headline` = **57** granted of 61 against
 `H1.expected_granted_n` **57**, and `H1.withheld` is exactly §1.2's four by name
-with their program-thread counts — `a_pager_can_be_shared_across_threads` **1**,
+with their program-thread counts, `a_pager_can_be_shared_across_threads` **1**,
 `the_refusal_advises_a_window_that_actually_places` **4**,
 `the_advice_never_exceeds_the_window_the_agent_already_had` **4**,
 `the_journal_records_the_advice_alongside_the_refusal_arithmetic` **4**.
 `withheld_only_here`, `withheld_missing` and `withheld_count_mismatches` are all
 empty and `withheld_set_as_predicted` is true, so the partition is not merely
-the right size: it is the right four. **This is the number E4′ measured as 0** —
+the right size: it is the right four. **This is the number E4′ measured as 0**,
 all 61 withheld by the env clause; that reading stands as E4′'s, and what moved
 between the two records is the strip R1 ships, not the subject and not the rule.
 
@@ -649,71 +648,71 @@ over 61 (no granted line omits the excluded harness thread);
 names the raw 2/5/5/5); `H1.harness_threads_all_one` is **true** over 61;
 `H1.sides_disagree` and `H1.unread` are empty; `H1.harness_phrases` holds one
 spelling only, `libtest's per-test thread, excluded as the recorder's own`. Two
-of those — `reasons_that_never_subtracted` and `sides_disagree` — E4′ could
+of those, `reasons_that_never_subtracted` and `sides_disagree`. E4′ could
 publish over **4** pairs only, and its `harness_threads_all_one` came back
 **false** over 61; here `H1.counts_source_by_name` reads `licence-clause` on
-**61 of 61**, because R1's licence clause now speaks on a granted pair too — *no
-thread started besides the main one and 1 harness thread (…)* — so every count
+**61 of 61**, because R1's licence clause now speaks on a granted pair too (*no
+thread started besides the main one and 1 harness thread (…)*) so every count
 has a clause to come from and the aggregates cover the whole subject. E4′ gap 1,
 closed and shown closed.
 
-**H2 — PASS, and the strip was TESTED on every pair.**
+**H2. PASS, and the strip was TESTED on every pair.**
 `H2.rustdocflags_in_changed` = **0** of 61 with `rustdocflags_in_changed_pairs`
 empty; `H2.strip_clause_named` = **61** of 61 with `strip_clause_missing` empty;
-`H2.relocated_set` is E4′'s measured four — `CARGO_BIN_EXE_bloomery-daemon`,
-`CARGO_BIN_EXE_flywheel-tool`, `CARGO_TARGET_DIR`, `LD_LIBRARY_PATH` — with
+`H2.relocated_set` is E4′'s measured four (`CARGO_BIN_EXE_bloomery-daemon`,
+`CARGO_BIN_EXE_flywheel-tool`, `CARGO_TARGET_DIR`, `LD_LIBRARY_PATH`) with
 `relocated_sets_seen` holding that one set and `relocated_set_matches` **61**.
 **Second reading:** `H2.hashes_differ` = **61** of 61,
 `hashes_equal_so_the_strip_was_untested` **empty**, `H2.hashes_unread`
 **empty**, `hashes_readable` **61**. A strip that fired on a pair whose two
 hashes were equal is a strip nothing could have tested; there is no such pair.
-**The reading's other half — the count of fragments removed per key per side —
+**The reading's other half (the count of fragments removed per key per side)
 was read and never published**: `raw_pass2.refocuses[*].original_rt_hash.fragments`
 and `.rerun_rt_hash.fragments` are **1** on 61 of 61, `occurrences` **2** on both
 sides, and the assembly lifts neither into `endpoints.H2` nor
-`reported.rt_hashes` — findings gap 4.
+`reported.rt_hashes`, findings gap 4.
 
-**H3 — PASS.** `H3.headline` = **MATCH 61 of 61** with `non_match` empty, and
-`H3.pairs_of_one` = **61** with `not_one` empty — the pair read from the store,
+**H3 (PASS.** `H3.headline` = **MATCH 61 of 61** with `non_match` empty, and
+`H3.pairs_of_one` = **61** with `not_one` empty) the pair read from the store,
 the printed id agreeing beside it. **Second reading:** `H3.word_and_exit_disagree`
 **empty** (every `pairs.rows[*].exit` is 0) and `H3.excluded_children` = **0**
 over 61. The comparator and the pairing are untouched and reproduced E4′'s
 verdict on every pair.
 
-**H4 — PASS.** `H4.session_names` = `['CLAUDE_CODE_SESSION_ID']` on **61 of
+**H4: PASS.** `H4.session_names` = `['CLAUDE_CODE_SESSION_ID']` on **61 of
 61**, equal to `pins.session_keys_differing` by name, and `H4.session_k` = **1**
 = the pin's size on 61 of 61 (`session_names_match` 61, `session_k_match` 61).
 `H4.withholding_cites_a_session_key` is **empty**: not one withholding cites a
 key of session set 1, which is the whole of R4. **Second reading:**
 `H4.pairs_with_an_empty_session_set` = **0**, so the launch shell did differ from
 the originals' as §1.3's rule 3 expects; `H4.names_bounded` is empty and
-`H4.decided_on_k_alone` **false** — K is 1, far under the 8-name cap, so kill 7's
+`H4.decided_on_k_alone` **false**. K is 1, far under the 8-name cap, so kill 7's
 reduced reading never applied and the by-name half was read in full.
 
-**H5 — PASS, and the exemption did not eat the rule.** `H5.headline` = **4**
+**H5. PASS, and the exemption did not eat the rule.** `H5.headline` = **4**
 WITHHELD of 4 with `H5.granted` **empty**, and `H5.env_caveat_names_the_key` =
 **4** of 4 with `env_caveat_missing_the_key` empty, each caveat naming `H5.key`
 = `E4PP_INPUT`: a key on no list still withholds exactly as it did before
 session set 1 existed, and one granted line would have been a STOP. **Second
 reading:** `H5.thread_reason_kept` is **true** with `thread_reason_reason`
-`null` — the pager row carries its one-program-thread reason *alongside* the env
+`null`. The pager row carries its one-program-thread reason *alongside* the env
 caveat, so the control added a reason rather than silencing one.
 
-**H6 — PASS, and the count is exact.** `H6.headline` = **4** of 4 pairs whose
-licence word equals arm A's for the same row, `H6.word_moved` **empty** — three
+**H6 (PASS, and the count is exact.** `H6.headline` = **4** of 4 pairs whose
+licence word equals arm A's for the same row, `H6.word_moved` **empty**) three
 granted and the pager row WITHHELD, matching arm A row for row.
 `H6.session_names` = `['CLAUDE_CODE_SESSION_ID', 'TERM_SESSION_ID']` = the pin ∪
 `pins.injected_session_key`, and `H6.session_k` = **2**, exactly one greater, on
 4 of 4. **Second reading:** `H6.injected_key` is `TERM_SESSION_ID`, and
-`H6.injected_key_choice` shows it *derived* rather than picked — the first of
+`H6.injected_key_choice` shows it *derived* rather than picked, the first of
 session set 1's fourteen exact names absent from both sides, skipping
 `DBUS_SESSION_BUS_ADDRESS` and `XDG_SESSION_ID`, present on both.
 
-**H7 — PASS, and it is the instrument's own row.** `H7.headline` = **0** null
-partition cells on a pair whose licence printed, over n **69** — every pair of
+**H7 (PASS, and it is the instrument's own row.** `H7.headline` = **0** null
+partition cells on a pair whose licence printed, over n **69**) every pair of
 every arm, not only the 61; `H7.counts_carry_their_source_line` is **true** over
 69 with `counts_without_a_source_line` empty; `H7.licence_verified_counts` is
-**non-null** — source 61, environment 61 and exit 61 verified, output 61 and
+**non-null**, source 61, environment 61 and exit 61 verified, output 61 and
 children 61 UNVERIFIABLE by construction, over n 61, in kind and never summed;
 and `H7.version_probe` is the token **`0.8.5`** with `version_probe_ok` true and
 `version_probe_reason` `null`, never an empty string (E4′ gaps 2 and 7, closed
@@ -721,10 +720,10 @@ on this row). `H7.dropped_lists` is empty and so is `reported.dropped_lists`:
 **no cell this run wrote carries a dropped reason**, so no endpoint is nulled
 and none was read at a ceiling.
 
-**H8 — STOP, and both readings are printed because they disagree.** Three of the
+**H8. STOP, and both readings are printed because they disagree.** Three of the
 gate's four things held. `H8.corpus_rc` = **0** over `H8.corpus_cases` = **63**
 cases, `corpus_failures`, `corpus_errors` and `corpus_skipped` all **empty**
-under `H8.corpus_args` = `['--require-driver']` — the flag that turns a skipped
+under `H8.corpus_args` = `['--require-driver']`. The flag that turns a skipped
 case into exit 1, so a green summary here is green over cases that ran through
 the built driver. `H8.pytest_rc` = **0** (`H8.pytest_summary`: `2256 passed, 4
 skipped in 128.70s (0:02:08)`) and `H8.cargo_rc` = **0** over 42 `test result:
@@ -733,17 +732,17 @@ row names it, so the row is a **STOP** by its own words.
 
 **What the False is, as evidence.** The case is present and it ran.
 `raw_h8.case_listing.names` holds **63** names and one of them is
-**`rust/refocus_spawned_test_fn`** — 43 of the 63 carry a `rust/` prefix, which
-is how the collector names a Rust case — while `H8.spawned_test_fn`, the value
+**`rust/refocus_spawned_test_fn`** (43 of the 63 carry a `rust/` prefix, which
+is how the collector names a Rust case) while `H8.spawned_test_fn`, the value
 the reader looked for, is the **bare** `refocus_spawned_test_fn`.
 `H8.spawned_test_fn_skipped` and `corpus_skipped` are both empty under
 `--require-driver`, so the case was collected, run and equal. The cell is a
-name-shape miss in this record's reader, not a case missing from the corpus —
+name-shape miss in this record's reader, not a case missing from the corpus,
 but it is a **measured `False`**, and a record does not reinterpret one of its
 own cells into a PASS after the fact.
 
 **The label disagrees with the evidence**, and both stand: `stop` and the marker
-read *"This is a STOP of the subject"* while the miss is the instrument's —
+read *"This is a STOP of the subject"* while the miss is the instrument's,
 findings gap 2 carries it, and neither reading is resolved silently in favour of
 the friendlier one.
 
@@ -752,15 +751,15 @@ the friendlier one.
 | what | measured | field |
 |---|---|---|
 | the two rt hashes | original `d9ce385a08c6646b`, re-run `45773c80095d5b87`, **differing on 61 of 61** | `reported.rt_hashes` |
-| `driver_version` | **`cargo-sensorium 0.5.2`** on **69 of 69** rows, from the re-run trace's own `meta.driver_version`, and from the built driver, sha256 `4b18cad4844cb288b0db47a2fab648f6b041f5df566806c828b9d203adfabcb1`. The originals' **`0.5.0`** is §1.1's pre-registered fact carried from E4 — **no field of this record reads it** (§5) | `reported.driver_version`, `pairs.rows[*].driver_version_from_the_trace` |
-| K and its names | pin `['CLAUDE_CODE_SESSION_ID']`, n **1**, `as_expected` true; injected `TERM_SESSION_ID`. A differing set is reported, never a STOP — the launch shell is the instrument's | `reported.session_set` |
-| wall per arm | A first **8.375 s**, later mean **6.667 s**, max **7.514 s** over 61; B **3.35 / 3.38 / 3.4 s** over 4; C **3.363 / 3.448 / 3.641 s** over 4. The runner writes no total and this record quotes none. §1.5 also names the dry run's wall and the driver build's *separately*, and `walls_s` holds A/B/C alone: the build's is `pins.built_from.cargo_wall_s` **0.025 s** (`rebuilt: no`), cargo's own time inside each refocus is `raw_pass2.refocuses[*].cargo_finished_s`, and the dry run's stayed in its own archived results — read, not gathered where §1.5 points (findings gap 5) | `reported.walls_s`, `pins.built_from` |
+| `driver_version` | **`cargo-sensorium 0.5.2`** on **69 of 69** rows, from the re-run trace's own `meta.driver_version`, and from the built driver, sha256 `4b18cad4844cb288b0db47a2fab648f6b041f5df566806c828b9d203adfabcb1`. The originals' **`0.5.0`** is §1.1's pre-registered fact carried from E4. **No field of this record reads it** (§5) | `reported.driver_version`, `pairs.rows[*].driver_version_from_the_trace` |
+| K and its names | pin `['CLAUDE_CODE_SESSION_ID']`, n **1**, `as_expected` true; injected `TERM_SESSION_ID`. A differing set is reported, never a STOP. The launch shell is the instrument's | `reported.session_set` |
+| wall per arm | A first **8.375 s**, later mean **6.667 s**, max **7.514 s** over 61; B **3.35 / 3.38 / 3.4 s** over 4; C **3.363 / 3.448 / 3.641 s** over 4. The runner writes no total and this record quotes none. §1.5 also names the dry run's wall and the driver build's *separately*, and `walls_s` holds A/B/C alone: the build's is `pins.built_from.cargo_wall_s` **0.025 s** (`rebuilt: no`), cargo's own time inside each refocus is `raw_pass2.refocuses[*].cargo_finished_s`, and the dry run's stayed in its own archived results. Read, not gathered where §1.5 points (findings gap 5) | `reported.walls_s`, `pins.built_from` |
 | arm B's verdicts | **all four MATCH**. `E4PP_INPUT` is a name no code in the clone reads, so a moved verdict would have been a finding; none moved, reported as the reading it is | `reported.arm_b_verdicts` |
-| the loop was whole, wrote nothing and dropped nothing | **69** invocations — A **61**, `armB` **4**, `armC` **4** — none killed, none skipped by the bound; **no** measurement cell carries a dropped reason; the kept store 122 files before and after, `differences` empty, `identical` **true** | `pairs.n`, `pairs.by_arm`, `reported.dropped_lists`, `H7.dropped_lists`, `reported.kept_store_unchanged` |
+| the loop was whole, wrote nothing and dropped nothing | **69** invocations (A **61**, `armB` **4**, `armC` **4**) none killed, none skipped by the bound; **no** measurement cell carries a dropped reason; the kept store 122 files before and after, `differences` empty, `identical` **true** | `pairs.n`, `pairs.by_arm`, `reported.dropped_lists`, `H7.dropped_lists`, `reported.kept_store_unchanged` |
 
 **The record's own reading of itself.** Seven endpoints of eight answered
 exactly as pre-registered, including both the slice exists to answer; the eighth
-is a miss in the reader, on a cell whose subject was green — the STOP real, the
+is a miss in the reader, on a cell whose subject was green, the STOP real, the
 finding the instrument's, and neither cancelling the other.
 
 ## 5. Gaps
@@ -768,21 +767,21 @@ finding the instrument's, and neither cancelling the other.
 ### The ruling on this measurement (controller, 2026-09-08)
 
 **The STOP STANDS as measured.** H8 is not re-rolled and no instrument change is
-made after the measurement to make the cell come out differently — §1.4's kill
+made after the measurement to make the cell come out differently, §1.4's kill
 6, and E4′'s own precedent on the day its H1 STOPPED. The reader is wrong and
 the record says so; a record does not become right by editing the reader that
 wrote it. **The finding is the slice's result**, and the fix is ruled for the
-NEXT slice, never applied here. H1 and H2 — the two endpoints this slice exists
-for — PASS at n = 61; what missed is a cell of the row that watches the rest of
+NEXT slice, never applied here. H1 and H2. The two endpoints this slice exists
+for. PASS at n = 61; what missed is a cell of the row that watches the rest of
 the workspace.
 
 ### Gaps, in a sibling so this record stays under its ceiling
 
 The five instrument gaps with their one-line fixes, what this record does
 **not** license (blind spot 28's mechanism included), and the three E4′ gaps
-closed with their cells —
+closed with their cells,
 [`…-e4pp-findings.md`](2026-09-08-sensorium-rung4-e4pp-findings.md); the ungated
-per-row readings — [`…-e4pp-rows-measured.md`](2026-09-08-sensorium-rung4-e4pp-rows-measured.md).
+per-row readings, [`…-e4pp-rows-measured.md`](2026-09-08-sensorium-rung4-e4pp-rows-measured.md).
 
 ### What no `dropped` list says
 

@@ -1,4 +1,4 @@
-# E4′ — the 61 pairs, row by row
+# E4′: the 61 pairs, row by row
 
 The per-pair table of `docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md` §3, split into a sibling file so the record itself stays inside this
 project's 800-line ceiling. Every value is read from the raw record
@@ -7,9 +7,8 @@ derived a second time.
 
 Four columns are the same on all 61 and are stated once rather than
 repeated: **verdict** MATCH, **exit** 0, **licence** WITHHELD, **env**
-CHANGED. The relocated keys are the same four on all 61 —
-`CARGO_BIN_EXE_bloomery-daemon`, `CARGO_BIN_EXE_flywheel-tool`,
-`CARGO_TARGET_DIR`, `LD_LIBRARY_PATH` — and the changed key is
+CHANGED. The relocated keys are the same four on all 61 (`CARGO_BIN_EXE_bloomery-daemon`, `CARGO_BIN_EXE_flywheel-tool`,
+`CARGO_TARGET_DIR`, `LD_LIBRARY_PATH`) and the changed key is
 `RUSTDOCFLAGS` on all 61; both are columns below all the same, because
 "the same on every row" is a finding and a reader must be able to check
 it rather than take it from a sentence.
@@ -99,7 +98,7 @@ Nothing is gated on a wall.
 only the copies.
 
 **The four verified/unverifiable licence counts**, carried from E4's H4 in
-kind and never summed — read **per row** from
+kind and never summed. Read **per row** from
 `raw_pass2.refocuses[*].licence`, because the assembled record's
 `reported.licence_verified_counts` is `null` (record §5 gap 7): `source`
 **unchanged on 61**; `env` **CHANGED on 61**; `output` and `children`

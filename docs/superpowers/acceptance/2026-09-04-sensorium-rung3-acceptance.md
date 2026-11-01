@@ -1,11 +1,11 @@
-# Rung-3 acceptance — Err flow: E6, E6′, E2″, E7″, E3″, E5″, E0″
+# Rung-3 acceptance: Err flow: E6, E6′, E2″, E7″, E3″, E5″, E0″
 
 The record of whether `sensorium exceptions` answers honestly on a Rust trace.
 The binding design is
 `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`
 (R1–R16 and §2a, the chain machine); the plan that executes it is
 `docs/superpowers/plans/2026-09-04-sensorium-rung3-err-flow.md`; the driver
-these endpoints are measured with does not exist yet — it is the
+these endpoints are measured with does not exist yet. It is the
 `cargo-sensorium` binary built `--release` from this branch
 (`feat/rung3-err-flow`) at Task 8's run time, with its commit and sha256
 recorded in §2.
@@ -39,15 +39,15 @@ Lens for every endpoint: dev profile; the clone at `e209ed9`; the driver built `
 
 Measured 2026-09-05T00:58:26-0500 → 2026-09-05T01:00:26-0500 by `rust/tests/acceptance_rung3.py`, launched detached; the raw facts it recorded are `results-rung3-raw.json` in the gitignored plan ledger, with every command's log beside it. §3 below is rendered from `2026-09-04-sensorium-rung3-acceptance.results.json`, which `acceptance_schema_rung3.assemble_rung3` derived from that raw file.
 
-**§1 byte-lock.** The runner refuses to start unless §1 is byte-identical to the commit that locked it. Checked at `5bc71f7` with `awk '/^## 1/,/^## 2/'`: 3820 bytes, sha256 `98705aa3c7f7e88811efe9e020fa311ccaf968bce175465c471838c3b30d512a` on both sides — identical: yes. The ORIGINAL lock is `e34623c` (sha256 `bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd`, 3808 bytes); §1 was amended after it: yes (12 bytes added — the dated E6′ footnote).
+**§1 byte-lock.** The runner refuses to start unless §1 is byte-identical to the commit that locked it. Checked at `5bc71f7` with `awk '/^## 1/,/^## 2/'`: 3820 bytes, sha256 `98705aa3c7f7e88811efe9e020fa311ccaf968bce175465c471838c3b30d512a` on both sides, identical: yes. The ORIGINAL lock is `e34623c` (sha256 `bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd`, 3808 bytes); §1 was amended after it: yes (12 bytes added, the dated E6′ footnote).
 
-**Byte-lock, extended — verified 2026-09-05T01:28:28-0500, AFTER the run, on the Task-8 review.** The range above is §1 alone, which covers the `[^e6p-amend]` MARKER and not the footnote's body — the sentence the whole E6′ adjudication turns on — so the lock had a hole at exactly the text it exists to pin. The locked range is now §1 **plus the definition of every footnote §1 references** (here: `[^e6p-amend]`). Over that range: at `5bc71f7` 4958 bytes, sha256 `78b8e60c653f3011c728e2c7612b08f8675448a2e85ddf9dd8920735a0b0ca7e`; at `e34623c` 3808 bytes, sha256 `bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd` — the amendment is 1150 bytes wide on this range (marker AND body), where the §1-only range showed only the marker's 12. Working tree identical to `5bc71f7`'s: yes. Derived after the run, by `acceptance_rung3.byte_lock_facts` over committed text; the run's own §1-only lock is in `byte_lock` above and is unchanged. No measured number depends on either range; §1 itself is byte-unchanged.
+**Byte-lock, extended (verified 2026-09-05T01:28:28-0500, AFTER the run, on the Task-8 review.** The range above is §1 alone, which covers the `[^e6p-amend]` MARKER and not the footnote's body) the sentence the whole E6′ adjudication turns on, so the lock had a hole at exactly the text it exists to pin. The locked range is now §1 **plus the definition of every footnote §1 references** (here: `[^e6p-amend]`). Over that range: at `5bc71f7` 4958 bytes, sha256 `78b8e60c653f3011c728e2c7612b08f8675448a2e85ddf9dd8920735a0b0ca7e`; at `e34623c` 3808 bytes, sha256 `bd04140521ee31ccc0f158083d5af2f2990ad8c7ab8860bb38a2d077b89181dd`. The amendment is 1150 bytes wide on this range (marker AND body), where the §1-only range showed only the marker's 12. Working tree identical to `5bc71f7`'s: yes. Derived after the run, by `acceptance_rung3.byte_lock_facts` over committed text; the run's own §1-only lock is in `byte_lock` above and is unchanged. No measured number depends on either range; §1 itself is byte-unchanged.
 
 | Pin | Value |
 |---|---|
 | repo HEAD at the run | `a5322f9247fb2e0655bdac88d03fe992bedf642c` (branch `feat/rung3-err-flow`) |
 | driver | `/mnt/extra/sensorium-rung2/rust-target/release/cargo-sensorium`, mtime 2026-09-04T23:21:50-0500 |
-| driver sha256 | `797240307f819e8df2004d8721343e22f3359e825e3b153a846c3899ff102a48` — unchanged across the run: yes |
+| driver sha256 | `797240307f819e8df2004d8721343e22f3359e825e3b153a846c3899ff102a48`, unchanged across the run: yes |
 | census driver | `/mnt/extra/sensorium-rung2/rust-target/debug/census` (sha256 `1bda6e5c9a8c82d5870c8583b9510c735be8dde3deaa0f09ca7952e7afd3d06d`) |
 | toolchain | rustc 1.96.0 (ac68faa20 2026-05-25) / cargo 1.96.0 (30a34c682 2026-05-25) |
 | reader | Python 3.14.4, sensorium 0.6.0 |
@@ -55,7 +55,7 @@ Measured 2026-09-05T00:58:26-0500 → 2026-09-05T01:00:26-0500 by `rust/tests/ac
 | clone (the workspace under measurement) | `/mnt/extra/sensorium-rung2/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` |
 | E5″ arm tips | A `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`, B `e8c79be1626f5808eb48a967d02a17217e614843`, C `fea50b14ba453a179e94dc96ca71a89a90c35f26` |
 | clone porcelain before / after | empty / empty; restored to the pin: yes; `Cargo.lock` unchanged: yes |
-| target (warm at the start; **emptied by E2″** for the from-scratch build, which then left it warm for every later arm) | `/mnt/extra/sensorium-rung2/bloomery-target` — 5707718404 bytes removed |
+| target (warm at the start; **emptied by E2″** for the from-scratch build, which then left it warm for every later arm) | `/mnt/extra/sensorium-rung2/bloomery-target`, 5707718404 bytes removed |
 | corpus target (E6) | `/mnt/extra/sensorium-rung2/corpus-target` |
 | probe target (E7″) | `/mnt/extra/sensorium-rung2/probe-target` |
 | trace store (new and empty at the start) | `/mnt/extra/sensorium-rung2/sensorium-dir/rung3` |
@@ -68,7 +68,7 @@ Measured 2026-09-05T00:58:26-0500 → 2026-09-05T01:00:26-0500 by `rust/tests/ac
 
 ## 3. Results
 
-Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_acceptance.py --doc rung3` from `2026-09-04-sensorium-rung3-acceptance.results.json`. No verdict is decided here — §4 is.
+Every measurement is `{value, n, lens, dropped}`; a `null` value with a reason is the ONLY not-measured, and `0` is measured-and-zero. Rendered by `rust/tests/render_acceptance.py --doc rung3` from `2026-09-04-sensorium-rung3-acceptance.results.json`. No verdict is decided here, §4 is.
 
 | Id | Headline | n | Lens (abridged) | Dropped |
 |---|---|---|---|---|
@@ -185,7 +185,7 @@ Predicted shift: **+6** (the wrap prefix `match `). Measured locations:
 
 `mechanics.sh` exit 0, 47 checks ok; failures: none; skipped: none; driver sha256 unchanged across it: yes.
 
-### E3″ — determinism with RAISE/HANDLED in the fingerprint
+### E3″: determinism with RAISE/HANDLED in the fingerprint
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -196,18 +196,18 @@ Predicted shift: **+6** (the wrap prefix `match `). Measured locations:
 | runs that produced a trace | 20 | 20 | recorded runs that produced a trace | none |
 | runs whose binary sha256 differed from run 1's | 0 | 20 | runs whose binary sha256 differed from run 1's | none |
 
-### E5″ — `diff --ignore-moves` still verifies the split
+### E5″: `diff --ignore-moves` still verifies the split
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
 | pre-registered conditions not met | 0 | 6 | pre-registered E5 conditions not met, of 6; three arms on three trees (original / split / split + one planted … | none |
 | code objects paired across a move (A/B) | 28 | 1 | code objects paired across a move by qualname (A/B) | none |
 
-A/B verdict: **MATCH** — `verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict`  
-A/C verdict: **DIVERGED** — `verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)`  
+A/B verdict: **MATCH**. `verdict: MATCH -- no causal event ran outside a task on either side, so the thread streams held nothing to compare; the tasks below carry the whole verdict`  
+A/C verdict: **DIVERGED**, `verdict: the thread stream held no causal events on either side; DIVERGED on the tasks (below)`  
 Conditions: `{'ab_verdict_is_match': True, 'ab_moved_at_least_one': True, 'ab_zero_added': True, 'ab_zero_removed': True, 'ab_every_task_paired': True, 'ac_verdict_is_diverged': True}`; not met: `[]`.
 
-### E0″ — the reader at the new event volume
+### E0″: the reader at the new event volume
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
