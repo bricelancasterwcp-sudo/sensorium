@@ -1,4 +1,4 @@
-# S0 — Trace contract (cross-trace join + model recorder) Implementation Plan
+# S0: Trace contract (cross-trace join + model recorder) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,7 +6,7 @@
 
 **Architecture:** The contract text lives in a new `docs/trace-format/MODEL-TRACES.md` (TRACE-FORMAT.md is at 752 of its 800-line ceiling and keeps only a format-5 row, one-line pointers, and the two rules that change for every recorder). Vectors that no builder can yet write go under `docs/trace-format/vectors/pending/`, which `tests/vectors.load_all` cannot see (`VECTORS.glob("v*.json")`, non-recursive). The model recorder's honesty ledger is written before its code, as the Rust one was.
 
-**Tech Stack:** Markdown, JSON, SQLite DDL (documented, not executed), pytest only as a no-regression check (docs slice — every test that passes on `e307d90` must pass unchanged).
+**Tech Stack:** Markdown, JSON, SQLite DDL (documented, not executed), pytest only as a no-regression check (docs slice. Every test that passes on `e307d90` must pass unchanged).
 
 **Spec:** `docs/superpowers/specs/2026-09-05-sensorium-trace-join-and-model-recorder-design.md` (rulings R1–R10 in §11; §12 RULED 2026-09-05: `topk` 8, recorder off by default, `bless-noise` writes into A).
 
@@ -22,7 +22,7 @@
   Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
   Claude-Session: https://claude.ai/code/session_011t9v9n3SV72XoTe6ipqDaD
   ```
-  Commit with `git -c core.hooksPath=/dev/null commit -F -` and a quoted heredoc (backticks in `-m` get shell-substituted — a measured failure). **If you drive a shell from a heredoc yourself, use a unique terminator — a plan containing `EOF` inside its own code blocks truncated this file once.**
+  Commit with `git -c core.hooksPath=/dev/null commit -F -` and a quoted heredoc (backticks in `-m` get shell-substituted, a measured failure). **If you drive a shell from a heredoc yourself, use a unique terminator, a plan containing `EOF` inside its own code blocks truncated this file once.**
 
 ---
 
@@ -38,7 +38,7 @@
 
 ---
 
-### Task 1: `docs/trace-format/MODEL-TRACES.md` — the contract text
+### Task 1: `docs/trace-format/MODEL-TRACES.md`: the contract text
 
 **Files:**
 - Create: `docs/trace-format/MODEL-TRACES.md`
@@ -95,29 +95,29 @@ Expected: `9`, no `MISSING:` lines, count ≥ 7, `N json fences parse`.
 
 ---
 
-### Task 2: `docs/TRACE-FORMAT.md` — the amendments every recorder sees
+### Task 2: `docs/TRACE-FORMAT.md`: the amendments every recorder sees
 
 **Files:**
-- Modify: `docs/TRACE-FORMAT.md` — §1 table (~line 25–31), §3 after `### fingerprints, task_fingerprints` (~229–240), §4 `exit_status_basis` subsection (~270–289), §4 `### Optional keys, by writer` first paragraph (~400–406), §4 wording table (~467–474), §6 `ts_ns` bullet (~647), §7 last paragraph (~742–748).
+- Modify: `docs/TRACE-FORMAT.md`, §1 table (~line 25–31), §3 after `### fingerprints, task_fingerprints` (~229–240), §4 `exit_status_basis` subsection (~270–289), §4 `### Optional keys, by writer` first paragraph (~400–406), §4 wording table (~467–474), §6 `ts_ns` bullet (~647), §7 last paragraph (~742–748).
 
 **Interfaces:**
 - Consumes: MODEL-TRACES.md heading anchors from Task 1.
 - Produces: nothing programmatic; the pointers must name the T1 headings exactly.
 
-- [ ] **Step 1: §1 — add the format-5 row** immediately after the `| 4 |` row:
+- [ ] **Step 1: §1, add the format-5 row** immediately after the `| 4 |` row:
 
 ```markdown
 | 5 | **Model traces** (`lang: "model"`, recorder `sensorium-model`, S1 of the sensor-suite program): adds the `tokens` and `spans` tables, admits `fingerprint_basis: "per-generation"` and `exit_status_basis: "not-a-process-exit"`. Program recorders keep writing 4. Contract: [`trace-format/MODEL-TRACES.md`](trace-format/MODEL-TRACES.md). This sensorium (0.8.1) refuses a format-5 file by the newer-format rule below — the intended behavior until the S1 reader ships. |
 ```
 
-- [ ] **Step 2: §3 — one pointer paragraph** after the `task_fingerprints` paragraph (before `## 4. Meta`):
+- [ ] **Step 2: §3, one pointer paragraph** after the `task_fingerprints` paragraph (before `## 4. Meta`):
 
 ```markdown
 **Format 5 adds two tables**, `tokens` and `spans`, and reuses `tasks`/`task_fingerprints` for
 generations; their DDL and NULL rules are in [MODEL-TRACES §3](trace-format/MODEL-TRACES.md#3-tables).
 ```
 
-- [ ] **Step 3: §4 — the third exit basis.** After the sentence ending `nobody waited, so nothing about the ending is known.` add:
+- [ ] **Step 3: §4, the third exit basis.** After the sentence ending `nobody waited, so nothing about the ending is known.` add:
 
 ```markdown
 A third basis exists from format 5: `exit_status_basis: "not-a-process-exit"` with
@@ -126,7 +126,7 @@ because a process ended (a model trace, MODEL-TRACES §2). The readers print `ex
 trace)`; rendering that null as a status, or as `0`, is the same failure this key already stops.
 ```
 
-- [ ] **Step 4: §4 — `join` joins the shared optional set.** In `### Optional keys, by writer`, replace `These six are the shared optional set; they are not Python-only.` with:
+- [ ] **Step 4: §4, `join` joins the shared optional set.** In `### Optional keys, by writer`, replace `These six are the shared optional set; they are not Python-only.` with:
 
 ```markdown
 These six, plus `join` — the cross-trace group and anchor object defined in
@@ -135,7 +135,7 @@ launched or written by a daemon session, copied verbatim from `SENSORIUM_JOIN` w
 holds a JSON object and omitted otherwise — are the shared optional set; they are not Python-only.
 ```
 
-- [ ] **Step 5: §4 — the vocabulary table gains the model column.** Replace the six-row `| Term | Python | Rust |` table with:
+- [ ] **Step 5: §4, the vocabulary table gains the model column.** Replace the six-row `| Term | Python | Rust |` table with:
 
 ```markdown
 | Term | Python | Rust | model (format 5) |
@@ -149,7 +149,7 @@ holds a JSON object and omitted otherwise — are the shared optional set; they 
 ```
 and append one sentence after the table: "The model column is contract only until S1 lands it in `query/vocab.py`; `terms()` today falls back to the Python column for any third `lang`, which is the known limit the module's docstring states."
 
-- [ ] **Step 6: §6 — the one cross-file exception for `ts_ns`.** After the bullet beginning `**`ts_ns` is monotonic**` add a bullet:
+- [ ] **Step 6: §6, the one cross-file exception for `ts_ns`.** After the bullet beginning `**`ts_ns` is monotonic**` add a bullet:
 
 ```markdown
 - **`ts_ns` is comparable across two trace files in exactly one case:** both carry `join.anchor`
@@ -159,7 +159,7 @@ and append one sentence after the table: "The model column is contract only unti
   (MODEL-TRACES §7).
 ```
 
-- [ ] **Step 7: §7 — the per-generation basis.** Append to the final paragraph of §7:
+- [ ] **Step 7: §7, the per-generation basis.** Append to the final paragraph of §7:
 
 ```markdown
 Format 5 adds a third basis, `"per-generation"`: one row per generation, the digest over sampled
@@ -296,7 +296,7 @@ python3 -m pytest -q tests/test_vectors.py 2>&1 | tail -1
 
 ---
 
-### Task 4: `model/HONESTY.md` — the ledger before the recorder
+### Task 4: `model/HONESTY.md`: the ledger before the recorder
 
 **Files:**
 - Create: `model/HONESTY.md`
@@ -304,7 +304,7 @@ python3 -m pytest -q tests/test_vectors.py 2>&1 | tail -1
 
 **Interfaces:**
 - Consumes: the ten promises of spec §8; vector ids from Task 3; endpoint names E-noise, E-noise′, E-adapter, E-mem, E-overhead.
-- Produces: the falsifier names S1's plan must implement — **exact test/vector names below are obligations**; S1's plan references them verbatim.
+- Produces: the falsifier names S1's plan must implement, **exact test/vector names below are obligations**; S1's plan references them verbatim.
 
 - [ ] **Step 1: Write the header:**
 
@@ -329,7 +329,7 @@ the design spec §10, or a test by path that S1 must write. A promise with no fa
 promise; this document carries none.
 ```
 
-- [ ] **Step 2: Write the ten sections**, `## 1` … `## 10`, one per spec-§8 promise, each with exactly three labelled paragraphs — **Promise**, **What says it**, **Falsifier** — from this table:
+- [ ] **Step 2: Write the ten sections**, `## 1` … `## 10`, one per spec-§8 promise, each with exactly three labelled paragraphs (**Promise**, **What says it**, **Falsifier**) from this table:
 
 | § | Promise (spec §8) | What says it | Falsifier |
 |---|---|---|---|
@@ -362,7 +362,7 @@ grep -o 'm0[0-9][a-z0-9-]*\|p01[a-z0-9-]*' model/HONESTY.md | sort -u | while re
 ### Task 5: CARRIED-DEBT, push, draft PR
 
 **Files:**
-- Modify: `docs/CARRIED-DEBT.md` — insert a new dated section **above** `## 2026-09-05 — rung 3, Err flow` (newest first).
+- Modify: `docs/CARRIED-DEBT.md`, insert a new dated section **above** `## 2026-09-05 — rung 3, Err flow` (newest first).
 
 - [ ] **Step 1: Insert the section**
 
@@ -410,7 +410,7 @@ python3 -m pytest -q tests/test_vectors.py 2>&1 | tail -1
 ```
 Commit by path (`docs/CARRIED-DEBT.md`; message: `docs(s0): CARRIED-DEBT — what the trace-contract slice settled and what S1/S3 owe` + trailer).
 
-- [ ] **Step 3: Push the branch and open a DRAFT PR (not to be merged — Brice's ruling)**
+- [ ] **Step 3: Push the branch and open a DRAFT PR (not to be merged: Brice's ruling)**
 
 ```bash
 git push -u origin feat/s0-trace-join
@@ -423,7 +423,7 @@ git fetch origin && git status -sb | head -1                # no ahead/behind
 ## PR body
 S0 of the sensor-suite program (docs + pending vectors only; no code, no version moves).
 
-**Do not merge yet** — Brice ruled 2026-09-05 that this program's sensorium work stays off `main` while another session works the Rust recorder there. Merge is Brice's.
+**Do not merge yet**: Brice ruled 2026-09-05 that this program's sensorium work stays off `main` while another session works the Rust recorder there. Merge is Brice's.
 
 - Spec: `docs/superpowers/specs/2026-09-05-sensorium-trace-join-and-model-recorder-design.md` (R1–R10; §12 ruled)
 - Contract: `docs/trace-format/MODEL-TRACES.md`; TRACE-FORMAT amendments (format-5 row, `join`, `not-a-process-exit`, ts_ns clock-anchor rule, per-generation basis)
@@ -431,7 +431,7 @@ S0 of the sensor-suite program (docs + pending vectors only; no code, no version
 - `model/HONESTY.md` written before the recorder
 - CARRIED-DEBT entry
 
-`pytest tests/test_vectors.py`: unchanged count (19) — `pending/` is invisible to the loader.
+`pytest tests/test_vectors.py`: unchanged count (19), `pending/` is invisible to the loader.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -442,6 +442,6 @@ https://claude.ai/code/session_011t9v9n3SV72XoTe6ipqDaD
 
 ## Self-review (done at authoring)
 
-- **Spec coverage:** §2→T1§1+T2 step 5; §3.1→T2 step 1; §3.2–3.5→T1§2–5; §4→T1§6+T2 step 7; §5→T1§7+T2 steps 4/6; §5.4→T1§8+p01; §6→T1§9+m02; §8→T4; §9→T3; §10→T4 falsifiers reference E-*; §11/§12→T5 CARRIED-DEBT. Spec §7 (bloomery seam) is S1's — deliberately no task.
+- **Spec coverage:** §2→T1§1+T2 step 5; §3.1→T2 step 1; §3.2–3.5→T1§2–5; §4→T1§6+T2 step 7; §5→T1§7+T2 steps 4/6; §5.4→T1§8+p01; §6→T1§9+m02; §8→T4; §9→T3; §10→T4 falsifiers reference E-*; §11/§12→T5 CARRIED-DEBT. Spec §7 (bloomery seam) is S1's, deliberately no task.
 - **Placeholders:** none; every falsifier and vector is named.
-- **Consistency:** exit codes — mixed subjects 2 (T2 step 7, m02), REFUSED recording 3 (m05c), DIVERGED 1 (m04, m05a), MATCH 0 (m10, m05b) — match spec §4.2/§6. Heading anchors used by T2 match T1's *Produces* list. m05 is three files (a/b/c) because one vector cannot vary `meta` per question; T3 step 5's count (14) and T4's falsifiers (`m05b`, `m05c`) agree.
+- **Consistency:** exit codes (mixed subjects 2 (T2 step 7, m02), REFUSED recording 3 (m05c), DIVERGED 1 (m04, m05a), MATCH 0 (m10, m05b)) match spec §4.2/§6. Heading anchors used by T2 match T1's *Produces* list. m05 is three files (a/b/c) because one vector cannot vary `meta` per question; T3 step 5's count (14) and T4's falsifiers (`m05b`, `m05c`) agree.

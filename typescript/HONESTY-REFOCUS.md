@@ -1,15 +1,15 @@
-# The TypeScript recorder's honesty ledger — §12: refocus
+# The TypeScript recorder's honesty ledger: §12: refocus
 
 Section 12 of [`typescript/HONESTY.md`](HONESTY.md), **written here 2026-09-13
 (S5's refocus slice) because that file stands five lines from its 800-line
 ceiling and has no room for it**. The precedent is
 [`../rust/HONESTY-REFOCUS.md`](../rust/HONESTY-REFOCUS.md), split from
 `rust/HONESTY.md` 2026-09-08 for the same reason, and this ledger's own two
-splits before it — [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md)
+splits before it, [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md)
 (§10, 2026-09-10) and [`HONESTY-COST.md`](HONESTY-COST.md) (§9, 2026-09-11).
 Rust's §13 was MOVED and its wording preserved; this one was never in
 `HONESTY.md` at all, so nothing here has been re-worded and `§12` names this
-section from the day it was written — including from the ledger's index,
+section from the day it was written, including from the ledger's index,
 which cites `§n` as an identifier.
 
 ## 12. Refocus: the recorded invocation, run again one flag deeper
@@ -29,8 +29,8 @@ its own trace, and a harness cannot be asked for one container without
 changing what it does. So `refocus` re-runs `harness_command` verbatim, from
 the `harness_cwd` the original recorded, under the original's store, with
 `--refocus-of <run>` first and unconditional, then the ORIGINAL's recorded
-tier, then the original's `meta.focus` followed by the values this call added
-— a refocus only ever captures MORE, never differently. It runs
+tier, then the original's `meta.focus` followed by the values this call added,
+a refocus only ever captures MORE, never differently. It runs
 `sys.executable -m sensorium`, never a `sensorium` on `PATH`: a name on the
 path could resolve to another version, and a pair compared across two
 recorders is the one thing the verdict may not rest on. **Seven questions are
@@ -44,7 +44,7 @@ has side effects of its own, so nothing about it is attempted speculatively.
 **The pair is found in the store, never parsed out of what the driver
 printed** (ruling R3). The driver stamps `refocus_of` into every trace of the
 new invocation; Python then asks the store which traces carry that link and
-started at or after the launch — a trace whose `start_ts` is unreadable is
+started at or after the launch. A trace whose `start_ts` is unreadable is
 EXCLUDED rather than assumed recent, because it cannot be shown to be this
 re-run's. The driver's `run:` lines print to the terminal and decide nothing:
 a load-bearing link that lived only in this process's memory would break
@@ -53,8 +53,8 @@ silently the day a print changed.
 **Linked is not PAIRED, and that is this recorder's own problem** (ruling R4).
 A suite of 372 test files re-runs as 372 linked traces, of which the reader
 asked about one. The key that picks it is the container's `test_file` where it
-ran one, its whole `argv` where it ran none — a `node --test` process, a
-script — and a key of its own, matching nothing, for a reused worker, so a
+ran one, its whole `argv` where it ran none (a `node --test` process, a
+script) and a key of its own, matching nothing, for a reused worker, so a
 container that ran several files cannot pair with an argv-keyed original
 through the back door of the re-run. Exactly one candidate is the pair. Zero
 is `verdict: REFUSED` after the rerun at exit 3, naming how many WERE linked
@@ -64,14 +64,14 @@ because two containers of one invocation claiming one test file is a fact
 about the harness this tool will not guess through. **The rest are SIBLINGS**:
 re-executed, never compared, counted on the pair line
 (`siblings in the re-run: 371 (not compared; UNVERIFIED)`), stamped as
-`refocus_siblings` — the COUNT, not the ids, because the invocation id already
-names them — and listed by `runs` as `verdict:UNVERIFIED`, which is exactly
+`refocus_siblings` (the COUNT, not the ids, because the invocation id already
+names them) and listed by `runs` as `verdict:UNVERIFIED`, which is exactly
 what they have. Blind spot 40 is that bound stated on its own.
 
 **The verdict is about call shape and nothing else.** `diff_cmd.compare` is
-unchanged, in all three languages: a TypeScript pair compares per task — the
+unchanged, in all three languages: a TypeScript pair compares per task (the
 main stream is what ran in no test, and every test is a task named by its own
-title — as an order-independent multiset over CALL, RETURN, RAISE and
+title) as an order-independent multiset over CALL, RETURN, RAISE and
 HANDLED. **A LINE row never enters the hash**, which is what lets the deeper
 re-run MATCH the run it came from at all. MATCH, DIVERGED and REFUSED keep the
 meanings and the exits (0 / 1 / 3) the README's `refocus` section gives them,
@@ -82,18 +82,18 @@ come to disagree about what MATCH means.
 frames** (ruling P3 amending R4, at `4a9b0a7`). A container that ran two test
 files cannot be paired at all: which container of a re-run would be its pair
 is the harness's scheduling, not a fact. The count is read TWICE and the
-larger decides — the converter's `test_files` where it declared any, and
+larger decides, the converter's `test_files` where it declared any, and
 always the trace's own task ROOT frames, depth-0 frames whose call ran inside
 a task, counted by the distinct code-object files whose basename carries
 `.test.` or `.spec.` (vitest's own default `include` infixes). Both readings,
 because under `--no-isolate` the converter records `test_file` singular and
-never the plural key — the driver-written setup file's top-level `fileStart`
-runs once under a shared module cache — so a reading that trusted the meta key
+never the plural key (the driver-written setup file's top-level `fileStart`
+runs once under a shared module cache) so a reading that trusted the meta key
 alone would miss the very shape this refusal exists for, and a converter that
 under-reports must not be able to mask what the frames plainly show. **The
 bound is blind spot 42**, and it claims LESS rather than more: a second file
 whose callbacks all root in a shared helper is invisible to the frame reading,
-so that container is not refused — it pairs by its first file, and the
+so that container is not refused. It pairs by its first file, and the
 comparator then reads DIVERGED at a named step or a MATCH of the container's
 shape, never a guess.
 
@@ -107,23 +107,23 @@ observed. `output`, `children` and **`threads`** are printed and stamped
 `unverifiable` rather than compared, because `capabilities.output`,
 `capabilities.children` and `capabilities.threads` are all `false` on a
 TypeScript trace and comparing them would compare empty sets and report
-agreement — the named bug class. **An unverifiable check is never counted as a
+agreement. The named bug class. **An unverifiable check is never counted as a
 verified one**; the two counts are two numbers and are never summed. `threads`
 is the new one: until this slice the thread block's declared-false witness gap
 was appended as a CAVEAT, which withheld every TypeScript licence for a check
-that could not run — a clause that cannot not fire is not a finding.
+that could not run. A clause that cannot not fire is not a finding.
 
 **The environment's exemptions are named on the line, never hidden behind a
 count** (ruling P12). Every key starting `SENSORIUM_` is the RECORDER's own
 bookkeeping and is taken out of the compare, and that is not optional here:
 `SENSORIUM_INVOCATION` is minted per invocation, and `SENSORIUM_SPOOL` and
 `SENSORIUM_MANIFEST_DIR` both derive from a fresh spool directory, so three of
-the seven differ on EVERY refocus by construction — and `SENSORIUM_FOCUS`
+the seven differ on EVERY refocus by construction, and `SENSORIUM_FOCUS`
 differs whenever the call deepens the focus, which is what a refocus is for
 (`refocus_cmd._merged_focus` appends only what is not already there, so a call
 that merely repeats the original's own `--focus` leaves it identical).
-**Harness set 1** — `VITEST_POOL_ID` and `VITEST_WORKER_ID`, the pool's own
-slot bookkeeping, exact membership and not a prefix — is counted, named and
+**Harness set 1** (`VITEST_POOL_ID` and `VITEST_WORKER_ID`, the pool's own
+slot bookkeeping, exact membership and not a prefix) is counted, named and
 never withholds, in session set 1's words and versioned in the same way, so a
 key found to bear on what a program computes can leave the set with a date. The
 line a granted TypeScript pair prints, whole:
@@ -139,7 +139,7 @@ really did read its worker slot would not be caught by this licence.
 
 **The exit clause reads the ending somebody WAITED for** (ruling R9). A vitest
 worker is killed by its pool, so the container's own `exit_status` is `null`
-with basis `unwitnessed` on every trace this recorder writes — the shared
+with basis `unwitnessed` on every trace this recorder writes, the shared
 licence clause over `exit_status` therefore compares null with null, reads
 equal, and is SILENT, and silence in a licence check reads as agreement. The
 branch compares the two endings that were really observed instead:
@@ -148,7 +148,7 @@ and `exit_self_reported`, the container's own word on the way out. They answer
 different questions, so both are compared: a pair whose harnesses agree and
 whose containers do not ran the same suite to the same total and killed one
 worker differently. An ABSENT record is a caveat naming its side and never a
-fact — "not recorded" is not "ended the same way" — and where both agree the
+fact ("not recorded" is not "ended the same way") and where both agree the
 licence carries ONE fact, `harness exit equal (0, waited); container endings
 equal`, because a reader told the answer twice has to work out whether it is
 the same answer.
@@ -171,20 +171,20 @@ it printed in.
 §1 pre-registered before the instrument existed, over 31 members of one real
 invocation of somebody else's suite): **H1**, that every original refocuses
 without a pre-rerun refusal; **H2**, that every re-run completes with the
-harness exit the original had; **H3**, the pairing — exactly one candidate by
+harness exit the original had; **H3**, the pairing, exactly one candidate by
 `test_file` and a linked count equal to the invocation's member count, a
 REFUSED from the lookup being a STOP; **H4**, MATCH on the expected list;
 **H5**, what the licence says, with the recorder's set named on every line,
 harness set 1 counted where it differs, the three checks UNVERIFIABLE and **0**
 licence lines claiming an unverifiable check as verified; **H6**, that the loop
-closes — a `watch` read on the refocused trace answering the question the
+closes. A `watch` read on the refocused trace answering the question the
 original could not; **H7**, a planted edit read as `source: CHANGED` with the
 licence WITHHELD; **H8**, a refusal (`--window`) leaving the store's trace
 count unchanged; **H9**, the cost, reported and gating nothing; **H10**, that
 nothing else moved. **Measured once, 2026-09-13** (record §3–§5): **H1 PASS
 0 of 31 · H2 PASS 31 of 31 · H3 PASS 31 of 31 · H4 PASS 24 of 24 · H5 PASS 8
 of 8 · H6 STOP 3 of 4 · H7 STOP 0 of 1 · H7′ PASS 1 of 1 · H8 STOP 0 of 1 ·
-H8′ PASS 1 of 1 · H9 reported over 31 rows · H10 PASS 11 of 11** — the
+H8′ PASS 1 of 1 · H9 reported over 31 rows · H10 PASS 11 of 11**. The
 slice's word `DONE-WITH-STOP`. None of the three STOPs is about `refocus`:
 H7 and H8 stop on clauses the record itself wrote wrong, whose corrected
 forms **H7′** and **H8′** were pre-registered beside them before any endpoint
@@ -192,8 +192,7 @@ ran and both hold; H6 stops on the survey's premise about which functions
 bear captures at tier `call`. The counts **31** and **0** in H1 and H5 above
 are §1's pre-registration, and the run met them. Also by
 `corpus/typescript/refocus_match` (MATCH at exit 0, the licence GRANTED, the
-sibling count, the three unverifiable check lines and — of the four blind spots
-— the whole-invocation one, through the real driver; all four, in order, and
+sibling count, the three unverifiable check lines and (of the four blind spots) the whole-invocation one, through the real driver; all four, in order, and
 the retired `arguments are not read` line's absence, are pinned over a
 transcript by `tests/test_refocus_typescript_licence.py`
 (`test_the_four_blind_spots_are_printed_in_order_and_the_retired_one_is_gone`)),
@@ -203,13 +202,13 @@ refusal, and a `runs` listing proving the store was left alone); and by
 `tests/test_refocus_typescript.py`, `tests/test_refocus_typescript_licence.py`
 and `tests/test_refocus_world_threads.py` on fixture traces. **A MATCH on a
 pair whose per-task fingerprints differ** would falsify it, and so would **a
-verdict issued against a trace the store cannot show carries `refocus_of`** —
-the failure ruling R3 exists to prevent.
+verdict issued against a trace the store cannot show carries `refocus_of`**.
+The failure ruling R3 exists to prevent.
 
 *What a MATCH on such a pair does NOT license.* It says nothing about the
 **siblings**: they were re-executed and compared to nothing, and `UNVERIFIED`
 is the whole of what is claimed for them (blind spot 40). It says nothing
-about the **values** the two runs computed — the fingerprint is call shape,
+about the **values** the two runs computed. The fingerprint is call shape,
 and two runs can take the identical path over different data. It says nothing
 about the **second file of a reused worker**, because a reused worker is
 refused outright, and nothing about the second file of a container whose extra

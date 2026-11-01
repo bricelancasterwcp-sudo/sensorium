@@ -17,7 +17,7 @@ python corpus/run_corpus.py --only rust/panic  # one case
 `CARGO_TARGET_DIR` is inherited when set; one warm target directory across
 the cases is the difference between seconds and minutes. With no driver on
 `PATH` and no `SENSORIUM_CARGO_SENSORIUM`, every case here is reported
-`skip … no cargo-sensorium` and counted in its own column of the summary —
+`skip … no cargo-sensorium` and counted in its own column of the summary,
 never as a pass.
 
 ## What each case pins
@@ -25,9 +25,9 @@ never as a pass.
 | Case | Planted truth | Commands |
 |---|---|---|
 | `double_call` | one order charged twice from one `submit` activation | `grep`, `frame` |
-| `near_miss` | the overrun guard's high-water mark is 99 against a threshold of 100, so `alert` never ran — and the recording is complete enough for that absence to mean something | `tree`, `info` |
+| `near_miss` | the overrun guard's high-water mark is 99 against a threshold of 100, so `alert` never ran, and the recording is complete enough for that absence to mean something | `tree`, `info` |
 | `nondeterministic` | a branch decided by a file outside the process: the second recording is a DIFFERENT execution (DIVERGED), and nothing in the store claims the two runs are related | `diff`, `runs` |
-| `none_propagation` | a `None` born in `lookup`, passed through `display_name`, unwrapped two frames later — crash site ≠ fault site | `grep`, `frame` |
+| `none_propagation` | a `None` born in `lookup`, passed through `display_name`, unwrapped two frames later, crash site ≠ fault site | `grep`, `frame` |
 | `pass_vs_fail` | 1000 and 1001 points part at the first causal step, and the two command lines are named | `diff` |
 | `unit_mismatch` | grams priced as kilograms: `item_weight -> 1800.0` and the next call returns `4504.0` | `grep`, `frame` |
 | `wrong_branch` | the exactly-1000 order silently takes silver | `tree`, `frame` |
@@ -37,7 +37,7 @@ never as a pass.
 | `spawned_thread` | a worker spawned inside a test is a task named `<test> :: spawn@<enclosing qualname>#<k>`, comparable by that name | `tree`, `info`, `diff --task` |
 | `spawn_across_move` | the spawning function moves to another file between two runs of one crate and the worker keeps its name: `diff --ignore-moves` MATCHes across the move, a plain `diff` DIVERGED on the file the CALL is keyed to | `tree`, `diff --ignore-moves`, `diff` |
 | `aliasing` | an identity question this recorder cannot answer: `flow --object` REFUSES through `object_identity: false` (exit 3), and the values it does hold do not settle it | `flow --object`, `tree` |
-| `stale_cache` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 3) — while the same fault is still reachable through return values | `watch`, `grep` |
+| `stale_cache` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 3), while the same fault is still reachable through return values | `watch`, `grep` |
 
 ## The rung-3 cases: Err flow
 
@@ -127,15 +127,15 @@ a one-file crate is seconds, and the re-run's cost is a blind spot the verdict
 prints about itself.
 
 The re-run's trace is a NEW run whose id no `questions.yaml` can spell, so the
-questions after a refocus address it as `last` — the store's newest trace,
-which the refocus just wrote — and read the PAIR through `runs`, where
+questions after a refocus address it as `last` (the store's newest trace,
+which the refocus just wrote) and read the PAIR through `runs`, where
 `refocus-of:<original>` and the verdict ride together. **`last` is
 mtime-ordered, not clock-ordered**, so it is unambiguous here only because a
 case runs in a store of its own that holds exactly two traces, the second
 written by the refocus under test; a case that refocused twice would need
 `runs` to name which trace it means, and none of the five does.
-`refocus_child_run` is the one whose store does NOT hold two traces — its
-program records two processes and is recorded twice, so four — and it
+`refocus_child_run` is the one whose store does NOT hold two traces (its
+program records two processes and is recorded twice, so four) and it
 therefore never says `last` at all: it names the original by `$RUN`, the
 child of the original by `$RUN2`, and reads the pair and the excluded child
 run through `runs`. `refocus_spawned_test_fn` says `last` no more than that
@@ -148,25 +148,25 @@ refocuses once and reads the re-run's trace never.
 
 | Case | Planted truth | Commands |
 |---|---|---|
-| `refocus_match` | the loop closed: a run with no LINE row at all is re-run one flag deeper, MATCHes, and answers `b == 2` at the statement that wrote it — with the licence granted over exactly four points and `output`/`children` reported as checks that could NOT run rather than as two empty sets agreeing | `refocus`, `runs`, `info`, `watch` |
+| `refocus_match` | the loop closed: a run with no LINE row at all is re-run one flag deeper, MATCHes, and answers `b == 2` at the statement that wrote it, with the licence granted over exactly four points and `output`/`children` reported as checks that could NOT run rather than as two empty sets agreeing | `refocus`, `runs`, `info`, `watch` |
 | `refocus_diverged` | a program that branches on a marker file its own first run wrote: the re-run cannot take the first run's path, so the verdict is DIVERGED at causal step 1 with `first_path` against `other`, exit 1, and the listing carries the divergence beside the link | `refocus`, `runs` |
-| `refocus_refused_many` | `cargo test` on a crate with two integration tests is two processes, and refocus refuses BEFORE building anything — exit 2, the single-target sentence, and a store with no third trace in it | `refocus`, `runs` |
-| `refocus_child_run` | a program that spawns itself: the re-run leaves TWO traces carrying `refocus_of`, and the one whose `ppid` is the other's `pid` is a child RUN rather than a second candidate — MATCH about the parent, the excluded child named on the pair line, and both re-run traces still listed, the unpaired one as `verdict:UNVERIFIED` | `info`, `refocus`, `runs` |
-| `refocus_spawned_test_fn` | a test that spawns a thread onto another `#[test]` fn: the marked ROOT frame is not proof the recorder started that thread, so it counts as the program's (`1 besides the main one and 2 harness threads`) and the licence is WITHHELD — the rule that read the mark on any root subtracted all three, said `no thread started besides the main one`, and GRANTED | `info`, `refocus` |
+| `refocus_refused_many` | `cargo test` on a crate with two integration tests is two processes, and refocus refuses BEFORE building anything, exit 2, the single-target sentence, and a store with no third trace in it | `refocus`, `runs` |
+| `refocus_child_run` | a program that spawns itself: the re-run leaves TWO traces carrying `refocus_of`, and the one whose `ppid` is the other's `pid` is a child RUN rather than a second candidate: MATCH about the parent, the excluded child named on the pair line, and both re-run traces still listed, the unpaired one as `verdict:UNVERIFIED` | `info`, `refocus`, `runs` |
+| `refocus_spawned_test_fn` | a test that spawns a thread onto another `#[test]` fn: the marked ROOT frame is not proof the recorder started that thread, so it counts as the program's (`1 besides the main one and 2 harness threads`) and the licence is WITHHELD. The rule that read the mark on any root subtracted all three, said `no thread started besides the main one`, and GRANTED | `info`, `refocus` |
 
 ## The redaction case
 
 Added by the secrets-redaction slice, this recorder's twin of the Python and
 TypeScript `secret_in_env` cases: under a focus, `token`'s own parameter
 delta, `api_key`'s delta and `auth_headers`'s delta are three names rule v1
-fires on, and `secret`'s RETURN is a fourth — `info` counts
-`values redacted: 4`. Not a seeded bug — the planted truth is that the
+fires on, and `secret`'s RETURN is a fourth, `info` counts
+`values redacted: 4`. Not a seeded bug. The planted truth is that the
 token never reaches the trace at all. Its fourth question is the one place
 this case's Rust nature shows through: `flow --object` refuses on every
 Rust trace regardless of redaction (`capabilities.object_identity: false`,
 the same refusal `rust/aliasing` and `rust/stale_cache` hit), so it does not
 by itself demonstrate the redaction-specific refusal `frame` and `watch`
-do — only that the recording is not silently different underneath it.
+do, only that the recording is not silently different underneath it.
 
 | Case | Planted truth | Commands |
 |---|---|---|
@@ -175,7 +175,7 @@ do — only that the recording is not silently different underneath it.
 ## Two things a case here must know
 
 **Arguments are not recorded.** At tier `call` the recorder captures return
-values and outcomes, never locals or arguments — `tree` prints
+values and outcomes, never locals or arguments, `tree` prints
 `price() <unread: locals> -> 95.0`. So a port of a Python case that
 identified an activation by its arguments identifies it here by its position
 (`frame --nth 2`) or by what it returned. The planted bug is the same class

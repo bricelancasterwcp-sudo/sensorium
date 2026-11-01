@@ -11,7 +11,7 @@ string as an argument, a local, a return value, a header dict value and
 (Python) a `print`. The value is `sk-e16-` followed by 33 random characters
 (40 in all), minted by the instrument and never committed: the prefix puts
 it inside the content rule's `sk-` pattern, so the cases that carry no
-firing name — the header dict in Rust's `Debug` text, Python's `print` —
+firing name (the header dict in Rust's `Debug` text, Python's `print`)
 are reached by content, and a token that only the name rule could see
 would measure the name rule twice and the content rule never. The instrument is `tests/acceptance/e16.sh`, dry-run
 first on a 4-character decoy to check every artifact path it reads exists.
@@ -24,7 +24,7 @@ Both readings are committed here.
 | H3 | `refocus` on the Python and Rust probes, token unchanged: licence held, env line names the redacted variable among the compared. Then the token changed between the recording and the re-run (the instrument re-exports it): licence WITHHELD naming `SENSORIUM_E16_TOKEN` as a difference. | both | either the wrong way |
 | H4 | `sensorium redact --all --dry-run` on a **copy** of this box's `~/.sensorium/traces` (273 traces) reports every trace holding `CLAUDE_CODE_MESSAGING_TOKEN` plaintext; `sensorium redact --all` on the copy leaves `grep -c <that token's value>` at 0 across every file, every trace still opens (`info` exit 0), and the count line matches the dry run. | all | any residue, any trace that no longer opens, or dry-run ≠ real |
 | H5 | Overhead: `corpus/_bench` before PR A and after PR C, same box, n=5 each, the existing harness. Reported as the two medians and the ratio. **Never gated** (rust/HONESTY.md §10: cost is reported, never gated). | n/a | n/a — an outlier ratio is a finding for CARRIED-DEBT, not a stop |
-| H6 | The census (§8) on the three probes' traces equals the planted count (env 1, values: Python 5, TypeScript 4, Rust 4 — the Rust probe has no output row and the TypeScript probe no print row) exactly. | exact | any other number: an over- or under-firing rule |
+| H6 | The census (§8) on the three probes' traces equals the planted count (env 1, values: Python 5, TypeScript 4, Rust 4. The Rust probe has no output row and the TypeScript probe no print row) exactly. | exact | any other number: an over- or under-firing rule |
 
 Record: `docs/superpowers/acceptance/<date measured>-sensorium-e16-redaction.md`,
 with the per-file grep table, the mode table, the two refocus transcripts,
@@ -36,7 +36,7 @@ the dry-run/real pair, the bench numbers and their lens.
 - **The token** is `sk-e16-` + 33 characters from `[A-Za-z0-9]`, minted by `e16a.sh` into `$E16_DIR/token` at 0600, exported as `SENSORIUM_E16_TOKEN`, never printed by the instrument and never committed; the record cites its sha256 prefix only.
 - **Locations** are the record's §2 pin table only: `E16_DIR=/mnt/extra/sensorium-rung2/e16`, store `$E16_DIR/store-a`, spools under it, transcripts `$E16_DIR/a-transcripts/`.
 - **Versions expected:** `driver_version`/`recorder` read `sensorium 0.15.0`, `sensorium-rt 0.6.0`, `cargo-sensorium 0.7.0`, `sensorium-ts 0.5.0`; §2 records what they were.
-- **H3's pair:** Python — `refocus <run> --focus main` on the aliasing recording; Rust — `refocus <run> --focus compute` (the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name). First with the token unchanged (predict: licence held, `SENSORIUM_E16_TOKEN` counted among compared), then re-exported to a fresh value (predict: WITHHELD, the name in the changed list). TypeScript's refocus is exercised by v43 and `tests/test_refocus_redaction.py`, not live, because the TS pair's env clause runs the same code path — stated as a reading, not a gate.
+- **H3's pair:** Python, `refocus <run> --focus main` on the aliasing recording; Rust. `refocus <run> --focus compute` (the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name). First with the token unchanged (predict: licence held, `SENSORIUM_E16_TOKEN` counted among compared), then re-exported to a fresh value (predict: WITHHELD, the name in the changed list). TypeScript's refocus is exercised by v43 and `tests/test_refocus_redaction.py`, not live, because the TS pair's env clause runs the same code path, stated as a reading, not a gate.
 - **Kill rules:** each recording 600 s, each refocus 900 s, the part 45 min; a kill is an infrastructure event, rerun from zero with a fresh token.
 
 ### 2026-09-14 — Part B's pre-registration (amendment, beside the locked text above)
@@ -53,9 +53,9 @@ the dry-run/real pair, the bench numbers and their lens.
 
 ### 2026-09-15 — Part C's pre-registration (amendment, beside the locked text above)
 
-- **Part C's cell is H4 in full**, on a COPY of this box's `~/.sensorium/traces` — the store §9 names, 273 traces when §9 was written; the copy's own count is recorded in §4 and H4 is read over every trace the copy holds. H1, H2, H3 and H6 were parts A's and B's (measured, DONE); H5 was part B's. Each is written into the results file as `dropped` with the part that owns it. §9's H4 row stands: PASS iff `redact --all --dry-run` on the copy reports every trace holding `CLAUDE_CODE_MESSAGING_TOKEN` plaintext, `redact --all` on the copy leaves `grep -c` of that token's value at 0 across every file, every trace still opens (`info` exit 0), and the count line matches the dry run; STOP on any residue, any trace that no longer opens, or dry-run ≠ real.
+- **Part C's cell is H4 in full**, on a COPY of this box's `~/.sensorium/traces`. The store §9 names, 273 traces when §9 was written; the copy's own count is recorded in §4 and H4 is read over every trace the copy holds. H1, H2, H3 and H6 were parts A's and B's (measured, DONE); H5 was part B's. Each is written into the results file as `dropped` with the part that owns it. §9's H4 row stands: PASS iff `redact --all --dry-run` on the copy reports every trace holding `CLAUDE_CODE_MESSAGING_TOKEN` plaintext, `redact --all` on the copy leaves `grep -c` of that token's value at 0 across every file, every trace still opens (`info` exit 0), and the count line matches the dry run; STOP on any residue, any trace that no longer opens, or dry-run ≠ real.
 - **The token is not minted.** It is the value of `CLAUDE_CODE_MESSAGING_TOKEN` in the copy's own traces, read by the instrument from the first trace's `meta.env` through a read-only connection, held in memory, never printed and never written by the instrument anywhere but its own `grep` argument; the record cites its `sha256` first 8 hex. The rehearsal (`E16_DRY=1`) runs the same phases on a fabricated store of three synthetic traces carrying `dry-` + 4 characters in the same variable, one `str` RETURN, one output row and one `children` element, and never touches the live store's copy.
-- **H4's reading, clause by clause:** (1) the dry run's stdout parsed line by line — `run <id>: env <n> redacted (<names>); values <n>; mode <a> -> <b>` — and the set of `<id>` whose `<names>` contains `CLAUDE_CODE_MESSAGING_TOKEN` must equal the set of `*.db` stems in the copy; (2) `grep -rc --binary-files=text -F <value>` over `store-c/` after the real run, per file, every count 0 (a `-wal`/`-shm` that no longer exists is 0 by absence; `redaction.key` and `invocations.jsonl` are in the sweep); (3) `sensorium info <id>` for every stem, exit 0 and the `redaction:` line containing `by retrofit`; (4) the two captured stdouts compared as bytes. The count-before phase is a PRECONDITION: every `*.db` in the copy must hold the value at least once before the run, else the copy is not the store §9 describes and the run refuses.
+- **H4's reading, clause by clause:** (1) the dry run's stdout parsed line by line, `run <id>: env <n> redacted (<names>); values <n>; mode <a> -> <b>`, and the set of `<id>` whose `<names>` contains `CLAUDE_CODE_MESSAGING_TOKEN` must equal the set of `*.db` stems in the copy; (2) `grep -rc --binary-files=text -F <value>` over `store-c/` after the real run, per file, every count 0 (a `-wal`/`-shm` that no longer exists is 0 by absence; `redaction.key` and `invocations.jsonl` are in the sweep); (3) `sensorium info <id>` for every stem, exit 0 and the `redaction:` line containing `by retrofit`; (4) the two captured stdouts compared as bytes. The count-before phase is a PRECONDITION: every `*.db` in the copy must hold the value at least once before the run, else the copy is not the store §9 describes and the run refuses.
 - **Reported, not gated:** the copy's trace count beside §9's 273; the summary line verbatim (it carries no path); every file's mode after (`stat -c %a`) and `traces/`'s; the number of `-wal`/`-shm` files before and after; the wall time of the dry run and the real run; `values` totals summed over the dry-run lines.
 - **Locations** are the record's §4 pin table only: `E16C_DIR=/mnt/extra/sensorium-rung2/e16c`, the copy `$E16C_DIR/store-c`, transcripts `$E16C_DIR/c-transcripts/`, instrument output `$E16C_DIR/c-out/`, the rehearsal's own root `$E16C_DIR-dry`. Part A's and B's trees under `/mnt/extra/sensorium-rung2/e16` were freed 2026-09-15 (evidence archived) and are not read.
 - **Versions expected:** the venv's `sensorium` reads **0.17.0** (`importlib.metadata`), and every retrofitted trace's `redaction.by` reads `retrofit`; the traces' own `recorder` strings are whatever they were and §4 records their distribution (§13(a): 251 `sensorium-rt`, 19 Python, 3 `sensorium-ts`).
@@ -65,7 +65,7 @@ the dry-run/real pair, the bench numbers and their lens.
 
 ### measured 2026-09-14
 
-Measured once, on this box, under `e16a.sh`. **Part A: DONE-WITH-STOP** — H1 PASS  H2 STOP  H3 STOP  H6 PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = b3d91fd1`, and the value H3 re-exported `5d755067`. Every recording and every refocus ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN` — no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. 1.9s wall clock.
+Measured once, on this box, under `e16a.sh`. **Part A: DONE-WITH-STOP**: H1 PASS  H2 STOP  H3 STOP  H6 PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = b3d91fd1`, and the value H3 re-exported `5d755067`. Every recording and every refocus ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN`, no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. 1.9s wall clock.
 
 | cell | word | §9's rule | what was read |
 |---|---|---|---|
@@ -90,7 +90,7 @@ Measured once, on this box, under `e16a.sh`. **Part A: DONE-WITH-STOP** — H1 P
 | vitest project copy | `$E16_DIR/ts-project/` |
 | cargo target | `$E16_DIR/rust-target/` |
 | instrument output | `$E16_DIR/a-out/` |
-| driver (the committed transcripts' label) | `$DRIVER_DIR` — the release `cargo-sensorium`'s own directory, outside the work root |
+| driver (the committed transcripts' label) | `$DRIVER_DIR`, the release `cargo-sensorium`'s own directory, outside the work root |
 
 #### The dry run
 
@@ -98,15 +98,15 @@ Written by hand. Run 1 was measured before the instrument carried a
 `dry_run_findings` field; that field is what renders this section for a later
 run, and this paragraph is what it would have said.
 
-Two dry runs preceded the measurement, into a work root of their own — its
-own store, cargo target directory and case copies, all deleted afterwards —
+Two dry runs preceded the measurement, into a work root of their own (its
+own store, cargo target directory and case copies, all deleted afterwards)
 with a `dry-` plus four decoy that cannot match the content rule part B will
 measure, and every timer at 60 s. What they found, and what changed in the
 instrument between them and the run above:
 
 - Reading `driver_version` out of each trace opens a read-only sqlite
   connection, which cannot checkpoint a WAL and so leaves `.db-wal`/`.db-shm`
-  beside the trace — and it ran AFTER the grep sweep, so those six files were
+  beside the trace, and it ran AFTER the grep sweep, so those six files were
   never looked at. The `versions` phase moved ahead of `grep`, and the sweep
   went from 836 files to 842.
 - Two rendered wordings were wrong about their own subject: H1's summary rows
@@ -133,17 +133,17 @@ work root that already holds a `store-a`.
 
 #### What the STOPs point at
 
-- **H2.** All ten paths are made by callers that do not go through the 0700/0600 helpers. `sensorium.ts.driver` creates `<trace root>/spool/<invocation>/` with a bare `mkdir(parents=True, exist_ok=True)` and writes `invocation.json`, `harness.json`, `ingested.json` and `manifests/*.json` with plain `write_text`; `cargo-sensorium`'s `invocation::write_invocation` writes its own `invocation.json` with `std::fs::write`. Each lands 0666/0777-under-the-umask — 0664/0775 on this box — instead of 0600/0700. What DOES hold: every file that carries a recorded environment is 0600 — the TypeScript `<pid>-<n>.jsonl`, the Rust `.spool`, `.proc.json` and `.runner.json` — and the store itself is 0600/0700 throughout, `redaction.key` included. §5.5's claim is categorical, so a file beside the spool that holds argv and config paths at 0664 is a STOP and not a footnote.
-- **H3.** Both failing readings are the Rust pair, and both have one cause: `refocus_rust._is_recorder_key` treats EVERY `SENSORIUM_`-prefixed name as the recorder's own bookkeeping and removes it before `refocus_licence.env_of` compares anything. The pre-registered variable is `SENSORIUM_E16_TOKEN`, which is inside that prefix, so on a Rust pair it is never compared: the unchanged pair grants the licence while naming the token on the not-compared list, and the changed pair grants it as well — a rotated secret the Rust licence cannot see. The Python pair read exactly as §1 predicted in both directions, so what failed is the Rust branch's exclusion rule and not rule v1's environment redaction. Two things to rule on, not one: (1) the prefix is wider than the six variables its docstring justifies and silently swallows any `SENSORIUM_`-named variable a user's program actually reads; (2) §1 chose a token name inside that prefix, and no part of the pre-registration noticed — this measurement is where it surfaced.
+- **H2.** All ten paths are made by callers that do not go through the 0700/0600 helpers. `sensorium.ts.driver` creates `<trace root>/spool/<invocation>/` with a bare `mkdir(parents=True, exist_ok=True)` and writes `invocation.json`, `harness.json`, `ingested.json` and `manifests/*.json` with plain `write_text`; `cargo-sensorium`'s `invocation::write_invocation` writes its own `invocation.json` with `std::fs::write`. Each lands 0666/0777-under-the-umask (0664/0775 on this box) instead of 0600/0700. What DOES hold: every file that carries a recorded environment is 0600 (the TypeScript `<pid>-<n>.jsonl`, the Rust `.spool`, `.proc.json` and `.runner.json`) and the store itself is 0600/0700 throughout, `redaction.key` included. §5.5's claim is categorical, so a file beside the spool that holds argv and config paths at 0664 is a STOP and not a footnote.
+- **H3.** Both failing readings are the Rust pair, and both have one cause: `refocus_rust._is_recorder_key` treats EVERY `SENSORIUM_`-prefixed name as the recorder's own bookkeeping and removes it before `refocus_licence.env_of` compares anything. The pre-registered variable is `SENSORIUM_E16_TOKEN`, which is inside that prefix, so on a Rust pair it is never compared: the unchanged pair grants the licence while naming the token on the not-compared list, and the changed pair grants it as well, a rotated secret the Rust licence cannot see. The Python pair read exactly as §1 predicted in both directions, so what failed is the Rust branch's exclusion rule and not rule v1's environment redaction. Two things to rule on, not one: (1) the prefix is wider than the six variables its docstring justifies and silently swallows any `SENSORIUM_`-named variable a user's program actually reads; (2) §1 chose a token name inside that prefix, and no part of the pre-registration noticed. This measurement is where it surfaced.
 
 #### Amendments, beside §1
 
-- **R27, the Rust focus.** §1's block names `--focus compute` "(the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name)". That crate has no `compute`; its seeded-bug function is `derive_sandbox`. Corrected clause: **`--focus derive_sandbox`**, in both arms — `corpus/aliasing/main.py` carries a `derive_sandbox` too, so §1's Python `--focus main` is amended the same way and the two arms focus the same function.
+- **R27, the Rust focus.** §1's block names `--focus compute` "(the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name)". That crate has no `compute`; its seeded-bug function is `derive_sandbox`. Corrected clause: **`--focus derive_sandbox`**, in both arms, `corpus/aliasing/main.py` carries a `derive_sandbox` too, so §1's Python `--focus main` is amended the same way and the two arms focus the same function.
 - **R27, the TypeScript case.** Decision A10 names `corpus/typescript/aliasing`, which does not exist. Corrected clause: **`corpus/typescript/async_interleaved`**, recorded with `sensorium ts run -- npx vitest run async_interleaved`.
 - **The TypeScript spool's location.** The plan's instrument sketch puts it at `store-a/ts-spools`; `sensorium.ts.driver` writes it to `<trace root>/spool/<invocation>/`. The sweep is recursive over the whole work root, so the directory is covered wherever it is, and the tables name it as it actually is.
-- **"among the compared" (H3).** §1 predicts the env line "names the redacted variable among the compared". `refocus_world._env_state` never names a compared variable — it counts them and names only what was excluded. Reading applied, stated before the run: the variable is among the compared when the trace recorded it (H6) **and** the env line names it on no exclusion list. The prediction itself is unchanged.
-- **The instrument's path.** §1's spec block names the instrument `tests/acceptance/e16.sh`. It is `tests/acceptance_e16/e16a.sh`, with `e16a.py`, `e16a_cells.py` and `assemble_e16a.py` beside it — which is what §1's own plan block already says, the two halves of §1 having been written at different times. Corrected clause: **`tests/acceptance_e16/e16a.sh`**.
-- **The grep sweep is wider than §1's.** §1 sweeps the store and the spool directories; this one sweeps everything under the work root except the token file, and for the refocus value as well as the recording one. Wider in the only direction that can find a leak; the gate is still §1's — the recording token, every count 0.
+- **"among the compared" (H3).** §1 predicts the env line "names the redacted variable among the compared". `refocus_world._env_state` never names a compared variable. It counts them and names only what was excluded. Reading applied, stated before the run: the variable is among the compared when the trace recorded it (H6) **and** the env line names it on no exclusion list. The prediction itself is unchanged.
+- **The instrument's path.** §1's spec block names the instrument `tests/acceptance/e16.sh`. It is `tests/acceptance_e16/e16a.sh`, with `e16a.py`, `e16a_cells.py` and `assemble_e16a.py` beside it, which is what §1's own plan block already says, the two halves of §1 having been written at different times. Corrected clause: **`tests/acceptance_e16/e16a.sh`**.
+- **The grep sweep is wider than §1's.** §1 sweeps the store and the spool directories; this one sweeps everything under the work root except the token file, and for the refocus value as well as the recording one. Wider in the only direction that can find a leak; the gate is still §1's. The recording token, every count 0.
 
 #### Versions
 
@@ -160,7 +160,7 @@ work root that already holds a `store-a`.
 | `node` under the scrubbed environment | v24.16.0 | -- |
 | `vitest` under the scrubbed environment | vitest/4.1.9 linux-x64 node-v24.16.0 | -- |
 
-#### H1 (environment) — the token's bytes, per file
+#### H1 (environment): the token's bytes, per file
 
 | file (under `$E16_DIR`) | count, recording token | count, refocus token |
 |---|---|---|
@@ -198,15 +198,15 @@ work root that already holds a `store-a`.
 | `store-a/traces/20260914-001905-04f53e.db` | 0 | 0 |
 | `store-a/traces/20260914-001905-28af2f.db` | 0 | 0 |
 | `store-a/traces/20260914-001905-bb6ecd.db` | 0 | 0 |
-| `a-transcripts/` — 10 further file(s) swept, summarised | max 0 | max 0 |
-| `py-case/` — 2 further file(s) swept, summarised | max 0 | max 0 |
-| `rust-crate/` — 4 further file(s) swept, summarised | max 0 | max 0 |
-| `rust-target/` — 118 further file(s) swept, summarised | max 0 | max 0 |
-| `tmp/` — 526 further file(s) swept, summarised | max 0 | max 0 |
-| `ts-project/` — 148 further file(s) swept, summarised | max 0 | max 0 |
-| `a-out/` — the instrument's own output, 1 file(s), swept but outside §1's scope | max 0 | -- |
+| `a-transcripts/`, 10 further file(s) swept, summarised | max 0 | max 0 |
+| `py-case/`, 2 further file(s) swept, summarised | max 0 | max 0 |
+| `rust-crate/`, 4 further file(s) swept, summarised | max 0 | max 0 |
+| `rust-target/`, 118 further file(s) swept, summarised | max 0 | max 0 |
+| `tmp/`, 526 further file(s) swept, summarised | max 0 | max 0 |
+| `ts-project/`, 148 further file(s) swept, summarised | max 0 | max 0 |
+| `a-out/`, the instrument's own output, 1 file(s), swept but outside §1's scope | max 0 | -- |
 
-#### H2 — the modes
+#### H2: the modes
 
 | path (under `$E16_DIR`) | mode | wanted |
 |---|---|---|
@@ -234,9 +234,9 @@ work root that already holds a `store-a`.
 | `store-a/traces/20260914-001904-03554b.db` | 600 | 600 |
 | `store-a/traces/20260914-001904-aa30cb.db` | 600 | 600 |
 
-This table and H1's cover different sets, and deliberately: the mode sweep is taken straight after the three recordings and before any query, so it describes what the RECORDERS left — a reader that opens a WAL database creates `-shm`/`-wal` beside it, and those are files the runs did not make. H1's sweep runs last, over everything present at the end, so it also covers the four refocus re-runs' spools and traces, which is why it lists more paths than this.
+This table and H1's cover different sets, and deliberately: the mode sweep is taken straight after the three recordings and before any query, so it describes what the RECORDERS left. A reader that opens a WAL database creates `-shm`/`-wal` beside it, and those are files the runs did not make. H1's sweep runs last, over everything present at the end, so it also covers the four refocus re-runs' spools and traces, which is why it lists more paths than this.
 
-Swept and listed, outside this cell's scope — the instrument's own directories, and the driver's shared build-support trees under the cargo target directory (their top directories; §1's H2 is a claim about the store and the spools):
+Swept and listed, outside this cell's scope, the instrument's own directories, and the driver's shared build-support trees under the cargo target directory (their top directories; §1's H2 is a claim about the store and the spools):
 
 | path (under `$E16_DIR`) | mode |
 |---|---|
@@ -254,9 +254,9 @@ Swept and listed, outside this cell's scope — the instrument's own directories
 | `rust-target/sensorium/shim` | 775 |
 | `ts-project` | 775 |
 
-#### H3 — the four refocus readings
+#### H3: the four refocus readings
 
-**python-unchanged** — predicted granted, as predicted. Exit 0, 0.108s.
+**python-unchanged**, predicted granted, as predicted. Exit 0, 0.108s.
 
 ```
 env: unchanged (7 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)
@@ -264,7 +264,7 @@ refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETU
 licence: verified against 20260914-001903-871933 on exactly these points, and no others:
 ```
 
-**rust-unchanged** — predicted granted, **the other way**. Exit 0, 0.18s.
+**rust-unchanged**, predicted granted, **the other way**. Exit 0, 0.18s.
 
 ```
 env: unchanged (32 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_E16_TOKEN, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
@@ -274,7 +274,7 @@ licence: verified against 20260914-001904-03554b on exactly these points, and no
 
 > predicted a granted licence with SENSORIUM_E16_TOKEN among the compared; read licence granted, env unchanged, token named on the env line: True, token in the recorded environment: True
 
-**python-changed** — predicted WITHHELD, as predicted. Exit 0, 0.097s.
+**python-changed**, predicted WITHHELD, as predicted. Exit 0, 0.097s.
 
 ```
 env: CHANGED since the original run -- 1 variable(s) differ: SENSORIUM_E16_TOKEN   (names only)
@@ -282,7 +282,7 @@ refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETU
 licence: WITHHELD -- this MATCH is about call shape, and these checks say it is not a statement about the run as a whole:
 ```
 
-**rust-changed** — predicted WITHHELD, **the other way**. Exit 0, 0.111s.
+**rust-changed**, predicted WITHHELD, **the other way**. Exit 0, 0.111s.
 
 ```
 env: unchanged (32 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_E16_TOKEN, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
@@ -293,7 +293,7 @@ licence: verified against 20260914-001904-03554b on exactly these points, and no
 > predicted WITHHELD with SENSORIUM_E16_TOKEN in the changed list; read licence granted, env unchanged, token in the changed list: False
 
 
-#### H6 (`redaction.env`) — the names
+#### H6 (`redaction.env`): the names
 
 | trace | arm | vars stored | `redaction.env` names |
 |---|---|---|---|
@@ -317,9 +317,9 @@ licence: verified against 20260914-001904-03554b on exactly these points, and no
 | versions | 0.009 |
 | grep | 0.028 |
 
-### measured 2026-09-14 — run 2, after the H2 and H3 fixes
+### measured 2026-09-14: run 2, after the H2 and H3 fixes
 
-Measured once, on this box, under `e16a.sh`. **Part A: DONE** — H1 PASS  H2 PASS  H3 PASS  H6 PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = a4badc8d`, and the value H3 re-exported `496d48cd`. Every recording and every refocus ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN` — no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. 1.9s wall clock.
+Measured once, on this box, under `e16a.sh`. **Part A: DONE**: H1 PASS  H2 PASS  H3 PASS  H6 PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = a4badc8d`, and the value H3 re-exported `496d48cd`. Every recording and every refocus ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN`, no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. 1.9s wall clock.
 
 | cell | word | §9's rule | what was read |
 |---|---|---|---|
@@ -344,33 +344,33 @@ Measured once, on this box, under `e16a.sh`. **Part A: DONE** — H1 PASS  H2 PA
 | vitest project copy | `$E16_DIR/ts-project-a2/` |
 | cargo target | `$E16_DIR/rust-target/` |
 | instrument output | `$E16_DIR/a2-out/` |
-| driver (the committed transcripts' label) | `$DRIVER_DIR` — the release `cargo-sensorium`'s own directory, outside the work root |
+| driver (the committed transcripts' label) | `$DRIVER_DIR`, the release `cargo-sensorium`'s own directory, outside the work root |
 
-#### Against run 1 — which run is the first PASS
+#### Against run 1: which run is the first PASS
 
 - **H1 (environment)** passed in run 1 and reads **PASS** here.
-- **H2 — this run is the first PASS.** The run before it read STOP: 10 path(s) carry another mode: 775 store-a/spool (want 700), 775 store-a/spool/20260914-001904-f6b424 (want 700), 775 store-a/spool/20260914-001904-f6b424/manifests (want 700), 664 store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__async_interleaved.test.ts.json (want 600), 664 store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__store.ts.json (want 600), 664 store-a/spool/20260914-001904-f6b424/manifests/_tally.json (want 600), 664 store-a/spool/20260914-001904-f6b424/harness.json (want 600), 664 store-a/spool/20260914-001904-f6b424/ingested.json (want 600), 664 store-a/spool/20260914-001904-f6b424/invocation.json (want 600), 664 rust-target/sensorium/spool/20260914-001904-424fc9/invocation.json (want 600). Fixed by `6a719e4` (the TypeScript driver's spool, manifests and records, and the Rust invocation record, 0700/0600) and `e36d5dd` (`db.py`'s traces creator). This run reads: 23 path(s) in scope, every file 600 and directory 700.
-- **H3 — this run is the first PASS.** The run before it read STOP: 2 of 4 pair(s) read the other way: rust-unchanged: predicted a granted licence with SENSORIUM_E16_TOKEN among the compared; read licence granted, env unchanged, token named on the env line: True, token in the recorded environment: True; rust-changed: predicted WITHHELD with SENSORIUM_E16_TOKEN in the changed list; read licence granted, env unchanged, token in the changed list: False. Fixed by `1f60dd6` and `9d8f16a` (the refocus branches' recorder keys are exact sets of what each driver SETS, not a `SENSORIUM_` prefix). This run reads: all 4 pair(s) read as predicted.
+- **H2. This run is the first PASS.** The run before it read STOP: 10 path(s) carry another mode: 775 store-a/spool (want 700), 775 store-a/spool/20260914-001904-f6b424 (want 700), 775 store-a/spool/20260914-001904-f6b424/manifests (want 700), 664 store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__async_interleaved.test.ts.json (want 600), 664 store-a/spool/20260914-001904-f6b424/manifests/async_interleaved__store.ts.json (want 600), 664 store-a/spool/20260914-001904-f6b424/manifests/_tally.json (want 600), 664 store-a/spool/20260914-001904-f6b424/harness.json (want 600), 664 store-a/spool/20260914-001904-f6b424/ingested.json (want 600), 664 store-a/spool/20260914-001904-f6b424/invocation.json (want 600), 664 rust-target/sensorium/spool/20260914-001904-424fc9/invocation.json (want 600). Fixed by `6a719e4` (the TypeScript driver's spool, manifests and records, and the Rust invocation record, 0700/0600) and `e36d5dd` (`db.py`'s traces creator). This run reads: 23 path(s) in scope, every file 600 and directory 700.
+- **H3. This run is the first PASS.** The run before it read STOP: 2 of 4 pair(s) read the other way: rust-unchanged: predicted a granted licence with SENSORIUM_E16_TOKEN among the compared; read licence granted, env unchanged, token named on the env line: True, token in the recorded environment: True; rust-changed: predicted WITHHELD with SENSORIUM_E16_TOKEN in the changed list; read licence granted, env unchanged, token in the changed list: False. Fixed by `1f60dd6` and `9d8f16a` (the refocus branches' recorder keys are exact sets of what each driver SETS, not a `SENSORIUM_` prefix). This run reads: all 4 pair(s) read as predicted.
 - **H6 (`redaction.env`)** passed in run 1 and reads **PASS** here.
 
 #### The dry run
 
 Before the measurement, with a `dry-` decoy that cannot match the content rule and every timer at 60 s, into a work root of its own that was deleted afterwards. What it found, and what changed in the instrument between it and the run above:
 
-- `build-driver` raised `KeyError: 'build'` — the new phase asked for a timer `TIMERS` did not have — and `phase()` swallowed it into the phase's `error` field, so the run went on to record with the unrebuilt binary and reported `DONE`. A rebuild that is not a refusal is not a rebuild. Fixed before the measurement in `10bdc18`: the timer table gained `build`, and `phase(..., critical=True)` turns any exception in a PRECONDITION phase — `build-driver` and `preflight` — into a refusal that ends the run. A measurement phase still leaves `None` and drops its cell.
+- `build-driver` raised `KeyError: 'build'` (the new phase asked for a timer `TIMERS` did not have) and `phase()` swallowed it into the phase's `error` field, so the run went on to record with the unrebuilt binary and reported `DONE`. A rebuild that is not a refusal is not a rebuild. Fixed before the measurement in `10bdc18`: the timer table gained `build`, and `phase(..., critical=True)` turns any exception in a PRECONDITION phase (`build-driver` and `preflight`) into a refusal that ends the run. A measurement phase still leaves `None` and drops its cell.
 - Rendering the dry run's raw record showed two prose defects, both fixed in the same commit: a cell's `why` is a table clause with no full stop and swallowed the sentence after it when run into §2's prose, and cargo's own `Finished \`release\` profile` line carries backticks that ended the code span around it early.
 - Everything the reader opens existed and parsed: `driver_build` stamped with the binary's labelled path, mtime, size and cargo's `Finished` line; `h2_roots` naming `store-a2` and `rust-target/sensorium/spool`, both `ok`; `arm` on every H6 row; all ten transcripts written; and the section rendered whole from a copy of the dry raw with the flag flipped, `offenders()` empty.
-- The dry run's own outputs, its store and its cargo target were deleted before the measurement, together with run 1's `rust-target` — the launcher now refuses a work root whose `rust-target/sensorium/spool` holds an earlier run's spools, because they would be swept as if this run's recorders had made them.
+- The dry run's own outputs, its store and its cargo target were deleted before the measurement, together with run 1's `rust-target`. The launcher now refuses a work root whose `rust-target/sensorium/spool` holds an earlier run's spools, because they would be swept as if this run's recorders had made them.
 - One launch of the measurement was discarded UNREAD before this one: it was started without `E16_DRY_FINDINGS`, so it would have carried no dry-run reading at all. Its store, out directory, transcripts, copies and token were deleted without its log or results being opened, and this run was made from zero with a freshly minted token.
 
 #### Amendments, beside §1
 
-- **R27, the Rust focus.** §1's block names `--focus compute` "(the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name)". That crate has no `compute`; its seeded-bug function is `derive_sandbox`. Corrected clause: **`--focus derive_sandbox`**, in both arms — `corpus/aliasing/main.py` carries a `derive_sandbox` too, so §1's Python `--focus main` is amended the same way and the two arms focus the same function.
+- **R27, the Rust focus.** §1's block names `--focus compute` "(the case's focused fn; read `corpus/rust/aliasing/questions.yaml` for the name)". That crate has no `compute`; its seeded-bug function is `derive_sandbox`. Corrected clause: **`--focus derive_sandbox`**, in both arms, `corpus/aliasing/main.py` carries a `derive_sandbox` too, so §1's Python `--focus main` is amended the same way and the two arms focus the same function.
 - **R27, the TypeScript case.** Decision A10 names `corpus/typescript/aliasing`, which does not exist. Corrected clause: **`corpus/typescript/async_interleaved`**, recorded with `sensorium ts run -- npx vitest run async_interleaved`.
 - **The TypeScript spool's location.** The plan's instrument sketch puts it at `store-a/ts-spools`; `sensorium.ts.driver` writes it to `<trace root>/spool/<invocation>/`. The sweep is recursive over the whole work root, so the directory is covered wherever it is, and the tables name it as it actually is.
-- **"among the compared" (H3).** §1 predicts the env line "names the redacted variable among the compared". `refocus_world._env_state` never names a compared variable — it counts them and names only what was excluded. Reading applied, stated before the run: the variable is among the compared when the trace recorded it (H6) **and** the env line names it on no exclusion list. The prediction itself is unchanged.
-- **The instrument's path.** §1's spec block names the instrument `tests/acceptance/e16.sh`. It is `tests/acceptance_e16/e16a.sh`, with `e16a.py`, `e16a_cells.py` and `assemble_e16a.py` beside it — which is what §1's own plan block already says, the two halves of §1 having been written at different times. Corrected clause: **`tests/acceptance_e16/e16a.sh`**.
-- **The grep sweep is wider than §1's.** §1 sweeps the store and the spool directories; this one sweeps everything under the work root except the token file, and for the refocus value as well as the recording one. Wider in the only direction that can find a leak; the gate is still §1's — the recording token, every count 0.
+- **"among the compared" (H3).** §1 predicts the env line "names the redacted variable among the compared". `refocus_world._env_state` never names a compared variable. It counts them and names only what was excluded. Reading applied, stated before the run: the variable is among the compared when the trace recorded it (H6) **and** the env line names it on no exclusion list. The prediction itself is unchanged.
+- **The instrument's path.** §1's spec block names the instrument `tests/acceptance/e16.sh`. It is `tests/acceptance_e16/e16a.sh`, with `e16a.py`, `e16a_cells.py` and `assemble_e16a.py` beside it, which is what §1's own plan block already says, the two halves of §1 having been written at different times. Corrected clause: **`tests/acceptance_e16/e16a.sh`**.
+- **The grep sweep is wider than §1's.** §1 sweeps the store and the spool directories; this one sweeps everything under the work root except the token file, and for the refocus value as well as the recording one. Wider in the only direction that can find a leak; the gate is still §1's, the recording token, every count 0.
 
 #### Versions
 
@@ -389,7 +389,7 @@ Before the measurement, with a `dry-` decoy that cannot match the content rule a
 | `node` under the scrubbed environment | v24.16.0 | -- |
 | `vitest` under the scrubbed environment | vitest/4.1.9 linux-x64 node-v24.16.0 | -- |
 
-#### H1 (environment) — the token's bytes, per file
+#### H1 (environment): the token's bytes, per file
 
 | file (under `$E16_DIR`) | count, recording token | count, refocus token |
 |---|---|---|
@@ -427,21 +427,21 @@ Before the measurement, with a `dry-` decoy that cannot match the content rule a
 | `store-a2/traces/20260914-013410-b5779c.db-wal` | 0 | 0 |
 | `store-a2/traces/20260914-013410-d4459c.db` | 0 | 0 |
 | `store-a2/traces/20260914-013410-fad347.db` | 0 | 0 |
-| `a-out/` — 4 further file(s) swept, summarised | max 0 | max 0 |
-| `a-transcripts/` — 10 further file(s) swept, summarised | max 0 | max 0 |
-| `a2-transcripts/` — 11 further file(s) swept, summarised | max 0 | max 0 |
-| `py-case/` — 2 further file(s) swept, summarised | max 0 | max 0 |
-| `py-case-a2/` — 2 further file(s) swept, summarised | max 0 | max 0 |
-| `rust-crate/` — 4 further file(s) swept, summarised | max 0 | max 0 |
-| `rust-crate-a2/` — 4 further file(s) swept, summarised | max 0 | max 0 |
-| `rust-target/` — 118 further file(s) swept, summarised | max 0 | max 0 |
-| `store-a/` — 22 further file(s) swept, summarised | max 0 | max 0 |
-| `tmp/` — 526 further file(s) swept, summarised | max 0 | max 0 |
-| `ts-project/` — 148 further file(s) swept, summarised | max 0 | max 0 |
-| `ts-project-a2/` — 148 further file(s) swept, summarised | max 0 | max 0 |
-| `a2-out/` — the instrument's own output, 1 file(s), swept but outside §1's scope | max 0 | -- |
+| `a-out/`, 4 further file(s) swept, summarised | max 0 | max 0 |
+| `a-transcripts/`, 10 further file(s) swept, summarised | max 0 | max 0 |
+| `a2-transcripts/`, 11 further file(s) swept, summarised | max 0 | max 0 |
+| `py-case/`, 2 further file(s) swept, summarised | max 0 | max 0 |
+| `py-case-a2/`, 2 further file(s) swept, summarised | max 0 | max 0 |
+| `rust-crate/`, 4 further file(s) swept, summarised | max 0 | max 0 |
+| `rust-crate-a2/`, 4 further file(s) swept, summarised | max 0 | max 0 |
+| `rust-target/`, 118 further file(s) swept, summarised | max 0 | max 0 |
+| `store-a/`, 22 further file(s) swept, summarised | max 0 | max 0 |
+| `tmp/`, 526 further file(s) swept, summarised | max 0 | max 0 |
+| `ts-project/`, 148 further file(s) swept, summarised | max 0 | max 0 |
+| `ts-project-a2/`, 148 further file(s) swept, summarised | max 0 | max 0 |
+| `a2-out/`, the instrument's own output, 1 file(s), swept but outside §1's scope | max 0 | -- |
 
-#### H2 — the modes
+#### H2: the modes
 
 | path (under `$E16_DIR`) | mode | wanted |
 |---|---|---|
@@ -469,9 +469,9 @@ Before the measurement, with a `dry-` decoy that cannot match the content rule a
 | `store-a2/traces/20260914-013409-bdc9a0.db` | 600 | 600 |
 | `store-a2/traces/20260914-013410-b5779c.db` | 600 | 600 |
 
-This table and H1's cover different sets, and deliberately: the mode sweep is taken straight after the three recordings and before any query, so it describes what the RECORDERS left — a reader that opens a WAL database creates `-shm`/`-wal` beside it, and those are files the runs did not make. H1's sweep runs last, over everything present at the end, so it also covers the four refocus re-runs' spools and traces, which is why it lists more paths than this.
+This table and H1's cover different sets, and deliberately: the mode sweep is taken straight after the three recordings and before any query, so it describes what the RECORDERS left. A reader that opens a WAL database creates `-shm`/`-wal` beside it, and those are files the runs did not make. H1's sweep runs last, over everything present at the end, so it also covers the four refocus re-runs' spools and traces, which is why it lists more paths than this.
 
-Swept and listed, outside this cell's scope — the instrument's own directories, and the driver's shared build-support trees under the cargo target directory (their top directories; §1's H2 is a claim about the store and the spools):
+Swept and listed, outside this cell's scope, the instrument's own directories, and the driver's shared build-support trees under the cargo target directory (their top directories; §1's H2 is a claim about the store and the spools):
 
 | path (under `$E16_DIR`) | mode |
 |---|---|
@@ -489,9 +489,9 @@ Swept and listed, outside this cell's scope — the instrument's own directories
 | `rust-target/sensorium/shim` | 775 |
 | `ts-project-a2` | 775 |
 
-#### H3 — the four refocus readings
+#### H3: the four refocus readings
 
-**python-unchanged** — predicted granted, as predicted. Exit 0, 0.097s.
+**python-unchanged**, predicted granted, as predicted. Exit 0, 0.097s.
 
 ```
 env: unchanged (7 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)
@@ -499,7 +499,7 @@ refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETU
 licence: verified against 20260914-013409-bdc9a0 on exactly these points, and no others:
 ```
 
-**rust-unchanged** — predicted granted, as predicted. Exit 0, 0.182s.
+**rust-unchanged**, predicted granted, as predicted. Exit 0, 0.182s.
 
 ```
 env: unchanged (33 variables compared; not compared: OLDPWD, PWD, SENSORIUM_DIR, SHLVL, _)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
@@ -507,7 +507,7 @@ refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETU
 licence: verified against 20260914-013409-b4033a on exactly these points, and no others:
 ```
 
-**python-changed** — predicted WITHHELD, as predicted. Exit 0, 0.097s.
+**python-changed**, predicted WITHHELD, as predicted. Exit 0, 0.097s.
 
 ```
 env: CHANGED since the original run -- 1 variable(s) differ: SENSORIUM_E16_TOKEN   (names only)
@@ -515,7 +515,7 @@ refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETU
 licence: WITHHELD -- this MATCH is about call shape, and these checks say it is not a statement about the run as a whole:
 ```
 
-**rust-changed** — predicted WITHHELD, as predicted. Exit 0, 0.111s.
+**rust-changed**, predicted WITHHELD, as predicted. Exit 0, 0.111s.
 
 ```
 env: CHANGED since the original run -- 1 variable(s) differ: SENSORIUM_E16_TOKEN   (names only)  the recorder's own fragment stripped before comparing: RUSTDOCFLAGS  the recorder's own, also not compared: CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER, RUSTC_WORKSPACE_WRAPPER, SENSORIUM_FOCUS, SENSORIUM_INVOCATION, SENSORIUM_RT_DIR, SENSORIUM_SPOOL, SENSORIUM_TARGET, SENSORIUM_TIER, SENSORIUM_TOOL_HASH, SENSORIUM_WS
@@ -524,7 +524,7 @@ licence: WITHHELD -- this MATCH is about call shape, and these checks say it is 
 ```
 
 
-#### H6 (`redaction.env`) — the names
+#### H6 (`redaction.env`): the names
 
 | trace | arm | vars stored | `redaction.env` names |
 |---|---|---|---|
@@ -553,7 +553,7 @@ licence: WITHHELD -- this MATCH is about call shape, and these checks say it is 
 
 ### measured 2026-09-14
 
-Measured once, on this box, under `e16b.sh`. **Part B: DONE** — H1 (values) PASS  H5 (overhead) measured  H6 (`redaction.values`) PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = 7785be0f`. Every recording ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN` — no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. The two bench tables ran with the token OUT of the environment: H5 is a measurement of overhead, and a secret in a tree H1 does not sweep is a secret nobody checked. 85.3s wall clock.
+Measured once, on this box, under `e16b.sh`. **Part B: DONE**: H1 (values) PASS  H5 (overhead) measured  H6 (`redaction.values`) PASS. The token was `sk-e16-` plus 33 characters, minted by the instrument, never printed and never committed: `sha256(token)[:8] = 7785be0f`. Every recording ran under a scrubbed environment of exactly `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `CARGO_TARGET_DIR`, `SENSORIUM_DIR`, `SENSORIUM_E16_TOKEN`, no other name reached a recorder, and the instrument refuses to start unless none of them fires rule v1, which is what makes H6's "exactly one name" a fact about the token. The two bench tables ran with the token OUT of the environment: H5 is a measurement of overhead, and a secret in a tree H1 does not sweep is a secret nobody checked. 85.3s wall clock.
 
 | cell | word | §9's rule | what was read |
 |---|---|---|---|
@@ -580,7 +580,7 @@ Measured once, on this box, under `e16b.sh`. **Part B: DONE** — H1 (values) PA
 | instrument output | `$E16_DIR/b-out/` |
 | baseline worktree (`7dd25d2`) | `$E16_DIR/baseline-7dd25d2/` |
 | bench scratch store | `$E16_DIR/bench-b/` |
-| driver (the committed transcripts' label) | `$DRIVER_DIR` — the release `cargo-sensorium`'s own directory, outside the work root |
+| driver (the committed transcripts' label) | `$DRIVER_DIR`, the release `cargo-sensorium`'s own directory, outside the work root |
 
 #### The dry run
 
@@ -596,7 +596,7 @@ Before the measurement, with a `dry-` decoy that cannot match the content rule a
 
 #### Amendments, beside §1
 
-- **R11, the Python probe's focus.** §1's part B block records the Python probe with `sensorium run --focus handle -- main.py`. A bare `--focus handle` names a MODULE: `FocusSpec` splits each entry on `:` into `module` and an optional `qualname` (`record/tracer_frames.py`), so `handle` alone matches only code whose module is called `handle` — nothing in `main.py` — and the recording would carry no LINE deltas at all, which is three of the five rows §1 counts. Corrected clause: **`sensorium run --focus main:handle -- main.py`**, which is how `corpus/secret_in_env/questions.yaml` spells the same focus for the corpus's own case. The Rust arm (`cargo sensorium --focus handle run`) and the TypeScript arm (`--focus handle`) are unchanged: neither recorder's focus spec is module-qualified.
+- **R11, the Python probe's focus.** §1's part B block records the Python probe with `sensorium run --focus handle -- main.py`. A bare `--focus handle` names a MODULE: `FocusSpec` splits each entry on `:` into `module` and an optional `qualname` (`record/tracer_frames.py`), so `handle` alone matches only code whose module is called `handle` (nothing in `main.py`) and the recording would carry no LINE deltas at all, which is three of the five rows §1 counts. Corrected clause: **`sensorium run --focus main:handle -- main.py`**, which is how `corpus/secret_in_env/questions.yaml` spells the same focus for the corpus's own case. The Rust arm (`cargo sensorium --focus handle run`) and the TypeScript arm (`--focus handle`) are unchanged: neither recorder's focus spec is module-qualified.
 - **The TypeScript project copy omits `corpus/typescript/secret_in_env`.** §1 records the TypeScript probe with `npx vitest run secret`, and vitest's positional filter is a SUBSTRING match over test file paths: the corpus's own `secret_in_env/secret_in_env.test.ts` matches it as surely as the probe's `e16_probe/secret.test.ts` does. Both would be recorded into one trace and that case's four planted rows counted into the probe's census of four. The disposable copy therefore leaves that one case directory out; the command, the probe and the predicted count are unchanged. (The probe is copied into a SUBDIRECTORY for the same reason it is copied at all: the corpus project's `vitest.config.ts` includes `*/**/*.test.ts`, which a file at the project root does not match.)
 
 #### Versions
@@ -617,7 +617,7 @@ Before the measurement, with a `dry-` decoy that cannot match the content rule a
 | `vitest` under the scrubbed environment | vitest/4.1.9 linux-x64 node-v24.16.0 | -- |
 | `python` in the `7dd25d2` worktree | Python 3.13.13 | -- |
 
-#### H1 (values) — the token's bytes, per file
+#### H1 (values): the token's bytes, per file
 
 | file (under `$E16_DIR`) | set | occurrences | required |
 |---|---|---|---|
@@ -642,9 +642,9 @@ Before the measurement, with a `dry-` decoy that cannot match the content rule a
 | `rust-target/sensorium/spool/20260914-180856-fae745/4057202.proc.json` | Rust `<pid>.proc.json` | 0 | 0 |
 | `rust-target/sensorium/spool/20260914-180856-fae745/4057202.1.spool` | Rust `.spool` | 3 | 3 together |
 
-The Rust `.spool` files hold 3 occurrence(s) together, against the 3 §1's amendment predicts: the three rows the CONVERTER redacts (`copy`, the `Headers` `Debug` text and `secret`'s RETURN) are plaintext in the spool until it runs, and the fourth Rust row — the `token` parameter delta — is taken by the recorder before the spool is written.
+The Rust `.spool` files hold 3 occurrence(s) together, against the 3 §1's amendment predicts: the three rows the CONVERTER redacts (`copy`, the `Headers` `Debug` text and `secret`'s RETURN) are plaintext in the spool until it runs, and the fourth Rust row (the `token` parameter delta) is taken by the recorder before the spool is written.
 
-Swept and listed, outside the four readings and gated by none of them — the disposable copies, the transcripts, the cargo build tree (the two Rust spool files §1's amendment does not name among them: `<pid>.runner.json` and `invocation.json`), the TMPDIR every recording ran under and this instrument's own output, by top directory:
+Swept and listed, outside the four readings and gated by none of them, the disposable copies, the transcripts, the cargo build tree (the two Rust spool files §1's amendment does not name among them: `<pid>.runner.json` and `invocation.json`), the TMPDIR every recording ran under and this instrument's own output, by top directory:
 
 | path (under `$E16_DIR`) | files swept | max occurrences |
 |---|---|---|
@@ -656,7 +656,7 @@ Swept and listed, outside the four readings and gated by none of them — the di
 | `tmp/` | 526 | 0 |
 | `ts-project-b/` | 150 | 0 |
 
-#### H5 — the overhead, before and after
+#### H5: the overhead, before and after
 
 `python -c "from corpus._bench import bench; bench.report(reps=5)"`, in each tree, back to back on this box.
 
@@ -712,7 +712,7 @@ best of 5 timed runs after one untimed warm-up; python 3.13.13.
 
 Never gated (§9, and rust/HONESTY.md §10: cost is reported, never gated). An outlier is a CARRIED-DEBT finding, not a stop.
 
-#### H6 (`redaction.values`) — the census
+#### H6 (`redaction.values`): the census
 
 | trace | arm | `values redacted:` | §1 expected | `redaction.env` names |
 |---|---|---|---|---|
@@ -742,7 +742,7 @@ Never gated (§9, and rust/HONESTY.md §10: cost is reported, never gated). An o
 
 ### measured 2026-09-16
 
-Measured once, on this box, under `e16c.sh`. **Part C: DONE** — H4 PASS. The subject was a COPY of `~/.sensorium/traces` and its `redaction.key`: 273 traces against §9's 273, copied into the work root and retrofitted there, so the live store was read and never written (the retrofit of it is a post-merge chore, C18). The token was NOT minted (P10) and it is not one value: the traces already held 4 distinct value(s) of `CLAUDE_CODE_MESSAGING_TOKEN` (the token rotated over the store's life), each read from its own trace's `meta.env` through a read-only connection and swept one at a time (R15, amended below), never printed and never written anywhere but `grep`'s own argument — `sha256(value)[:8]` = `41285dda` (254 trace(s)), `61e4ad5f` (11 trace(s)), `876f167c` (5 trace(s)), `426ae10d` (3 trace(s)). 28.8s wall clock.
+Measured once, on this box, under `e16c.sh`. **Part C: DONE**. H4 PASS. The subject was a COPY of `~/.sensorium/traces` and its `redaction.key`: 273 traces against §9's 273, copied into the work root and retrofitted there, so the live store was read and never written (the retrofit of it is a post-merge chore, C18). The token was NOT minted (P10) and it is not one value: the traces already held 4 distinct value(s) of `CLAUDE_CODE_MESSAGING_TOKEN` (the token rotated over the store's life), each read from its own trace's `meta.env` through a read-only connection and swept one at a time (R15, amended below), never printed and never written anywhere but `grep`'s own argument, `sha256(value)[:8]` = `41285dda` (254 trace(s)), `61e4ad5f` (11 trace(s)), `876f167c` (5 trace(s)), `426ae10d` (3 trace(s)). 28.8s wall clock.
 
 | cell | word | §9's rule | what was read |
 |---|---|---|---|
@@ -777,20 +777,20 @@ Before the measurement, on a FABRICATED store of three synthetic traces carrying
 
 #### Amendments, beside §1
 
-- **R15, the token is a SET of values, not one.** §1's amendment pre-registers the token as "the value of `CLAUDE_CODE_MESSAGING_TOKEN` in the copy's own traces, read by the instrument from the first trace's `meta.env`", and makes it a precondition that "every `*.db` in the copy must hold the value at least once before the run". Measured read-only before the run, this box's store holds FOUR distinct values of that variable across its 273 traces (254 / 11 / 5 / 3 — the token rotated over the store's life), and the first `*.db` in sorted order carries the one held by 11. Read literally, the precondition therefore refuses 262 of 273 traces for a reason that has nothing to do with the retrofit. Corrected clause: **the instrument reads every trace's own value, sweeps the DISTINCT set one value at a time, and requires each trace to hold ITS OWN value at least once before the run; clause 2 requires every one of the values to read 0 in every file after it.** That is strictly stronger than the pre-registered single-value reading — it makes clause 2 a claim about all 273 traces instead of 11 — and it cannot pass where the pre-registered one would. The record cites each value's `sha256[:8]` with the number of traces holding it; no value is ever printed.
+- **R15, the token is a SET of values, not one.** §1's amendment pre-registers the token as "the value of `CLAUDE_CODE_MESSAGING_TOKEN` in the copy's own traces, read by the instrument from the first trace's `meta.env`", and makes it a precondition that "every `*.db` in the copy must hold the value at least once before the run". Measured read-only before the run, this box's store holds FOUR distinct values of that variable across its 273 traces (254 / 11 / 5 / 3, the token rotated over the store's life), and the first `*.db` in sorted order carries the one held by 11. Read literally, the precondition therefore refuses 262 of 273 traces for a reason that has nothing to do with the retrofit. Corrected clause: **the instrument reads every trace's own value, sweeps the DISTINCT set one value at a time, and requires each trace to hold ITS OWN value at least once before the run; clause 2 requires every one of the values to read 0 in every file after it.** That is strictly stronger than the pre-registered single-value reading (it makes clause 2 a claim about all 273 traces instead of 11) and it cannot pass where the pre-registered one would. The record cites each value's `sha256[:8]` with the number of traces holding it; no value is ever printed.
 
 #### Versions
 
 | version | read | §1 expected |
 |---|---|---|
 | `sensorium` (the venv the command ran from) | 0.17.0 | 0.17.0 |
-| `recorder:` on 19 trace(s) | (none recorded — a Python trace) | -- |
+| `recorder:` on 19 trace(s) | (none recorded, a Python trace) | -- |
 | `recorder:` on 76 trace(s) | sensorium-rt 0.1.0 | -- |
 | `recorder:` on 81 trace(s) | sensorium-rt 0.3.0 | -- |
 | `recorder:` on 94 trace(s) | sensorium-rt 0.4.0 | -- |
 | `recorder:` on 3 trace(s) | sensorium-ts 0.4.0 | -- |
 
-#### H4 — the four clauses
+#### H4: the four clauses
 
 | # | the clause | what was read | word |
 |---|---|---|---|

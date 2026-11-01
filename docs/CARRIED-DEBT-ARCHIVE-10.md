@@ -1,6 +1,6 @@
-# CARRIED-DEBT — volume 10
+# CARRIED-DEBT: volume 10
 
-The S5 rung-4 section — the focus tier for TypeScript — moved here
+The S5 rung-4 section (the focus tier for TypeScript) moved here
 **2026-09-12** (S5 rung 4's debts, funded, in its documentation task's fix
 round) so [`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md) stays under 800 lines. It
 is the tenth numbered volume, on the rule
@@ -12,24 +12,24 @@ The move was measured before it was made, the way the ledger's own lesson
 asks: the review of this slice's own documentation task found five ledgered
 minors missing from its roll-up and one count gone stale, and folding both
 fixes as densely as they can honestly be written took the live file to
-**804** — four over the ceiling. Content was not trimmed to fit; the oldest
+**804**, four over the ceiling. Content was not trimmed to fit; the oldest
 section was cut, which is the rule.
 
-**The wording, the order and the strikes are unchanged** — the edits this
+**The wording, the order and the strikes are unchanged**. The edits this
 slice made inside the section included: nothing was edited BY the move, a
 resolved item is struck through here exactly as it was in the live file, and
 nothing is deleted. **This slice's own strikes and annotations travel with the
-section** — the three E12′ strikes on rung 4's *gaps* 1, 2 and 3 (H2′/H4′/H5′,
+section** (the three E12′ strikes on rung 4's *gaps* 1, 2 and 3 (H2′/H4′/H5′,
 PASS ×3, made in commit `9e6da31`), the eight strikes rung 4 itself made, and
 the two `driver_version` clauses annotated *closed at Task 12, A8* in commit
-`04fb9e7`, made here after the move — so the debts section in
+`04fb9e7`, made here after the move) so the debts section in
 `docs/CARRIED-DEBT.md` points HERE for what it closed, and its *Settled*
 subsection restates every one of them in full for a reader who does not
 follow the pointer. The house rule stated in `docs/CARRIED-DEBT.md`'s header
 governs every volume, and a deferred item below is still open unless it is
 struck.
 
-## 2026-09-12 — S5 rung 4, the focus tier for TypeScript (Python 0.12.0 / sensorium-ts 0.3.0)
+## 2026-09-12: S5 rung 4, the focus tier for TypeScript (Python 0.12.0 / sensorium-ts 0.3.0)
 
 The rung that gives TypeScript a per-statement record: `sensorium ts run
 --focus <spec>`, resolved against the consumer's own AST before anything is
@@ -37,40 +37,40 @@ spawned, one LINE row per completed statement of what it selected, and an
 object serial on every capture the recorder writes. Fourteen plan decisions
 (P1–P14) and forty-two controller rulings (R1–R42); every one that amended
 a section is in the spec's §15, and §15 says which got no row and why.
-**The rung ships `DONE-WITH-STOP`** — eight endpoints, each read once, three
+**The rung ships `DONE-WITH-STOP`**, eight endpoints, each read once, three
 of them STOPped. The gate the rung exists for, **H3**, PASSed on its first
 reading: nine LINE rows against a hand count sha256-locked before
 `bindings.mjs`, `probe.mjs`, the runtime's `line` or the converter's
 `_on_line` existed, empty diff.
 
-### Settled — rung 3's own debts, closed here
+### Settled: rung 3's own debts, closed here
 
 Struck where they stand, above, with a dated pointer; restated in full here
 because a reader who reaches this section first should not have to scroll up
 to find what closed.
 
-- **`Shape.site`'s `key[1]` fallback** — closed: `site` is a required field
+- **`Shape.site`'s `key[1]` fallback**: closed: `site` is a required field
   of `exceptions_group.Shape` with no default, handed in by `group_units`
   from the same local it hands the key function, so a shape whose site and
   key disagree cannot be constructed. Every hand-built `Shape` in the suite
   passes it, which is the ONE line the E-legacy fence reported (R12, record
-  §4.8) — named in advance in §2.3 rather than discovered.
-- **`invocations.jsonl` outside the hashed set** — closed: the
+  §4.8), named in advance in §2.3 rather than discovered.
+- **`invocations.jsonl` outside the hashed set**: closed: the
   pre-registration hashes the journal with the traces and pre-commits its
   expected delta as *the length of §1.5's list of read commands*, read from
   the record rather than written as a literal. Measured: 12 of 13 hashes
   equal, the thirteenth appended and not rewritten, the journal grown by
   exactly **13** lines (record §3).
-- **A fenced pattern matching no file** — closed: `e_fences.FENCED_TESTS`
-  names the Python reader's real files — `tests/test_exceptions.py` and
-  `tests/test_exceptions_synthetic.py` — beside `test_exceptions_rust*.py`
+- **A fenced pattern matching no file**: closed: `e_fences.FENCED_TESTS`
+  names the Python reader's real files (`tests/test_exceptions.py` and
+  `tests/test_exceptions_synthetic.py`) beside `test_exceptions_rust*.py`
   and `test_exceptions_invocation.py`, and `existing()` is hoisted above the
   `git diff` so a pattern matching nothing refuses before any measurement.
-- **`e7_report.py` rewriting its transcript in place** — closed: the
+- **`e7_report.py` rewriting its transcript in place**: closed: the
   needle-rule header goes to a sibling, `<transcript>.rules`, and the
   transcript is never written, so the reporter is idempotent and the sha256
   the record pins cannot move under it.
-- **`CHANGELOG.md` at exactly 800 lines** — closed at this rung's T0
+- **`CHANGELOG.md` at exactly 800 lines**: closed at this rung's T0
   (`b71b995`): 0.8.6 and 0.8.5 cut to the archive before the entry was
   written, cut-before-append as the bullet prescribed. The 0.12.0 entry was
   then drafted, measured at **109** lines against a live file of **589**,
@@ -78,7 +78,7 @@ to find what closed.
 
 ### The gaps this rung's measurement found (record §5)
 
-1. ~~**A spec selects what is nested inside what it names — H2, STOP.**~~ —
+1. ~~**A spec selects what is nested inside what it names (H2, STOP.**~~)
    **closed 2026-09-12, S5 rung 4's debts** as an ENDPOINT: re-registered as
    **H2′** under `typescript/acceptance/e12p_report.py` over the same
    committed transcripts, **PASS 5 of 5** with the container rule derived
@@ -97,7 +97,7 @@ to find what closed.
    focusing three functions on a hot file pays for six, and `resolve.mjs` is
    the only place that says so before the run.
 2. ~~**`focus_matched` and `functions_focused` differ, and the difference is
-   real — H2, reported.**~~ — **closed 2026-09-12, S5 rung 4's debts** as an
+   real (H2, reported.**~~) **closed 2026-09-12, S5 rung 4's debts** as an
    ENDPOINT: H2′ pre-registered the difference and read it, `focus_matched`
    **5** against `functions_focused` **6** and the shared qualname named
    (`docs/superpowers/acceptance/2026-09-12-sensorium-s5-rung4-debts.md` §4.1).
@@ -109,8 +109,8 @@ to find what closed.
    an anonymous function-like, which any later work on `--focus` spellings
    inherits. *Cost if wrong:* a reader is told five and the transform
    instrumented six.
-3. ~~**Two of the three STOPs are the INSTRUMENT's, not the recorder's — H4,
-   H5 (R37).**~~ — **closed 2026-09-12, S5 rung 4's debts**: re-registered as
+3. ~~**Two of the three STOPs are the INSTRUMENT's, not the recorder's (H4,
+   H5 (R37).**~~) **closed 2026-09-12, S5 rung 4's debts**: re-registered as
    **H4′** (the clause read off the row's own `unbound`, never off a line
    number) and **H5′** (a parser that sees a CALL sighting), both over the
    same committed transcripts under an instrument free of the four defects,
@@ -129,13 +129,13 @@ to find what closed.
    numbers stand. **Closing them** means the next slice re-registers **H2**
    (with the container rule derived), **H4** (the completion row read off
    `unbound`, not off the line) and **H5** (a parser that sees CALL and RETURN
-   sightings) under fixed instruments — rung 1's E6′→E6″ precedent. *Cost if
+   sightings) under fixed instruments, rung 1's E6′→E6″ precedent. *Cost if
    wrong:* three endpoints whose word is a fact about `e12_report.py`.
-4. ~~**`e12_report.py`'s row parser drops a `RETURN` row**~~ — **closed
+4. ~~**`e12_report.py`'s row parser drops a `RETURN` row**~~, **closed
    2026-09-12, S5 rung 4's debts**: `typescript/acceptance/e12p_report.py`'s
    row regex takes one space or two before `->`; `e12_report.py` is kept,
    unedited, for the locked record that cites it. The debt as it stood: one
-   space before `->` where it requires two — so the H5 cell's
+   space before `->` where it requires two, so the H5 cell's
    `elsewhere_not_gated` lists one row where the two transcripts print five.
    The field is REPORTED and ungated; the transcripts' own `sightings:`
    totals are the honest numbers and are quoted in the record. *Cost if
@@ -147,21 +147,21 @@ to find what closed.
 Each was ruled at execution, is in the spec's §15, and leaves something a
 later rung may want.
 
-- ~~**Rust's fold keeps a dead block-scoped `let` alive**~~ (spec §3.4) —
+- ~~**Rust's fold keeps a dead block-scoped `let` alive**~~ (spec §3.4),
   **closed 2026-09-12, S5 rung 4's debts**: Rust emits `unbound` on a
   block-like statement's row too (tag 3, `sensorium-rt 0.5.0`), pinned by
   `corpus/rust/focus_block_let` and `rust/sensorium-transform/tests/unbound.rs`.
   The debt as it stood: Python emits `unbound` for `del` and the end of an
   `except … as e`, TypeScript emits it on every block-like statement's row,
-  and **Rust emitted none at all** — so `sites_for`'s fold reported a Rust
+  and **Rust emitted none at all**, so `sites_for`'s fold reported a Rust
   `let` inside a block as in scope at sites after the block. *Cost if
   wrong:* a `watch` predicate over a Rust trace is evaluated at sites where
   the name it reads is dead.
 - **Four shapes the per-statement record does not reach**, each a present row
   with a stated hole rather than a missing row (blind spots 28–31): a place
-  write (`a.b = e`, `delete a.b`) is a row with no delta (D3 — a
+  write (`a.b = e`, `delete a.b`) is a row with no delta (D3 (a
   snapshot-and-diff would see it at scope×statements cost); `this` is not
-  read (design §14 — a pseudo-argument is a later slice's call if demand
+  read (design §14) a pseudo-argument is a later slice's call if demand
   shows); a conditional assignment's row does not say whether the write
   happened; and a `switch` discriminant's assignment is reported nowhere.
   *Cost if wrong:* the row count is honest and the deltas under-report, in
@@ -178,7 +178,7 @@ later rung may want.
   *Cost if wrong:* one of the two commands can answer about a value the other
   cannot search for.
 - ~~**`info`'s `truncated values:` does not count an inspect-side cut**~~
-  (P7, blind spot 36) — **closed 2026-09-12, S5 rung 4's debts**:
+  (P7, blind spot 36), **closed 2026-09-12, S5 rung 4's debts**:
   `js_inspect.is_clipped` answers off the `… N more characters` tail
   (`INSPECT_MORE`) as well as the `trunc` flag, pinned by
   `corpus/typescript/focus_long_string`. The debt as it stood: a string cut
@@ -186,7 +186,7 @@ later rung may want.
   read the flag did not see it. *Cost if wrong:* a reader trusting the
   total under-counts what was clipped.
 - ~~**A new TypeScript corpus case cannot ask an `exceptions` question**~~
-  (blind spot 37) — **closed 2026-09-12, S5 rung 4's debts**:
+  (blind spot 37), **closed 2026-09-12, S5 rung 4's debts**:
   `typescript/acceptance/e6ts.py`'s `PRE_REGISTERED` table is re-registered
   by rung 3's own procedure, with `focus_catch_binding`'s row added in its
   own commit and the procedure written down in `e6ts.py`. The debt as it
@@ -205,7 +205,7 @@ later rung may want.
 - **The skill lives outside this repository.**
   `~/.claude/skills/debugging-typescript-with-sensorium/SKILL.md` was written
   at this rung's close from the corpus's own pinned commands, on the Rust
-  skill's template, and is **not committed here** — the same arrangement the
+  skill's template, and is **not committed here**, the same arrangement the
   Python and Rust skills have. *Cost if wrong:* the skill drifts from the CLI
   it documents with nothing in this tree to catch it.
 
@@ -215,21 +215,21 @@ The 800-line gate (`tests/test_ceiling.py`) covers every tracked `.py`,
 `.rs`, `.sh`, `.md`, `.mjs`, `.ts` and `.tsx`. These are the ones whose next
 edit must take a seam rather than a paragraph:
 
-- ~~**`tests/test_corpus.py` at exactly 800**~~ — **closed 2026-09-12, S5
+- ~~**`tests/test_corpus.py` at exactly 800**~~, **closed 2026-09-12, S5
   rung 4's debts**: the harness half (from `CARGO_QUESTION` down) moved to
   `tests/test_corpus_harness.py`, a pure move verified by the test-name set
   being identical before and after. The debt as it stood: the next edit
   had to split the harness half out.
 - **`README.md` 799**, **`docs/TRACE-FORMAT.md` 788**,
   **`typescript/HONESTY.md` 786**, **`src/sensorium/query/flow_cmd.py` 789**,
-  **`typescript/src/rt.mjs` 783**, **`typescript/probes/check.mjs` 770** —
+  **`typescript/src/rt.mjs` 783**, **`typescript/probes/check.mjs` 770**,
   each within a section of the gate, and each named here because this rung
   wrote in one of them. **Eleven other tracked files sit between 770 and 795
   today** and are not listed, because a hand-kept list of the files somebody
   remembered is the very thing `test_ceiling.py`'s pattern scope replaced.
   The census is one command:
   `git ls-files -- '*.md' '*.py' '*.mjs' '*.ts' '*.rs' '*.sh' | grep -v '^docs/superpowers/' | xargs wc -l | sort -rn | head -30`.
-- ~~**`CHANGELOG-ARCHIVE.md` at 742.**~~ — **closed 2026-09-12, S5 rung
+- ~~**`CHANGELOG-ARCHIVE.md` at 742.**~~, **closed 2026-09-12, S5 rung
   4's debts**: `CHANGELOG-ARCHIVE-2.md` opened, with a preamble in the
   archive's own voice and a pointer from volume 1, the way this file's own
   volumes are numbered. The debt as it stood: the 0.12.0 entry needed no
@@ -238,18 +238,18 @@ edit must take a seam rather than a paragraph:
 - **This file.** Measured before it was written, the way the rule asks: this
   section was drafted at **243** lines against a live file of **553**, which
   is **796**, four under the ceiling. It then crossed it in this rung's own
-  first review — ruling **R41** completed *Deferred minors* with five entries
-  the ledger held, 12 lines onto 798 — so the oldest section was cut, as this
+  first review (ruling **R41** completed *Deferred minors* with five entries
+  the ledger held, 12 lines onto 798) so the oldest section was cut, as this
   bullet had already said it would have to be: the S5 rung-2 section is
   [`CARRIED-DEBT-ARCHIVE-8.md`](CARRIED-DEBT-ARCHIVE-8.md), a pure move
   verified byte-identical against its source, and the live file stands at
   **538**, five lines of which the rung's final review added. The next slice
   appends here with room.
-- ~~**`typescript/HONESTY-COST.md` is covered by no prose test**~~ — **closed
+- ~~**`typescript/HONESTY-COST.md` is covered by no prose test**~~, **closed
   2026-09-12, S5 rung 4's debts**: `tests/test_ts_honesty_prose.py` reads
   `HONESTY-COST.md`'s three acceptance paths structurally, the same way it
   reads `HONESTY-BLIND-SPOTS.md`. The debt as it stood: the same gap
-  `HONESTY-BLIND-SPOTS.md` had — a promise moved out of `HONESTY.md` is a
+  `HONESTY-BLIND-SPOTS.md` had. A promise moved out of `HONESTY.md` is a
   promise no test reads.
 
 ### Deferred minors, per task
@@ -261,7 +261,7 @@ named refusal but a non-map `d`/`a` raises `AttributeError`; `sites._anchor`
 falls back to cwd when a trace records no root (no trace reaches it);
 `find_in_value` keeps `path` third; `js_number` given a raw non-shortest int
 ≥ 2^53 returns exact digits (no caller); the inspect dialect's **100/101**
-character boundary is asserted and not measured — two generator rows would
+character boundary is asserted and not measured, two generator rows would
 make it one. In the recorder: `captures()` silently drops a trailing unpaired
 name; `bindings.mjs:25,26,28` hold dead typedefs; `({a = 1} = o)`
 shorthand-with-default is probed correct and untested; `isGuard` /
@@ -276,7 +276,7 @@ docstring was corrected at Task 5); `second_run` has no closed-key check
 refusal as "the Python recorder's" (plan-mandated); `focus_async` pins a
 leading `e4 ` event id that a shorter needle would avoid; the converter
 fixture's `invocation.json` carries `driver_version: "0.11.0"` (an
-informational field, one behind then — set to `"0.13.0"` at Task 12, A8); `naming.test.mjs` scrubs
+informational field, one behind then, set to `"0.13.0"` at Task 12, A8); `naming.test.mjs` scrubs
 `SENSORIUM_FOCUS` but not `SENSORIUM_MANIFEST_DIR` (harmless: `rt.mjs` never
 loads `tally.mjs`); `resolve.test.mjs` puts temp roots under `probes/`
 (pre-existing recipe); `tests/test_ts_driver_focus.py:16-17` has unused
@@ -287,7 +287,7 @@ on a list, which is a no-op in a failure message. In the recorder's own
 modules: `bindings.mjs`'s `listNames` and its head-declaration branches are
 not deduped (only a duplicate declarator can reach the second, which is why
 it was left), and the Task-3 report's decision 1 and the test name at
-`bindings.test.mjs:307` over-claim the `var` head — that name survives via
+`bindings.test.mjs:307` over-claim the `var` head, that name survives via
 the incrementor, not via the head. In the pre-registration's own prose: §1
 says "§2's pin table" in the singular while the paths now sit in §2's and
 §2.1's tables (§2's own sentence declares §2.1 part of §2, and reopening §1
@@ -297,18 +297,18 @@ grep's reach; and §1.4's CALL table uses
 `| record | line | call | args | reading |` by design, a deviation the Task-0
 report omitted to name. In the RUNTIME, and the largest of these: **`ret`
 closes the frame before the program's `finally` runs**, so a statement in a
-`finally` the `try` reached by `return` mints no row (blind spot 38, R42) —
+`finally` the `try` reached by `return` mints no row (blind spot 38, R42),
 sealing the frame after the finally instead is a next-slice design item,
 because it also moves the RETURN row past those statements.
 
 **Closed 2026-09-12, S5 rung 4's debts:** every clause above is closed
 except eight: `sites._anchor`'s cwd fallback (closed by a dated note at
 Task 12); `find_in_value`'s `path` order (a comment on why the reorder is
-unsafe, not a reorder — `src/sensorium/query/flow_values.py:144-152`); the
+unsafe, not a reorder (`src/sensorium/query/flow_values.py:144-152`); the
 inspect dialect's 100/101 boundary (still asserted, not measured);
 `second_run`'s missing closed-key check (pre-existing); the converter fixture's
-`driver_version: "0.11.0"` (informational — closed at Task 12, A8); `bindings.mjs`'s `listNames`
-dedupe (a comment on why not, not a dedupe —
+`driver_version: "0.11.0"` (informational) closed at Task 12, A8); `bindings.mjs`'s `listNames`
+dedupe (a comment on why not, not a dedupe,
 `typescript/src/bindings.mjs:253-258`); §1's "§2's pin table" singular
 (R11 rules the singular stands); and §1.4's
 CALL-table deviation (named here, not a defect). The rest closed across this
@@ -330,7 +330,7 @@ paragraph calls `exceptions_group._one` is `src/sensorium/ts/build.py`'s
 probe.mjs` import cycle is removed by `typescript/src/positions.mjs`
 (Task 1); and `resolve.mjs`'s `survey` wraps `sitesOf` in a `try`, with
 `resolve.test.mjs`'s temp roots under `os.tmpdir()` (Task 3). The RUNTIME
-clause — the largest, blind spot 38 — is closed by Task 3's finally seal
+clause (the largest, blind spot 38) is closed by Task 3's finally seal
 (`pend`/`seal`, `typescript/test/rt.seal.test.mjs`); struck at its own
 entry, `typescript/HONESTY-BLIND-SPOTS.md` item 38.
 
@@ -338,13 +338,13 @@ entry, `typescript/HONESTY-BLIND-SPOTS.md` item 38.
 
 - **A spec's own example strings can describe a shape the tooling cannot
   pin.** §1.5 was written as "twelve read commands" and the assembler's
-  expected journal delta had to be **thirteen** — so the delta is now the
+  expected journal delta had to be **thirteen**, so the delta is now the
   LENGTH of §1.5's list read from the record, never a literal (R6). A
   pre-registration that counts by hand what a list already states counts it
   wrong eventually.
 - **The rule that saved the fold was found by asking what a reader would
-  read NEXT.** Plan P1 — a guarded statement's completion row carries its
-  head's assignment targets — exists because somebody asked what `watch`'s
+  read NEXT.** Plan P1 (a guarded statement's completion row carries its
+  head's assignment targets) exists because somebody asked what `watch`'s
   fold would hold for `m` after the loop, not because a shape failed. The
   per-entry rule alone would have left `m` at its last matched array
   forever, and H3's row 9 (`m=null unbound:count,sides`) is that question
@@ -361,6 +361,6 @@ entry, `typescript/HONESTY-BLIND-SPOTS.md` item 38.
 - **A strict `xfail` is the honest carrier for a half-built seam.** The
   driver learned `--focus` a task before the converter learned `_on_line`, so
   `tests/test_ts_driver_focus.py::test_the_trace_says_what_was_focused` was
-  `xfail(strict=True)` naming the task that would close it — a strict xfail
+  `xfail(strict=True)` naming the task that would close it. A strict xfail
   that passes fails the suite, so the marker could not outlive the seam. The
   gap was visible in the suite for one task rather than absent from it.

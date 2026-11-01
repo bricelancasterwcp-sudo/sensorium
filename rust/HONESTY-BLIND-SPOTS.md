@@ -1,9 +1,9 @@
-# The Rust recorder's honesty ledger — §8: What this recorder cannot see
+# The Rust recorder's honesty ledger: §8: What this recorder cannot see
 
 The numbered list of [`rust/HONESTY.md`](HONESTY.md) §8, **moved here
 2026-09-05 (rung 3) so that file stays under 800 lines**. The section's own
 framing paragraphs stay there; **the numbering is unchanged**, so item *n*
-here is `rust/HONESTY.md` §8 item *n* — the spelling every code comment and
+here is `rust/HONESTY.md` §8 item *n*, the spelling every code comment and
 the ledger's index already use. Items 1–14 are rung 2's, verbatim except
 three: item 2, which rung 3 narrowed to the recordings it is still true of;
 item 3, which rung 4's focus tier narrowed 2026-09-06 to what a focus still
@@ -17,13 +17,13 @@ and **28** from the whole-branch review of that same slice (design 2026-09-07),
 both **closed 2026-09-08** by the slice that built and measured their ruled
 fixes; **29** is what that slice's own exemption costs (design 2026-09-08 R4 as
 amended). **30** and **31** were added 2026-09-08 by the queue slice: both are
-shapes an earlier ledger named and no *blind-spot* entry carried — 30 from the
-err-flow design's R16 (v), 31 from the rung-3 inbox — so this list, which the
+shapes an earlier ledger named and no *blind-spot* entry carried (30 from the
+err-flow design's R16 (v), 31 from the rung-3 inbox) so this list, which the
 index calls the one home of §8, is where a reader meets them. **32** and **33**
 were added 2026-09-12 by this slice's Rust `unbound` work (§12).
 
-Each entry names **what declares it** — the field or line a reader meets
-without knowing this document exists — and, where one exists, what could
+Each entry names **what declares it** (the field or line a reader meets
+without knowing this document exists) and, where one exists, what could
 falsify it. A bare `§n` below is a section of `rust/HONESTY.md`.
 
 **What it does see, so the list below is bounded.** Every function item with a
@@ -50,19 +50,18 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    `Err(..) =>` arms are not classified; and everything the trace says about a
    `?` that propagated is `outcome: none` on the frame it left (§1).
    *Declared by* the absence of `capabilities.err_flow`, which reads `false`,
-   and by the refusal `exceptions` prints against it —
-   `REFUSED: exceptions needs err_flow, which recorder sensorium-rt 0.2.0
+   and by the refusal `exceptions` prints against it, `REFUSED: exceptions needs err_flow, which recorder sensorium-rt 0.2.0
    declares it does not produce (capabilities.err_flow: false); nothing was
-   checked` — exit 3. *Falsified by* `docs/trace-format/vectors/v19-err-flow-capability-refusal.json`
+   checked`, exit 3. *Falsified by* `docs/trace-format/vectors/v19-err-flow-capability-refusal.json`
    and `tests/test_exceptions_rust_gate.py`.
-3. **Locals, and per-line state — what a `--focus` still does not reach.**
+3. **Locals, and per-line state, what a `--focus` still does not reach.**
    **Narrowed 2026-09-06** (rung 4 slice 1, design §3.3), not struck: the
    focus tier gives one LINE per completed statement of a focused function,
    with the bindings that statement wrote (`rust/HONESTY.md` §12), and what is
    left is exactly this list.
    * **Every function no `--focus` named.** Nothing is captured between its
-     entry and its exit, so a value that changed in place mid-frame — mutation
-     through a long-lived `&mut` included — is invisible there, which is what
+     entry and its exit, so a value that changed in place mid-frame (mutation
+     through a long-lived `&mut` included) is invisible there, which is what
      this item said of every function before this rung.
    * **Closure bodies, `async fn` bodies and `async` blocks**, focused or not:
      the statement walk stops at them (call-level instrumentation only, and an
@@ -82,7 +81,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      probe is spliced after the statement and would survive a `cfg` that
      stripped it, so the row would name a binding that was never built.
    * **A pattern name whose first character is uppercase** is read as a path
-     pattern (`None`, a unit variant, a const) and mints no delta — `syn`
+     pattern (`None`, a unit variant, a const) and mints no delta, `syn`
      cannot tell it from a binding, and resolution is rustc's job. The cost is
      a missed delta for a binding written against Rust's own naming
      convention.
@@ -90,10 +89,10 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      Default::default();`, resolved by a later use) is design §9's named
      compile risk: the probe constrains nothing and the unit may fail to
      compile. E9 H2 measured **0** focused build failures over two units,
-     which does not reach this shape — named, not measured.~~ **Struck and
+     which does not reach this shape, named, not measured.~~ **Struck and
      corrected 2026-09-06** (the whole-branch review's item 2, after E9): the
      mechanism named here is wrong, and wrong in the direction that matters. A
-     probe on such a `let` does not *constrain nothing* — it constrains the
+     probe on such a `let` does not *constrain nothing*. It constrains the
      variable to `Debug`, at the probe. The replacement is the next bullet;
      E9 H2's **0** build failures over two units still stands and still does
      not reach the shape.
@@ -136,13 +135,13 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      fails to build under a focus.
      *Declared by* the same loud whole-unit fallback as the bullet above.
      *Falsified by* `rust/sensorium-transform/tests/focus_compile_fail/focus_macro_tail.rs`.
-     The guard is one line — `lines.rs`'s `Stmt::Macro` arm returning `None`
-     when `is_tail` — and it is NOT taken here: it is a `src` change after the
+     The guard is one line (`lines.rs`'s `Stmt::Macro` arm returning `None`
+     when `is_tail`) and it is NOT taken here: it is a `src` change after the
      measurement (R-F14), so it is `docs/CARRIED-DEBT.md` for Brice or slice
-     2.~~ — **Struck as FIXED in `sensorium-transform` 0.4.1**, ruling G1 of
+     2.~~, **Struck as FIXED in `sensorium-transform` 0.4.1**, ruling G1 of
      slice 2 (design §3.3). The mechanism above was measured and is accurate
      for 0.4.0; the guard is the one line it named, and it is the same guard
-     `Stmt::Expr(_, None)` already applied one arm above — a tail is not a
+     `Stmt::Expr(_, None)` already applied one arm above. A tail is not a
      statement whichever `syn` node spells it. The compile-fail case is deleted
      with the repair, and the shape is now a compile-PASS golden,
      `tests/golden_focus/focus_macro_tail.{in,out}.rs`: the value fn pins
@@ -152,12 +151,12 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      empty stderr. The golden carries a UNIT fn (`shout! { a }`) as well,
      because that half of the shape was never loud: with no RETURN wrap to
      collide with, the extra LINE compiled and simply recorded a completed
-     statement for what is the function's value — a wrong row rather than a
+     statement for what is the function's value. A wrong row rather than a
      lost build, and the only thing that would have said so is the row count
      the golden now pins. Two more functions there fix the guard's extent
-     rather than its subject: `declared` is the NEGATIVE — a brace macro that
+     rather than its subject: `declared` is the NEGATIVE (a brace macro that
      is not a tail keeps its probe, so the arm cannot be widened to every brace
-     macro without the suite saying so — and `looped` is a brace-macro tail of
+     macro without the suite saying so) and `looped` is a brace-macro tail of
      a NESTED block, a loop body's, which nothing claims as an operand (only a
      fn body's tail is one) and which therefore never failed to build either.
      It takes no probe for the plainer half of the reason, that a tail is not a
@@ -165,8 +164,8 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      guard, two after.
    * **A focused function that was BUILT but never RAN** leaves
      `capabilities.line: true` with zero LINE rows (`--focus tests::x` under
-     `cargo run`). That is honest under design §2.4 — the capability is a
-     statement about what the recorder produces, not a promise that it did —
+     `cargo run`). That is honest under design §2.4 (the capability is a
+     statement about what the recorder produces, not a promise that it did)
      and the two facts are scoped differently on purpose: `focus_matched` is
      about the BUILD (the manifests built under this invocation's focus),
      `capabilities.line` / `locals` about the RUN (its registered units).
@@ -175,8 +174,8 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    invocation's own list) and `meta.focus_matched` (what this build matched),
    both printed by `info`; by the `"unread": ["locals"]` marker every CALL
    payload carries, which `tree` renders as `name() <unread: locals>` and
-   `frame` as `args: <unread: locals>` — never `(none)`, which would read as
-   "called with no arguments" — and which a LINE row carries too when a delta
+   `frame` as `args: <unread: locals>` (never `(none)`, which would read as
+   "called with no arguments") and which a LINE row carries too when a delta
    was dropped; by the driver's exit-2 refusals, which name a `--focus` value
    that matches nothing (`REFUSED: --focus <v> matches no function in the
    workspace; nothing was built.` with up to three `Closest:` suggestions) or
@@ -189,8 +188,8 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    would take it is unstable. *Declared by* `capabilities.output: false`: the
    `output` table is empty, and every reader prints the declaration instead of
    a zero.
-5. **`async fn` bodies.** Skipped whole — an entry guard would live across
-   every `.await`, and the guard is the sole emitter of a RETURN (§1) — so an
+5. **`async fn` bodies.** Skipped whole (an entry guard would live across
+   every `.await`, and the guard is the sole emitter of a RETURN (§1)) so an
    async
    function gets no frame at all rather than a wrong one. *Declared by* the
    manifest's `skipped: [{reason: "async"}]`, carried into the meta key
@@ -207,7 +206,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    `wrapper: <error>`. *Declared by* the unit manifest's `fell_back: true` and
    `fallback_reason`, the meta key `uninstrumented`, and `info`'s
    `M fell back (<reasons>)`. **Every** fallback path writes or patches a
-   manifest — rung 1 had one that reported to the log channel only, and a
+   manifest, rung 1 had one that reported to the log channel only, and a
    coverage check reading manifests alone would have scored it as instrumented
    (findings §5.29). A fallback in a shared `tests/common/*.rs` uninstruments
    every test binary that includes it, and the manifests say which.
@@ -216,7 +215,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    `sensorium_rt`, so the passthrough rustc run needs the runtime as much as
    the instrumented one did. When such a unit falls back for a reason that is
    about the runtime's linkage, the plain compile fails with the same
-   `E0463: can't find crate for <dependency>` and cargo's build fails —
+   `E0463: can't find crate for <dependency>` and cargo's build fails,
    measured on the bloomery clone, 2026-09-03, on a fresh target with a wrapper
    that sent `--extern sensorium_rt=<rlib>` and no `-L dependency=<rt dir>`:
    `bloomery-daemon`'s lib unit was declared
@@ -226,12 +225,12 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    promise that the build survived it.
    **The condition is the unit's own dependencies, not the fallback's reason.**
    A fallback replays the argv cargo built, with no `--extern` and no `-L` of
-   ours, so *every* reason takes the same plain compile — including `lto` and
+   ours, so *every* reason takes the same plain compile, including `lto` and
    `cross-target`, which are decided before instrumenting, and
    `wrapper: <error>`. A unit with instrumented dependencies therefore fails
    `E0463` on a `lto` fallback exactly as it does on a runtime-linkage one.
    "Recorded nothing, built fine" is what a fallback means **only when that
-   unit's own dependencies are uninstrumented** — a leaf workspace crate, or
+   unit's own dependencies are uninstrumented**, a leaf workspace crate, or
    one that depends only on registry crates. Which units those are is readable
    from the manifests: a fallen-back unit whose dependencies have manifests of
    their own is in the failing case.
@@ -240,7 +239,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    decision D1 as amended): rustc resolves a dependency's own `sensorium_rt`
    through the search path, not the extern map.
 8. **A module the module walk could not reach.** `#[cfg_attr(.., path = ..)]`
-   is not evaluated — the walk resolves `mod` declarations and literal
+   is not evaluated. The walk resolves `mod` declarations and literal
    `#[path]`, and refuses to guess at a conditional one. *Declared by* the unit
    manifest's `unreached_files`, carried into the meta key of the same name
    over the units this process registered, and printed by `info` as
@@ -252,21 +251,21 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    is not only the cfg-gated-path case above. A file the walk resolved but
    the wrapper could not READ, and a file the walk read but
    `sensorium-transform` REFUSED (an unparseable file, or one of the
-   transformer's own synthesised errors — a spawn with no named item around
+   transformer's own synthesised errors, a spawn with no named item around
    it, a rewrite that would move a line, a wrapped spawn's ordinal
    disagreeing with source order) both land in `unreached_files` too, and
    only the last case carries a message: the wrapper prints `sensorium: unit
    <crate> (<metadata>): <rel>: <message>` on stderr and records `<message>`
    under the manifest key `unreached_reasons`, keyed by the same
    workspace-relative path. A file the wrapper cannot read gets no entry in
-   `unreached_reasons` — `read` hands back an `Option`, so there is no
+   `unreached_reasons`, `read` hands back an `Option`, so there is no
    message to quote, and inventing one would be worse than the silence.
    `fell_back` stays `false` for a refused file: this is one file's
    instrumentation lost, not the whole unit's, and every other file in the
    unit still is. The one exception is the crate root: if the file holding
    `__SENSORIUM_UNIT` is among the refused files, the whole unit ends up with
    no files instrumented at all (every guard would otherwise reference a
-   static that does not exist) — still not `fell_back: true`; only
+   static that does not exist), still not `fell_back: true`; only
    `unreached_reasons` says why the unit came back empty. *Falsified by*
    (the refused CHILD-file half) `rust/cargo-sensorium/tests/wrapper_fallback.rs`'s
    `a_file_the_transformer_refused_names_its_reason_on_both_channels`, and (the
@@ -276,15 +275,15 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    `source_hashes` and `rewrites` are all cleared while
    `unreached_reasons["a/src/lib.rs"]` survives. What is untested as of
    2026-09-03 is narrower than "the crate-root half": the wrapper-BINARY path
-   for a root refused by a SYNTHESISED error — the stderr line,
-   `fell_back: false`, and the empty `files` as the driver writes them —
+   for a root refused by a SYNTHESISED error (the stderr line,
+   `fell_back: false`, and the empty `files` as the driver writes them)
    has no fixture; rung-3 inbox.
 9. **Why a return value was unread** (§2): a missing `Debug` impl and a
    panicking one read the same.
 10. **A runner set in a workspace's `.cargo/config.toml`.** The driver sets
     `CARGO_TARGET_<HOST>_RUNNER` in the environment, which overrides the
     config file, and only an env-set `SENSORIUM_INNER_RUNNER` is chained. On
-    such a workspace the recorded run is not the run the config describes —
+    such a workspace the recorded run is not the run the config describes,
     and **no field in the trace says so**. It is declared here, and in the
     acceptance document's §2 pins, which record that no config-file runner
     existed on the box or in the tree that was measured. *Falsified by* adding
@@ -302,7 +301,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       so the two cross-checks the Python licence runs cannot run at all. They
       are printed and stamped `output: unverifiable (not recorded)` and
       `children: unverifiable (not witnessed)` and are **never counted as
-      verified** — the alternative was comparing two empty sets and reporting
+      verified**. The alternative was comparing two empty sets and reporting
       agreement, which is the bug class the wording exists to refuse.
       *Declared by* those two lines and the `refocus_licence*` stamps.
       *Measured* at n = 61 by **E4 H4**
@@ -316,14 +315,14 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       the count and the single-target selector, before anything is launched.
       *Declared by* `meta.invocation_processes` and that sentence; *pinned by*
       `corpus/rust/refocus_refused_many`. A refocus of such an invocation is
-      untested because it does not exist — it is CARRIED-DEBT, not a gap in a
+      untested because it does not exist. It is CARRIED-DEBT, not a gap in a
       shipped answer.
     * **The re-run's rebuild is its own cost, and the verdict says so.** A
       `--focus` keys a fresh wrapper shim and rebuilds the matched units, so a
       refocus is not a cheap replay: E4 measured a flat ~7 s per pair on its
       subject, of which about half is cargo's own reported build, and 61
       focused re-runs plus pass 1's own unfocused base key left **62** shim
-      entries totalling **2 506 729 440** bytes — one base key and exactly 61
+      entries totalling **2 506 729 440** bytes, one base key and exactly 61
       focused keys, none reused (record §3, §5.4). Those bytes were **copies**,
       one per key, which is what `cargo-sensorium` 0.5.0 installed; from 0.5.1
       the shim is a hard link to the driver wherever the target directory
@@ -338,14 +337,14 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       is the OS scheduler's choice, so the same execution can distribute the
       same work across workers differently. `compare_tasks` matches tasks as
       an order-independent multiset of `(name, hash)`, so only a different
-      PARTITION — not a different ORDER — could diverge. **Measured, and it
+      PARTITION (not a different ORDER) could diverge. **Measured, and it
       fired**: on 1 of E4's 61 pairs the per-`task_id` assignment moved (the
       workers carried (216, 205, 151, 233, 151) events on one side and (216,
       205, 233, 151, 151) on the other), the multiset was identical, the total
       was 956 on both sides, and the verdict was MATCH (record §5.3). The
       **discriminator** E4 pre-registered for telling this hazard from a
-      recorder finding is two conditions — the worker tasks' total event count
-      preserved, AND the MAIN stream MATCHing — and its second condition has
+      recorder finding is two conditions (the worker tasks' total event count
+      preserved, AND the MAIN stream MATCHing) and its second condition has
       **no subject on `cargo test` material**: every one of E4's 122 traces
       carries a **0-event** MAIN stream, because libtest runs each test on a
       spawned thread the converter records as a *task*, so nothing runs
@@ -357,12 +356,12 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       `licences granted` was **0** on all 61 of E4's pairs while every count
       the endpoint gates on was as pre-registered (thread counts 57×1, 1×2
       and 3×5; record §5.2). **This is a finding about the licence's thread
-      clause, not about the recorder**, and the candidate fix — treat
+      clause, not about the recorder**, and the candidate fix (treat
       libtest's per-test thread as the recorder's own, as the licence already
-      treats the recorder's own environment variables — is named there and
+      treats the recorder's own environment variables) is named there and
       deliberately **not applied**: it is a ruling's to make
       (`docs/CARRIED-DEBT.md`). A reader of a `cargo test` refocus should read
-      the four printed counts, not the word.~~ — **taken 2026-09-07** at
+      the four printed counts, not the word.~~, **taken 2026-09-07** at
       `11b7e8a` (with `d9115a5`), design 2026-09-07 ruling R1. The MEASURED
       reason the word never moved was libtest's per-test thread and nothing
       else, so that thread is now the **harness thread**: a non-main thread
@@ -371,17 +370,17 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       those counts appears on (`rust/HONESTY.md` §13). What remains a blind
       spot is what it always was and is one bullet down: the licence's thread
       clause reports what was not COMPARED, and a program thread of the test's
-      own still withholds — which is the answer, not a gap.
+      own still withholds, which is the answer, not a gap.
     * ~~**A re-run whose test spawns a workspace CHILD is refused by count,
       and the sentence names the selector rather than the cause.** Every trace
       of the invocation carries `refocus_of`, a child process the test spawns
       included, while `meta.invocation_processes` counts only what cargo hands
-      the runner — so the pre-rerun count is 1, the pair lookup finds 2, and
+      the runner, so the pre-rerun count is 1, the pair lookup finds 2, and
       the refusal asks for a single-target selector the caller already used.
       Two traces is not a pair, so the REFUSED verdict is right; what is wrong
       is the diagnosis. Derived from the code and the trace format, not
-      measured — E4's subject spawns no child from a test. *Carried, with two
-      candidate fixes and a ruling owed*, in `docs/CARRIED-DEBT.md`.~~ —
+      measured: E4's subject spawns no child from a test. *Carried, with two
+      candidate fixes and a ruling owed*, in `docs/CARRIED-DEBT.md`.~~,
       **taken 2026-09-07** at `d4cccd9`, design 2026-09-07 ruling R2, which
       chose the first candidate: a linked trace whose `ppid` is another linked
       trace's `pid` is a child run, excluded from the pair and named on the
@@ -395,7 +394,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       shell bookkeeping, and a second shell differs in variables that bear on
       nothing the build or the run reads. A target directory that MOVED is now
       read as a relocation (`rust/HONESTY.md` §13), so cargo's four
-      root-bearing variables no longer fire on their own — but a
+      root-bearing variables no longer fire on their own, but a
       `SSL_CERT_DIR` present at one launch and absent at the next does.
       **Ruled and deliberately not built**: a named, versioned positive set of
       build-and-run-bearing variables withholds, and every other differing key
@@ -427,7 +426,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     environment beyond the variables a command names as compared, the clock,
     the network, and everything else the machine did. *Declared by*
     `source_hashes`, which is the whole of what the trace pins about the world
-    outside the process — the source files the instrumented units were built
+    outside the process. The source files the instrumented units were built
     from, and nothing else. Config, fixtures, databases and inputs move
     unseen.
 15. **Absorbing shapes the grammar does not name.** `let … else`,
@@ -435,14 +434,14 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     (`Err(A) | Err(B) =>`), a let-chain (`if let Err(e) = x && c`), a *typed*
     `let _: T = e;`, and the closure of `.unwrap_or_else(|e| …)` that stores
     `e` are probed by nothing at all, so an `Err` that ends in one of them
-    reads **AMBIGUOUS** — the designed default, never SWALLOWED.
+    reads **AMBIGUOUS**. The designed default, never SWALLOWED.
     `.is_err()`/`.is_ok()` are on the same list by a *decision* rather than by
     omission: they take `&self` and observe rather than absorb, and a HANDLED
     there would report a predicate as a swallow (design R2's erratum of
     2026-09-04). *Declared by* the absence of any record at the site and by
     the AMBIGUOUS verdict `exceptions` prints for the chain. **Untested by
     fixture**: the design enumerates these shapes, and no golden pins that
-    each one is left alone — a golden per shape is what would settle it.
+    each one is left alone. A golden per shape is what would settle it.
 16. **`.unwrap()` and `.expect()`.** Not probed; a panic on an `Err` is read
     from the panic hook instead, so the verdict is PANICKED and says "the
     frame holding it unwound", never that the panic was *because of* the
@@ -468,23 +467,23 @@ that stops the rung until it is explained. *Falsified by* E2′ in
 20. **Two `Err`s of one type with identical `Debug` text in one window are one
     chain.** There is no error identity on the wire; the chain machine follows
     `(holder frame, type, Debug text)`. A text the probe had to **truncate** is
-    no identity at all — matching falls back to the type, which can only ever
+    no identity at all, matching falls back to the type, which can only ever
     MERGE two chains, never split one. *Declared by* `exc.trunc` / `exc.type_trunc`
     and `docs/TRACE-FORMAT.md` §5. *Falsified by* `corpus/rust/interleaved_chains`
     and `docs/trace-format/vectors/v18-exceptions-rust-ambiguous-merge.json`.
 21. **A conditional panic in an `Err` arm classifies the WHOLE arm PANIC.**
-    `Err(e) => if c { panic!() } else { 0 }` gets no probe — the panic hook is
+    `Err(e) => if c { panic!() } else { 0 }` gets no probe (the panic hook is
     the record, and a probe there would shift the panic's column, which E7″
-    measures — so on the run where the arm does *not* panic its `Err` reads
+    measures) so on the run where the arm does *not* panic its `Err` reads
     AMBIGUOUS. *Falsified by* (the unconditional half)
     `rust/sensorium-transform/tests/golden_errflow.rs::a_panic_arm_is_left_byte_for_byte_where_it_was`.
     The conditional half is **untested by fixture**.
 22. **`Err(ref e) => note(e)` reads ESCAPED.** Exactly two shapes count as a
     provable shared borrow, and **since 2026-09-05 the first of them is
     narrower than it was** (the borrow repair, item 23 (c) below): a literal
-    `&e` argument of a call at a DROPPED call site — the whole expression of a
+    `&e` argument of a call at a DROPPED call site (the whole expression of a
     statement ending in `;`, a `let _ =` with a plain wildcard, or a logging
-    macro's argument — and a `{}`/`{:?}` format argument of the logging
+    macro's argument) and a `{}`/`{:?}` format argument of the logging
     family. A literal `&e` argument anywhere else ESCAPES too, which it did
     not before that date: `Err(e) => map_error(&e),` is a literal `&e`
     argument and reads `arm_ambiguous`. A binding reached any other way was
@@ -503,16 +502,15 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     still reach SWALLOWED: a **false-accusation generator**, the same class
     the R2 amendment of 2026-09-05 was written for, one nesting level in. Its
     exposure on the bloomery clone was **measured zero**
-    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.3) —
-    a fact about that workspace, not a promise about any other — and it was
+    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.3) (a fact about that workspace, not a promise about any other) and it was
     recorded rather than repaired.
     (b) A whole-word literal `e` inside a NON-logging macro's string
     over-escapes, so an arm that handled reads AMBIGUOUS. That is the **safe
     direction**: it can never produce an accusation, only withhold a verdict.
-    **Its exposure is measured nowhere** — no run counted it, and nothing here
+    **Its exposure is measured nowhere**. No run counted it, and nothing here
     should be read as saying it is rare.
     (c) A `&e` handed to a FUNCTION was exempt **regardless of what the
-    call's product does** — the exemption (design R2,
+    call's product does**. The exemption (design R2,
     `escape.rs::visit_expr_reference`) was a fact about the borrow and said
     nothing about the value the call returns, so
     `Err(e) => { let (status, value) = map_error(&e, ..);
@@ -521,13 +519,13 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     **false-accusation generator**, the R2 amendment's class one function call
     out rather than one macro nesting in. **Repaired 2026-09-05** (the borrow
     repair, design B1): the exemption now holds only where the borrowing
-    call's product is provably dropped — an expression statement, a `let _ =`,
-    or a logging macro's argument — and that arm reads `arm_ambiguous`.
+    call's product is provably dropped (an expression statement, a `let _ =`,
+    or a logging macro's argument) and that arm reads `arm_ambiguous`.
     **Measured, and the control discriminated**
     (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`):
     **E6⁗-A PASS**, 0 false accusations of 14; **E6⁗-WS PASS**, 0 false of 782
     over 144 processes of `cargo sensorium test --workspace`; **E6⁗-WS0
-    DISCRIMINATING** — the same command under the PRE-repair driver printed 30
+    DISCRIMINATING**, the same command under the PRE-repair driver printed 30
     more lines, every one false, at 7 of the 11 arms the repair moved, where
     the repaired driver printed none; 4 of the 11 were never executed by any
     arm of that run (§5.5 there). *Falsified by* the `class_of` rows of
@@ -537,11 +535,11 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     direction, found after the numbers were read:** `log(&e).await;` and
     `note(&e)?;` are not matched by `walk_dropped_call` (they are
     `Expr::Await`/`Expr::Try` over the call, not the call), so both ESCAPE
-    too — the safe direction, unmeasured, added 2026-09-05 to the
+    too, the safe direction, unmeasured, added 2026-09-05 to the
     borrow-repair design's §2.
     (d) **A callee that STORES a rendering through a side channel.** A `&e`
-    handed to a call whose product is dropped — `self.record(&e);`, or a call
-    that writes through a capture or a global — is exempt by (c)'s repaired
+    handed to a call whose product is dropped (`self.record(&e);`, or a call
+    that writes through a capture or a global) is exempt by (c)'s repaired
     rule, and the callee may keep what it was handed all the same, so the arm
     still reads `arm_handled` and can reach SWALLOWED. A syntactic rule cannot
     see it; closing it needs the inter-procedural analysis this recorder does
@@ -563,18 +561,18 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     `?` there is declared `partial`, reason `async-block`), and the future may
     poll on a thread with no open frame: such a record is **counted in the
     meta key `err_flow_outside_frames` and never written as an event**. A
-    `const`/`static` initialiser gets no probe at all — `err_site` is not
-    `const` — *falsified by*
+    `const`/`static` initialiser gets no probe at all (`err_site` is not
+    `const`) *falsified by*
     `rust/sensorium-transform/tests/edges.rs::a_const_context_gets_no_err_probe_and_a_closure_inside_one_does`.
     And the chain machine runs **per thread**: an `Err` born in an instrumented
     frame on ANOTHER thread is, to the thread that absorbs it, "born outside
-    this thread's instrumented frames" — the wording says *this thread*
+    this thread's instrumented frames". The wording says *this thread*
     because a cross-thread chain is unknowable to it by construction
     (amended 2026-09-04). *Falsified by* `corpus/rust/join_handle`.
 26. **A probed operand whose type is a REFERENCE to a `Result`.**
     `let _ = f()` where `f` returns `&Result<T, E>` records nothing: the
     three-level autoref ladder resolves to its own fallback arm. That `Err`
-    reads AMBIGUOUS **with no record and no `partial` row** — the one shape in
+    reads AMBIGUOUS **with no record and no `partial` row**, the one shape in
     this list whose absence nothing in the trace declares. Measured at the
     Task-1 review of 2026-09-04; **untested by fixture**.
 27. **A refocus whose original was recorded by a DIFFERENT driver build is
@@ -591,23 +589,23 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     changes**. A moved hash is not a relocation, so `differs_only_by_root` is
     right to return false, the key falls into the changed list, and the
     licence reports the recorder's **own footprint** as a change the world
-    made — the same class this licence already exempts twice, for the
+    made, the same class this licence already exempts twice, for the
     recorder's `SENSORIUM_*` variables and (item 12) for R1's harness thread.
     **Measured 2026-09-07 at n = 61 by E4′**
     (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md` §4): the
     61 originals were recorded by `cargo-sensorium` **0.5.0** and re-run by
     **0.5.1**, and the identical caveat `1 environment variable(s) differ
     between the two runs (RUSTDOCFLAGS)` withheld the licence on **61 of 61**
-    pairs — including all 61 on which R1's harness exclusion had fired and
+    pairs, including all 61 on which R1's harness exclusion had fired and
     been named. The env clause withholds before the thread clause is reached,
     so E4′'s H1 STOPPED and its pre-registered question is **unanswered by
     that run**, not answered smaller. A same-build refocus does not show it:
     the dry run recorded and refocused under one driver, the fragment
     relocated cleanly, and the licence came back granted. *Ruled and NOT
-    built* (`docs/CARRIED-DEBT.md`, rung 4 slice 3 — kill 6 forbids a `src`
+    built* (`docs/CARRIED-DEBT.md`, rung 4 slice 3 (kill 6 forbids a `src`
     change after the measurement): strip the driver-injected fragment before
-    the compare as the recorder's own — **anything else in `RUSTDOCFLAGS`
-    stays the world's** and still withholds — then **E4″** re-measures over a
+    the compare as the recorder's own) **anything else in `RUSTDOCFLAGS`
+    stays the world's** and still withholds. Then **E4″** re-measures over a
     subject that includes an original recorded under a different driver
     build, the one condition under which this confound is visible. *Declared
     by* the env line, which names every key it did not explain.
@@ -646,24 +644,24 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     own before calling `f`, and a closure gets a frame ONLY where it holds a
     `?`, so the root of a spawned thread is the first instrumented fn it
     calls. A `#[test]`/`#[bench]` fn is an ordinary fn to rustc and callable
-    from anywhere, so `thread::spawn(|| a_test_fn())` — or
-    `thread::spawn(helper)` where `helper` carries the attribute — puts a
+    from anywhere, so `thread::spawn(|| a_test_fn())` (or
+    `thread::spawn(helper)` where `helper` carries the attribute) puts a
     MARKED root on a thread the program started. It is subtracted,
     `threads_started − harness` can reach 0, `_licence_caveats` emits no
     thread caveat, and the licence is **granted** over a program thread: a
     false grant, the direction that claims MORE. The other end claims less
-    and is safe: an `async` test fn — `#[tokio::test]` and every other custom
-    harness — is classified `async` by the transform and skipped, so it
+    and is safe: an `async` test fn (`#[tokio::test]` and every other custom
+    harness) is classified `async` by the transform and skipped, so it
     carries no site row and no mark at all; its harness thread's root is an
     ordinary fn and stays counted as the program's, so the licence withholds,
     as it did before R1. **Found by review 2026-09-07, not measured**, and
     **untested by fixture**: `tests/test_refocus_licence_rust.py` covers a
     marked frame BELOW the root and the main-thread case, never a marked root
-    on a spawned thread. **E4′'s 61 pairs are unaffected** — the same review
+    on a spawned thread. **E4′'s 61 pairs are unaffected**. The same review
     read the measured subject and found its tests spawn threads through
     ordinary `worker` fns and `serve_fake`, never through a marked one, so no
     number in that record moves. *Ruled and NOT built*
-    (`docs/CARRIED-DEBT.md`, rung 4 slice 3 — kill 6 forbids a `src` change
+    (`docs/CARRIED-DEBT.md`, rung 4 slice 3, kill 6 forbids a `src` change
     after the measurement): a task named `spawn@<site>` (or
     `<parent> :: spawn@<site>`) is a workspace spawn the runtime itself
     named, so such a thread is **never** harness whatever its root's mark;
@@ -698,10 +696,10 @@ that stops the rung until it is explained. *Falsified by* E2′ in
 29. **A variable of session set 1 that a program actually READS is not
     compared, and the licence still says granted.** Session set 1 (0.8.6,
     design 2026-09-08 R4 as amended by A-§3) is the licence's one positive
-    exemption: fourteen exact names — `DBUS_SESSION_BUS_ADDRESS`,
+    exemption: fourteen exact names (`DBUS_SESSION_BUS_ADDRESS`,
     `XDG_SESSION_ID`, `TERM_SESSION_ID`, `WINDOWID`, `TMUX`, `TMUX_PANE`,
     `SSH_AGENT_PID`, `SSH_AUTH_SOCK`, `SSH_CLIENT`, `SSH_CONNECTION`,
-    `SSH_TTY`, `INVOCATION_ID`, `JOURNAL_STREAM`, `SYSTEMD_EXEC_PID` — and the
+    `SSH_TTY`, `INVOCATION_ID`, `JOURNAL_STREAM`, `SYSTEMD_EXEC_PID`) and the
     prefix `CLAUDE_CODE_` (`SESSION_ORDER`, `SESSION_PREFIXES`,
     `is_session_key` in `src/sensorium/query/refocus_env.py`). Each is a handle
     to a bus, a window, a terminal, a connection, a service manager's
@@ -710,13 +708,12 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     read one to decide what to compute**. Nothing checks that claim. A program
     that branches on `TMUX`, keys a cache on `XDG_SESSION_ID` or writes
     `INVOCATION_ID` into its output got different input between the two runs,
-    and the licence will report the difference — counted, named on the env line
-    — while granting over it. This is the same direction blind spot 28 was
+    and the licence will report the difference (counted, named on the env line) while granting over it. This is the same direction blind spot 28 was
     about: a claim of MORE than was checked. It is a **deliberate** bound, not
     an oversight: the alternative measured on this box is a licence that can
     never be earned from another shell (E4′ amendment A1), and the design's own
-    A-§3 rejected the mirror-image rule — a positive list of "bearing"
-    variables, everything else granted — because the suite already held its
+    A-§3 rejected the mirror-image rule (a positive list of "bearing"
+    variables, everything else granted) because the suite already held its
     falsifier in a program that reads `REFOCUS_TEST_LIMIT`. The tool cannot
     know which variables a program reads; the exit path is that the set is
     **versioned and printed**, `SESSION_SET = 1` appearing in the sentence
@@ -725,27 +722,27 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     by* the env line itself, which names every session key that differed, and by
     `docs/query.md`'s session-set paragraph. *Falsified by* a pair whose program
     reads a key of `SESSION_ORDER`, launched twice with different values for it,
-    that MATCHes with a granted licence — or, the direction that would retire
+    that MATCHes with a granted licence, or, the direction that would retire
     the item, by recording which environment variables the program READ and
     comparing only those (`docs/CARRIED-DEBT.md`, the rung-5 lever). **Untested
     by fixture**: no test drives a program whose output depends on a session
-    key, and E4″'s 61 pairs cannot reach it — one session key differed there
+    key, and E4″'s 61 pairs cannot reach it, one session key differed there
     (`CLAUDE_CODE_SESSION_ID`) and nothing in that workspace reads it.
 30. **An `Err` born in an instrumented CALLEE and handed BY VALUE to a
     helper that sinks it is a chainless swallow.** Design R16 (v), rung 3,
     carried until now in `docs/CARRIED-DEBT.md` alone. A callee that returns
     `Err` closes its own frame and its chain with it; the caller then passes
     that value to a helper, whose sink records a HANDLED matching no chain
-    the helper's frame holds. The verdict class is right — a sink with no
-    open chain is not claimed as a SWALLOWED of anything — and the shape
+    the helper's frame holds. The verdict class is right (a sink with no
+    open chain is not claimed as a SWALLOWED of anything) and the shape
     costs a second, AMBIGUOUS line for the chain the callee's `err` close
     opened, so one failure reads as two. What was wrong until 2026-09-08 was
     the DETAIL: it said the error was *born outside this thread's
     instrumented frames* when it had been born inside one, a frame away,
     which sends a reader looking outside the workspace for an error the
     workspace raised. *Declared by* the printed detail itself since
-    `edc2bce`, which now leads with the record's own fact — *no chain of this
-    thread was open where it was absorbed* — and names both readings that
+    `edc2bce`, which now leads with the record's own fact (*no chain of this
+    thread was open where it was absorbed*) and names both readings that
     admit it, the by-value hand-off included. *Falsified by* a fixture whose
     callee's `Err` reaches a sink in a helper and whose answer reads as one
     failure rather than two; **untested by fixture** on a real tree, and
@@ -760,24 +757,24 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     array-length expression (`fn n(&self) -> [u8; { ..spawns.. }]`, the shape
     that surfaced it), inside an `impl` header's self type, or inside a
     trait's const-generic default is never wrapped by `spawn_child`. §3's
-    promise — *a rewritten spawn site's child is named `<parent> ::
-    spawn@<qualname>#<k>`* — is about rewritten sites, and this one is not
+    promise (*a rewritten spawn site's child is named `<parent> ::
+    spawn@<qualname>#<k>`*) is about rewritten sites, and this one is not
     rewritten: its thread carries no task name, and if it runs no
     instrumented code it is invisible exactly as any dependency thread is.
     *Declared by* this entry alone: no field, meta key or `info` line names
-    it, because the unit was instrumented and nothing refused — which is why
+    it, because the unit was instrumented and nothing refused, which is why
     it is here rather than in `unreached_reasons`. *Falsified by* a probe
     fixture with a spawn in each of the three positions, asserting whether
     the manifest declares them; **untested by fixture**. Rewriting those
-    positions is a `docs/CARRIED-DEBT.md` C item — declaring the shape is
+    positions is a `docs/CARRIED-DEBT.md` C item, declaring the shape is
     what this entry is.
 32. **A block that SHADOWS an outer binding pops the name.** Added 2026-09-12
     with the `unbound` row (§5.5, R4). The fold keys on the NAME, not the
     scope, so `{ let x = 2; }` inside a function holding `let x = 1;` pops
     `x`: from that row on `watch` reports `x` *not in scope at this site*
     until it is written again, though Rust's outer `x` is alive. That is
-    ABSENCE and never a stale value — a fold keeping the inner `x = 2` alive
-    past the block would answer about a binding that no longer exists — and it
+    ABSENCE and never a stale value (a fold keeping the inner `x = 2` alive
+    past the block would answer about a binding that no longer exists) and it
     costs the reader of a shadowed binding a site before the block, or after
     its next write. *Declared by* the row itself: `frame` prints `unbound:x`
     at the block's line, and `watch` tallies *not in scope* apart from *not

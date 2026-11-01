@@ -1,4 +1,4 @@
-# Sensorium arc 2b — per-task fingerprints Implementation Plan
+# Sensorium arc 2b: per-task fingerprints Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,29 +8,29 @@
 
 **Tech Stack:** Python ≥ 3.12 stdlib only (`sys.monitoring`, `sqlite3`, `hashlib.blake2b`); pytest; the corpus harness `corpus/run_corpus.py`.
 
-**Spec:** `docs/superpowers/specs/2026-08-21-sensorium-arc2-inspectable-coroutines-design.md` — §D6 (plan 2b), §D3 (no second format bump), honesty rule 3 (YIELD/RESUME never enter a fingerprint), §"Constraints carried from arc 1" 2–4. Plan 2a shipped on `feat/async-arc2` (PR #3, HEAD `e679b7c`); this plan builds on top of it on branch `feat/async-arc2b`.
+**Spec:** `docs/superpowers/specs/2026-08-21-sensorium-arc2-inspectable-coroutines-design.md`, §D6 (plan 2b), §D3 (no second format bump), honesty rule 3 (YIELD/RESUME never enter a fingerprint), §"Constraints carried from arc 1" 2–4. Plan 2a shipped on `feat/async-arc2` (PR #3, HEAD `e679b7c`); this plan builds on top of it on branch `feat/async-arc2b`.
 
 ## Global Constraints
 
 - Python floor `>=3.12`; every task's tests green on 3.12 / 3.13 / 3.14 (matrix run once, in Task 6, as in plans 1–2a); stdlib-only runtime; the recorder never imports asyncio.
 - **No format bump** (spec D3: "`task_fingerprints` … created by the format-3 schema now so 2b is not a second format bump. `fingerprints` (per thread) is unchanged in shape; its *meaning* narrows in 2b"). `TRACE_FORMAT` stays 3. The narrowing is marked by meta `fingerprint_basis`: `"per-task"` written by this recorder; absent (read as `"per-thread"`) on every earlier trace.
-- Spec D6, verbatim requirements: each task serial owns a `Fingerprint` over its `CALL/RETURN/RAISE/HANDLED` events (never YIELD/RESUME/LINE); the thread fingerprint covers only events with `task_id IS NULL`; at `uninstall`, `task_fingerprints` rows `(task_id, name, hash, n_events)` are written beside the per-thread rows; `refocus`/`diff` compare thread streams as today plus tasks as a **multiset of `(name, hash)`** — order-independent; DIVERGED names the task stream(s) with no counterpart and, for the first such pair sharing a name, the first differing `(file, qualname, kind)` with a drill-in command on each side; REFUSED when there is nothing to compare; the licence adds `N task stream(s) compared by content; the ordering between tasks is not compared`; `diff` gains `--task NAME`; unnamed tasks (`name IS NULL`) match only unnamed tasks.
+- Spec D6, verbatim requirements: each task serial owns a `Fingerprint` over its `CALL/RETURN/RAISE/HANDLED` events (never YIELD/RESUME/LINE); the thread fingerprint covers only events with `task_id IS NULL`; at `uninstall`, `task_fingerprints` rows `(task_id, name, hash, n_events)` are written beside the per-thread rows; `refocus`/`diff` compare thread streams as today plus tasks as a **multiset of `(name, hash)`**, order-independent; DIVERGED names the task stream(s) with no counterpart and, for the first such pair sharing a name, the first differing `(file, qualname, kind)` with a drill-in command on each side; REFUSED when there is nothing to compare; the licence adds `N task stream(s) compared by content; the ordering between tasks is not compared`; `diff` gains `--task NAME`; unnamed tasks (`name IS NULL`) match only unnamed tasks.
 - Honesty: the instrument never answers from data it does not have. A trace recorded under the per-thread basis is never read as if its thread fingerprints excluded task events; comparing a per-thread-basis trace with a per-task-basis trace is REFUSED whenever either side recorded a task (their thread streams are defined differently); when neither side has tasks the two definitions coincide and the comparison proceeds.
 - Fixture discipline (arc 1/2a): a REAL 0.3.0 recording (`e679b7c`, format 3, per-thread basis, with tasks) is committed in Task 0, recorded under `env -i PATH=/usr/bin:/bin LANG=C.UTF-8 SENSORIUM_DIR=…` so `meta.env` holds only those three keys; fixture tests pin that this reader keeps 0.3.0's wording and claims nothing new about it.
-- Tests first; every new behaviour test mutation-checked (`__pycache__` purged, `PYTHONDONTWRITEBYTECODE=1`, file-copy restore — never `git checkout --` while uncommitted work exists); corpus questions registered (YAML written) before their program is run, then bite-checked; output pristine.
+- Tests first; every new behaviour test mutation-checked (`__pycache__` purged, `PYTHONDONTWRITEBYTECODE=1`, file-copy restore, never `git checkout --` while uncommitted work exists); corpus questions registered (YAML written) before their program is run, then bite-checked; output pristine.
 - Version `0.4.0`; push/PR deferred to the finishing skill.
 
 ## File Structure
 
-- `tests/fixtures/format3_async.py` / `.db` (create, Task 0) — the real 0.3.0 recording; `tests/test_format3_fixture.py` (create) — `old3` pins.
-- `src/sensorium/store/reader.py` (modify, Task 1) — `Trace.fingerprint_basis`, `Trace.task_fingerprints()`, `Trace.task_shapes()`, `Trace.task_stream(task_id)`, `causal_stream` narrowed by basis.
-- `src/sensorium/store/writer.py` (modify, Task 1) — `TraceWriter.write_task_fingerprint(task_id, hexdigest, count)`.
-- `src/sensorium/record/boot.py` (modify, Task 1) — writes meta `fingerprint_basis: "per-task"`.
-- `src/sensorium/record/tracer.py` (modify, Task 2) — `_task_fps`, `_fp_for(tid, task)`, the three update sites, `uninstall` writes task rows.
-- `src/sensorium/query/diff_cmd.py` (modify, Task 3) — `compare_tasks`, `compare()` gains `tasks`, cross-basis refusal, `--task NAME`, printing.
-- `src/sensorium/query/refocus_cmd.py` (modify, Task 4) — `_task_divergence`, `final_verdict`, `tasks:` line, licence fact, blind-spot wording, cross-basis refusal.
-- `src/sensorium/query/info_cmd.py` (modify, Task 5) — basis + task-fingerprint lines.
-- `corpus/async_refocus/` (create, Task 5) — the interleaving / content / `--task` case; `tests/test_corpus.py` count floor.
+- `tests/fixtures/format3_async.py` / `.db` (create, Task 0), the real 0.3.0 recording; `tests/test_format3_fixture.py` (create), `old3` pins.
+- `src/sensorium/store/reader.py` (modify, Task 1), `Trace.fingerprint_basis`, `Trace.task_fingerprints()`, `Trace.task_shapes()`, `Trace.task_stream(task_id)`, `causal_stream` narrowed by basis.
+- `src/sensorium/store/writer.py` (modify, Task 1), `TraceWriter.write_task_fingerprint(task_id, hexdigest, count)`.
+- `src/sensorium/record/boot.py` (modify, Task 1). Writes meta `fingerprint_basis: "per-task"`.
+- `src/sensorium/record/tracer.py` (modify, Task 2). `_task_fps`, `_fp_for(tid, task)`, the three update sites, `uninstall` writes task rows.
+- `src/sensorium/query/diff_cmd.py` (modify, Task 3), `compare_tasks`, `compare()` gains `tasks`, cross-basis refusal, `--task NAME`, printing.
+- `src/sensorium/query/refocus_cmd.py` (modify, Task 4), `_task_divergence`, `final_verdict`, `tasks:` line, licence fact, blind-spot wording, cross-basis refusal.
+- `src/sensorium/query/info_cmd.py` (modify, Task 5), basis + task-fingerprint lines.
+- `corpus/async_refocus/` (create, Task 5), the interleaving / content / `--task` case; `tests/test_corpus.py` count floor.
 - `corpus/_bench/bench.py` (run, Task 6); `README.md`, `pyproject.toml`, spec addendum (Task 6).
 - Tests: `tests/test_task_fingerprints.py` (create, Task 2), `tests/test_reader_tasks.py` (create, Task 1), additions to `tests/test_diff.py`, `tests/test_refocus.py`, `tests/refocus_programs.py`, `tests/test_runs_info.py`, `tests/test_format3_fixture.py`.
 
@@ -147,7 +147,7 @@ def test_fixture_thread_fingerprint_counts_task_events_too():
 - [ ] **Step 4: Run, expect PASS (these pin the recording, not new code)**
 
 Run: `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_format3_fixture.py -q`
-Expected: 3 passed. (If `Event` has no `task_id` attribute, read it from `e.task_id` per `reader.Event` — it does: arc 1 added it.)
+Expected: 3 passed. (If `Event` has no `task_id` attribute, read it from `e.task_id` per `reader.Event`. It does: arc 1 added it.)
 
 - [ ] **Step 5: Commit**
 
@@ -158,7 +158,7 @@ git commit -m "test: capture a real 0.3.0 (format-3, per-thread basis) asyncio t
 
 ---
 
-### Task 1: Reader, writer and meta — the task-fingerprint surface and the basis marker
+### Task 1: Reader, writer and meta: the task-fingerprint surface and the basis marker
 
 **Files:**
 - Modify: `src/sensorium/store/reader.py` (`Trace.__init__`, after `fingerprints()` ~line 218, `causal_stream` ~line 258)
@@ -168,7 +168,7 @@ git commit -m "test: capture a real 0.3.0 (format-3, per-thread basis) asyncio t
 - Modify: `tests/test_format3_fixture.py`
 
 **Interfaces:**
-- Produces: `Trace.fingerprint_basis -> str` (`"per-task"` | `"per-thread"`); `Trace.task_fingerprints() -> dict[int, tuple[str | None, str, int]]` (task_id → (name, hash, n_events)); `Trace.task_shapes() -> Counter[tuple[str | None, str]]`; `Trace.task_stream(task_id) -> list[tuple[str, str, str, int]]` (file, qualname, kind, eid — same tuple as `causal_stream`); `causal_stream(thread_id)` returns only `task_id IS NULL` events when `fingerprint_basis == "per-task"`; `TraceWriter.write_task_fingerprint(task_id, hexdigest, count)`; meta key `fingerprint_basis`.
+- Produces: `Trace.fingerprint_basis -> str` (`"per-task"` | `"per-thread"`); `Trace.task_fingerprints() -> dict[int, tuple[str | None, str, int]]` (task_id → (name, hash, n_events)); `Trace.task_shapes() -> Counter[tuple[str | None, str]]`; `Trace.task_stream(task_id) -> list[tuple[str, str, str, int]]` (file, qualname, kind, eid, same tuple as `causal_stream`); `causal_stream(thread_id)` returns only `task_id IS NULL` events when `fingerprint_basis == "per-task"`; `TraceWriter.write_task_fingerprint(task_id, hexdigest, count)`; meta key `fingerprint_basis`.
 
 - [ ] **Step 1: Failing tests**
 
@@ -263,7 +263,7 @@ def test_old3_thread_stream_still_holds_the_task_events():
     assert "worker" in quals and "step" in quals
 ```
 
-- [ ] **Step 2: Run, expect FAIL** — `AttributeError: 'Trace' object has no attribute 'fingerprint_basis'` / `write_task_fingerprint`.
+- [ ] **Step 2: Run, expect FAIL**, `AttributeError: 'Trace' object has no attribute 'fingerprint_basis'` / `write_task_fingerprint`.
 
 - [ ] **Step 3: Implement**
 
@@ -282,7 +282,7 @@ def test_old3_thread_stream_still_holds_the_task_events():
             self._conn.commit()
 ```
 
-`src/sensorium/store/reader.py` — in `Trace.__init__` after `self._has_tasks = ...`:
+`src/sensorium/store/reader.py`, in `Trace.__init__` after `self._has_tasks = ...`:
 ```python
         self._has_task_fps = bool(conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' "
@@ -356,9 +356,9 @@ Add `from collections import Counter` at the top of reader.py.
 - [ ] **Step 4: Run, expect PASS**
 
 Run: `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/test_reader_tasks.py tests/test_format3_fixture.py -q`
-Expected: all pass. Then the full suite: some `refocus`/`diff` tests may still pass (the recorder does not yet write per-task rows, but every freshly recorded trace is now marked `per-task`, so `causal_stream` narrows while the thread fingerprint still covers everything) — that inconsistency is closed by Task 2; if any test turns red here, list it in the report as owned by Task 2 (expected: tests that compare `fingerprints()[tid][1]` to `len(causal_stream())` on an asyncio program, if any).
+Expected: all pass. Then the full suite: some `refocus`/`diff` tests may still pass (the recorder does not yet write per-task rows, but every freshly recorded trace is now marked `per-task`, so `causal_stream` narrows while the thread fingerprint still covers everything), that inconsistency is closed by Task 2; if any test turns red here, list it in the report as owned by Task 2 (expected: tests that compare `fingerprints()[tid][1]` to `len(causal_stream())` on an asyncio program, if any).
 
-- [ ] **Step 5: Mutations** — (a) make `fingerprint_basis` return `"per-task"` when the key is absent → `test_basis_defaults…` and `test_causal_stream_keeps_every_event…` fail; (b) drop the `task_id IS NULL` narrowing → `test_causal_stream_narrows…` fails; (c) `write_task_fingerprint` inserts NULL for the name → `test_task_fingerprints_carry_the_name…` fails. Restore by file copy; purge `__pycache__`.
+- [ ] **Step 5: Mutations**. (a) make `fingerprint_basis` return `"per-task"` when the key is absent → `test_basis_defaults…` and `test_causal_stream_keeps_every_event…` fail; (b) drop the `task_id IS NULL` narrowing → `test_causal_stream_narrows…` fails; (c) `write_task_fingerprint` inserts NULL for the name → `test_task_fingerprints_carry_the_name…` fails. Restore by file copy; purge `__pycache__`.
 
 - [ ] **Step 6: Commit**
 
@@ -369,7 +369,7 @@ git commit -m "feat(store): task fingerprints, task streams and the fingerprint-
 
 ---
 
-### Task 2: Recorder — one fingerprint per task; the thread fingerprint covers the rest
+### Task 2: Recorder: one fingerprint per task; the thread fingerprint covers the rest
 
 **Files:**
 - Modify: `src/sensorium/record/tracer.py` (`Tracer.__init__` ~434, `_fp` ~507, `_on_start` ~699–716, `_on_return` ~736–745, `_exc_event` ~948–957, `uninstall` ~1120–1124)
@@ -521,7 +521,7 @@ def test_rows_are_written_even_when_the_task_never_finished(tmp_path):
     assert len(t.task_fingerprints()) == 3
 ```
 
-- [ ] **Step 2: Run, expect FAIL** — `task_fingerprints()` is `{}`; thread counts equal the full causal count.
+- [ ] **Step 2: Run, expect FAIL**, `task_fingerprints()` is `{}`; thread counts equal the full causal count.
 
 - [ ] **Step 3: Implement** in `src/sensorium/record/tracer.py`
 
@@ -593,9 +593,9 @@ Replace `_fp` with:
 ```
 (`_suspension` must stay untouched: YIELD/RESUME never reach `_fp_for`.)
 
-- [ ] **Step 4: Run, expect PASS** — the new file, then `tests/test_async.py tests/test_refocus.py tests/test_diff.py tests/test_refocus_licence.py tests/test_runs_info.py`, then the full suite. Any test that pinned `fingerprints()[tid][1]` against the whole-thread count of an asyncio program now needs the NULL-task count — update it to the new definition (say which in the report).
+- [ ] **Step 4: Run, expect PASS**, the new file, then `tests/test_async.py tests/test_refocus.py tests/test_diff.py tests/test_refocus_licence.py tests/test_runs_info.py`, then the full suite. Any test that pinned `fingerprints()[tid][1]` against the whole-thread count of an asyncio program now needs the NULL-task count, update it to the new definition (say which in the report).
 
-- [ ] **Step 5: Mutations** — (a) `_fp_for` ignores `task` → test 1's `tn < len(all)` and the per-task counts fail; (b) `_suspension` calls `_fp_for(...).update(..., "YIELD")` → test 2 fails; (c) `uninstall` skips the task rows → every test fails; (d) `_on_return` passes `None` as task → test 1's per-task `n` fails.
+- [ ] **Step 5: Mutations**. (a) `_fp_for` ignores `task` → test 1's `tn < len(all)` and the per-task counts fail; (b) `_suspension` calls `_fp_for(...).update(..., "YIELD")` → test 2 fails; (c) `uninstall` skips the task rows → every test fails; (d) `_on_return` passes `None` as task → test 1's per-task `n` fails.
 
 - [ ] **Step 6: Commit**
 
@@ -606,7 +606,7 @@ git commit -m "feat(record): one causal fingerprint per asyncio task; the thread
 
 ---
 
-### Task 3: `diff` — tasks compared by content, `--task NAME`, and the basis guard
+### Task 3: `diff`: tasks compared by content, `--task NAME`, and the basis guard
 
 **Files:**
 - Modify: `src/sensorium/query/diff_cmd.py` (`compare` ~116, `print_comparison` ~250, `add_parser`/`run` ~284–301; new `compare_tasks`, `_basis_reasons`)
@@ -616,9 +616,9 @@ git commit -m "feat(record): one causal fingerprint per asyncio task; the thread
 - Consumes: `Trace.task_shapes()`, `task_fingerprints()`, `task_stream()`, `fingerprint_basis` (Task 1); rows from Task 2.
 - Produces: `compare(trace_a, trace_b) -> dict` gains key `"tasks"` = result of `compare_tasks(...)`: `{"verdict": "MATCH" | "DIVERGED" | None, "only_a": [(name, hash, count)], "only_b": [...], "pair": None | {"name", "index", "a_event", "b_event", "a_desc", "b_desc", "a_task", "b_task"}, "n_a": int, "n_b": int}` (`None` verdict = no task on either side); the top-level `verdict` is `DIVERGED` when either the thread stream or the tasks diverge; `_basis_reasons(a, b) -> list[str]` (refusal reasons); `diff --task NAME`.
 
-**Ruling 4 (controller, before Task 3): asyncio's default task names are not names.** `asyncio` names every task it creates without an explicit name `Task-<N>` from a process-global counter, so the name encodes creation order — exactly what this comparison must not compare (`gather(*coros)` and one-task-per-request servers create such tasks in data-dependent order). Therefore: (a) `Trace.task_shapes()` maps any name matching `^Task-\d+$` to `None` (the raw name stays in the table and in `info`); (b) `diff --task NAME` refuses a default name (`'Task-3' is asyncio's default name and encodes creation order, not identity; name the task in the program (asyncio.create_task(..., name=...)) to compare it by name`); (c) when unmatched streams on both sides are unnamed, the drill-in pairs the first unmatched unnamed stream on each side by ascending task serial and labels it `(paired by creation order -- a guide, not a match)`; user-named pairs are preferred when present. The spec's "unnamed tasks match only unnamed tasks" is extended accordingly (Task 6 records the erratum). Add to the tests: `test_diff_default_task_names_are_compared_as_unnamed` — record `ASYNC_SHAPE` twice with names dropped (`name=None`) and orders `AB`/`BA`: MATCH; and `--task Task-2` → REFUSED exit 2 with the sentence above.
+**Ruling 4 (controller, before Task 3): asyncio's default task names are not names.** `asyncio` names every task it creates without an explicit name `Task-<N>` from a process-global counter, so the name encodes creation order, exactly what this comparison must not compare (`gather(*coros)` and one-task-per-request servers create such tasks in data-dependent order). Therefore: (a) `Trace.task_shapes()` maps any name matching `^Task-\d+$` to `None` (the raw name stays in the table and in `info`); (b) `diff --task NAME` refuses a default name (`'Task-3' is asyncio's default name and encodes creation order, not identity; name the task in the program (asyncio.create_task(..., name=...)) to compare it by name`); (c) when unmatched streams on both sides are unnamed, the drill-in pairs the first unmatched unnamed stream on each side by ascending task serial and labels it `(paired by creation order -- a guide, not a match)`; user-named pairs are preferred when present. The spec's "unnamed tasks match only unnamed tasks" is extended accordingly (Task 6 records the erratum). Add to the tests: `test_diff_default_task_names_are_compared_as_unnamed`, record `ASYNC_SHAPE` twice with names dropped (`name=None`) and orders `AB`/`BA`: MATCH; and `--task Task-2` → REFUSED exit 2 with the sentence above.
 
-- [ ] **Step 1: Failing tests** — append to `tests/test_diff.py`:
+- [ ] **Step 1: Failing tests**, append to `tests/test_diff.py`:
 
 ```python
 ASYNC_SHAPE = """
@@ -761,7 +761,7 @@ def test_diff_compares_across_bases_when_neither_side_ran_a_task(
 ```
 (`_rec` and `BRANCH` already exist at the top of `tests/test_diff.py`; `re`, `run_cli`, `cli` are imported there.)
 
-- [ ] **Step 2: Run, expect FAIL** — `tasks:` lines absent; `--task` unknown argument; `_shape_difference` missing.
+- [ ] **Step 2: Run, expect FAIL**, `tasks:` lines absent; `--task` unknown argument; `_shape_difference` missing.
 
 - [ ] **Step 3: Implement** in `src/sensorium/query/diff_cmd.py`
 
@@ -863,7 +863,7 @@ In `compare()`: add the basis guard to the refusal reasons and the nothing-to-co
 ```
 Every returned dict gains `"tasks": tasks`; the MATCH/DIVERGED decision: thread divergence as today; if the thread stream matches but `tasks["verdict"] == "DIVERGED"`, return `verdict: "DIVERGED"` with `index: None` and the `a_event`/… keys `None` (the task section carries the detail). `_refused` also sets `"tasks": None`.
 
-`print_comparison` — after the thread verdict block (MATCH or DIVERGED) print the task section:
+`print_comparison` (after the thread verdict block (MATCH or DIVERGED) print the task section:
 ```python
 def _print_tasks(res, name_a, name_b) -> None:
     t = res.get("tasks")
@@ -894,7 +894,7 @@ def _print_tasks(res, name_a, name_b) -> None:
             print(f"drill into B: sensorium tree {name_b} "
                   f"--around e{p['b_event']}")
 ```
-The thread verdict line when the thread stream matched but tasks diverged: print `verdict: MATCH on the thread stream; DIVERGED on the tasks (below)` — keep `verdict: MATCH -- identical causal streams …` for the all-match case exactly as today, and print `verdict: DIVERGED` only in the thread-diverged case (unchanged text). `run()` exit: 1 when `res["verdict"] == "DIVERGED"` (either source).
+The thread verdict line when the thread stream matched but tasks diverged: print `verdict: MATCH on the thread stream; DIVERGED on the tasks (below)`) keep `verdict: MATCH -- identical causal streams …` for the all-match case exactly as today, and print `verdict: DIVERGED` only in the thread-diverged case (unchanged text). `run()` exit: 1 when `res["verdict"] == "DIVERGED"` (either source).
 
 `--task NAME`:
 ```python
@@ -902,10 +902,10 @@ The thread verdict line when the thread stream matched but tasks diverged: print
                    help="compare one asyncio task's stream by name instead "
                         "of the thread streams")
 ```
-In `run()`: if `args.task`: resolve the task on each side — exactly one task fingerprint row with that name per side, else `REFUSED` exit 2 printing `no task named 'NAME' on A (A has: task-A, task-B)` or `NAME names 2 tasks on A; a name must pick exactly one`. Then compare `ta.task_stream(ia)` vs `tb.task_stream(ib)` with `first_divergence`, print `A {name_a}: compared: task NAME (t{ia})` / same for B, and the same MATCH/DIVERGED/drill-in lines as the thread comparison (reuse `print_comparison`'s step printing by building a `res` dict with `a_stream`/`b_stream`). Implement as `compare_task_streams(trace_a, trace_b, name) -> dict` (same keys as `compare()`, plus `"a_task"`, `"b_task"`, `"reasons"`) and a `print_task_comparison(...)`.
+In `run()`: if `args.task`: resolve the task on each side, exactly one task fingerprint row with that name per side, else `REFUSED` exit 2 printing `no task named 'NAME' on A (A has: task-A, task-B)` or `NAME names 2 tasks on A; a name must pick exactly one`. Then compare `ta.task_stream(ia)` vs `tb.task_stream(ib)` with `first_divergence`, print `A {name_a}: compared: task NAME (t{ia})` / same for B, and the same MATCH/DIVERGED/drill-in lines as the thread comparison (reuse `print_comparison`'s step printing by building a `res` dict with `a_stream`/`b_stream`). Implement as `compare_task_streams(trace_a, trace_b, name) -> dict` (same keys as `compare()`, plus `"a_task"`, `"b_task"`, `"reasons"`) and a `print_task_comparison(...)`.
 
 - [ ] **Step 4: Run, expect PASS** (new tests + all of `tests/test_diff.py`).
-- [ ] **Step 5: Mutations** — (a) `_shape_difference` treats None as matching any name → unnamed test fails; (b) `compare_tasks` returns MATCH whenever `n_a == n_b` → the flip test fails; (c) drop `_basis_reasons` → the cross-basis test fails; (d) `--task` ignores ambiguity → the refusal test fails.
+- [ ] **Step 5: Mutations**, (a) `_shape_difference` treats None as matching any name → unnamed test fails; (b) `compare_tasks` returns MATCH whenever `n_a == n_b` → the flip test fails; (c) drop `_basis_reasons` → the cross-basis test fails; (d) `--task` ignores ambiguity → the refusal test fails.
 - [ ] **Step 6: Commit**
 
 ```bash
@@ -915,7 +915,7 @@ git commit -m "feat(diff): compare asyncio tasks by content; --task NAME; refuse
 
 ---
 
-### Task 4: `refocus` — the task verdict, the licence line, the blind spot, the basis guard
+### Task 4: `refocus`: the task verdict, the licence line, the blind spot, the basis guard
 
 **Files:**
 - Modify: `src/sensorium/query/refocus_cmd.py` (`_BLIND_SPOTS` ~175–200, `_thread_divergence`/`final_verdict` ~423–450, `_verified_facts` ~590, the `threads:` print ~685–700, `_refusal`/run path for the basis guard)
@@ -923,11 +923,11 @@ git commit -m "feat(diff): compare asyncio tasks by content; --task NAME; refuse
 
 **Interfaces:**
 - Consumes: `compare()`'s `tasks` key (Task 3), `_shape_difference`, `Trace.task_shapes()`.
-- Produces: `final_verdict(orig, new, res) -> (verdict, threads, tasks_desc)` — a third element: the task-divergence description or None; printed `tasks:` line; licence fact `N task stream(s) compared by content`.
+- Produces: `final_verdict(orig, new, res) -> (verdict, threads, tasks_desc)`, a third element: the task-divergence description or None; printed `tasks:` line; licence fact `N task stream(s) compared by content`.
 
 - [ ] **Step 1: Failing tests**
 
-`tests/refocus_programs.py` — add shapes (the counter file flips the SECOND run, exactly like `COUNTER`):
+`tests/refocus_programs.py`, add shapes (the counter file flips the SECOND run, exactly like `COUNTER`):
 ```python
 # Two named tasks whose START ORDER flips between the original and the
 # rerun (a counter file decides), while each task does identical work.
@@ -1021,7 +1021,7 @@ def test_refocus_refuses_a_per_thread_basis_original_that_ran_tasks(
 ```
 (The `old3` refusal must happen BEFORE any rerun: put it in `_refusal(meta, trace)`: when `trace.fingerprint_basis == "per-thread"` and `trace.tasks()` is non-empty → reason `"original was recorded under the per-thread fingerprint basis and ran N asyncio task(s); this version compares tasks by content and defines thread streams without them, so no verdict against it would compare like with like -- re-record it with this version"`. Test it with a synthetic trace instead of `old3` (whose cwd no longer exists): build via `synthetic(sdir, run_id, argv=("prog.py",))` plus `w.add_task(1, "t", 1)` and no `fingerprint_basis` meta, write a trivial `prog.py` in `sdir.parent`, and assert `refocus` exits 2 with `REFUSED` and the sentence above; keep a second, read-only pin in `tests/test_format3_fixture.py`: `refocus_cmd._refusal(trace.meta, trace)` on `old3` returns that sentence.)
 
-**Ruling 5 carry-over (controller, after Task 2):** under the per-task basis a thread that ran traced code only inside asyncio tasks has a thread row with `n_events == 0` (Task 2 fix round). `refocus`'s `threads:` summary must not describe such a thread as having "ran no traced code": the `unseen` arithmetic already counts rows, so the row keeps the count right; but the printed sentence for the *compared* rows gains a clause under the per-task basis — `threads: N recorded fingerprint(s) compared (events outside any asyncio task), all matching` — and `_thread_header`/`diff`'s `threads N` stays a row count. Add `tests/test_refocus.py::test_refocus_counts_a_thread_that_ran_only_task_code_as_compared`: program `threading.Thread(target=asyncio.run, args=(worker(),))` (worker calls a traced helper, then sleeps) + `main` on the main thread → `refocus` MATCH, `threads: 2 recorded fingerprint(s) compared`, and the string `ran no traced code` ABSENT; mutation: make `_fp_for` skip the thread-row ensure → the test fails (the row vanishes and the false sentence returns).
+**Ruling 5 carry-over (controller, after Task 2):** under the per-task basis a thread that ran traced code only inside asyncio tasks has a thread row with `n_events == 0` (Task 2 fix round). `refocus`'s `threads:` summary must not describe such a thread as having "ran no traced code": the `unseen` arithmetic already counts rows, so the row keeps the count right; but the printed sentence for the *compared* rows gains a clause under the per-task basis, `threads: N recorded fingerprint(s) compared (events outside any asyncio task), all matching`, and `_thread_header`/`diff`'s `threads N` stays a row count. Add `tests/test_refocus.py::test_refocus_counts_a_thread_that_ran_only_task_code_as_compared`: program `threading.Thread(target=asyncio.run, args=(worker(),))` (worker calls a traced helper, then sleeps) + `main` on the main thread → `refocus` MATCH, `threads: 2 recorded fingerprint(s) compared`, and the string `ran no traced code` ABSENT; mutation: make `_fp_for` skip the thread-row ensure → the test fails (the row vanishes and the false sentence returns).
 
 `tests/test_refocus_licence.py`:
 ```python
@@ -1037,7 +1037,7 @@ def test_blind_spots_name_task_ordering(tmp_path):
 
 - [ ] **Step 3: Implement**
 
-`_BLIND_SPOTS` — replace the ordering line with:
+`_BLIND_SPOTS`, replace the ordering line with:
 ```python
     "  - argument and return values, per-line state, timing, the order "
     "threads ran in relative to one another, and the order asyncio tasks "
@@ -1098,10 +1098,10 @@ def final_verdict(orig, new, res) -> tuple[str, str | None, str | None]:
         print(f"tasks: {t['n_b']} task stream(s) compared by content, all "
               "matching; the ordering between tasks is not compared")
 ```
-The DIVERGED `why` sentence gains a third arm: `"a task took a different path"` when only tasks diverged (threads None, res index None). `_verified_facts` inserts, after the first fact, `f"{n} task stream(s) compared by content"` when `n = len(new.task_fingerprints())` is > 0 (and the licence line `verified against … on exactly these points` prints it); `_licence_caveats` unchanged (task ordering is a blind spot, not a caveat — it is structural, like thread interleaving is already listed there). The `runs`/`info` stamping is unchanged (verdict + licence only).
+The DIVERGED `why` sentence gains a third arm: `"a task took a different path"` when only tasks diverged (threads None, res index None). `_verified_facts` inserts, after the first fact, `f"{n} task stream(s) compared by content"` when `n = len(new.task_fingerprints())` is > 0 (and the licence line `verified against … on exactly these points` prints it); `_licence_caveats` unchanged (task ordering is a blind spot, not a caveat. It is structural, like thread interleaving is already listed there). The `runs`/`info` stamping is unchanged (verdict + licence only).
 
-- [ ] **Step 4: Run, expect PASS** — the new tests, then `tests/test_refocus*.py tests/test_runs_info.py`, then the full suite.
-- [ ] **Step 5: Mutations** — (a) `final_verdict` ignores `tasks` → content-flip test fails; (b) `_task_divergence` always None → same; (c) drop the `_refusal` basis arm → the per-thread-basis refusal test fails; (d) revert the blind-spot wording → the licence test fails.
+- [ ] **Step 4: Run, expect PASS**, the new tests, then `tests/test_refocus*.py tests/test_runs_info.py`, then the full suite.
+- [ ] **Step 5: Mutations**. (a) `final_verdict` ignores `tasks` → content-flip test fails; (b) `_task_divergence` always None → same; (c) drop the `_refusal` basis arm → the per-thread-basis refusal test fails; (d) revert the blind-spot wording → the licence test fails.
 - [ ] **Step 6: Commit**
 
 ```bash
@@ -1150,7 +1150,7 @@ def test_info_on_old3_says_its_thread_fingerprint_covers_task_events(
 - [ ] **Step 2: Run, expect FAIL.**
 **Ruling 7 carry-over (controller, after Task 4):** `refocus` now stamps `refocus_diverge_tasks` (a one-line description) on a rerun whose thread stream matched but whose tasks diverged, and writes no `refocus_diverge_index` for it. `info` must read it: where `info` prints the refocus verdict/divergence for a stamped rerun, add `diverged on tasks: <the stamped description>` when the key is present (and keep the positional `diverged at causal step N` line for thread divergences). Test in tests/test_runs_info.py: record `ASYNC_CONTENT_FLIP` (tests/refocus_programs.py), run `refocus` via the CLI helper, then `info <new run>` → the `diverged on tasks:` line naming `task-B`; and `info` on a thread-diverged rerun (existing COUNTER shape) keeps its old line. Mutation: drop the new branch → test fails.
 
-**Ruling 5 carry-over:** under the per-task basis the per-thread lines `fingerprint thread N: <hash> (<n> causal events)` must say what they count: `(<n> causal events outside any asyncio task)`; under the per-thread basis the existing wording stays. Pin both in the two tests below (the per-task one on a recording of TWO_TASKS — its main-thread line reads `outside any asyncio task`; the old3 one must NOT contain `outside any asyncio task`).
+**Ruling 5 carry-over:** under the per-task basis the per-thread lines `fingerprint thread N: <hash> (<n> causal events)` must say what they count: `(<n> causal events outside any asyncio task)`; under the per-thread basis the existing wording stays. Pin both in the two tests below (the per-task one on a recording of TWO_TASKS. Its main-thread line reads `outside any asyncio task`; the old3 one must NOT contain `outside any asyncio task`).
 
 - [ ] **Step 3: Implement** in `info_cmd.py`, right after the per-thread fingerprint lines (~line 99):
 ```python
@@ -1166,7 +1166,7 @@ def test_info_on_old3_says_its_thread_fingerprint_covers_task_events(
 ```
 - [ ] **Step 4: Run, expect PASS.** Mutation: swap the two arms → both tests fail.
 
-- [ ] **Step 5: Corpus case — REGISTER FIRST**
+- [ ] **Step 5: Corpus case: REGISTER FIRST**
 
 `corpus/async_refocus/main.py`:
 ```python
@@ -1287,7 +1287,7 @@ questions:
     expect_absent: ["refocus verdict: MATCH"]
 second_run: {argv: ["--branch"]}
 ```
-(Harness facts, verified: `run_case` records run 1, then run 2 (`second_run.argv`), THEN runs the questions in order; substitutions are `$RUN` / `$RUN2`; the top-level key is `second_run`. The counter parity in `main()` above is worked out for exactly that order — confirm it by reading the two `refocus` outputs during the bite-check and record the four `runs` rows in the report. If the interleaving-only rerun does not produce a different task start order, the MATCH is still true but the case proves less: fix the program, not the pin.)
+(Harness facts, verified: `run_case` records run 1, then run 2 (`second_run.argv`), THEN runs the questions in order; substitutions are `$RUN` / `$RUN2`; the top-level key is `second_run`. The counter parity in `main()` above is worked out for exactly that order, confirm it by reading the two `refocus` outputs during the bite-check and record the four `runs` rows in the report. If the interleaving-only rerun does not produce a different task start order, the MATCH is still true but the case proves less: fix the program, not the pin.)
 Run `python -m corpus.run_corpus --only async_refocus`; bite-check each expectation (flip it → fails); then the whole corpus; `tests/test_corpus.py` floor → 20.
 
 - [ ] **Step 6: Commit**
@@ -1303,18 +1303,18 @@ git commit -m "feat(info): state the fingerprint basis; corpus: async_refocus (i
 
 **Files:** `corpus/_bench/bench.py` (run only), `README.md`, `pyproject.toml`, the spec (status line + D6 addendum), `tests/test_corpus.py` if the README quotes counts.
 
-- [ ] **Step 1: Bench** — `python -m corpus.run_corpus --bench` on this branch and on `e679b7c` (worktree under the job tmp dir, removed after): the per-task dict lookup is one more `dict.get` per causal event; report `call_dense` / `async_call_dense` / `await_dense` before/after; if any moves by > 0.2 µs/event say so in the README Overhead section.
-- [ ] **Step 2: README** —
+- [ ] **Step 1: Bench**, `python -m corpus.run_corpus --bench` on this branch and on `e679b7c` (worktree under the job tmp dir, removed after): the per-task dict lookup is one more `dict.get` per causal event; report `call_dense` / `async_call_dense` / `await_dense` before/after; if any moves by > 0.2 µs/event say so in the README Overhead section.
+- [ ] **Step 2: README**,
   - `### refocus` table, MATCH row: `every thread that left a fingerprint in both runs produced the **identical sequence of (file, qualname, kind) for CALL/RETURN/RAISE/HANDLED** outside any asyncio task, every asyncio task's own stream has a counterpart of the same name and content on the other side (a multiset — the order tasks interleaved in is never compared), and there was at least one such event to compare`; add one sentence under the table: "`diff --task NAME` diffs one task's stream by name; unnamed tasks match only unnamed tasks. Traces recorded before 0.4.0 define a thread stream to include task events (`info` says `per-thread basis`); comparing one of those with a 0.4.0 trace is REFUSED whenever either ran a task."
   - `## What a trace file holds`: add `- one causal fingerprint per thread (events outside any task) and per asyncio task`.
   - `## Not yet`: remove the plan-2b sentence.
   - `## Corpus`: twenty programs / N questions (measure) + the `async_refocus` sentence.
   - Overhead: the numbers from Step 1.
   - Version mentions that describe the current version → `0.4.0`.
-- [ ] **Step 3: Spec** — status line → `Status: plans 2a and 2b implemented (2a on feat/async-arc2 / PR #3; 2b on feat/async-arc2b)`; append under D6: "*Addendum (plan 2b):* the narrowing of the thread fingerprint is marked by meta `fingerprint_basis = "per-task"`; traces without the marker are read under the per-thread definition; `refocus`/`diff` refuse to compare across bases when either side recorded a task and compare normally when neither did; `causal_stream` narrows to `task_id IS NULL` under the per-task basis."
+- [ ] **Step 3: Spec**, status line → `Status: plans 2a and 2b implemented (2a on feat/async-arc2 / PR #3; 2b on feat/async-arc2b)`; append under D6: "*Addendum (plan 2b):* the narrowing of the thread fingerprint is marked by meta `fingerprint_basis = "per-task"`; traces without the marker are read under the per-thread definition; `refocus`/`diff` refuse to compare across bases when either side recorded a task and compare normally when neither did; `causal_stream` narrows to `task_id IS NULL` under the per-task basis."
 - [ ] **Step 4: `pyproject.toml` version 0.4.0.**
-- [ ] **Step 5: Matrix** — `uv venv <jobtmp>/sv312 -p 3.12` (exists; `uv pip install -p … -e .` to refresh), same for 3.13; full pytest + corpus on 3.12/3.13/3.14; record the result lines.
-- [ ] **Step 6: Commit** — `docs: per-task fingerprints (arc 2b) -- README, version 0.4.0`.
+- [ ] **Step 5: Matrix**, `uv venv <jobtmp>/sv312 -p 3.12` (exists; `uv pip install -p … -e .` to refresh), same for 3.13; full pytest + corpus on 3.12/3.13/3.14; record the result lines.
+- [ ] **Step 6: Commit**, `docs: per-task fingerprints (arc 2b) -- README, version 0.4.0`.
 
 ---
 

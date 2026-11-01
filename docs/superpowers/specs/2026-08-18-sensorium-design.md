@@ -1,4 +1,4 @@
-# Sensorium v1 — design
+# Sensorium v1: design
 
 Date: 2026-08-18
 Status: approved in brainstorm; awaiting written-spec review
@@ -6,8 +6,8 @@ Origin: [../../../ORIGIN.md](../../../ORIGIN.md)
 
 ## What this is
 
-Sensorium records a Python program's execution — every call, return, and
-exception, with captured values — into a queryable trace, so that an AI agent
+Sensorium records a Python program's execution (every call, return, and
+exception, with captured values) into a queryable trace, so that an AI agent
 debugging the program can *perceive* what actually happened instead of
 inferring it from logs. The recorder wraps one bounded run; a CLI answers
 questions from the trace in dense, stable plain text designed for a language
@@ -62,25 +62,25 @@ consumed (→ non-refocusable), child processes observed but not witnessed,
 
 **Core tables:**
 
-- `code_objects` — interned function identities: file, qualname, first line.
+- `code_objects`, interned function identities: file, qualname, first line.
   Every event references one; "everything that happened in `fog.compute_visible`"
   is an indexed lookup.
-- `frames` — one row per activation: parent frame, code object, call event id,
+- `frames`, one row per activation: parent frame, code object, call event id,
   return event id, depth. The call tree *is* this table.
-- `events` — append-only stream ordered by monotonic event id (ordering is
+- `events`, append-only stream ordered by monotonic event id (ordering is
   ground truth; wall-clock ns is carried, never trusted for ordering). Tagged
   with thread id. Kinds:
-  - `CALL` — with captured arguments
-  - `RETURN` — with captured value
-  - `RAISE` — exception raised
-  - `HANDLED` — exception caught, and where. Silently-swallowed exceptions
+  - `CALL`, with captured arguments
+  - `RETURN`, with captured value
+  - `RAISE`, exception raised
+  - `HANDLED`, exception caught, and where. Silently-swallowed exceptions
     become a first-class queryable fact.
-  - `LINE` — focus-tier only, carrying *deltas* of changed locals, not full
+  - `LINE`, focus-tier only, carrying *deltas* of changed locals, not full
     snapshots.
 
 **Value capture** is structured, not stringly:
 
-- Primitives (int, float, str, bool, None) stored natively — predicates can
+- Primitives (int, float, str, bool, None) stored natively, predicates can
   evaluate them later.
 - Containers: type, length, capped element sample.
 - Other objects: type, `id()` (so same-object provenance links work), and a
@@ -103,7 +103,7 @@ consumed (→ non-refocusable), child processes observed but not witnessed,
 **Capture tiers:**
 
 - Default (no focus): CALL/RETURN/RAISE/HANDLED with value capture, for user
-  code only — files under the run's cwd; stdlib and site-packages excluded
+  code only, files under the run's cwd; stdlib and site-packages excluded
   (overridable with `--include` / `--exclude`).
 - Focus (`--focus pkg.module` or `--focus pkg.module:func`, repeatable): adds
   `LINE` events and local-variable deltas for the named code.
@@ -119,13 +119,13 @@ are listed in run metadata as observed-but-unwitnessed.
   points), a `.py` path, or `-m module`.
 - Executes the target **in-process** in the same 3.12+ interpreter after
   installing `sys.monitoring` hooks. Same-interpreter, 3.12+ is a hard
-  requirement; the tool refuses clearly otherwise — no silent degradation.
+  requirement; the tool refuses clearly otherwise, no silent degradation.
 - PEP 669 mechanics: CALL/RETURN/RAISE registered globally; LINE enabled only
   for code objects inside the focus, using per-code-object `DISABLE` so
   unfocused code costs near-nothing. Overhead targets: low single-digit
   multiple at default depth; focused capture may be heavy (bounded repro runs,
   not production). Both multipliers are measured by the corpus harness on
-  every change — overhead is a tracked fact, not a hope.
+  every change, overhead is a tracked fact, not a hope.
 - Re-entrancy guard: recorder frames are never traced; capture runs with
   monitoring suspended.
 - Writing: in-memory buffer, batched appends, SQLite WAL. On crash or kill,
@@ -133,7 +133,7 @@ are listed in run metadata as observed-but-unwitnessed.
   with the last witnessed event.
 - Failure honesty: if monitoring cannot install, the target fails before
   entry, or the buffer exceeds its memory cap, the run dies loudly with a
-  diagnosis — never a silently thin trace.
+  diagnosis, never a silently thin trace.
 
 ## 3. Query layer
 
@@ -151,14 +151,14 @@ remains and the exact command for the next window.
 | `frame RUN ID` | What happened inside this call? Arguments, local timeline (if focused), return/raise, children. |
 | `grep RUN PATTERN [--kind K] [--fn QUALNAME]` | Where does this name/value appear? Search over function names and captured value content. |
 | `flow RUN --value V \| --object EVENT:name` | Where did this value come from and go? Ordered provenance by primitive equality / object `id()`. Output is labeled: repr/identity-based lineage, not true dataflow analysis. |
-| `exceptions RUN` | Every raise, where handled — with **swallowed silently** as an explicit flagged category. |
-| `watch RUN --at QUALNAME --expr 'PRED'` | Every moment a predicate held at matching events — and for numeric comparisons, the near-misses: closest approaches to the boundary. |
+| `exceptions RUN` | Every raise, where handled, with **swallowed silently** as an explicit flagged category. |
+| `watch RUN --at QUALNAME --expr 'PRED'` | Every moment a predicate held at matching events, and for numeric comparisons, the near-misses: closest approaches to the boundary. |
 | `diff RUN1 RUN2` | Where did two runs of the same command first diverge? Fingerprint divergence point with tree context on both sides. |
 
 `watch` predicates run in a restricted evaluator over captured structured
-values (primitives, container lengths) — no arbitrary Python, no live objects.
+values (primitives, container lengths), no arbitrary Python, no live objects.
 If a predicate needs a value not captured at some sites, the output says so:
-"not captured at 47 of 203 sites (refocus to capture)" — never a silent skip.
+"not captured at 47 of 203 sites (refocus to capture)", never a silent skip.
 
 ## 4. Refocus
 
@@ -170,11 +170,11 @@ capture, then compares per-thread fingerprints against the original:
 - **MATCH** → new trace stamped `refocus-of: <run>, verified same execution`.
   Answers from it are legitimate answers about the original mystery.
 - **DIVERGED** → first divergence point reported with tree context on both
-  sides; new trace stamped `divergent-refocus`. Still queryable — it is a
+  sides; new trace stamped `divergent-refocus`. Still queryable. It is a
   trace of a *different* execution, and every `info` header says so.
 
 Timing differences never count as divergence; only the (code object, event
-kind) sequence does — which is exactly what a focus change must not alter,
+kind) sequence does, which is exactly what a focus change must not alter,
 and the corpus verifies capture depth never shifts the fingerprint.
 
 Preconditions, refused loudly if unmet: stdin was consumed (stamped
@@ -195,7 +195,7 @@ with one seeded bug and a `questions.yaml` pre-registering, before the query
 layer is built out:
 
 - the debugging question in plain language,
-- the ground-truth answer (known — we planted the bug),
+- the ground-truth answer (known. We planted the bug),
 - the sensorium invocation(s) expected to yield it,
 - why plain logging cannot answer it.
 
@@ -239,7 +239,7 @@ sensorium/
 └── docs/superpowers/specs/
 ```
 
-- No runtime dependencies beyond the standard library if at all possible —
+- No runtime dependencies beyond the standard library if at all possible.
   SQLite and `sys.monitoring` are stdlib; an instrument this low-level should
   be boring to install.
 - Unit tests directly cover the sharp edges: capture caps, safe-repr guards,
@@ -252,7 +252,7 @@ sensorium/
   target)
 - Subprocess following
 - Attach-to-live-server flight-recorder mode (ring buffer, overhead budget)
-- Native substrates (rr adapter for C/C++/Rust) — the trace format is designed
+- Native substrates (rr adapter for C/C++/Rust). The trace format is designed
   not to preclude this
 - MCP wrapper around the CLI
 
@@ -266,5 +266,5 @@ v1 is done when:
 2. Overhead multipliers are measured and reported by the corpus harness:
    default depth in the low single digits, focused depth bounded and stated.
 3. A cold agent session, given only a corpus program's failing behavior and
-   the CLI, can collapse the mystery using sensorium queries alone — no
+   the CLI, can collapse the mystery using sensorium queries alone, no
    added print statements.

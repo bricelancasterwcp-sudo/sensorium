@@ -1,4 +1,4 @@
-# The query CLI's exit statuses conflate three next actions — finding, and a proposed slice
+# The query CLI's exit statuses conflate three next actions: finding, and a proposed slice
 
 2026-09-02, against `main` @ `b9873dd` (v0.5.0). Found by two independent
 design passes under the `designing-notation-for-llms` skill (a fresh agent
@@ -15,29 +15,29 @@ a rung number.
 
 An agent driving this CLI branches on the exit status before it reads
 prose. Today the status answers "did it work" but not "what should I do
-next", and the three next actions an agent actually has — *read the
-answer*, *fix my call*, *change the recording* — are spread across the
+next", and the three next actions an agent actually has (*read the
+answer*, *fix my call*, *change the recording*) are spread across the
 three codes without regard to which is which.
 
 | exit | sites | condition | the caller's next action |
 |---:|---|---|---|
 | 0 | every command's normal path | answered | read it |
-| 0 | `watch_cmd.py:412 → :554` | **NOTHING WAS CHECKED** — the predicate could not be evaluated at any recorded site | **change the recording** (`--focus`) |
-| 0 | `grep_cmd.py:98-101` | **no event matched** (`matches: 0`) | read it — but POSIX `grep` exits 1 here |
-| 1 | `diff_cmd.py:791`, `refocus_cmd.py:636` | DIVERGED — the trace answers *no* | read the divergence, drill in |
+| 0 | `watch_cmd.py:412 → :554` | **NOTHING WAS CHECKED**. The predicate could not be evaluated at any recorded site | **change the recording** (`--focus`) |
+| 0 | `grep_cmd.py:98-101` | **no event matched** (`matches: 0`) | read it, but POSIX `grep` exits 1 here |
+| 1 | `diff_cmd.py:791`, `refocus_cmd.py:636` | DIVERGED. The trace answers *no* | read the divergence, drill in |
 | 1 | `tree_cmd.py:318, :348`; `frame_cmd.py:72`; `flow_cmd.py:755`; `watch_cmd.py:486` | `no such frame`, `no frame contains eN`, flow target not found, `--at` names no recorded code | **fix my call** (the reference is wrong for this trace) |
 | 2 | `cli.py:75` | malformed or unknown run/event/frame ref; trace from a newer format | fix my call |
 | 2 | `tree:296,300`, `flow:742`, `grep:75`, `exceptions:614`, `watch:498-503` | `--limit 0`, `--depth -1`, `--near 0`, bad `--expr` | fix my call |
-| 2 | `flow_cmd.py:750`, `watch_cmd.py:509` | **REFUSED: <capability missing>** — the trace was recorded without LINE capture / object identity | **change the recording** |
+| 2 | `flow_cmd.py:750`, `watch_cmd.py:509` | **REFUSED: <capability missing>**. The trace was recorded without LINE capture / object identity | **change the recording** |
 | 2 | `refocus_cmd.py:281` | cannot refocus: no rerun attempted | fix my call, or record fresh |
-| 2 | `refocus_cmd.py:601`, `diff_cmd.py:790` | REFUSED — no verdict could be issued | change the recording (or accept: no verdict exists) |
+| 2 | `refocus_cmd.py:601`, `diff_cmd.py:790` | REFUSED. No verdict could be issued | change the recording (or accept: no verdict exists) |
 
 Three conflations, read off the table:
 
 - **Exit 0 means both "answered" and "could not evaluate".** `watch`
   prints `verdict: NOTHING WAS CHECKED` and its own second line says
-  `'hits: 0' here means 'could not evaluate', NOT 'the invariant held'`
-  — and then exits 0, the same as SATISFIED. The prose is right and the
+  `'hits: 0' here means 'could not evaluate', NOT 'the invariant held'`,
+and then exits 0, the same as SATISFIED. The prose is right and the
   channel an agent branches on contradicts it. Two tests pin this
   (`tests/test_watch_verdict.py:279`, `tests/test_format2_fixture.py:161`
   assert `== 0`).
@@ -47,10 +47,10 @@ Three conflations, read off the table:
   re-recording. An agent that retries on 2 will retry the un-retryable.
 - **Exit 1 means both "the answer is no" and "you named nothing".**
   DIVERGED is a verdict to read; `no such frame: f999` is a wrong
-  reference to correct. `grep` with no match — the one case where the
-  prior *expects* 1 — exits 0.
+  reference to correct. `grep` with no match (the one case where the
+  prior *expects* 1) exits 0.
 
-The README's verdict table (under "`refocus` — three verdicts") documents
+The README's verdict table (under "`refocus`, three verdicts") documents
 0/1/2 for MATCH/DIVERGED/REFUSED and nothing else; the query commands have
 no documented convention, so each one chose locally.
 
@@ -61,8 +61,8 @@ other: `grep` 0 match / 1 no match / 2 trouble; `diff` 0 same / 1 differ
 / 2 trouble; `pytest` 0 pass / 1 failed / 2 interrupted / 4 usage error /
 **5 no tests collected**. sensorium's `diff` and `refocus` already follow
 the first two; the query commands do not, and nothing anywhere carries
-pytest's fifth meaning — *the question was fine and the instrument had
-nothing to check it against* — which is exactly `NOTHING WAS CHECKED` and
+pytest's fifth meaning (*the question was fine and the instrument had
+nothing to check it against*) which is exactly `NOTHING WAS CHECKED` and
 `REFUSED: <capability>`.
 
 ## 3. Proposed convention
@@ -70,9 +70,9 @@ nothing to check it against* — which is exactly `NOTHING WAS CHECKED` and
 | exit | meaning | covers |
 |---:|---|---|
 | 0 | answered, affirmatively | SATISFIED, MATCH, rows shown, a frame printed |
-| 1 | answered, negatively — the trace says *no* or *none* | DIVERGED, `matches: 0`, not satisfied at N sites, `no such frame`, `no frame contains eN`, `--at` names nothing |
-| 2 | the call is wrong — edit the command | malformed/ambiguous ref, `--limit 0`, bad `--expr`, newer format, cannot refocus (no rerun attempted) |
-| **3** | **the trace cannot settle it — change the recording** | NOTHING WAS CHECKED, `REFUSED: needs --focus`, `REFUSED: needs object identity`, diff/refocus REFUSED, refocus UNVERIFIED |
+| 1 | answered, negatively. The trace says *no* or *none* | DIVERGED, `matches: 0`, not satisfied at N sites, `no such frame`, `no frame contains eN`, `--at` names nothing |
+| 2 | the call is wrong, edit the command | malformed/ambiguous ref, `--limit 0`, bad `--expr`, newer format, cannot refocus (no rerun attempted) |
+| **3** | **the trace cannot settle it, change the recording** | NOTHING WAS CHECKED, `REFUSED: needs --focus`, `REFUSED: needs object identity`, diff/refocus REFUSED, refocus UNVERIFIED |
 
 Every 3 already prints the recording that would settle it (the caps
 module's refusals do; `NOTHING WAS CHECKED` names the sites). The change
@@ -97,7 +97,7 @@ channel carried nothing and this ships as documentation only.
 A compiler sees every rejected program; this CLI sees only invocations
 that reached argparse, and a wrong-but-valid call exits 0 like a right
 one. There is no record of what agents tried and were refused on, so
-every demand claim in this document — and in any future flag proposal —
+every demand claim in this document (and in any future flag proposal)
 is UNMEASURED. The cheapest fix is one append, env-gated, in
 `cli.main`: `(utc, argv, exit, error class or None)` to
 `~/.sensorium/invocations.jsonl` (secrets are already the recorder's
@@ -125,8 +125,8 @@ the way sensorium does.
 
 The run reference is a required positional on ten of the twelve
 commands, and the caller skill's playbook types `last` in every example.
-Defaulting it to `last` would remove one echoed constant per call — the
-subtractive move the skill ranks first — but `find_trace` accepts any
+Defaulting it to `last` would remove one echoed constant per call (the
+subtractive move the skill ranks first) but `find_trace` accepts any
 prefix of a trace stem, so `sensorium grep foo` cannot tell a run prefix
 from a pattern without a shape rule, and a wrong guess would answer
 about the wrong trace silently. That is worse than the ceremony.

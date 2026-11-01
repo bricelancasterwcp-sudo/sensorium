@@ -1,4 +1,4 @@
-# Rung 4, slice 1 — the focus tier: LINE and locals for Rust under `--focus`
+# Rung 4, slice 1: the focus tier: LINE and locals for Rust under `--focus`
 
 **Date:** 2026-09-06 · **Status:** design, approved section by section in
 conversation (Brice, 2026-09-06) · **Design authority:** Claude · **Base:**
@@ -6,9 +6,9 @@ main `9db30d0` (Python 0.8.2; crates transform 0.3.1 / driver 0.3.1 /
 rt 0.3.0) · **Branch:** `feat/rung4-focus-tier`
 
 Rung 4 proper was split in two by ruling (2026-09-06, "two slices, focus
-tier first"). This document is slice 1. Slice 2 — `refocus` for
+tier first"). This document is slice 1. Slice 2 (`refocus` for
 `lang = rust` and the pre-registered E4 (`refocus` MATCH rate on the
-`pager_*_test.rs` files, design 2026-09-01 §11 row E4) — gets its own design
+`pager_*_test.rs` files, design 2026-09-01 §11 row E4)) gets its own design
 after this slice merges. Neither touches `docs/TRACE-FORMAT.md`'s format
 number: format 5 belongs to the S0 trace-contract slice (PR #17).
 
@@ -17,17 +17,17 @@ number: format 5 belongs to the S0 trace-contract slice (PR #17).
 | # | Question | Ruling (Brice, 2026-09-06) | Why |
 |---|---|---|---|
 | F1 | one slice or two? | **two: focus tier, then refocus + E4** | the hard invention (a LINE event for Rust) gets its own lock; E4's pre-registered row stays intact for slice 2 |
-| F2 | where is a Rust focus decided? | **at compile time** | the transform instruments unconditionally today and only the coarse tier is a runtime switch; a per-statement probe must borrow what it captures, and a moved binding cannot be borrowed, so *where probes go* is a static decision — made per focus, it confines borrow risk to focused functions and leaves the unfocused workspace byte-identical |
+| F2 | where is a Rust focus decided? | **at compile time** | the transform instruments unconditionally today and only the coarse tier is a runtime switch; a per-statement probe must borrow what it captures, and a moved binding cannot be borrowed, so *where probes go* is a static decision. Made per focus, it confines borrow risk to focused functions and leaves the unfocused workspace byte-identical |
 | F3 | what does a LINE's `deltas` hold? | **the bindings the statement wrote** | captured by shared borrow right after the write, before any later move; Python computes the same set dynamically by diffing; re-capturing all live bindings would need a move analysis at every statement |
 
 Approach chosen over two others (recorded for the reader who asks "why not"):
-debugger-backed locals (lldb/rr on DWARF — a second tool the honesty ledger
+debugger-backed locals (lldb/rr on DWARF. A second tool the honesty ledger
 does not cover, an order of magnitude slower, no path through cargo's spawned
 test binaries) and snapshot-and-diff (rejected by F3).
 
 ## 1. What ships
 
-1. `cargo sensorium --focus <qualname> … test|run` — repeatable; the driver
+1. `cargo sensorium --focus <qualname> … test|run`, repeatable; the driver
    resolves each value against the workspace sources before building and
    refuses a value that matches nothing (exit 2, nothing built).
 2. In every matched function the transform splices **one LINE probe after
@@ -56,7 +56,7 @@ args] [-- binary args]`. Parsed where `--tier` is parsed
 bare `--`, so a test binary's own `--focus` is never stolen. Repeatable;
 `--focus=<v>` accepted like `--tier=`.
 
-**Spelling.** The value is the qualname the trace already prints for Rust —
+**Spelling.** The value is the qualname the trace already prints for Rust,
 the file-local `::` path the transform computes as `scope_path()`
 (`rust/sensorium-transform/src/visit.rs` `qualname`/`scope_path`):
 `Counter::new`, `nested::nested_marker`, `tests::describe_describes`. A value
@@ -65,7 +65,7 @@ eligible function under it; "under" means equal, or a prefix ending at a
 `::` boundary. No `crate::` prefix, no crate name, no globs, no file paths.
 Python's recorder keeps its own `pkg.module[:qualname]` spelling; the two
 commands are different and each takes what its own `tree` prints
-(designing-notation: familiar spelling, collision test passed — the same
+(designing-notation: familiar spelling, collision test passed, the same
 flag name, but on a different command, taking that command's own names).
 
 ### 2.2 Resolution before building
@@ -101,7 +101,7 @@ reason named.
   `"{tool_hash}:{focus_hash}:{source_hash}"`, `focus_hash` = first 16 hex of
   sha256 over the sorted, de-duplicated focus list, `"0"` when empty. A new
   focus therefore re-rewrites and recompiles only files whose stamp changes;
-  a file with no matched function keeps its bytes — the transform's output
+  a file with no matched function keeps its bytes. The transform's output
   is a pure function of (source, focus), and the rewrite is skipped when the
   key matches. **The unfocused build is unchanged**: same key shape modulo
   the `:0:` component, same splices.
@@ -120,7 +120,7 @@ reason named.
   qualnames); both absent when no focus was given. Capabilities: `line` and
   `locals` are `true` iff at least one LINE site exists in any unit's
   manifest for the run; otherwise `false` exactly as today. This is the
-  runtime's own statement, not the converter's guess — the same discipline
+  runtime's own statement, not the converter's guess, the same discipline
   as `err_flow`.
 
 ## 3. The probe and the payload (section 2, approved)
@@ -140,20 +140,20 @@ that `return`s, `break`s, `continue`s, propagates with `?` or panics leaves
 no LINE of its own; its exit is already the RETURN or RAISE row. The tail
 expression is not a statement and its value stays the RETURN's.
 
-### 3.2 What a probe captures — the deltas
+### 3.2 What a probe captures: the deltas
 
 | statement | deltas |
 |---|---|
 | `let PAT = expr;` | every identifier `PAT` binds (reuse `arms.rs` `bound_names`, a `visit_pat_ident` walk that handles nested destructuring); `_`-prefixed names included |
 | `let x;` (deferred) | none here; `x` at its first assignment |
 | `x = e;`, `x += e;` … (LHS a bare local identifier) | `x` |
-| `*p = e;`, `a.b = e;`, `v[i] = e;` | none — a **place write**, declared |
+| `*p = e;`, `a.b = e;`, `v[i] = e;` | none, a **place write**, declared |
 | `match`/`if let`/`while let` arm with bindings, `for PAT in …` | the pattern's bindings, as a synthetic first LINE inside the arm/loop body at the arm's/loop's line, once per entry/iteration |
 | parameters, `self` included | once, as the function's first LINE at the `fn` line, before the first statement |
-| expression statement with no write (`foo();`, `println!(…);`) | empty `deltas` — the row still says the line ran |
+| expression statement with no write (`foo();`, `println!(…);`) | empty `deltas`. The row still says the line ran |
 
 Each value is taken by **shared borrow immediately after the write**
-(`&name`), inside the probe call, through `Probe(&name).debug_cap()` —
+(`&name`), inside the probe call, through `Probe(&name).debug_cap()`,
 `rust/sensorium-rt/src/probe.rs`'s autoref ladder: `Debug` → text capped at
 `CAP = 200` bytes by `CapWriter`, `catch_unwind` around `fmt`; not `Debug` →
 `unread`. The borrow is a temporary that ends inside the probe statement.
@@ -176,7 +176,7 @@ instrumented call a `Debug` impl performs inert; the impl still runs.
 - **Place writes and `&mut` mutation** (§3.2): not deltas.
 - **`const fn` / `extern`**: never instrumented (as today).
 
-`rust/HONESTY-BLIND-SPOTS.md` item 3 ("Locals, and per-line state — rung
+`rust/HONESTY-BLIND-SPOTS.md` item 3 ("Locals, and per-line state, rung
 4") is **narrowed, not deleted**: to unfocused functions, closure and async
 bodies, place writes and `&mut` mutation, with the new declaring facts
 (`capabilities.line: true` only under a focus; `focus_matched` in meta).
@@ -197,7 +197,7 @@ n × { u16 name_len, name UTF-8,
 
 The value block is `exit.rs`'s RETURN block, repeated. Text is capped per
 field by `cap_utf8` (char-boundary safe). When the next delta would not fit,
-it and all later deltas are dropped and `flags.bit0` is set — a partial
+it and all later deltas are dropped and `flags.bit0` is set. A partial
 record is stated, never silently short. New runtime entry point
 `line(unit, site, deltas: &[(&str, Capture)])`, inert under
 `SENSORIUM_TIER=off` and inside `RuntimeScope`, exactly like `ret`.
@@ -247,7 +247,7 @@ they stay capability dispatchers.
 
 ### 4.2 `dbg` captures have a meaning
 
-Today `expr.resolve` and `flow_cmd.matches` do not know `{"k": "dbg"}` — a
+Today `expr.resolve` and `flow_cmd.matches` do not know `{"k": "dbg"}`, a
 Rust return value already resolves to *not captured*. Rule: **a `dbg`
 capture is Debug text.**
 
@@ -258,8 +258,8 @@ capture is Debug text.**
   `"A1"`), `None` matches the text `None`. A truncated `dbg` never matches
   (same reason a clipped `str` never does).
 - `watch --expr`: `resolve` maps a `dbg` capture to the literal its text
-  parses as — an integer, a float, `true`/`false`, or a quoted string (the
-  unquoted value) — else to the raw text as a string; `trunc` → TRUNCATED.
+  parses as (an integer, a float, `true`/`false`, or a quoted string (the
+  unquoted value)) else to the raw text as a string; `trunc` → TRUNCATED.
   `len(name)` over a `dbg` value is unevaluable at that site (the existing
   unread-size path; UNSETTLED for that site, never a comparison to nothing).
 - `flow --object` on a Rust trace stays REFUSED via `object_identity:
@@ -282,7 +282,7 @@ version string.
 | `sensorium-transform` | 0.3.1 | **0.4.0** (focus, LINE splices, `SiteKind::Line`) |
 | `cargo-sensorium` | 0.3.1 | **0.4.0** (`--focus`, resolution, LINE conversion, meta, capabilities) |
 | Python `sensorium` | 0.8.2 | **0.8.3** (`::` prefix, `dbg` rules, docs) |
-| `TRACE_FORMAT` | 4 | **4** — LINE rows and `focus` already exist; `focus_matched` is optional meta; format 5 is PR #17's |
+| `TRACE_FORMAT` | 4 | **4**. LINE rows and `focus` already exist; `focus_matched` is optional meta; format 5 is PR #17's |
 
 `rust/HONESTY.md`'s pin table gains the row; `docs/TRACE-FORMAT.md`
 `capabilities` prose for `line`/`locals` names the Rust condition ("true
@@ -290,7 +290,7 @@ under a focus"); the `LINE` payload paragraph gains one sentence: for
 `lang = rust`, `deltas` are the bindings the statement wrote (see this
 design §3.2).
 
-## 6. Corpus — six new Rust cases
+## 6. Corpus: six new Rust cases
 
 `corpus/rust/<case>/` with `cargo_args: ["--focus", "<q>", "run"]` (the
 runner forwards argv verbatim; no runner change). Questions pin `watch`,
@@ -302,18 +302,18 @@ and the exit.
 | `focus_let_chain` | `fn fill() { let a = 1; let b = a + 1; let s = format!("{b}"); … }` | one LINE per statement; `watch --at fill --expr b == 2` MATCH at the `let b` line; params LINE first |
 | `focus_loop_counter` | a `for i in 0..3 { total += i; }` | `i` as the loop-body's synthetic first LINE per iteration; `total` deltas per assignment; `flow --value 3` finds `total` |
 | `focus_match_binding` | `match opt { Some(n) => { let d = n * 2; … } None => … }` | arm bindings as the arm's first LINE; `if let` variant |
-| `focus_moved_value` | `let v = vec![1]; let w = v; let n = w.len();` | `v` captured at its `let` (before the move), `w` at its own; nothing captured for `v` after the move; the build succeeds — the borrow-by-construction case |
+| `focus_moved_value` | `let v = vec![1]; let w = v; let n = w.len();` | `v` captured at its `let` (before the move), `w` at its own; nothing captured for `v` after the move; the build succeeds. The borrow-by-construction case |
 | `focus_non_debug` | a `let h = NoDebug::new();` | `{"k": "unread"}` for `h`; `frame` renders `<unread>`; `watch --expr h == 1` UNSETTLED |
 | `focus_unfocused_refuses` | the `stale_cache` shape without `--focus` | `capabilities.line: false`; `watch` REFUSED exit 3 with the 0.4.0 sentence; `info` shows no `focus` key |
 
 The driver's exit-2 refusal for a focus that matches nothing (§2.2) is not
-a corpus question — a case records once, with one argv — so it is pinned by
+a corpus question (a case records once, with one argv) so it is pinned by
 a driver unit test (the resolver over a fixture workspace) and by a Python
 gate test that invokes `cargo-sensorium` on a corpus crate with `--focus
 no_such_fn` and asserts the sentence and exit 2 (skipped by name when no
 driver is on the box, as the corpus gate does).
 
-## 7. Acceptance — E9, pre-registered
+## 7. Acceptance: E9, pre-registered
 
 Record: `docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`, §1
 committed **alone** and byte-locked (`awk '/^## 1/,/^## 2/' | sha256sum`)
@@ -321,7 +321,7 @@ before the runner exists in full; the runner follows the E6q/grain pattern
 (`rust/tests/acceptance_e9.py`: env-var locations only, phases as
 functions, `.DONE`/`.FAILED` markers carrying `exit=<n>`, kept stores as
 inputs). Subject: the bloomery clone the plan names, at `e209ed9` (read-only; a fresh
-`CARGO_TARGET_DIR` beside it, a fresh `SENSORIUM_DIR` — the locations are the
+`CARGO_TARGET_DIR` beside it, a fresh `SENSORIUM_DIR`. The locations are the
 plan's and the runner's environment variables, never spelled here). Two focus targets, chosen and written into §1 by reading
 the source at `e209ed9`: `pager_obligation_test.rs`'s
 `missing_stats_is_a_contract_violation_not_a_reply` (≈15 `let` bindings
@@ -371,46 +371,46 @@ rung-4 entry slice left them (CARRIED-DEBT).
 
 Each entry is added, never edited into the sections above; the sections read
 with the amendment applied. E9's locked §1 (a4264b5) is not touched by any
-of them — its gate value 26 is the value these amendments make unambiguous.
+of them. Its gate value 26 is the value these amendments make unambiguous.
 
-- **A1 (2026-09-06, R-F4) — bare-expression arm bodies.** §3.1/§3.2: a
+- **A1 (2026-09-06, R-F4) (bare-expression arm bodies.** §3.1/§3.2: a
   `match` / `if let` arm whose body is a bare expression (no block) is
-  spliced as `{ <arm-entry probe>; <expr> }` — two point splices, the way
-  exit wraps already surround an expression — so the arm-entry LINE exists
+  spliced as `{ <arm-entry probe>; <expr> }`) two point splices, the way
+  exit wraps already surround an expression, so the arm-entry LINE exists
   for it too. The expression is the wrapper's tail, not a statement: no
   statement LINE for it.
-- **A2 (2026-09-06) — zero parameters.** §3.2, parameters row: a function
+- **A2 (2026-09-06), zero parameters.** §3.2, parameters row: a function
   with no parameters still mints its parameters LINE, with empty `deltas`
   ("the row says the function was entered"), so every focused activation
   has a first LINE.
-- **A3 (2026-09-06) — arms without bindings.** §3.2: an arm or loop pattern
+- **A3 (2026-09-06), arms without bindings.** §3.2: an arm or loop pattern
   that binds no identifier (`_`, `Err(_)`, a literal pattern) mints NO
   arm-entry LINE. Only patterns with bindings do.
-- **A4 (2026-09-06, R-F5) — verdict words and H4's bindings.** §7: verdict
+- **A4 (2026-09-06, R-F5), verdict words and H4's bindings.** §7: verdict
   words in a record are the tool's own (`watch`: SATISFIED / not satisfied /
   NOTHING WAS CHECKED, exits 0/1/3), never "MATCH". H4 prefers integer/bool
-  bindings; where the named subjects bind none (they do not — 17 and 7
+  bindings; where the named subjects bind none (they do not, 17 and 7
   bindings, all paths, strings and opaque structs), the triples use §4.2's
   quoted-string branch and the unevaluable-`len` branch, as E9 §1 does; the
   integer branch is pinned by the corpus (`focus_let_chain`,
   `focus_loop_counter`).
-- **A5 (2026-09-06, after Task 1) — the probe is lazy, and formats inside
+- **A5 (2026-09-06, after Task 1) (the probe is lazy, and formats inside
   the runtime scope.** §3.2/§3.4: `line` takes the deltas as a closure,
   `::sensorium_rt::line(&UNIT, site, || [("x", probe_cap!(&x)), …])`,
   evaluated only when the runtime is recording (`STATE == STATE_CALL` and not
-  inside `RuntimeScope`), exactly as `ret` takes its capture closure — so
+  inside `RuntimeScope`), exactly as `ret` takes its capture closure) so
   under `--tier off` no `Debug` impl runs for a delta. `probe_cap!` is a
   macro (the autoref ladder specialises at the call site's type; a generic
   fn cannot carry it) and formats inside `thread::enter_runtime()`, which is
   what keeps the §3.2 reentrancy promise true for LINE. `LINE_PAYLOAD_MAX`
   is 2048 bytes (room for eight capped deltas with names), not RETURN's 325;
   the drop rule beyond it stands.
-- **A6 (2026-09-06) — a LINE needs an open frame.** §3.1/§3.5: the
+- **A6 (2026-09-06). A LINE needs an open frame.** §3.1/§3.5: the
   parameters LINE is spliced AFTER the entry guard, so a LINE always falls
   inside its function's CALL; a LINE record whose thread has no open frame
   is a malformed stream and the converter refuses it naming the record,
   never attaching it to a guessed frame.
-- **A7 (2026-09-06, after Task 1's review) — the exact runtime surface Task 2
+- **A7 (2026-09-06, after Task 1's review). The exact runtime surface Task 2
   emits.** `pub fn line<const N: usize>(unit: &'static Unit, site: u32,
   deltas: impl FnOnce() -> [(&'static str, Capture); N])` (names are
   `&'static str`, tighter than §3.4's prose) and the macro
@@ -423,7 +423,7 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   by-value `self`. Nine fully capped 8-char-named deltas fit one record; the
   tenth drops with `flags.bit0`. Tag 0 is legal in the grammar and
   unwritable by the runtime; the converter REFUSES it naming the record.
-- **A8 (2026-09-06, after Task 3) — the focus reaches cargo's fingerprint
+- **A8 (2026-09-06, after Task 3). The focus reaches cargo's fingerprint
   through the shim path.** §2.3's mirror stamp is necessary but not
   sufficient: cargo consults no `SENSORIUM_*` variable, so with the stamp
   alone a second invocation under a new focus printed `Finished in 0.00s`
@@ -433,11 +433,11 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   hash. Consequence: every focus has its own `-C metadata`, its own mirror
   and its own unit manifests, which accumulate in the target directory
   across invocations. Cost: one shim copy (~40 MB) and one artifact set per
-  distinct focus — accepted for slice 1, CARRIED-DEBT for a hard link.
-- **A9 (2026-09-06, R-F11) — which manifests speak for THIS invocation.**
+  distinct focus, accepted for slice 1, CARRIED-DEBT for a hard link.
+- **A9 (2026-09-06, R-F11) (which manifests speak for THIS invocation.**
   Because manifests accumulate (A8), §2.4's union "over all in-scope
   manifests" would let an earlier focused build's manifest label an
-  unfocused run (`focus: ["load"]` on a run that had none — observed). Rule:
+  unfocused run (`focus: ["load"]` on a run that had none) observed). Rule:
   `meta.focus` is THE INVOCATION'S list, handed to the converter by the
   driver, never read from manifests; `meta.focus_matched` is the sorted
   union of `matched` over in-scope manifests whose `focus.values` equals the
@@ -446,21 +446,21 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   `locals` stay registered-scoped (a LINE record cannot exist for an
   unregistered unit). §2.2's `skipped_only` carries `(value, qualname,
   reason)`, the three things its sentence names.
-- **A10 (2026-09-06, after Task 3's review) — "equals" in A9 means the same
+- **A10 (2026-09-06, after Task 3's review) ("equals" in A9 means the same
   SET.** `focus_hash` sorts and de-duplicates before hashing, so `--focus a
   --focus b` and `--focus b --focus a` share a shim path, artifacts and
   manifests; the converter's comparison of a manifest's `focus.values` with
   the invocation's list therefore canonicalises both sides the same way
-  (sort, de-dup) — otherwise the second order read `focus_matched: []` on a
+  (sort, de-dup)) otherwise the second order read `focus_matched: []` on a
   focused build with LINE rows (observed). `meta.focus` still records the
   values as given. A `--focus` whose value is only commas is refused like an
   empty one; a value that matches only skipped functions names every such
   function in its refusal.
-- **A11 (2026-09-06, after Task 5's review) — `resolve` and `matches` are
+- **A11 (2026-09-06, after Task 5's review), `resolve` and `matches` are
   inverses on the literal domain.** §4.2 as first written let `flow --value
   1e20` report a sighting that `watch --expr x == 1e20` at the same site then
   denied (observed; likewise `1e400`/`inf` and `None`). Rule: the reading side
-  parses exactly what the writing side can spell for a literal target —
+  parses exactly what the writing side can spell for a literal target,
   integers; floats in Rust's Debug spellings including the exponent form
   (`1e20`, `1e-5`), `inf`, `-inf` and `NaN`; `true`/`false`; the bare `None`
   (to Python `None`); a quoted string (unescaped). Everything else stays
@@ -468,7 +468,7 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   excepted, as in Rust), and the two commands cannot disagree about one
   capture. `len()` over any `dbg` value is refused with one reason,
   NOTHING WAS CHECKED, exit 3.
-- **A12 (2026-09-06, after the whole-branch review) — A11's inverse property
+- **A12 (2026-09-06, after the whole-branch review). A11's inverse property
   is PER LITERAL, and not a promise that the two commands agree across
   numeric spellings.** `flow --value` compares Debug TEXT (`flow_values.py`
   calls `debug_text` on the target and matches the capture's string), while
@@ -477,8 +477,8 @@ of them — its gate value 26 is the value these amendments make unambiguous.
   capture that the trace printed `5`: `flow --value 5.0` spells its target
   `"5.0"`, does not equal `"5"`, and reports no sighting; `watch --expr x ==
   5.0` reads `5` and is TRUE of the same capture (both measured 2026-09-06).
-  Neither is wrong under A11 — `resolve(dbg(debug_text(L))) == L` still holds
-  for each literal separately — but the two commands answer different
+  Neither is wrong under A11 (`resolve(dbg(debug_text(L))) == L` still holds
+  for each literal separately) but the two commands answer different
   questions and a reader who spells a literal one way in one and another way
   in the other gets two different answers about one capture. **The rule for a
   reader: spell the literal as the trace prints it**, which `tree`, `frame`

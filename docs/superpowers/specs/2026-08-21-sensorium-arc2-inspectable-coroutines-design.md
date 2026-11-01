@@ -1,4 +1,4 @@
-# Arc 2: inspectable coroutines — frames, suspension, and per-task fingerprints
+# Arc 2: inspectable coroutines: frames, suspension, and per-task fingerprints
 
 Status: plans 2a and 2b implemented (2a on feat/async-arc2 / PR #3; 2b on feat/async-arc2b)
 Extends `2026-08-21-sensorium-async-design.md` (arc 1, shipped as 0.2.0 in
@@ -6,19 +6,19 @@ PR #2, `main` @ d59cafc), which recorded the constraints this spec honours in
 its closing section. Supersedes nothing.
 
 Two plans implemented it, in order: **plan 2a** (frames, suspension
-states, inspection — §D1–D5, §D7) and **plan 2b** (per-task fingerprints —
+states, inspection, §D1–D5, §D7) and **plan 2b** (per-task fingerprints,
 §D6). One spec, because 2b's needs shape 2a's schema.
 
 ## What arc 1 left, measured
 
 After arc 1 a coroutine or generator is recorded as an **unframed CALL
 event**: its sync callees are attributed to it by name (`<- worker
-(unframed)`), its task is known, but the coroutine itself has no frame — so
+(unframed)`), its task is known, but the coroutine itself has no frame, so
 nothing *inside* an `async def` is inspectable. Measured on 0.2.0:
 
 - `--focus mod:coroutine` records no LINE; `watch` says `NOTHING WAS CHECKED`
   with the real reason ("coroutine/generator code opens no frame in this
-  version") — honest, and useless for the field case (FastAPI handlers).
+  version"), honest, and useless for the field case (FastAPI handlers).
 - `exceptions` classifies a handler inside a generator/coroutine as
   `ambiguous … generators and coroutines open no frame`, pinned as the honest
   under-claim by `corpus/generator_swallow`.
@@ -58,7 +58,7 @@ Facts, each binding:
    first `next`ed on the thread that made it can be stepped from a thread
    pool afterwards (`iterate_in_threadpool`, the shape a streaming response
    uses), and a task can be resumed by a loop running on another thread.
-   `id(frame)` is still stable — it is the per-thread MAP that cannot hold
+   `id(frame)` is still stable. It is the per-thread MAP that cannot hold
    the entry. So the recorder parks a suspended frame's entry in a
    tracer-level table at `PY_YIELD` (moving it out of the suspending
    thread's map, one owner at a time) and hands it to whichever thread's
@@ -73,15 +73,15 @@ Facts, each binding:
    terminal event.
 3. **LINE fires inside coroutines and generators with readable locals**
    (`locals=['tag','y']`), so `--focus`/`watch` inside `async def` need no
-   new capture mechanism — only a frame to attach to.
+   new capture mechanism, only a frame to attach to.
 4. `PY_THROW`'s callback receives the exception object (`(code, offset,
    exc)`); `PY_YIELD` receives the yielded value (`None` for
    `asyncio.sleep(0)`, a `Future` for a real wait); `PY_RESUME` receives
    `(code, offset)`. `STOP_ITERATION` fires for the artificial StopIteration
-   when an awaited coroutine returns — control flow, ignored like
+   when an awaited coroutine returns, control flow, ignored like
    `StopIteration` is today.
 5. At `PY_RESUME`, `asyncio.current_task()` is the resumed task and
-   `frame.f_back` is the event loop's `_run` — resumption is entered by the
+   `frame.f_back` is the event loop's `_run`, resumption is entered by the
    loop; the awaiting coroutine, when there is one, is the frame's *parent*,
    derived at `PY_START` exactly as arc 1 does (`await inner()` →
    `inner.f_back` is the awaiter).
@@ -100,22 +100,22 @@ event (§D8).
 
 **Framing.** `_classify` stops deciding *whether* code is framed; every
 traced code object gets a frame at `PY_START`. `_GENLIKE` survives only to
-label the frame's **kind** — `function`, `generator`, `coroutine`,
-`async_generator` — written to the new `frames.kind` column (§D3). The
+label the frame's **kind** (`function`, `generator`, `coroutine`,
+`async_generator`) written to the new `frames.kind` column (§D3). The
 `frameless` gates in `_on_start`, `_on_line`, `_exc_event` and the window
 accounting are removed; the `unframed`/`parent_frame` CALL-payload keys stop
 being written (no unframed call exists in a format-3 trace). `_note_caller`'s
-`caller_code` survives for its one remaining case — a traced caller whose
-frame started before recording did — and `tree`'s tag wording follows (§D4).
+`caller_code` survives for its one remaining case (a traced caller whose
+frame started before recording did) and `tree`'s tag wording follows (§D4).
 
 **Three new subscriptions**, each a callback that honours `in_hook` like the
 others and looks its activation up in `tls.live` by frame identity:
 
 | monitoring event | recorded as | payload |
 |---|---|---|
-| `PY_YIELD` | event kind `YIELD`, `line = frame.f_lineno` | `awaiting`: the **type name** of the yielded object (`Future`, `NoneType`, `Task`, a program class name) — `plain_str(type(v).__name__)`, never `repr`: no program dunder runs, nothing large is stored |
+| `PY_YIELD` | event kind `YIELD`, `line = frame.f_lineno` | `awaiting`: the **type name** of the yielded object (`Future`, `NoneType`, `Task`, a program class name), `plain_str(type(v).__name__)`, never `repr`: no program dunder runs, nothing large is stored |
 | `PY_RESUME` | event kind `RESUME` | none |
-| `PY_THROW` | event kind `RESUME` | `thrown`: `capture_exc(exc, serial)` — the exception now in flight in that frame |
+| `PY_THROW` | event kind `RESUME` | `thrown`: `capture_exc(exc, serial)`, the exception now in flight in that frame |
 
 `STOP_ITERATION` is not subscribed. `YIELD`/`RESUME` are recorded into the
 same events table, stamped with thread and task like every event, and are
@@ -123,19 +123,19 @@ same events table, stamped with thread and task like every event, and are
 
 **The live entry** `[frame_id, code, code_id, prev_locals, depth]` gains
 two slots: `suspended` (set on YIELD, cleared on RESUME; read at `uninstall`
-to write nothing — an entry still present and suspended is the §D2
+to write nothing. An entry still present and suspended is the §D2
 "suspended at end of recording" state, which the reader derives) and
 `in_window` (true if this code is the `--window` target or the parent entry's
 `in_window` is true). `tls.window_depths` is retired: `_on_line` consults
-`entry.in_window`. This is exact per activation and survives suspension —
-a coroutine parked inside the window keeps its descendants in the window
+`entry.in_window`. This is exact per activation and survives suspension.
+A coroutine parked inside the window keeps its descendants in the window
 when it resumes, and a different task's helper running *during* that
 suspension is not in the window, which the per-thread counter got wrong.
 
 **Close paths** are arc 1's: `PY_RETURN`/`PY_UNWIND` delete the entry by
 frame identity when `entry.code is code`. Because suspendable frames can
 now be in the map while other frames start and end, the `code is` check on
-every lookup is what keeps a recycled address from matching a stale entry —
+every lookup is what keeps a recycled address from matching a stale entry,
 arc 1's constraint #1 is met by observation (fact 2: the frame's own
 `PY_UNWIND` removes it) plus the guard, not by a counter.
 
@@ -144,7 +144,7 @@ lookup is the same `tls.live[id(frame)]` with no kind exclusion. The
 existing in-flight bookkeeping (`_ExcRefs`, serials, RERAISE handling) is
 unchanged; `RESUME` with `thrown` uses `refs.identify(exc)` so the serial on
 the RESUME row is the serial the following `PY_UNWIND`'s `unwind_exc`
-carries — that equality is what §D2 uses to say "cancelled", not a type
+carries, that equality is what §D2 uses to say "cancelled", not a type
 check alone.
 
 **Retired:** the record-time warning "`--focus X matched only
@@ -154,10 +154,10 @@ replaced by one that shows `--focus` on a coroutine records LINE).
 
 **Unchanged:** task identity (`_task_serial`, stamped on RESUME too),
 `_parent_of`, `_note_caller`, `plain_str`/`capture_value` guards,
-`_LateWriteGuard` (which gains no new method — `add_event` carries the new
+`_LateWriteGuard` (which gains no new method, `add_event` carries the new
 kinds).
 
-## D2. Frame states — derived, never stored
+## D2. Frame states: derived, never stored
 
 A frame's state is a deterministic function of `closed_by`, `unwind_exc`,
 and its own last events. The reader computes it; nothing in the recorder
@@ -168,10 +168,10 @@ and its own last events. The reader computes it; nothing in the recorder
 | **returned** | `closed_by = 'return'` |
 | **raised** | `closed_by = 'unwind'`, and the unwind's serial is NOT the `thrown` serial of the frame's last `RESUME` |
 | **cancelled** | `closed_by = 'unwind'`, last own event sequence `YIELD … RESUME(thrown=CancelledError, serial s)`, `unwind_exc.serial == s` |
-| **abandoned** | same shape with `GeneratorExit` — the program dropped the generator/coroutine while it was suspended |
-| **unwound by a thrown-in exception** | same shape with any other thrown type (`gen.throw(ValueError)`) — named, not classified further |
+| **abandoned** | same shape with `GeneratorExit`, the program dropped the generator/coroutine while it was suspended |
+| **unwound by a thrown-in exception** | same shape with any other thrown type (`gen.throw(ValueError)`), named, not classified further |
 | **suspended at end of recording** | `closed_by IS NULL` and the frame's last own event is `YIELD` |
-| **open** | `closed_by IS NULL` otherwise — running (or abandoned *unobserved*) when recording stopped |
+| **open** | `closed_by IS NULL` otherwise, running (or abandoned *unobserved*) when recording stopped |
 
 "Last own event" means the last event with that `frame_id` of kind
 `YIELD`/`RESUME`/`CALL` (LINE rows do not change the state). The state names
@@ -179,17 +179,17 @@ the parked line: `suspended at L29`, `cancelled (CancelledError thrown in at
 L29)`. The reader exposes it as `Trace.frame_state(frame) -> (state, line,
 exc | None)`, used by `tree`, `frame`, `exceptions`.
 
-## D3. Schema — trace format 3
+## D3. Schema: trace format 3
 
 `TRACE_FORMAT` 2 → 3. Additive only; no existing column changes meaning.
 
-- `frames.kind TEXT` — `function` | `generator` | `coroutine` |
+- `frames.kind TEXT`, `function` | `generator` | `coroutine` |
   `async_generator`. Absent on formats ≤ 2; the reader returns `function`
   for framed code and keeps the arc-1 unframed machinery for the rest.
 - events: new `kind` values `YIELD`, `RESUME`; payload keys `awaiting`,
   `thrown`.
 - `task_fingerprints (task_id INTEGER PRIMARY KEY, name TEXT, hash TEXT NOT
-  NULL, n_events INTEGER NOT NULL)` — written by plan 2b; created by the
+  NULL, n_events INTEGER NOT NULL)`, written by plan 2b; created by the
   format-3 schema now so 2b is not a second format bump. `fingerprints`
   (per thread) is unchanged in shape; its *meaning* narrows in 2b (§D6).
 - The CALL-payload keys `unframed` and `parent_frame` are no longer written.
@@ -197,14 +197,14 @@ exc | None)`, used by `tree`, `frame`, `exceptions`.
 
 A real format-2 trace, recorded by 0.2.0 under `env -i` (the arc-1 fixture
 discipline), is committed before the bump; the fixture tests assert that a
-format-3 reader renders it with arc 1's wording — unframed lines, the
-"ambiguous / no frame recorded" arm, `(name unreadable)` — and never claims a
+format-3 reader renders it with arc 1's wording (unframed lines, the
+"ambiguous / no frame recorded" arm, `(name unreadable)`) and never claims a
 state it cannot derive.
 
 ## D4. Query surface
 
-**`tree`.** Coroutine and generator frames render like every frame — `fN
-eM qual(args)` — with a kind marker and a state tail from §D2:
+**`tree`.** Coroutine and generator frames render like every frame, `fN
+eM qual(args)`, with a kind marker and a state tail from §D2:
 
 ```
 task t2: task-A
@@ -242,7 +242,7 @@ frames under the existing evidence rules (a HANDLED in a frame whose
 The "handled at eN … no frame recorded → ambiguous" arm survives only for
 format ≤ 2 traces. One rule is added for the new shape: **a frame unwound by
 a thrown-in exception (§D2 cancelled/abandoned/thrown) does not make an
-earlier handler in it ambiguous** — the handler's exception did not
+earlier handler in it ambiguous**. The handler's exception did not
 propagate; the frame later died of something thrown in after a YIELD. The
 rendering says so: `swallowed at eN in worker (frame later cancelled at L29)`.
 
@@ -250,7 +250,7 @@ rendering says so: `swallowed at eN in worker (frame later cancelled at L29)`.
 args, LINE deltas). `--at mod:coroutine` on a run recorded with that
 `--focus` evaluates; the arc-1 "opens no frame in this version" explanation
 survives only for old traces. A `YIELD`/`RESUME` row is not a site (no
-locals snapshot is taken at suspension — the LINE before it is).
+locals snapshot is taken at suspension. The LINE before it is).
 
 **`info`.** `recorded:` gains `YIELD n  RESUME n`; `unframed calls:` reads
 `0 (all calls framed in format 3)` on new traces; `tasks:` as arc 1.
@@ -267,10 +267,10 @@ are now reachable.
 QUAL` with a coroutine target keeps every descendant activation in the
 window across its suspensions and excludes anything that ran in another task
 meanwhile (§D1 `in_window`). A sync helper called from two tasks, one inside
-the window and one not, is captured only for the in-window task — which is
+the window and one not, is captured only for the in-window task, which is
 the first time `--window` means what its docstring says under concurrency.
 
-## D6. Plan 2b — per-task fingerprints
+## D6. Plan 2b: per-task fingerprints
 
 Recorder: each task serial owns a `Fingerprint` over its `CALL/RETURN/RAISE/
 HANDLED` events (never YIELD/RESUME/LINE); the thread fingerprint covers
@@ -279,7 +279,7 @@ rows `(task_id, name, hash, n_events)` are written beside the per-thread
 rows.
 
 Comparison (`refocus`, `diff`): thread streams as today, plus tasks compared
-as a **multiset of `(name, hash)`** — order-independent, so a different
+as a **multiset of `(name, hash)`**, order-independent, so a different
 interleaving cannot manufacture a DIVERGED, and two tasks sharing a name
 are matched by content. DIVERGED names the task stream(s) with no
 counterpart and, for the first such pair sharing a name, the first differing
@@ -294,7 +294,7 @@ trace recorded under this narrowing; a trace with no such key is read under
 the per-thread definition (`Trace.fingerprint_basis` defaults to
 `"per-thread"`). `diff` refuses a comparison across the two bases whenever
 either side ran a task (`_basis_reasons`), and refuses a per-task trace that
-ran tasks but recorded no `task_fingerprints` rows (`_task_row_reasons`) —
+ran tasks but recorded no `task_fingerprints` rows (`_task_row_reasons`),
 its thread stream still narrows to `task_id IS NULL`, so with no task rows to
 compare, everything those tasks did would drop out silently. `refocus` reuses
 both checks by calling `diff_cmd.compare()` after the rerun, and adds its own
@@ -303,16 +303,16 @@ happens for a verdict that could not have been issued anyway. `causal_stream`
 narrows to `task_id IS NULL` under the per-task basis and is every causal
 event under the per-thread basis. **Ruling 4:** asyncio's default `Task-<N>`
 names are compared as unnamed, because the number is creation order and
-nothing else — `_unnamed()` treats a name matching `Task-\d+` exactly as
+nothing else, `_unnamed()` treats a name matching `Task-\d+` exactly as
 `None`, so "unnamed tasks match only unnamed tasks" extends to them, and
 `diff --task` refuses a literal default name outright rather than resolve it
 by creation order. Every thread that produced a causal event has a
-`fingerprints` row, even one whose events ran entirely inside tasks —
+`fingerprints` row, even one whose events ran entirely inside tasks,
 `n_events = 0` marks that fact, not the thread's absence (`_fp_for`). And
 `asyncio.run`'s own wrapper task gets a `task_fingerprints` row like any
 other task, under whatever name asyncio assigned it. **Ruling 9:** the
 task's `Fingerprint` is created where the serial is MINTED, not on its first
-causal event — a serial is minted at any event with a current task, YIELD and
+causal event. A serial is minted at any event with a current task, YIELD and
 RESUME included, so a task whose only traced frames are a resumed generator
 otherwise had a `tasks` row and no `task_fingerprints` row; a zero-count task
 row means the task ran no causal event while traced. **Ruling 8:** all the
@@ -328,10 +328,10 @@ time; a later `set_name` is not seen.
    line it is parked on.
 2. "Cancelled" and "abandoned" are claimed only on an observed thrown-in
    unwind whose serial matches; a frame still suspended when recording
-   stopped is "suspended at end of recording" — not abandoned, not open.
+   stopped is "suspended at end of recording", not abandoned, not open.
 3. `YIELD`/`RESUME` never enter a fingerprint (their count depends on
    contention); the awaited object is recorded as a type name only.
-4. Format ≤ 2 traces keep arc 1's wording everywhere — no retroactive state
+4. Format ≤ 2 traces keep arc 1's wording everywhere, no retroactive state
    claims, no retroactive dispositions.
 5. `exceptions` decides handlers inside suspendable frames by the same
    evidence rules as sync frames; the D4 thrown-in rule is stated on the
@@ -347,7 +347,7 @@ Project norms: tests first, each mutation-checked (`__pycache__` purged,
 programs are run; matrix 3.12/3.13/3.14 (`PY_YIELD`/`PY_RESUME`/`PY_THROW`
 exist since 3.12).
 
-Corpus — **re-registered** (the changes are the point):
+Corpus, **re-registered** (the changes are the point):
 - `generator_swallow`: the under-claim lifts → `dispositions: swallowed 2`,
   the `no frame recorded` line gone. The case's docstring records that this
   was an under-claim by contract until frames existed.
@@ -361,12 +361,11 @@ Corpus — **re-registered** (the changes are the point):
 - `unframed_callers`: `parse` frames are children of the `rows` generator
   frame; `rank` unchanged.
 
-Corpus — **new**: an abandoned generator (dropped while suspended → `~
+Corpus (**new**: an abandoned generator (dropped while suspended → `~
 abandoned`, tail wording per the D4 erratum); a generator suspended at end of recording; `--window` on a
 coroutine while another task's helper runs during its suspension (the
 helper must be outside the window); a FastAPI-shaped async handler calling
-a sync helper, recorded with `--focus` on the handler, `watch` HIT inside it
-— the field acceptance target, to be tried on CastleVTT after merge.
+a sync helper, recorded with `--focus` on the handler, `watch` HIT inside it) the field acceptance target, to be tried on CastleVTT after merge.
 
 Bench: an await-dense workload; the measured per-event cost goes in the
 README; a divergence of an order of magnitude from the 114 ns callback floor

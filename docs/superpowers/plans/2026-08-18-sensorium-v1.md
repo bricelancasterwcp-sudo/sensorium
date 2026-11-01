@@ -2,23 +2,23 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build sensorium v1 — a Python execution-trace recorder (PEP 669) plus a deterministic query CLI that answers debugging questions from what actually happened, proven against a seeded-bug corpus.
+**Goal:** Build sensorium v1, a Python execution-trace recorder (PEP 669) plus a deterministic query CLI that answers debugging questions from what actually happened, proven against a seeded-bug corpus.
 
 **Architecture:** A recorder boots the target program in-process under `sys.monitoring` hooks and streams structured events into a per-run SQLite file. A read-only CLI answers questions from that file in dense stable text. `refocus` re-runs a recorded command with deeper capture and verifies via causal fingerprints that it witnessed the same execution.
 
 **Tech Stack:** Python 3.12+ (developed on 3.14), stdlib only at runtime (`sys.monitoring`, `sqlite3`, `argparse`, `ast`, `runpy`). Dev: pytest, pyyaml (corpus specs), uv for env management.
 
-**Spec:** `docs/superpowers/specs/2026-08-18-sensorium-design.md` — read it before starting. Every honesty rule in it (marked truncation, counted not-captured sites, labeled divergence, listed unwitnessed subprocesses) is a requirement, not decoration.
+**Spec:** `docs/superpowers/specs/2026-08-18-sensorium-design.md`. Read it before starting. Every honesty rule in it (marked truncation, counted not-captured sites, labeled divergence, listed unwitnessed subprocesses) is a requirement, not decoration.
 
 ## Global Constraints
 
 - Python `>= 3.12` required at runtime; the CLI refuses to run on older interpreters with a clear message.
 - Runtime dependencies: **standard library only**. `pytest`/`pyyaml` are dev-only extras.
-- Trace files live in `$SENSORIUM_DIR/traces/*.db` (default `~/.sensorium/traces/`). All tests and the corpus set `SENSORIUM_DIR` to a temp dir — never write to the real store from tests.
+- Trace files live in `$SENSORIUM_DIR/traces/*.db` (default `~/.sensorium/traces/`). All tests and the corpus set `SENSORIUM_DIR` to a temp dir, never write to the real store from tests.
 - Event ordering ground truth is the monotonic event id; wall-clock ns is carried but never used for ordering.
 - Fingerprints hash only `(file, qualname, kind)` for kinds CALL/RETURN/RAISE/HANDLED. LINE events and captured values are **never** fingerprinted (capture depth must not alter the fingerprint).
 - Every truncated capture is marked (`"trunc": true`) and counted; every "I don't have that" is reported, never silently skipped.
-- No model, no network, no interactivity in any command. Output is plain ASCII text; `--json` is out of scope for v1 tasks below except where noted (YAGNI — add when a consumer needs it).
+- No model, no network, no interactivity in any command. Output is plain ASCII text; `--json` is out of scope for v1 tasks below except where noted (YAGNI, add when a consumer needs it).
 - Control-flow exceptions (`StopIteration`, `StopAsyncIteration`, `GeneratorExit`) are excluded from RAISE/HANDLED recording.
 - Generator/coroutine/async-generator code objects are recorded as events but never opened as frames in v1 (async attribution is out of scope per spec).
 - Conventional commits (`feat:`, `test:`, `docs:`, `chore:`). No attribution trailers.
@@ -216,7 +216,7 @@ def test_run_ids_unique():
 - [ ] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_store_db.py tests/test_paths.py -v`
-Expected: FAIL — `ModuleNotFoundError` / `AttributeError` (modules don't exist yet).
+Expected: FAIL, `ModuleNotFoundError` / `AttributeError` (modules don't exist yet).
 
 - [ ] **Step 4: Implement `src/sensorium/store/db.py`**
 
@@ -450,7 +450,7 @@ def test_capture_exc():
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_capture.py -v` — Expected: FAIL (module missing).
+Run: `.venv/bin/pytest tests/test_capture.py -v`: Expected: FAIL (module missing).
 
 - [ ] **Step 3: Implement `src/sensorium/record/capture.py`**
 
@@ -533,7 +533,7 @@ def capture_exc(exc: BaseException) -> dict:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_capture.py -v` — Expected: all PASS. Note the depth-cap test: recursion is bounded because `_capture_sized` stops sampling at `CAPS["depth"]`.
+Run: `.venv/bin/pytest tests/test_capture.py -v`: Expected: all PASS. Note the depth-cap test: recursion is bounded because `_capture_sized` stops sampling at `CAPS["depth"]`.
 
 - [ ] **Step 5: Commit**
 
@@ -597,7 +597,7 @@ def test_line_not_a_causal_kind():
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_fingerprint.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_fingerprint.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/record/fingerprint.py`**
 
@@ -625,7 +625,7 @@ class Fingerprint:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_fingerprint.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_fingerprint.py -v`: Expected: all PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -636,7 +636,7 @@ git commit -m "feat: per-thread causal fingerprints"
 
 ---
 
-### Task 4: TraceWriter — batched, thread-safe writes
+### Task 4: TraceWriter: batched, thread-safe writes
 
 **Files:**
 - Create: `src/sensorium/store/writer.py`
@@ -704,7 +704,7 @@ def test_partial_trace_valid_without_close(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_writer.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_writer.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/store/writer.py`**
 
@@ -835,7 +835,7 @@ Flush order inside a batch is codes → frames → events → closes → outputs
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_writer.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_writer.py -v`: Expected: all PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -858,7 +858,7 @@ git commit -m "feat: batched thread-safe trace writer with crash-valid partial t
 
 - [ ] **Step 1: Write failing tests**
 
-`tests/test_reader.py` — build a small trace with `TraceWriter`, read it back:
+`tests/test_reader.py`, build a small trace with `TraceWriter`, read it back:
 
 ```python
 from sensorium.store.reader import Trace
@@ -928,7 +928,7 @@ def test_causal_stream_and_counts(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_reader.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_reader.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/store/reader.py`**
 
@@ -1110,7 +1110,7 @@ class Trace:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_reader.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_reader.py -v`: Expected: all PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -1121,7 +1121,7 @@ git commit -m "feat: trace reader with frame/event/causal-stream navigation"
 
 ---
 
-### Task 6: Tracer — default tier (CALL/RETURN/RAISE/HANDLED)
+### Task 6: Tracer: default tier (CALL/RETURN/RAISE/HANDLED)
 
 **Files:**
 - Create: `src/sensorium/record/tracer.py`, `tests/helpers.py`
@@ -1287,12 +1287,12 @@ Note: `record_inproc` writes both runs' `prog.py` under different roots but the
 same *relative* file name; the fingerprint hashes `co_filename`, which differs
 by tmp dir. Fix the determinism test by hashing relative paths: the Tracer must
 fingerprint `file` as the path **relative to root** when under root (this also
-makes refocus robust to store relocation). This is the contract — implement it
+makes refocus robust to store relocation). This is the contract, implement it
 that way, don't weaken the test.
 
 - [ ] **Step 3: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_tracer.py -v` — Expected: FAIL (no tracer module).
+Run: `.venv/bin/pytest tests/test_tracer.py -v`: Expected: FAIL (no tracer module).
 
 - [ ] **Step 4: Implement `src/sensorium/record/tracer.py`**
 
@@ -1558,19 +1558,19 @@ Notes for the implementer:
 - `sys._getframe(1)` inside a monitoring callback is the frame that triggered
   the event; this is the standard PEP 669 debugger technique.
 - `TOOL = M.PROFILER_ID` (2). Coverage.py claims `COVERAGE_ID` (0), so
-  `pytest --cov` and sensorium coexist. A second profiler does not — hence
+  `pytest --cov` and sensorium coexist. A second profiler does not, hence
   the loud `RuntimeError` in `install()`, which `boot.run_target` lets
   propagate so the run dies with a diagnosis rather than a thin trace.
 - `M.DISABLE` from PY_START/PY_RETURN/LINE permanently mutes that code
   location (until `restart_events`), which is what makes unfocused code
-  near-free. Exception events cannot be disabled — those callbacks fast-path
+  near-free. Exception events cannot be disabled, those callbacks fast-path
   on the cached decision instead.
 - The fingerprint uses the **root-relative** path (`fp_file`), per the
   contract in Step 2's note.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_tracer.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_tracer.py -v`: Expected: all PASS.
 Also rerun the whole suite (`.venv/bin/pytest`) to confirm nothing regressed.
 
 - [ ] **Step 6: Commit**
@@ -1582,7 +1582,7 @@ git commit -m "feat: sys.monitoring tracer default tier with frames and fingerpr
 
 ---
 
-### Task 7: Focus tier — LINE events with local deltas, and `--window`
+### Task 7: Focus tier: LINE events with local deltas, and `--window`
 
 **Files:**
 - Modify: `src/sensorium/record/tracer.py` (replace the `_on_line` stub)
@@ -1674,7 +1674,7 @@ def test_window_limits_line_capture_to_dynamic_extent(tmp_path):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_focus.py -v` — Expected: the delta tests FAIL (stub DISABLEs everything).
+Run: `.venv/bin/pytest tests/test_focus.py -v`: Expected: the delta tests FAIL (stub DISABLEs everything).
 
 - [ ] **Step 3: Replace `_on_line` in `src/sensorium/record/tracer.py`**
 
@@ -1715,13 +1715,13 @@ Run: `.venv/bin/pytest tests/test_focus.py -v` — Expected: the delta tests FAI
 ```
 
 The LINE event fires *before* the line runs, so its deltas describe the state
-produced by the preceding line — the stored `line` is the line about to
+produced by the preceding line. The stored `line` is the line about to
 execute. This is intentional and documented in the module docstring; queries
 present it as a state timeline.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_focus.py tests/test_tracer.py -v` — Expected: all PASS (tracer tests must not regress).
+Run: `.venv/bin/pytest tests/test_focus.py tests/test_tracer.py -v`. Expected: all PASS (tracer tests must not regress).
 
 - [ ] **Step 5: Commit**
 
@@ -1741,7 +1741,7 @@ git commit -m "feat: focus tier LINE capture with local deltas and window gating
 
 **Interfaces:**
 - Consumes: `Tracer`, `FocusSpec`, `TraceWriter`, `paths`, `capture`.
-- Produces: `boot.TargetError`; `boot.resolve_target(argv) -> Callable[[], None]` (`.py` path → `runpy.run_path` with script dir prepended to `sys.path`, `-m mod` → `runpy.run_module` with cwd prepended, console script → entry-point load; sets `sys.argv` to match `python`'s behavior); `boot.git_info(cwd) -> {"git_sha": str | None, "git_dirty_hash": str | None}`; `boot.run_target(argv, *, focus=(), include=(), exclude=(), window=None, run_id=None, refocus_of=None) -> (run_id, exit_status)`. `cli.main(argv=None) -> int` with subcommand `run` printing `run: <id>` and `trace: <path>` and returning the target's exit status. Meta keys written (exact names — later tasks read them): `run_id, argv, cwd, env, env_hash, python, git_sha, git_dirty_hash, focus, include, exclude, window, caps, start_ts, end_ts, exit_status, uncaught, stdin_consumed, children, truncated_count, incomplete, refocus_of` (last only when set). stdout/stderr are tee'd into the `output` table keyed by `last_event_id`; `subprocess.Popen` audit events land in `children`.
+- Produces: `boot.TargetError`; `boot.resolve_target(argv) -> Callable[[], None]` (`.py` path → `runpy.run_path` with script dir prepended to `sys.path`, `-m mod` → `runpy.run_module` with cwd prepended, console script → entry-point load; sets `sys.argv` to match `python`'s behavior); `boot.git_info(cwd) -> {"git_sha": str | None, "git_dirty_hash": str | None}`; `boot.run_target(argv, *, focus=(), include=(), exclude=(), window=None, run_id=None, refocus_of=None) -> (run_id, exit_status)`. `cli.main(argv=None) -> int` with subcommand `run` printing `run: <id>` and `trace: <path>` and returning the target's exit status. Meta keys written (exact names, later tasks read them): `run_id, argv, cwd, env, env_hash, python, git_sha, git_dirty_hash, focus, include, exclude, window, caps, start_ts, end_ts, exit_status, uncaught, stdin_consumed, children, truncated_count, incomplete, refocus_of` (last only when set). stdout/stderr are tee'd into the `output` table keyed by `last_event_id`; `subprocess.Popen` audit events land in `children`.
 
 - [ ] **Step 1: Add subprocess helpers to `tests/helpers.py`**
 
@@ -1863,7 +1863,7 @@ def test_unresolvable_target_is_clear_error(tmp_path):
 
 - [ ] **Step 3: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_boot_cli.py -v` — Expected: FAIL (`No module named sensorium.__main__`).
+Run: `.venv/bin/pytest tests/test_boot_cli.py -v`: Expected: FAIL (`No module named sensorium.__main__`).
 
 - [ ] **Step 4: Implement `src/sensorium/record/boot.py`**
 
@@ -2048,7 +2048,7 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
 
 - [ ] **Step 5: Implement `src/sensorium/cli.py` and `src/sensorium/__main__.py`**
 
-`src/sensorium/cli.py` (query subcommands register here in later tasks — the
+`src/sensorium/cli.py` (query subcommands register here in later tasks. The
 loop over `_QUERY_MODULES` is the single growth point):
 
 ```python
@@ -2128,8 +2128,8 @@ if __name__ == "__main__":
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_boot_cli.py -v` — Expected: all PASS.
-Full suite: `.venv/bin/pytest` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_boot_cli.py -v`: Expected: all PASS.
+Full suite: `.venv/bin/pytest`: Expected: all PASS.
 
 - [ ] **Step 7: Commit**
 
@@ -2150,7 +2150,7 @@ git commit -m "feat: boot target in-process under recording; sensorium run CLI"
 
 **Interfaces:**
 - Consumes: `Trace`, `paths.find_trace`.
-- Produces: `fmt.fmt_value(v: dict | None) -> str` (e.g. `1800`, `'abc'`, `None`, `list[1000]=[0, 1, ...]`, `dict[5]={'a': 1, ...}`, `Grid#140233…`; truncated strings get a `~` suffix); `fmt.fmt_args(args: dict, limit=4) -> str`; `fmt.fmt_exc(e) -> str` (`ValueError('bad amount')`); `fmt.fmt_event(trace, e) -> str` — one dense line: `e12 CALL    shipping_cost(weight_kg=1800)` / `e14 RETURN  item_weight -> 1800` / `e77 RAISE   parse_row raise ValueError('...') L8` / `e81 LINE    accumulate L4  total=15`; `fmt.more_note(total, shown, hint) -> str | None`; `fmt.parse_eref("e12") -> 12`, `fmt.parse_fref("f5") -> 5`. Query command modules each expose `add_parser(sub)` and `run(args) -> int`. Every query command resolves its `run` argument through `paths.find_trace` (accepting a full id, unique prefix, or `last`).
+- Produces: `fmt.fmt_value(v: dict | None) -> str` (e.g. `1800`, `'abc'`, `None`, `list[1000]=[0, 1, ...]`, `dict[5]={'a': 1, ...}`, `Grid#140233…`; truncated strings get a `~` suffix); `fmt.fmt_args(args: dict, limit=4) -> str`; `fmt.fmt_exc(e) -> str` (`ValueError('bad amount')`); `fmt.fmt_event(trace, e) -> str`, one dense line: `e12 CALL    shipping_cost(weight_kg=1800)` / `e14 RETURN  item_weight -> 1800` / `e77 RAISE   parse_row raise ValueError('...') L8` / `e81 LINE    accumulate L4  total=15`; `fmt.more_note(total, shown, hint) -> str | None`; `fmt.parse_eref("e12") -> 12`, `fmt.parse_fref("f5") -> 5`. Query command modules each expose `add_parser(sub)` and `run(args) -> int`. Every query command resolves its `run` argument through `paths.find_trace` (accepting a full id, unique prefix, or `last`).
 - CLI registration pattern used by this and every later query task, in `cli.py`:
 
 ```python
@@ -2266,7 +2266,7 @@ def test_unknown_run_is_exit_2(tmp_path, monkeypatch, capsys):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_fmt.py tests/test_runs_info.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_fmt.py tests/test_runs_info.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/query/fmt.py`**
 
@@ -2445,7 +2445,7 @@ _QUERY_MODULES = [runs_cmd, info_cmd]
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_fmt.py tests/test_runs_info.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_fmt.py tests/test_runs_info.py -v`: Expected: all PASS.
 
 - [ ] **Step 6: Commit**
 
@@ -2466,7 +2466,7 @@ git commit -m "feat: fmt helpers plus runs and info commands"
 
 **Interfaces:**
 - Consumes: `Trace`, `fmt`, `paths.find_trace`.
-- Produces: `tree RUN [--root fN | --around eN] [--depth N] [--limit N]` — indented one-line-per-frame rendering; `tree_cmd.frame_line(trace, frame) -> str` (reused by `frame_cmd`): `f5 e12 silver_discount(total=100.0) -> 95.0`, unwound frames tagged `!! ValueError('...')`, open frames `(open)`. `frame RUN [fN] [--fn QUALNAME] [--nth N]` — full args, LINE timeline (or an honest "not captured … refocus with --focus" note), return/unwind, children.
+- Produces: `tree RUN [--root fN | --around eN] [--depth N] [--limit N]`, indented one-line-per-frame rendering; `tree_cmd.frame_line(trace, frame) -> str` (reused by `frame_cmd`): `f5 e12 silver_discount(total=100.0) -> 95.0`, unwound frames tagged `!! ValueError('...')`, open frames `(open)`. `frame RUN [fN] [--fn QUALNAME] [--nth N]`, full args, LINE timeline (or an honest "not captured … refocus with --focus" note), return/unwind, children.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -2561,7 +2561,7 @@ def test_frame_without_focus_says_refocus(tmp_path, monkeypatch, capsys):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_tree_frame.py -v` — Expected: FAIL (unknown subcommand).
+Run: `.venv/bin/pytest tests/test_tree_frame.py -v`: Expected: FAIL (unknown subcommand).
 
 - [ ] **Step 3: Implement `src/sensorium/query/tree_cmd.py`**
 
@@ -2724,9 +2724,9 @@ _QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd]
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_tree_frame.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_tree_frame.py -v`: Expected: all PASS.
 Note: the frame test asserts `timeline: (no local changes captured)` never
-appears in the unfocused case — the message must be the refocus hint, keyed
+appears in the unfocused case. The message must be the refocus hint, keyed
 on whether LINE events exist for the frame, per Step 4's implementation.
 
 - [ ] **Step 6: Commit**
@@ -2748,7 +2748,7 @@ git commit -m "feat: tree and frame commands"
 
 **Interfaces:**
 - Consumes: `Trace`, `fmt.fmt_event`, `fmt.more_note`, `paths.find_trace`.
-- Produces: `grep RUN PATTERN [--kind K] [--fn SUBSTR] [--after eN] [--limit N]` — substring match against the *rendered* `fmt_event` line (so it matches both names and formatted values), ends with `matches: N` and a continuation hint when clipped. `exceptions RUN` — uncaught (from meta), then every RAISE with its disposition: `SWALLOWED at eN <qualname> LNN (handled, never re-raised)` / `handled at eN, raised again later` / `unwound (never handled in traced code)`. Heuristic documented in the module docstring: RERAISE is not monitored, so re-raise detection is oid-based on later RAISE events.
+- Produces: `grep RUN PATTERN [--kind K] [--fn SUBSTR] [--after eN] [--limit N]`, substring match against the *rendered* `fmt_event` line (so it matches both names and formatted values), ends with `matches: N` and a continuation hint when clipped. `exceptions RUN`, uncaught (from meta), then every RAISE with its disposition: `SWALLOWED at eN <qualname> LNN (handled, never re-raised)` / `handled at eN, raised again later` / `unwound (never handled in traced code)`. Heuristic documented in the module docstring: RERAISE is not monitored, so re-raise detection is oid-based on later RAISE events.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -2840,7 +2840,7 @@ def test_exceptions_reports_uncaught(tmp_path, monkeypatch, capsys):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_grep_exceptions.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_grep_exceptions.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/query/grep_cmd.py`**
 
@@ -2950,7 +2950,7 @@ In `cli.py` extend the import/list with `grep_cmd, exceptions_cmd`.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_grep_exceptions.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_grep_exceptions.py -v`: Expected: all PASS.
 
 - [ ] **Step 6: Commit**
 
@@ -3056,7 +3056,7 @@ def test_flow_object_on_primitive_is_clear_error(tmp_path, monkeypatch,
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_flow.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_flow.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/query/flow_cmd.py`**
 
@@ -3192,7 +3192,7 @@ In `cli.py` extend the import/list with `flow_cmd`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_flow.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_flow.py -v`: Expected: all PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -3341,7 +3341,7 @@ def test_watch_bad_expr_is_exit_2(tmp_path, monkeypatch, capsys):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_expr.py tests/test_watch.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_expr.py tests/test_watch.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/query/expr.py`**
 
@@ -3590,12 +3590,12 @@ In `cli.py` extend the import/list with `watch_cmd`.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_expr.py tests/test_watch.py -v` — Expected: all PASS.
-(In `test_watch_near_miss…`: `fill` runs 5 times and `used` — the length right
-after each fill — takes the values 40, 70, 85, 99, 69. The buffer's high-water
+Run: `.venv/bin/pytest tests/test_expr.py tests/test_watch.py -v`. Expected: all PASS.
+(In `test_watch_near_miss…`: `fill` runs 5 times and `used` (the length right
+after each fill) takes the values 40, 70, 85, 99, 69. The buffer's high-water
 mark is 99, so `used > 100` never fires and the closest approach is margin 1 at
 `used=99`. Without `--focus`, `used` is a local that was never captured, which
-is why the third test sees `not-captured: 5` — one CALL site per activation.)
+is why the third test sees `not-captured: 5`, one CALL site per activation.)
 
 - [ ] **Step 6: Commit**
 
@@ -3616,7 +3616,7 @@ git commit -m "feat: restricted expression evaluator and watch command"
 
 **Interfaces:**
 - Consumes: `Trace.causal_stream`, `Trace.fingerprints`, `fmt`, `paths.find_trace`.
-- Produces: `diff_cmd.first_divergence(stream_a, stream_b) -> int | None` (index of the first differing element, `None` if one is a prefix of the other and lengths match, else the shorter length). `diff_cmd.compare(trace_a, trace_b) -> dict` with keys `verdict` (`"MATCH"` / `"DIVERGED"`), `index`, `a_event`, `b_event`, `a_desc`, `b_desc`. **This function is what `refocus` (Task 15) reuses — do not duplicate the comparison logic there.** CLI: `diff RUN1 RUN2 [--context N]` prints per-thread fingerprint comparison, then for a divergence the last N common causal steps followed by the two sides' next steps, then the surrounding `tree --around` hint for each side.
+- Produces: `diff_cmd.first_divergence(stream_a, stream_b) -> int | None` (index of the first differing element, `None` if one is a prefix of the other and lengths match, else the shorter length). `diff_cmd.compare(trace_a, trace_b) -> dict` with keys `verdict` (`"MATCH"` / `"DIVERGED"`), `index`, `a_event`, `b_event`, `a_desc`, `b_desc`. **This function is what `refocus` (Task 15) reuses, do not duplicate the comparison logic there.** CLI: `diff RUN1 RUN2 [--context N]` prints per-thread fingerprint comparison, then for a divergence the last N common causal steps followed by the two sides' next steps, then the surrounding `tree --around` hint for each side.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -3691,7 +3691,7 @@ def test_divergent_runs_pinpoint_branch(tmp_path, monkeypatch, capsys):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_diff.py -v` — Expected: FAIL.
+Run: `.venv/bin/pytest tests/test_diff.py -v`: Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/sensorium/query/diff_cmd.py`**
 
@@ -3789,7 +3789,7 @@ In `cli.py` extend the import/list with `diff_cmd`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_diff.py -v` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_diff.py -v`: Expected: all PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -3924,12 +3924,12 @@ def test_refocus_warns_on_changed_source(tmp_path):
 Note on the last test: the loop body count changes (3 iterations → 2), so the
 causal stream length differs and `compare` reports DIVERGED. If the source
 edit had preserved the causal stream exactly, MATCH would be the honest
-verdict — the fingerprint speaks to execution path, not file bytes, and the
+verdict, the fingerprint speaks to execution path, not file bytes, and the
 `git_dirty_hash` warning covers the rest.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `.venv/bin/pytest tests/test_refocus.py -v` — Expected: FAIL (unknown subcommand).
+Run: `.venv/bin/pytest tests/test_refocus.py -v`: Expected: FAIL (unknown subcommand).
 
 - [ ] **Step 3: Implement `src/sensorium/query/refocus_cmd.py`**
 
@@ -4032,8 +4032,8 @@ In `cli.py` extend the import/list with `refocus_cmd`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `.venv/bin/pytest tests/test_refocus.py -v` — Expected: all PASS.
-Full suite: `.venv/bin/pytest` — Expected: all PASS.
+Run: `.venv/bin/pytest tests/test_refocus.py -v`: Expected: all PASS.
+Full suite: `.venv/bin/pytest`: Expected: all PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -4072,7 +4072,7 @@ questions:
     expect_exit: 0                        # optional, default 0
 ```
 
-`second_run` exists so `diff` — which is meaningless against a single trace —
+`second_run` exists so `diff` (which is meaningless against a single trace)
 gets real corpus coverage: the same program is recorded twice with different
 argv, and the question diffs them.
 
@@ -4243,7 +4243,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: Write the ten corpus programs and their questions**
 
 Each directory gets `main.py` (the seeded bug) and `questions.yaml`. Two are
-written out in full below; the remaining eight follow the identical shape —
+written out in full below; the remaining eight follow the identical shape,
 **write them all**, using the source already exercised in the task tests where
 noted, so the corpus and the unit tests reinforce each other.
 
@@ -4367,7 +4367,7 @@ Remaining eight, same structure:
 | `none_propagation` | A lookup miss returns `None`, which flows two calls deep before `.title()` raises `AttributeError` | `CRASH` (Task 11) | `exceptions $RUN`, `flow $RUN --value None` | `uncaught: AttributeError`, `get -> None` |
 | `double_call` | A retry wrapper calls the charge function twice on a slow path, double-charging | new: `charge(order)` invoked from both `submit` and its retry branch | `tree $RUN`, `grep $RUN charge --kind CALL` | two `charge(` lines, `matches: 2` |
 | `stale_cache` | A memo dict keyed on a mutable field returns a stale value after the field changes | new: `cache[key]` populated before mutation | `flow $RUN --object build_key:record` | `cache`, the pre-mutation value |
-| `nondeterministic` | Run-to-run varying branch; **the registered ground truth is that refocus reports DIVERGED** — see the note below for why it is not `random` | see note | `refocus $RUN --focus main:pick` with `expect_exit: 1` | `DIVERGED`, `DIFFERENT execution` |
+| `nondeterministic` | Run-to-run varying branch; **the registered ground truth is that refocus reports DIVERGED**, see the note below for why it is not `random` | see note | `refocus $RUN --focus main:pick` with `expect_exit: 1` | `DIVERGED`, `DIFFERENT execution` |
 
 **Note on `nondeterministic`.** A `random.random()` coin flip (Task 15's
 `RANDOM`) is the honest illustration but a *flaky corpus case*: a refocus has
@@ -4375,7 +4375,7 @@ roughly even odds of landing on MATCH, and a suite that fails half the time
 teaches nobody anything. Use a program whose branch is nondeterministic
 **deterministically**: it reads and increments a counter in a sidecar file, so
 the first recording takes the left branch and the refocus takes the right one.
-The verdict is guaranteed DIVERGED, and the reason is exactly the real one —
+The verdict is guaranteed DIVERGED, and the reason is exactly the real one,
 sensorium does not replay state outside the process, so the rerun genuinely
 was a different execution. Say this in the case's `truth` field so the next
 reader does not "fix" it back into a coin flip:
@@ -4442,12 +4442,12 @@ Add `corpus/__init__.py` (empty) so the import works, and ensure
 
 - [ ] **Step 4: Run the corpus and the wrapper**
 
-Run: `.venv/bin/python corpus/run_corpus.py` — Expected: `10 cases, N questions, 0 failures`.
-Run: `.venv/bin/pytest tests/test_corpus.py -v` — Expected: PASS.
+Run: `.venv/bin/python corpus/run_corpus.py`: Expected: `10 cases, N questions, 0 failures`.
+Run: `.venv/bin/pytest tests/test_corpus.py -v`. Expected: PASS.
 
 Any question that fails here is either a real gap in the query layer (fix the
 tool) or a mis-registered expectation (fix the yaml **only** if the ground
-truth was wrong — never loosen an expectation to make a weak answer pass).
+truth was wrong, never loosen an expectation to make a weak answer pass).
 
 - [ ] **Step 5: Commit**
 
@@ -4467,7 +4467,7 @@ git commit -m "test: seeded-bug corpus with pre-registered questions and harness
 
 **Interfaces:**
 - Consumes: the CLI, `time.perf_counter`.
-- Produces: `bench.measure(program, focus=None, reps=3) -> dict` with `baseline_s`, `recorded_s`, `multiplier`; `run_corpus.main(["--bench"])` prints a table of default-depth and focused multipliers and always exits 0 (it reports, it does not gate — overhead is a tracked fact, not a pass/fail).
+- Produces: `bench.measure(program, focus=None, reps=3) -> dict` with `baseline_s`, `recorded_s`, `multiplier`; `run_corpus.main(["--bench"])` prints a table of default-depth and focused multipliers and always exits 0 (it reports, it does not gate, overhead is a tracked fact, not a pass/fail).
 
 - [ ] **Step 1: Write the benchmark program and harness**
 
@@ -4569,14 +4569,14 @@ def test_measure_reports_a_real_multiplier():
     assert m["multiplier"] >= 1.0
 ```
 
-The test asserts the instrument works, not a specific speed — a hardware-
+The test asserts the instrument works, not a specific speed. A hardware-
 dependent threshold would be a flaky test, and the honest home for the number
 is the reported table.
 
 - [ ] **Step 3: Run tests and the benchmark**
 
-Run: `.venv/bin/pytest tests/test_bench.py -v` — Expected: PASS.
-Run: `.venv/bin/python corpus/run_corpus.py --bench` — Expected: a two-row
+Run: `.venv/bin/pytest tests/test_bench.py -v`: Expected: PASS.
+Run: `.venv/bin/python corpus/run_corpus.py --bench`: Expected: a two-row
 table. Record the observed multipliers in the README (Step 4) as measured
 numbers with the machine noted, not as promises.
 
@@ -4649,8 +4649,8 @@ Fill the measured overhead numbers into the README's Use section as a short
 
 Run: `.venv/bin/pytest --cov=sensorium --cov-report=term-missing`
 Expected: all tests PASS, coverage ≥ 80%. If a module is below that, add
-tests for its uncovered branches — do not lower the target.
-Run: `.venv/bin/python corpus/run_corpus.py` — Expected: 0 failures.
+tests for its uncovered branches, do not lower the target.
+Run: `.venv/bin/python corpus/run_corpus.py`: Expected: 0 failures.
 
 - [ ] **Step 6: Commit**
 
@@ -4669,7 +4669,7 @@ git commit -m "feat: overhead benchmark and README"
 2. Overhead multipliers are measured and reported by `--bench`: default depth
    in the low single digits, focused depth bounded and stated.
 3. A cold agent session, given only a corpus program's failing behavior and
-   the CLI, collapses the mystery using sensorium queries alone — no added
+   the CLI, collapses the mystery using sensorium queries alone, no added
    print statements. (Verify by hand on `unit_mismatch` and `aliasing` after
    Task 17.)
 

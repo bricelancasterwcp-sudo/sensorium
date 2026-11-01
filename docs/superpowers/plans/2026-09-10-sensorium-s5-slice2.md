@@ -1,14 +1,14 @@
-# S5 slice 2 — E6″, the converter ladder, the `node --test` extensions: Implementation Plan
+# S5 slice 2: E6″, the converter ladder, the `node --test` extensions: Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn rung 1's two open numbers into verdicts under new pre-registrations — E6″ (the plain band) and E10′ (the converter ladder) — and close the four R46 residuals in the `node --test` hook, shipping Python **0.9.1** and `sensorium-ts` **0.1.1** with trace format 4 untouched.
+**Goal:** Turn rung 1's two open numbers into verdicts under new pre-registrations (E6″ (the plain band) and E10′ (the converter ladder)) and close the four R46 residuals in the `node --test` hook, shipping Python **0.9.1** and `sensorium-ts` **0.1.1** with trace format 4 untouched.
 
 **Architecture:** Three independent parts under one pre-registration. (1) A new E6 instrument (`e6pp.sh`) runs one guarded before/call/after session on the lens and derives its band from the before arm. (2) The converter's write path takes the Rust converter's own fix (`TraceWriter(durable=False)`: one transaction per trace, `synchronous=NORMAL`) and a streaming spool reader, each measured on the kept f08e89 spool set by a guarded instrument (`e10p.sh`) against a diagnosis taken on main's code first; a 372-pair `sensorium diff` equivalence gate holds the traces identical. (3) The loader hook returns Node's own reported format so Node strips and the hook erases nothing; the R45 refusal names the CommonJS exclusions.
 
 **Tech Stack:** Python 3.12–3.14 (converter, driver, reader, instruments); Node v24.16.0 (the hook, probes); vitest 4.1.9 / vite 6.4.3 on the lens; sqlite3 (WAL); bash + `python3` for the acceptance instruments. No new dependency on either side.
 
-**Spec:** `docs/superpowers/specs/2026-09-10-sensorium-s5-slice2-design.md` — §2 (E6″), §3 (E10′), §4 (the hook), §5 (decisions without work), §6 (testing), §7 (order), §8 (versions, ceilings), §9 (S1–S14), §10 (rulings), §11 (the pre-registration table). **Prior record:** `docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` (§5 gaps 5, 6, 13). **Rigor:** `~/.claude/skills/rigorous-experiments/SKILL.md`. **Style:** as rung 1's plan — interfaces and invariants, verbatim text only where a fresh implementer would guess wrong (the writer's mode, the reader's shape, the hook's return, the refusal sentence, the instruments' sequence).
+**Spec:** `docs/superpowers/specs/2026-09-10-sensorium-s5-slice2-design.md`, §2 (E6″), §3 (E10′), §4 (the hook), §5 (decisions without work), §6 (testing), §7 (order), §8 (versions, ceilings), §9 (S1–S14), §10 (rulings), §11 (the pre-registration table). **Prior record:** `docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` (§5 gaps 5, 6, 13). **Rigor:** `~/.claude/skills/rigorous-experiments/SKILL.md`. **Style:** as rung 1's plan, interfaces and invariants, verbatim text only where a fresh implementer would guess wrong (the writer's mode, the reader's shape, the hook's return, the refusal sentence, the instruments' sequence).
 
 ## Global Constraints
 
@@ -22,7 +22,7 @@
 - **Ceilings:** no file over 800 lines (`tests/test_ceiling.py`; records exempt). `docs/TRACE-FORMAT.md` (799) is not opened. `README.md` (782) takes at most one sentence. `CHANGELOG.md` (756) cuts its oldest entry to `CHANGELOG-ARCHIVE.md` before the 0.9.1 entry is written. `docs/CARRIED-DEBT.md` (415) is measured before its section is appended.
 - **Tests:** TDD per task; every new Python test mutation-checked (break the pinned line, watch it fail, restore) under `PYTHONDONTWRITEBYTECODE=1` with `__pycache__` purged; any harness that runs mutants in a loop uses `setsid` and kills by process group on timeout. Functions under 50 lines.
 - **Commits:** conventional prefixes; the session's trailer lines. Branch `feat/s5-slice2` off `main` at `bbd0781` (the spec is on main), worktree `/mnt/extra/sensorium-rung2/s5-slice2`, venv `.venv` (3.13; `uv venv .venv --python 3.13 && uv pip install -p .venv/bin/python -e ".[dev]"`), `npm ci --prefix typescript && npm ci --prefix typescript/probes && npm ci --prefix corpus/typescript`. SDD ledger `<worktree>/.superpowers/sdd/2026-09-10-sensorium-s5-slice2/progress.md`, archived to `/mnt/extra/sensorium-rung2/sdd-archive/` before the worktree goes.
-- **Gotchas carried:** `npm --prefix typescript run check`, never `npx tsc -p` from the root (R4); `pgrep -f`/`pkill -f` self-match — anchor `^[^ ]*node ` or find pids from spool names; `setsid nohup x &` changes the pid.
+- **Gotchas carried:** `npm --prefix typescript run check`, never `npx tsc -p` from the root (R4); `pgrep -f`/`pkill -f` self-match, anchor `^[^ ]*node ` or find pids from spool names; `setsid nohup x &` changes the pid.
 
 ---
 
@@ -32,7 +32,7 @@
 |---|---|---|---|---|
 | P1 | Where the plan lives | On the feature branch as its first commit, not a docs PR | The spec is merged; Brice asked for the plan next | the plan is reviewed in the slice's PR |
 | P2 | Results file names | `<store>/results/e10p-<stage>-<cell>.json` (stages `arm0`, `a1`, `a3`, `a2`, `a4`, `final`; cells `big-j1`, `full-j1`, `full-j4`, `full-j16`, `file`), `e10p-eq.json`, `e6pp.json`, `pins.json`; assembled by a new `assemble_slice2.py` into `docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.results.json` | one file per cell, so a cell that was never measured is a missing file the assembler reports as `null` + `dropped` | none |
-| P3 | The equivalence pairing key | `test_file` from each `run:` line's `file:` field — 372 distinct on this set (E0′) | the run ids differ by construction | a set with a repeated `test_file` refuses the gate by name rather than pairing wrong |
+| P3 | The equivalence pairing key | `test_file` from each `run:` line's `file:` field, 372 distinct on this set (E0′) | the run ids differ by construction | a set with a repeated `test_file` refuses the gate by name rather than pairing wrong |
 | P4 | `TraceWriter`'s new argument | `TraceWriter(path, batch=512, durable=True)`; `durable=False` sets `PRAGMA synchronous=NORMAL`, never commits before `close()`, and `close()` always commits | one argument, one meaning; the Python recorder is untouched by default | none |
 | P5 | The reader's shape | `spool.read(path)` keeps its name and return type; `Spool.records` becomes an **iterator** that fills `Spool.exit` and `Spool.torn_tail` as it goes; BOOT is read eagerly from line 1 | every caller already treats `records` as a sequence to iterate once | a caller wanting a list writes `list(sp.records)` (one test does) |
 | P6 | The R45 sentence's shape | per reason with counts (`commonjs x2, parse-error x1`), the ES-modules-only clause appended only when `commonjs` is among them | R27's precedent: one bare reason loses the split as soon as there are two | none |
@@ -43,12 +43,12 @@
 
 ## Pre-registration (Task 0 commits spec §2.2, §3.2, §3.4, §3.5, §4.5 and §11 verbatim as the record's §1, plus these pins)
 
-- **The full-suite set:** `/mnt/extra/sensorium-s5/store-rung1/acceptance/spool/20260909-160038-f08e89/` — 372 `.jsonl`, 414,450,522 bytes — copied whole (`invocation.json`, `harness.json`, `manifests/` included, `ingested.json` removed from the copy) to `/mnt/extra/sensorium-s5/e10-spool/f08e89/`; `sha256sum` over every file in the copy written to `/mnt/extra/sensorium-s5/e10-spool/f08e89.sha256` and its own sha256 quoted in §2.
+- **The full-suite set:** `/mnt/extra/sensorium-s5/store-rung1/acceptance/spool/20260909-160038-f08e89/` (372 `.jsonl`, 414,450,522 bytes) copied whole (`invocation.json`, `harness.json`, `manifests/` included, `ingested.json` removed from the copy) to `/mnt/extra/sensorium-s5/e10-spool/f08e89/`; `sha256sum` over every file in the copy written to `/mnt/extra/sensorium-s5/e10-spool/f08e89.sha256` and its own sha256 quoted in §2.
 - **The one file:** `20260909-155657-4965c3/1478098-0.jsonl` (611,016 bytes) with its directory's three JSON siblings, to `/mnt/extra/sensorium-s5/e10-spool/one/`; pinned the same way.
 - **The big-spool copy for cell 0a:** `/mnt/extra/sensorium-s5/e10-spool/big/` holding only `1491993-0.jsonl` (195,851,484 bytes, `src/lib/map/gridDetect.test.ts`) plus the set's `invocation.json`, `harness.json`, `manifests/`.
 - **The reference wall:** 22.5925 s (E1′'s plain median). **The one-file bound:** 0.4002 s. **Job counts:** 1, 4, 16 (16 = `os.cpu_count()` here, the driver's default).
 - **The rung-1 manifest:** `/mnt/extra/sensorium-s5/manifest-rung1-before.txt` (748 entries, file sha256 `eb4c5ddb203e3af25dd2f485fa5099ee9347656c305c6b7521edb4efa156c9a8`), verified once at T0 and again by `e6pp.sh` before and after its own runs.
-- **Reported without a gate:** spec §3.6 — events/s per rung on the big spool, peak RSS before/after A3, 0b/0d, the call run's harness and driver walls, the fresh set's ingest.
+- **Reported without a gate:** spec §3.6, events/s per rung on the big spool, peak RSS before/after A3, 0b/0d, the call run's harness and driver walls, the fresh set's ingest.
 
 ## File structure
 
@@ -78,7 +78,7 @@ typescript/HONESTY.md, typescript/README.md, README.md, CHANGELOG.md, CHANGELOG-
 ### Task 0: Branch, pre-registration, pins, the spool copies, the byte lock
 
 **Files:**
-- Create: `docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md` — §1 (the six spec sections named above, verbatim, each under a `###` carrying its source heading, with the source commit `bbd0781` stated), §2 ambient pins (filled), §3 results (every cell `not measured (slice 2 pending)`), §4 verdicts and §5 gaps (empty).
+- Create: `docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md`, §1 (the six spec sections named above, verbatim, each under a `###` carrying its source heading, with the source commit `bbd0781` stated), §2 ambient pins (filled), §3 results (every cell `not measured (slice 2 pending)`), §4 verdicts and §5 gaps (empty).
 - Create: `tests/test_acceptance_s5_slice2_lock.py` (P9).
 - Create: `/mnt/extra/sensorium-s5/e10-spool/{f08e89,one,big}/` and the two `.sha256` manifests (box side; the manifests' own sha256 go into §2).
 
@@ -94,19 +94,19 @@ typescript/HONESTY.md, typescript/README.md, README.md, CHANGELOG.md, CHANGELOG-
 
 ---
 
-### Task 1: Arm 0 — the diagnosis on main's converter
+### Task 1: Arm 0: the diagnosis on main's converter
 
 **Files:**
 - Create: `typescript/acceptance/e10p.sh <spool copy> <scratch> <label> <jobs> [n=3]`, `typescript/acceptance/e10p_report.py`, `typescript/acceptance/rss_run.py`.
-- Modify: `typescript/acceptance/e10.sh` — one header line: `# Superseded by e10p.sh (E10′, slice 2); kept as E10's instrument.`
+- Modify: `typescript/acceptance/e10.sh`, one header line: `# Superseded by e10p.sh (E10′, slice 2); kept as E10's instrument.`
 - Modify: the record §3 (cells 0a–0e filled with their predictions quoted).
 
 **Interfaces:**
-- `e10p.sh`: per repetition — wait for load; `cp -r <copy> <scratch>/<label>-copy-k`, `rm -f …/ingested.json`; fresh `<scratch>/<label>-store-k`; timed region = `python3 rss_run.py -- "$SENSORIUM_BIN" ts ingest --jobs <jobs> <copy-k>` with `SENSORIUM_DIR=<store-k>`; outside it, remove both. Writes one TSV line `k wall status traces load_1min maxrss_kb` per rep; `e10p_report.py` emits the record cell `{value: median wall, n, lens, dropped, label, jobs, spools, spool_bytes, walls, reps, min, max, loads, maxrss_kb (max over reps), converter_bin, converter_rev}`. `SENSORIUM_BIN` defaults to `sensorium`; `CONVERTER_REV` is required (the script refuses without it) and written verbatim.
+- `e10p.sh`: per repetition, wait for load; `cp -r <copy> <scratch>/<label>-copy-k`, `rm -f …/ingested.json`; fresh `<scratch>/<label>-store-k`; timed region = `python3 rss_run.py -- "$SENSORIUM_BIN" ts ingest --jobs <jobs> <copy-k>` with `SENSORIUM_DIR=<store-k>`; outside it, remove both. Writes one TSV line `k wall status traces load_1min maxrss_kb` per rep; `e10p_report.py` emits the record cell `{value: median wall, n, lens, dropped, label, jobs, spools, spool_bytes, walls, reps, min, max, loads, maxrss_kb (max over reps), converter_bin, converter_rev}`. `SENSORIUM_BIN` defaults to `sensorium`; `CONVERTER_REV` is required (the script refuses without it) and written verbatim.
 - `rss_run.py -- <cmd…>`: `subprocess.run(cmd)`; then prints `maxrss_kb=<resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss>` on its own stdout line and exits with the child's status.
 - Cells (all with the load guard): 0a `big/` jobs 1 n 3; 0b `f08e89/` jobs 1 n 3; 0c jobs 4 n 3; 0d jobs 16 n 3; 0e `one/` jobs 16 n 5. Converter = the **global tool** (main at `aaa8692`/`bbd0781`, converter code identical), `CONVERTER_REV=$(git -C ~/workspace/sensorium rev-parse HEAD)`.
 
-**Invariants:** no code under `src/` changes in this task; every cell's JSON carries `converter_rev`; the record's §3 quotes each cell beside spec §3.2's prediction and states which of the two pre-stated readings the numbers support (contention vs. serial floor) — a reading, not a verdict.
+**Invariants:** no code under `src/` changes in this task; every cell's JSON carries `converter_rev`; the record's §3 quotes each cell beside spec §3.2's prediction and states which of the two pre-stated readings the numbers support (contention vs. serial floor), a reading, not a verdict.
 
 - [ ] **Step 1:** write the three instrument files; dry-run `e10p.sh` on `tests/fixtures/ts-spools/async-chain` copied to `/mnt/extra` (n=1) and check the JSON shape.
 - [ ] **Step 2:** the five cells, in order 0a, 0e, 0c, 0b, 0d (short ones first so a broken instrument is found cheaply).
@@ -114,7 +114,7 @@ typescript/HONESTY.md, typescript/README.md, README.md, CHANGELOG.md, CHANGELOG-
 
 ---
 
-### Task 2: A1 — one transaction per trace, `synchronous=NORMAL`
+### Task 2: A1: one transaction per trace, `synchronous=NORMAL`
 
 **Files:**
 - Modify: `src/sensorium/store/writer.py` (`TraceWriter.__init__`, `set_meta`, `write_fingerprint`, `write_task_fingerprints`, `_flush_locked`, `close`).
@@ -159,15 +159,15 @@ typescript/HONESTY.md, typescript/README.md, README.md, CHANGELOG.md, CHANGELOG-
 
 ---
 
-### Task 3: A3 — the streaming spool reader (and A2/A4 only by the numbers)
+### Task 3: A3: the streaming spool reader (and A2/A4 only by the numbers)
 
 **Files:**
 - Modify: `src/sensorium/ts/spool.py` (`Spool`, `read`, `_lines` removed, `_parse` kept).
-- Modify: `src/sensorium/ts/build.py:141` (unchanged loop; `self.spool.exit` read after it — already so).
+- Modify: `src/sensorium/ts/build.py:141` (unchanged loop; `self.spool.exit` read after it, already so).
 - Test: `tests/test_ts_ingest_meta.py` (lines 250–292 re-pointed; two new tests).
 - Modify: the record §3 (a3 cells 0a, 0d, 0e + `maxrss_kb` before/after).
 
-**Interfaces (verbatim shape — the refusal semantics are the product):**
+**Interfaces (verbatim shape. The refusal semantics are the product):**
 
 ```python
 @dataclass
@@ -218,7 +218,7 @@ def _stream(sp: Spool, fh):
                 sp.exit = rec
             yield rec
 ```
-  `_decode` raises `SpoolError` naming the line on `UnicodeDecodeError`. A second BOOT now surfaces inside `Builder.build()`; `convert()`'s `except BaseException` aborts and unlinks the reserved file, and `_worker` returns the refusal as a value — the same outcome as today, later.
+  `_decode` raises `SpoolError` naming the line on `UnicodeDecodeError`. A second BOOT now surfaces inside `Builder.build()`; `convert()`'s `except BaseException` aborts and unlinks the reserved file, and `_worker` returns the refusal as a value. The same outcome as today, later.
 
 **Tests:**
 - `test_a_torn_final_line_is_dropped_and_not_refused`: `list(sp.records)` has 119 entries and `sp.torn_tail` is True **after** the list.
@@ -229,7 +229,7 @@ def _stream(sp: Spool, fh):
 - [ ] **Step 1:** re-point the four tests and add the two; run: the two new ones fail.
 - [ ] **Step 2:** the reader; full suite PASS; mutation: make `_stream` skip `sp.exit = rec` → `test_a_container_that_saw_its_own_ending_says_so` fails; restore.
 - [ ] **Step 3:** measure a3 cells 0a, 0d, 0e; §3 filled with `maxrss_kb` before (a1) and after.
-- [ ] **Step 4 (conditional, spec §3.3):** only if a3's 0d median > 22.5925 s: A2 — in `ingest_dir`, `work` sorted by `p.stat().st_size` descending before `_map`, summaries re-sorted by `Summary.file` before return (test: a 3-spool dir with sizes S<M<L converts in order L, M, S — pinned by monkeypatching `_worker` to record order — and prints in name order); measure `a2`. Still above: A4 — `TraceWriter.add_event` accepts `payload: dict | str | None` (a `str` is already-serialised JSON, stored as is; test: the stored `payload` column equals the string); `build.py` uses module constants `CALL_PAYLOAD = json.dumps({"args": {}, "unread": ["locals"]}, separators=(",", ":"))` and its `caller: "untraced"` twin; measure `a4`. Each lever its own commit and cell; neither built if the bound is already met.
+- [ ] **Step 4 (conditional, spec §3.3):** only if a3's 0d median > 22.5925 s: A2 (in `ingest_dir`, `work` sorted by `p.stat().st_size` descending before `_map`, summaries re-sorted by `Summary.file` before return (test: a 3-spool dir with sizes S<M<L converts in order L, M, S) pinned by monkeypatching `_worker` to record order, and prints in name order); measure `a2`. Still above: A4, `TraceWriter.add_event` accepts `payload: dict | str | None` (a `str` is already-serialised JSON, stored as is; test: the stored `payload` column equals the string); `build.py` uses module constants `CALL_PAYLOAD = json.dumps({"args": {}, "unread": ["locals"]}, separators=(",", ":"))` and its `caller: "untraced"` twin; measure `a4`. Each lever its own commit and cell; neither built if the bound is already met.
 - [ ] **Step 5:** commit: `perf(ingest): the spool is streamed, not materialised (A3)`; `test(acceptance): E10′ A3 measured`.
 
 ---
@@ -241,11 +241,11 @@ def _stream(sp: Spool, fh):
 - Modify: the record §3 (`E10′-eq`, `E10′-suite`, `E10′-file`), §4 (the three verdicts, and the ladder's reading).
 
 **Interfaces:**
-- `e10p_eq.sh`: two fresh copies, two fresh stores; `<bin-A> ts ingest <copy-A>` into store A (untimed), `<bin-B> ts ingest <copy-B>` into store B; each `run:` line parsed (`run: <id>  pid: <pid>  file: <f>  …`); pairs keyed by `file` — refuse if either side repeats a `file` or the key sets differ; for each pair `SENSORIUM_DIR=<store-B> <bin-B> diff <run-A-path> <run-B-path>` … **the reader takes run ids in one store**, so store A's `.db` files are hard-linked into store B's `traces/` under their own names first (`ln`, same filesystem), and `diff <idA> <idB>` runs there. Exit codes tallied: 0 MATCH, 1 DIVERGED, 3 REFUSED, anything else `other`. Row counts per table via `sqlite3 <db> "SELECT COUNT(*) FROM <t>"` for the seven tables; meta keys whose values differ collected per pair. Report cell: `{value: matches, n: pairs, dropped, diverged, refused, other, row_counts_equal_pairs, meta_keys_differing (a sorted set over all pairs), converter_a: {bin, rev}, converter_b: {bin, rev}}`.
+- `e10p_eq.sh`: two fresh copies, two fresh stores; `<bin-A> ts ingest <copy-A>` into store A (untimed), `<bin-B> ts ingest <copy-B>` into store B; each `run:` line parsed (`run: <id>  pid: <pid>  file: <f>  …`); pairs keyed by `file`, refuse if either side repeats a `file` or the key sets differ; for each pair `SENSORIUM_DIR=<store-B> <bin-B> diff <run-A-path> <run-B-path>` … **the reader takes run ids in one store**, so store A's `.db` files are hard-linked into store B's `traces/` under their own names first (`ln`, same filesystem), and `diff <idA> <idB>` runs there. Exit codes tallied: 0 MATCH, 1 DIVERGED, 3 REFUSED, anything else `other`. Row counts per table via `sqlite3 <db> "SELECT COUNT(*) FROM <t>"` for the seven tables; meta keys whose values differ collected per pair. Report cell: `{value: matches, n: pairs, dropped, diverged, refused, other, row_counts_equal_pairs, meta_keys_differing (a sorted set over all pairs), converter_a: {bin, rev}, converter_b: {bin, rev}}`.
 - A = main's converter (`~/workspace/sensorium`'s global tool, rev `bbd0781`); B = the worktree at the tip after Task 3 (or Task 3's conditional levers).
 - The verdict cells: `e10p.sh f08e89 … final 16 5` and `e10p.sh one … final-file 16 5` with the worktree's converter.
 
-**Invariants:** the `diff` used for every pair is one binary (B's), so a difference cannot be the reader's; `meta_keys_differing` must be a subset of `{run_id}` — anything else is written into §5 and the gate STOPs; the verdict cells are the LAST timed cells and are not re-run.
+**Invariants:** the `diff` used for every pair is one binary (B's), so a difference cannot be the reader's; `meta_keys_differing` must be a subset of `{run_id}`. Anything else is written into §5 and the gate STOPs; the verdict cells are the LAST timed cells and are not re-run.
 
 - [ ] **Step 1:** the two files; dry run on `async-chain` + `each-names` copied together (2 pairs → 2 MATCH).
 - [ ] **Step 2:** the real gate; then the two verdict cells; §3 and §4 filled: suite PASS/REPORTED, file PASS/STOP, eq PASS/STOP, each with its rule quoted (spec §3.4).
@@ -253,7 +253,7 @@ def _stream(sp: Spool, fh):
 
 ---
 
-### Task 5: The hook — Node strips, no JSX; the probes and controls; R45; R47
+### Task 5: The hook: Node strips, no JSX; the probes and controls; R45; R47
 
 **Files:**
 - Modify: `typescript/src/hook.mjs` (delete `strip`, `STRIP`, the `ts` handling that served only `strip`; the return); header comment rewritten.
@@ -275,11 +275,11 @@ def _stream(sp: Spool, fh):
   const edited = out.code !== null ? out.code : code;
   return { format: loaded.format, source: edited, shortCircuit: true };
 ```
-  `ts` stays `require`d from the root — the transform parses against it.
+  `ts` stays `require`d from the root. The transform parses against it.
 - `_no_spools(spool_dir) -> str` in `ingest.py`: reads every `manifests/_tally*.json` (via `_read_tally`); if at least one exists and every one has `files_transformed == 0` and a non-empty `excluded`, returns `no spools in {dir}: this run transformed 0 files and excluded {N} ({reason xN, …} across {k} tallies)` + (when `commonjs` is a reason) `; this recorder instruments ES modules only, so a CommonJS-only suite records nothing`; otherwise today's sentence. `ingest_dir` raises `IngestError(_no_spools(spool_dir))`.
 - `probe:nodetest`: `node --import ../src/register.mjs --test nodetest/async.probe.test.ts nodetest/ext.probe.test.mts nodetest/ext.probe.test.mjs nodetest/ext.probe.test.cjs; node nodetest/controls.mjs; node check.mjs nodetest "$SENSORIUM_SPOOL" "$SENSORIUM_MANIFEST_DIR"`.
 - `controls.mjs`: for each control, `spawnSync(node, [file])` and `spawnSync(node, ['--import', '../src/register.mjs', file], {env: {…, SENSORIUM_TS_ROOT: <probes>, SENSORIUM_TS_PKG: <pkg>, SENSORIUM_TIER: 'call', SENSORIUM_SPOOL: <tmp>}})`; extracts the first `ERR_[A-Z_]+` from stderr on each side; prints one JSON line per control `{control, plain, hooked, same}`; exit 1 if any `same` is false or either side exited 0.
-- `runNodeTest(k, spools, manifestDir)`: `probes:present` now expects `nodetest/async.probe.test.ts`, `nodetest/ext.probe.test.mts`, `nodetest/ext.probe.test.mjs` and NOT a `.cjs` spool; `ext:mts:tasks` ≥ 1 task with `basis: "title"`; `ext:mjs:tasks` ≥ 1; `ext:cjs:tally` — the one `_tally-<pid>.json` whose pid is not any spool's pid reads `{files_transformed: 0, excluded: {commonjs: 1}}`.
+- `runNodeTest(k, spools, manifestDir)`: `probes:present` now expects `nodetest/async.probe.test.ts`, `nodetest/ext.probe.test.mts`, `nodetest/ext.probe.test.mjs` and NOT a `.cjs` spool; `ext:mts:tasks` ≥ 1 task with `basis: "title"`; `ext:mjs:tasks` ≥ 1; `ext:cjs:tally`. The one `_tally-<pid>.json` whose pid is not any spool's pid reads `{files_transformed: 0, excluded: {commonjs: 1}}`.
 
 **Tests (first):**
 - `hook.test.mjs`: `a .mts under the root is instrumented and stripped by Node` (a `.mts` lib with a type annotation, imported from `main.mts`; stdout `2`; `called` has `helper`); `the hook erases nothing: a construct strip-only mode rejects fails as it fails plain` (an `enum` in `lib.ts`; `res.status` ≠ 0 and stderr contains `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`; and the same file run without the hook gives the same code); `a .tsx never reaches the hook` (`main.mjs` importing `./x.tsx` → stderr `ERR_UNKNOWN_FILE_EXTENSION`, no FILE record for it, tally does not count it).
@@ -294,11 +294,11 @@ def _stream(sp: Spool, fh):
 
 ---
 
-### Task 6: E6″ — the instrument, the assembler, the session
+### Task 6: E6″: the instrument, the assembler, the session
 
 **Files:**
 - Create: `typescript/acceptance/e6pp.sh <lens dir> <manifest> <store dir> <out dir>`, `typescript/acceptance/e6pp_report.py`, `typescript/acceptance/assemble_slice2.py`.
-- Modify: `typescript/acceptance/assemble.py` (`arm_stats`: `loads` collected in the same loop as `walls`, so a dropped run's load leaves with its wall); `typescript/acceptance/e6.sh` — one header line: `# Superseded by e6pp.sh (E6″, slice 2); kept as E6′'s instrument.`
+- Modify: `typescript/acceptance/assemble.py` (`arm_stats`: `loads` collected in the same loop as `walls`, so a dropped run's load leaves with its wall); `typescript/acceptance/e6.sh`, one header line: `# Superseded by e6pp.sh (E6″, slice 2); kept as E6′'s instrument.`
 - Modify: the record §2 (pins re-taken before the session), §3 (`E6″`), §4, §5.
 
 **Interfaces:**
@@ -309,19 +309,19 @@ def _stream(sp: Spool, fh):
 **Tests:** `tests/test_acceptance_s5_slice2_tooling.py`: `arm_stats` drops a run's load with its wall (a 3-row table with one `ok: false` → `len(loads) == len(walls) == 2`); `e6pp_report`'s band arithmetic on a fixed five-wall table (median 22.5925, range 0.4085 → band `[22.184, 23.001]`); `in_band` false at 23.01; `STOP by instrument` when an arm has 3 usable walls; `assemble_slice2` refuses a surviving `/mnt/` string.
 
 - [ ] **Step 1:** the tooling tests; run: fail; the assembler fix, the report, the assembler; PASS.
-- [ ] **Step 2:** `e6pp.sh` dry run on `typescript/probes` with a 2-file manifest and n forced to 1 (an `E6PP_N` env, default 5, for dry runs only — recorded in the JSON).
+- [ ] **Step 2:** `e6pp.sh` dry run on `typescript/probes` with a 2-file manifest and n forced to 1 (an `E6PP_N` env, default 5, for dry runs only, recorded in the JSON).
 - [ ] **Step 3:** the session on the lens (≈ 15 min with guard waits), run in the foreground under `setsid` with a pid file; nothing else running on the box; §2's loads re-taken before it starts.
 - [ ] **Step 4:** §3/§4/§5 filled; the rung-1 spec's §11 gets its dated line; `assemble_slice2.py` writes the results file; commit: `test(acceptance): E6″ measured — <verdict>`.
 
 ---
 
-### Task 7: Land it — documents, versions, the ledger
+### Task 7: Land it: documents, versions, the ledger
 
 **Files:**
-- Modify: `typescript/HONESTY.md` §7 (dated: Node strips, the hook erases nothing; `.tsx`/`.jsx` outside Node's scope under `node --test`; the R45 sentence), §9 (E6″ and E10′'s numbers, the STOP word where the record uses it); `typescript/README.md` (the `src/hook.mjs` row: "instruments a file under the root and hands it back in Node's own format; Node strips"); `README.md` (`sensorium-ts 0.1.0` → `0.1.1` on line 722 — one token, no new line); `CHANGELOG.md` (cut `## 0.8.4` to `CHANGELOG-ARCHIVE.md` with the archive's dated note, then the `## 0.9.1 — <date>` entry); `pyproject.toml` `0.9.1`; `typescript/package.json` + `typescript/src/index.mjs` `0.1.1`; `typescript/test/rt.test.mjs:63`, `src/sensorium/ts/wrapper.py:57`, `tests/test_ts_live.py:200`, `tests/test_ts_wrapper.py:84` (`sensorium-ts 0.1.1`); `docs/CARRIED-DEBT.md` (measure first; the slice's section: settled — E6″, E10′, H1–H4, the `loads` fix, the materialised-whole residual struck; deferred — A2/A4 if unbuilt, Arm B by ruling, anything §5 of the record raised); this slice's spec (a §12-style "what changed against this design" table if any decision above moved the text).
+- Modify: `typescript/HONESTY.md` §7 (dated: Node strips, the hook erases nothing; `.tsx`/`.jsx` outside Node's scope under `node --test`; the R45 sentence), §9 (E6″ and E10′'s numbers, the STOP word where the record uses it); `typescript/README.md` (the `src/hook.mjs` row: "instruments a file under the root and hands it back in Node's own format; Node strips"); `README.md` (`sensorium-ts 0.1.0` → `0.1.1` on line 722, one token, no new line); `CHANGELOG.md` (cut `## 0.8.4` to `CHANGELOG-ARCHIVE.md` with the archive's dated note, then the `## 0.9.1 — <date>` entry); `pyproject.toml` `0.9.1`; `typescript/package.json` + `typescript/src/index.mjs` `0.1.1`; `typescript/test/rt.test.mjs:63`, `src/sensorium/ts/wrapper.py:57`, `tests/test_ts_live.py:200`, `tests/test_ts_wrapper.py:84` (`sensorium-ts 0.1.1`); `docs/CARRIED-DEBT.md` (measure first; the slice's section: settled: E6″, E10′, H1–H4, the `loads` fix, the materialised-whole residual struck; deferred: A2/A4 if unbuilt, Arm B by ruling, anything §5 of the record raised); this slice's spec (a §12-style "what changed against this design" table if any decision above moved the text).
 - Reinstall the three venvs (`uv pip install -p .venv/bin/python -e .` etc.) so `importlib.metadata` reads 0.9.1 (`test_release_tokens.py`).
 
-**Invariants:** `test_release_tokens.py` green (the newest CHANGELOG header agrees with `pyproject`); `tests/test_ceiling.py` green; the three fixture-borne `0.1.0` strings (`tests/test_ts_ingest_meta.py:31`, `test_exceptions_rust_gate.py:268`, the fixtures' BOOT) are NOT changed — they are what those spools carry.
+**Invariants:** `test_release_tokens.py` green (the newest CHANGELOG header agrees with `pyproject`); `tests/test_ceiling.py` green; the three fixture-borne `0.1.0` strings (`tests/test_ts_ingest_meta.py:31`, `test_exceptions_rust_gate.py:268`, the fixtures' BOOT) are NOT changed. They are what those spools carry.
 
 - [ ] **Step 1:** the cut, then the entry; versions; the four string sites; reinstall; full suite on 3.12/3.13/3.14 + npm + corpus + live.
 - [ ] **Step 2:** HONESTY, READMEs, the ledger (line count before/after quoted in its own header sentence), the spec pointers.
@@ -340,5 +340,5 @@ def _stream(sp: Spool, fh):
 ## Self-review against the spec
 
 - **§2 E6″** → Task 6 (session order 2.1, rule 2.2 including the <4-walls STOP-by-instrument, instrument 2.3 with `e6.sh` untouched, disposition 2.4 written into §4 by the outcome). **§3 E10′** → Task 0 (workload 3.1), Task 1 (Arm 0, 3.2), Tasks 2–3 (A1, A3; A2/A4 conditional, 3.3), Task 4 (rules 3.4, gate 3.5), §3.6 reported cells across Tasks 1–6, §3.7 recorded in the record's §4. **§4 the hook** → Task 5 (H1–H4, probes 4.5). **§5** → P8 and the ` > ` decision stated in Task 7's ledger section. **§6 testing** → each task's tests; mutation checks in Global Constraints. **§7 order** → Tasks 0–8 in that order. **§8** → Task 7. **§9/§10** → Task 7's ledger and the PR body.
-- **Placeholders:** none — every instrument has its arguments and output shape, every test its assertion, every sentence its text.
+- **Placeholders:** none. Every instrument has its arguments and output shape, every test its assertion, every sentence its text.
 - **Type consistency:** `TraceWriter(durable=)` / `Builder(durable=)` (Tasks 2, 3); `Spool.records: Iterator[dict]` (Task 3, `list(sp.records)` in tests); `_no_spools(spool_dir) -> str` (Task 5); `assemble.arm_stats(rows, arm, key)` reused by `e6pp_report.py` (Task 6); `e10p.sh <spool copy> <scratch> <label> <jobs> [n]` everywhere it is invoked (Tasks 1–4); `check.mjs nodetest <spool> <manifests>` (Task 5, P7).

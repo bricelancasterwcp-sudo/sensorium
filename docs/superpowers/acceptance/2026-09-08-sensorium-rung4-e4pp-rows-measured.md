@@ -1,4 +1,4 @@
-# E4″ — what the 61 rows measured
+# E4″: what the 61 rows measured
 
 The measured companion to
 [`…-e4pp-rows.md`](2026-09-08-sensorium-rung4-e4pp-rows.md), which is the
@@ -10,14 +10,14 @@ The four measured columns live here instead, row for row and in the same
 order, and the record's §2 gives both files' sha256.
 
 Every column below is read from
-`2026-09-08-sensorium-rung4-e4pp.results.json` at `pairs.rows[*]` — the
-rows whose `arm` is `A` for the table of 61, in `index` order — and
+`2026-09-08-sensorium-rung4-e4pp.results.json` at `pairs.rows[*]` (the
+rows whose `arm` is `A` for the table of 61, in `index` order) and
 nothing here is re-derived: `licence`, `program_threads`, `verdict`,
 `pair_count`, `original` and `pair`. The `#`, the name and the original
 run id are the locked file's own, and were checked equal row for row
 before this table was written.
 
-## Arm A — the 61 kept originals, re-read under driver `0.5.2`
+## Arm A: the 61 kept originals, re-read under driver `0.5.2`
 
 | # | fn (the `--focus` value) | licence | program threads | verdict | pairs | original run id | the pair this run made |
 |---|---|---|---|---|---|---|---|
@@ -83,7 +83,7 @@ before this table was written.
 | 60 | `unmeasured_budget_refusal_detail_says_unmeasured_not_zero` | granted | 0 | MATCH | 1 | `20260907-111250-092953` | `20260908-055918-8838d4` |
 | 61 | `a_budget_smaller_than_already_loaded_weights_saturates_to_zero_free_and_never_panics` | granted | 0 | MATCH | 1 | `20260907-111251-80be5a` | `20260908-055924-c2dc8b` |
 
-**57 granted, 4 WITHHELD, MATCH on 61, one pair on every row** — the
+**57 granted, 4 WITHHELD, MATCH on 61, one pair on every row**. The
 partition §1.2 wrote first, and `endpoints.H1.headline`,
 `endpoints.H1.withheld`, `endpoints.H3.headline` and
 `endpoints.H3.pairs_of_one` are the same four numbers counted over this
@@ -93,7 +93,7 @@ on the four, each read from the licence's own thread clause
 harness thread every pair reports is excluded before this column and is
 never in it.
 
-## Arms B and C — the two four-pair controls
+## Arms B and C: the two four-pair controls
 
 `pairs.rows[*]` with `arm` `armB` or `armC`. Arm B adds `E4PP_INPUT`, a
 name no code in the clone reads; arm C adds `TERM_SESSION_ID`, a member of

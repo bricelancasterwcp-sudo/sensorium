@@ -61,7 +61,7 @@ venv's `sensorium`, never a stale binary on `PATH`.
    Query tools default `run` to `last`. `redact` is not a tool.
 
 9. Every MCP result's first line is `exit N:` (or `no answer:`). `isError`
-   is set on exit 2 or on no exit — repair the call. 1 and 3 are answers
+   is set on exit 2 or on no exit, repair the call. 1 and 3 are answers
    about the trace. Tools, the cap, the audit file: [mcp.md](mcp.md).
 
 10. Prove the path after install:

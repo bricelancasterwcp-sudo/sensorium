@@ -1,6 +1,6 @@
-# CARRIED-DEBT — volume 12
+# CARRIED-DEBT: volume 12
 
-The 2026-09-13 section — S5, refocus for TypeScript — moved here
+The 2026-09-13 section (S5, refocus for TypeScript) moved here
 **2026-09-14** (secrets redaction, PR B, in its ledger task) so
 [`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md) stays under 800 lines. It is the
 twelfth numbered volume, on the rule
@@ -10,22 +10,22 @@ growing file.
 
 The move was measured before it was made, the way the ledger's own lesson
 asks: PR B's section was drafted at **414** lines against a live file of
-**722**, which would have taken it to **1,136** — three hundred and
+**722**, which would have taken it to **1,136**, three hundred and
 thirty-six over the ceiling. One section had to go whichever way the
 arithmetic fell, and no other cut would have been enough on its own: the
-moved section is **351** lines — the live file's 126–476 as it stood, and
-everything below this header here — and the live file was **795** after both
+moved section is **351** lines (the live file's 126–476 as it stood, and
+everything below this header here) and the live file was **795** after both
 the cut and the append (591 today, volume 13 having been cut from it since).
 Content was not trimmed to fit; the oldest section was cut, which is the rule.
 
-**The wording, the order and the strikes are unchanged** — nothing was edited
+**The wording, the order and the strikes are unchanged**. Nothing was edited
 BY the move, a resolved item is struck through here exactly as it was in the
 live file, and nothing is deleted. PR B made no strike inside this section:
 nothing it carried was closed by the value half, so every deferred item below
 travels open. The house rule stated in `docs/CARRIED-DEBT.md`'s header governs
 every volume, and a deferred item below is still open unless it is struck.
 
-## 2026-09-13 — S5, refocus for TypeScript (Python 0.14.0 / sensorium-ts 0.4.0)
+## 2026-09-13: S5, refocus for TypeScript (Python 0.14.0 / sensorium-ts 0.4.0)
 
 The slice that gives `refocus` its third language. A vitest invocation is a
 POOL, so the whole recorded invocation is re-run as typed and the reader is
@@ -33,7 +33,7 @@ told which of the traces that came back is the PAIR and what is being claimed
 about the rest. Ten plan decisions (**A1–A10**) and twenty-three controller
 rulings (**P0–P22**); every one that changed a sentence of the design is in
 its §9, and the ones that changed none are listed there too rather than left
-to be noticed. **The slice ships `DONE-WITH-STOP`** — twelve E15 cells read
+to be noticed. **The slice ships `DONE-WITH-STOP`**, twelve E15 cells read
 once each, nine PASS, one *reported*, three STOP. Two of the three STOPs are
 this record's own pre-registration, pinned by a dated §1 amendment with
 corrected clauses beside them **before the instrument was launched once**; the
@@ -42,14 +42,14 @@ third is the survey's premise about which functions bear captures at the
 (`docs/superpowers/acceptance/2026-09-13-sensorium-e15-refocus-typescript.md`
 §3–§5).
 
-### Settled — closed here
+### Settled: closed here
 
 - **`refocus` is no longer TypeScript's "not yet".** Rung 4 named it the
   non-goal ("next slice, on these rows"); `typescript/README.md`'s *Not yet*
   list loses it, `typescript/HONESTY.md` §5.2 and index row 7 stop calling
   `refocus: false` a flat declaration (ruling **P9**, a dated in-place
   parenthesis on the `err_flow` 2026-09-10 precedent), and
-  `capabilities.refocus` is **true** on every trace this driver converts —
+  `capabilities.refocus` is **true** on every trace this driver converts,
   whether one particular trace can be refocused is a refusal, not a
   capability (R10). Measured, not asserted: E15's **H1 0 of 31** pre-rerun
   refusals over real members of somebody else's suite.
@@ -57,18 +57,18 @@ third is the survey's premise about which functions bear captures at the
   `no_rerun_note`'s *"refocus is not yet this recorder's"* becomes the Python
   and Rust shape, naming `sensorium ts run --focus <file>:<qualname> --
   <harness command>`; and *"arguments are not read in this version"* is gone
-  from the blind-spot block — rung 4 gave a focused site its arguments and a
+  from the blind-spot block, rung 4 gave a focused site its arguments and a
   refocus always deepens the focus, so the line had been false on every trace
   a refocus produces. Its absence is pinned over a transcript by
   `tests/test_refocus_typescript_licence.py`.
-- **`js_inspect._MORE`** — the §2026-09-12 item that scheduled its own
-  removal "at the next Python minor" — is removed, and that item is **struck
+- **`js_inspect._MORE`** (the §2026-09-12 item that scheduled its own
+  removal "at the next Python minor") is removed, and that item is **struck
   where it stands** (ruling **S2**), which is now
   [`CARRIED-DEBT-ARCHIVE-11.md`](CARRIED-DEBT-ARCHIVE-11.md), this file's
   ceiling having cut that section there before this one was appended; the
   strike carries a dated pointer back here. Zero consumers before and after;
   `tests/test_js_inspect.py` asserts the name is gone and that `INSPECT_MORE`
-  is the public one — and its docstring's "CARRIED-DEBT §2026-09-12" citation
+  is the public one, and its docstring's "CARRIED-DEBT §2026-09-12" citation
   now names a volume rather than the live file, which the final fix wave
   takes.
 
@@ -81,26 +81,26 @@ third is the survey's premise about which functions bear captures at the
    answered before design §2.3 could. Both were found while the instrument was
    being read against the code it judges and **before `e15.sh` ran once**, and
    both were pinned by amendment rather than edited away (ruling **P16**).
-   *Closed by* the corrected clauses already measured beside them — **H7′ 1 of
+   *Closed by* the corrected clauses already measured beside them. **H7′ 1 of
    1**, **H8′ 1 of 1**; nothing is left open but the discipline. *Cost if
    wrong:* two STOPs in a table of PASSes that a hurried reader mistakes for
    two defects in the tool.
-2. **P20 — the container-ending clause withheld two MATCHed licences for a
+2. **P20, the container-ending clause withheld two MATCHed licences for a
    scheduler's coin flip** (§5.2). Rows 5 and 22 are MATCHes whose licences
-   were WITHHELD on one reason each — `SIGTERM originally, exit 0 on the
-   rerun` and its exact reverse — which is how vitest's pool ended the worker
+   were WITHHELD on one reason each (`SIGTERM originally, exit 0 on the
+   rerun` and its exact reverse) which is how vitest's pool ended the worker
    fork, not a fact about the world the program ran in: the same class as
    `VITEST_POOL_ID`/`VITEST_WORKER_ID`, which harness set 1 already names and
    never withholds on. **Proposed closure, NOT APPLIED:** count a
-   container-ending disagreement the way harness set 1 is counted — printed,
-   named, never a reason to withhold — leaving the withholding for endings
+   container-ending disagreement the way harness set 1 is counted (printed,
+   named, never a reason to withhold) leaving the withholding for endings
    that are the program's. *Cost if wrong:* two licences a later slice grants
    that this one withheld; the cost of leaving it is that every vitest row
    whose worker the pool happens to kill loses a licence it earned.
 3. **The survey's class rule is a rule about a HAZARD, and its capture model
    was wrong** (§5.3). Six of the seven rows classed nondeterministic MATCHed
    and one (row 8) diverged, on a CALL recorded as `DescribeCharacter`
-   originally and `DescribeCharacter.<anonymous>` in the re-run — so the
+   originally and `DescribeCharacter.<anonymous>` in the re-run, so the
    mechanism the survey named may not be the one that fired. Separately, H6's
    `flow --value 0.4` prediction rested on "the only capture-bearing function
    in that trace is `loadVolumes`"; the read found `0.4` **115** times as the
@@ -112,10 +112,10 @@ third is the survey's premise about which functions bear captures at the
    than from the focus. *Cost if wrong:* a survey that keeps predicting reads
    in the wrong vocabulary, which is one STOP per slice that teaches nothing
    new.
-4. **P5 — H6's closed loop rests on ONE row** (§5.4). Its four reads sit on
+4. **P5: H6's closed loop rests on ONE row** (§5.4). Its four reads sit on
    survey rows 1, 16 and 31, and rows 1 and 16 are classed nondeterministic.
-   H6 is readable on all four — its endpoint is the READ's verdict class and
-   exit, not the pair's — but *the loop closes under a GRANTED licence* rests
+   H6 is readable on all four (its endpoint is the READ's verdict class and
+   exit, not the pair's) but *the loop closes under a GRANTED licence* rests
    on **row 31** alone; rows 1 and 16 were granted on rows whose verdict was
    itself a reading. *Closed by* a later loop whose reads sit on deterministic
    rows by construction. *Cost if wrong:* the demonstration is narrower than
@@ -125,7 +125,7 @@ third is the survey's premise about which functions bear captures at the
    `src/lib/distance/distance.vectors.test.ts` and
    `src/lib/builder/emit/pf2eSheet.test.ts` fail at load under the recording,
    looking for a data file above the frontend directory; whether they fail the
-   same way with no `sensorium` in the picture was **NOT MEASURED** — running
+   same way with no `sensorium` in the picture was **NOT MEASURED**, running
    the plain suite is not one of §1's endpoints. *Closed by* one plain `npx
    vitest run` on the lens, outside a measured run. *Cost if wrong:* a
    circumstantial exoneration (ENOENT shapes, a cwd-relative path with no
@@ -134,8 +134,8 @@ third is the survey's premise about which functions bear captures at the
 6. **The reused-worker mechanism was not exercised by E15** (§5.6). Every row
    ran vitest's default isolated forks, one file per container; nothing in
    E15 passes `--no-isolate` or `--maxWorkers 1`. The corpus case is that
-   claim's only evidence, and it pins **condition (b) only** — the derived
-   task-ROOT-frame count — because under `--no-isolate` the converter records
+   claim's only evidence, and it pins **condition (b) only** (the derived
+   task-ROOT-frame count) because under `--no-isolate` the converter records
    `test_file` singular and never the plural key (ruling **P3**). Condition
    (a), the `meta.test_files` count, is pinned by fixture traces alone
    (`tests/test_refocus_typescript.py`), since no converter writes the key
@@ -153,8 +153,8 @@ third is the survey's premise about which functions bear captures at the
    either direction; and every recording here is `SENSORIUM_TIER=call`.
 8. **The disk** (§5.8). The 33 whole-suite invocations left **14 038 077 489**
    bytes (14.0 GB) of spool, which were freed after §3 was written exactly as
-   §1 said they would be. The **22 675 054 592** bytes (22.7 GB) of traces —
-   **12 276** of them — are KEPT on the work filesystem until this branch
+   §1 said they would be. The **22 675 054 592** bytes (22.7 GB) of traces,
+   **12 276** of them are KEPT on the work filesystem until this branch
    merges, because every trace id the record cites is in them: **freeing them
    is a post-merge chore**, and the PR body carries it. Two extra evidence
    files, `originals.txt` and `e-fences.txt`, are committed under the
@@ -165,7 +165,7 @@ third is the survey's premise about which functions bear captures at the
    (§5.9). §1's preamble says the lens "is verified against rung 1's
    748-entry manifest before and after"; `e15.py` has no such check. The
    full-depth sweep found three paths newer than the launch, all under
-   `node_modules` and none a source file — the directory itself, an empty
+   `node_modules` and none a source file, the directory itself, an empty
    `.vite-temp`, and vitest's per-file results cache
    (`node_modules/.vite/vitest/<sha>/results.json`, 39 667 bytes). Because
    `copy_lens.sh` **symlinks** `node_modules`, there was ONE of that file,
@@ -176,7 +176,7 @@ third is the survey's premise about which functions bear captures at the
    or read-only-binds `node_modules` instead of symlinking it, so a harness
    writing its own caches writes them inside the throwaway copy; (b) `e15.py`
    verifies the manifest at preflight AND at cleanup, so a claim §1's preamble
-   makes is one the instrument holds — the E12 instruments had such a hash and
+   makes is one the instrument holds. The E12 instruments had such a hash and
    E15's does not. *Cost if wrong:* a record whose isolation claim rests on
    prose, and a shared mutable file whose harmlessness this run can assert but
    not demonstrate. Neither is applied here: the instrument is not edited
@@ -188,13 +188,13 @@ Each was ruled at execution, is in the design's §9 or this slice's ledger, and
 leaves something a later slice may want.
 
 - **The two drops are RULINGS, not debts** (**S1**, Brice, 2026-09-13). The
-  **C conversation** — the 44 design-level rows of the rung-4 debts design's
-  §9 — is **dropped, not on hold**. The **token-cost measurement** is dropped
+  **C conversation** (the 44 design-level rows of the rung-4 debts design's
+  §9) is **dropped, not on hold**. The **token-cost measurement** is dropped
   with it: its branch `feat/token-cost-measure` is kept LOCAL at `7c0009b`
   (21 commits, never pushed) as a record, and nothing on `main` names either.
   They are written here because this ledger is the only place that says what
   happened to them. *Cost if wrong:* two bodies of work whose disposition
-  lives in one paragraph — which is the reason the paragraph exists.
+  lives in one paragraph, which is the reason the paragraph exists.
 - **Refocus by invocation id** (design §7): every pair compared, a roll-up
   verdict and an exit for a mixed result. A different report shape and its own
   brainstorm, and the natural next step now that the pair rule has been
@@ -208,7 +208,7 @@ leaves something a later slice may want.
 - **Blind spot 42's real closure is a runtime change, not a reader one**
   (**R11**, **P3**). The derived check reads the trace's own task ROOT frames;
   a second test file whose callbacks all root in a non-test helper is
-  invisible to it, and the container pairs by its first file — DIVERGED or
+  invisible to it, and the container pairs by its first file: DIVERGED or
   MATCH on the container's shape, never a guess. Closing it needs the setup
   file to mark every file start under a shared module cache, which is the
   recorder's business. *Cost if wrong:* a pair that is honestly named and
@@ -231,27 +231,27 @@ wrote in, measured at its last commit, whose next edit must take a seam
 rather than a paragraph (ruling **P14**: the gate binds, not a plan's size
 estimate):
 
-- **`rust/HONESTY-BLIND-SPOTS.md` 800** — at the gate exactly, untouched by
+- **`rust/HONESTY-BLIND-SPOTS.md` 800**: at the gate exactly, untouched by
   this slice; §2026-09-12's **P15** note stands, and its next entry opens a
   volume.
-- **`README.md` 799** — took this slice's refocus sentence **net-zero**,
+- **`README.md` 799**: took this slice's refocus sentence **net-zero**,
   trimming the same section; the seam is the TypeScript section itself.
-- **`docs/query.md` 797** — the seam is **`docs/query-typescript.md`**, on
+- **`docs/query.md` 797**: the seam is **`docs/query-typescript.md`**, on
   the `HONESTY-REFOCUS.md` precedent that this slice already used once.
-- **`typescript/HONESTY.md` 795** — the seam is the one this slice took: the
+- **`typescript/HONESTY.md` 795**: the seam is the one this slice took: the
   next section opens in its own file, as §12 *Refocus* did.
 - **`tests/test_ts_ingest_meta.py` 789** and
-  **`tests/test_refocus_typescript.py` 783** — the refocus tests already live
+  **`tests/test_refocus_typescript.py` 783**, the refocus tests already live
   in two files (`tests/test_refocus_typescript_licence.py` 361 is the second);
   the ingest tests' seam is `tests/test_ts_ingest_refocus.py` 95, which this
   slice opened.
 - **`src/sensorium/query/refocus_world.py` 710** and
-  **`refocus_typescript.py` 705** — `refocus_licence.py` (133) was opened at
+  **`refocus_typescript.py` 705**, `refocus_licence.py` (133) was opened at
   Task 1 precisely because `refocus_world.py` would otherwise have stood at
   792, and it is where the next shared helper goes.
-- **`CHANGELOG.md` 689** after the 0.14.0 entry — `CHANGELOG-ARCHIVE-2.md`
+- **`CHANGELOG.md` 689** after the 0.14.0 entry, `CHANGELOG-ARCHIVE-2.md`
   opened at 0.13.0 and takes the next cut.
-- **This file** — the section above was drafted and measured before it was
+- **This file**: the section above was drafted and measured before it was
   written, the way the rule at the top asks.
 - Other tracked files sit between 770 and 800 and are not listed: a hand-kept
   list of the files somebody remembered is the thing `test_ceiling.py`'s
@@ -260,8 +260,8 @@ estimate):
 ### Deferred minors, per task
 
 Small, named, none measured away; the ledger holds every one and this is the
-roll-up. The items already stated above — `_MORE`, blind spot 42's closure,
-the linked-scan copy, P20 and §5.9's closures — are not repeated.
+roll-up. The items already stated above (`_MORE`, blind spot 42's closure,
+the linked-scan copy, P20 and §5.9's closures) are not repeated.
 
 - **Task 0 (pre-registration and the RED cases):** the reused-worker truth
   named `test_files` as the mechanism (reworded at Task 5 under P3,
@@ -274,7 +274,7 @@ the linked-scan copy, P20 and §5.9's closures — are not repeated.
   refocus_licence.env_of`) is the claim; the task report said
   `refocus_world.py` 693 where `wc` said 692.
 - **Task 2 (driver, converter, vector):** `driver.py`'s `paths.traces_dir()`
-  mkdirs the store's `traces/` on a refused link (harmless — `runs` creates it
+  mkdirs the store's `traces/` on a refused link (harmless, `runs` creates it
   too, and the README's promise is about the SPOOL directory);
   `info_typescript.py`'s truthiness guard where "key present" is the rule
   (equivalent on every real trace); `_record(..., link=None)`'s default has
@@ -341,8 +341,8 @@ the linked-scan copy, P20 and §5.9's closures — are not repeated.
   containing *every*, *always* or *by construction* is a claim with a
   derivation, and the derivation is the part that has to be redone.
 - **A pre-registered READ must be derived from the recorder's own tier rule.**
-  H6's `flow --value` prediction was written in `--focus`'s vocabulary — only
-  the focused function bears captures — where the trace's tier is what decides:
+  H6's `flow --value` prediction was written in `--focus`'s vocabulary (only
+  the focused function bears captures) where the trace's tier is what decides:
   at `call` a RETURN value is recorded for the file's traced functions and
   `--focus` only adds the LINE-level local deltas for the one it names. This
   is the S5 rung-4 lesson (a pre-registration written in the wrong command's
@@ -354,7 +354,7 @@ the linked-scan copy, P20 and §5.9's closures — are not repeated.
   had rewritten 33 times through a symlink the copy owns (§5.9). A claim of
   the form *nothing moved* is only as strong as the sweep that looked, and a
   manifest hash before and after is the version of it an instrument can hold.
-- **A refusal keyed on a key nobody writes is dead on arrival — read the
+- **A refusal keyed on a key nobody writes is dead on arrival. Read the
   trace instead.** Design §2.3 row 7 fired on `meta.test_files`, which the
   converter never writes under `--no-isolate` because the driver's setup file
   runs its top-level `fileStart` once under a shared module cache. Widening
@@ -363,11 +363,11 @@ the linked-scan copy, P20 and §5.9's closures — are not repeated.
   the locked corpus expectation unchanged and cost no recorder change.
 - **A brief's guessed count is not the tree's.** The corpus README's numbers
   were briefed as "forty-five cases / thirteen focus cases" and the tree said
-  forty-seven and twelve — none of the three new cases records under a
+  forty-seven and twelve, none of the three new cases records under a
   `record: {focus}`. A count in a brief is a guess about the tree at dispatch
   time; the command that recomputes it is the durable half. (The companion
   rule from §2026-09-12 still holds: a plan's line-count estimate is not a
-  gate — the ceiling is, which is ruling **P14** in one line.)
+  gate. The ceiling is, which is ruling **P14** in one line.)
 - **Two pre-registration errors found before a launch are worth more than a
   clean table.** H7's and H8's clauses were wrong, were caught while the
   instrument was read against the code it judges, and were pinned by

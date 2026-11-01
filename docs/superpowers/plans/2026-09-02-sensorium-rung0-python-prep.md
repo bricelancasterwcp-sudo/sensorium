@@ -1,14 +1,14 @@
-# Rung 0 — Python-core prep for the Rust recorder: Implementation Plan
+# Rung 0: Python-core prep for the Rust recorder: Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship everything the Rust recorder needs from the Python side before a line of Rust exists: a reader that survives Rust-sized traces, a move-aware `diff`, trace format 4 with a required-meta choke point and declared capabilities, command gating on capabilities, and the trace-format contract with conformance vectors — and re-verify today's bloomery Python-trio split with the new instrument as the acceptance test.
+**Goal:** Ship everything the Rust recorder needs from the Python side before a line of Rust exists: a reader that survives Rust-sized traces, a move-aware `diff`, trace format 4 with a required-meta choke point and declared capabilities, command gating on capabilities, and the trace-format contract with conformance vectors, and re-verify today's bloomery Python-trio split with the new instrument as the acceptance test.
 
 **Architecture:** Every change is in the existing Python package. The reader gets two query rewrites (no schema change). `diff` gains a query-time rename detector in a new small module. The format bump is a required-key set enforced once in `db.open_trace`, plus three meta keys the Python recorder now writes (`recorder`, `lang`, `capabilities`), plus reader properties that every "predates" sentence and every capability-dependent command reads. The contract is a Markdown document plus JSON vectors that a builder turns into traces and runs through the real CLI.
 
 **Tech Stack:** Python 3.12+ stdlib only at runtime (sqlite3, hashlib, json); pytest + pyyaml in dev. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md` — sections 5, 6, 8 (E5), 9 (vectors), 10 (rung-0 acceptance), 11 (rung 0), 13.
+**Spec:** `docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`, sections 5, 6, 8 (E5), 9 (vectors), 10 (rung-0 acceptance), 11 (rung 0), 13.
 
 ## Global Constraints
 
@@ -44,7 +44,7 @@ Expected: `745 passed` (skips allowed on 3.12/3.13 legs; this box's venv is 3.14
 
 ---
 
-### Task 1: Reader — `unframed_calls` in O(n), frame children from a parent map
+### Task 1: Reader: `unframed_calls` in O(n), frame children from a parent map
 
 **Files:**
 - Modify: `src/sensorium/store/reader.py:86-101` (`__init__`), `:158-166` (`children`, `roots`), `:201-214` (`unframed_calls`)
@@ -52,7 +52,7 @@ Expected: `745 passed` (skips allowed on 3.12/3.13 legs; this box's venv is 3.14
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces: `Trace.unframed_calls(code_id=None) -> list[Event]`, `Trace.children(fid) -> list[Frame]`, `Trace.roots() -> list[Frame]` — same signatures and same rows as today; a private `Trace._child_ids: dict[int | None, list[int]] | None` cache.
+- Produces: `Trace.unframed_calls(code_id=None) -> list[Event]`, `Trace.children(fid) -> list[Frame]`, `Trace.roots() -> list[Frame]`, same signatures and same rows as today; a private `Trace._child_ids: dict[int | None, list[int]] | None` cache.
 
 Measured on this box (2026-09-01): `sensorium info` on a 93k-event / 44k-frame trace took 54.4 s; the `unframed_calls` SQL alone took 53.9 s (`EXPLAIN` = `SEARCH e USING INDEX idx_events_kind` + `SCAN f LEFT-JOIN`, one full `frames` scan per CALL row). The same query as a `NOT IN` subquery took 0.011 s and returned identical rows. `children()` is `SCAN frames` per call.
 
@@ -116,7 +116,7 @@ def test_children_and_roots_match_a_direct_query():
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_reader.py -q -k "unframed or children" 2>&1 | tail -5`
-Expected: `test_unframed_calls_query_does_not_scan_frames_per_event` FAILS with `AttributeError: 'Trace' object has no attribute '_unframed_sql'`; the other two pass or fail on the same attribute — either way the plan test is RED.
+Expected: `test_unframed_calls_query_does_not_scan_frames_per_event` FAILS with `AttributeError: 'Trace' object has no attribute '_unframed_sql'`; the other two pass or fail on the same attribute, either way the plan test is RED.
 
 - [ ] **Step 3: Implement**
 
@@ -199,7 +199,7 @@ were SCAN frames per call; they now read one (id, parent_id) pass."
 
 ---
 
-### Task 2: `diff --ignore-moves` — a move-aware comparison, with the E5 mutation test
+### Task 2: `diff --ignore-moves`: a move-aware comparison, with the E5 mutation test
 
 **Files:**
 - Create: `src/sensorium/query/moves.py`
@@ -208,16 +208,16 @@ were SCAN frames per call; they now read one (id, parent_id) pass."
 
 **Interfaces:**
 - Produces (`moves.py`):
-  - `@dataclass(frozen=True) class Moves: mapping: dict[tuple[str, str], tuple[str, str]]; moved: list[tuple[str, str, str]]; added: list[tuple[str, str]]; removed: list[tuple[str, str]]; unpaired: list[str]; one_sided_modules: list[tuple[str, str]]` — the last is `("A"|"B", file)` for every file whose `<module>` code object exists on one side only.
-  - `def detect_moves(trace_a, trace_b) -> Moves` — pairs A-only `(file, qualname)` with B-only `(file, qualname)` by qualname when the pairing is unique on both sides; `<module>` code objects are never paired (they are file identity, not a function) and go to `one_sided_modules` when one-sided.
-  - `def project(stream, moves) -> list[tuple]` — drops steps whose `(file, "<module>")` is in `one_sided_modules`, then rewrites the remaining `(file, qualname, kind, eid)` steps through `moves.mapping`. Takes the `Moves` object (not a bare dict); `_shapes` passes it for A and a `Moves` with an empty mapping but the same `one_sided_modules` for B — build that with `dataclasses.replace(moves, mapping={})`.
-  - `def hash_stream(stream) -> str` — blake2b over `(file, qualname, kind)` via `record.fingerprint.Fingerprint`.
+  - `@dataclass(frozen=True) class Moves: mapping: dict[tuple[str, str], tuple[str, str]]; moved: list[tuple[str, str, str]]; added: list[tuple[str, str]]; removed: list[tuple[str, str]]; unpaired: list[str]; one_sided_modules: list[tuple[str, str]]`. The last is `("A"|"B", file)` for every file whose `<module>` code object exists on one side only.
+  - `def detect_moves(trace_a, trace_b) -> Moves`, pairs A-only `(file, qualname)` with B-only `(file, qualname)` by qualname when the pairing is unique on both sides; `<module>` code objects are never paired (they are file identity, not a function) and go to `one_sided_modules` when one-sided.
+  - `def project(stream, moves) -> list[tuple]`. Drops steps whose `(file, "<module>")` is in `one_sided_modules`, then rewrites the remaining `(file, qualname, kind, eid)` steps through `moves.mapping`. Takes the `Moves` object (not a bare dict); `_shapes` passes it for A and a `Moves` with an empty mapping but the same `one_sided_modules` for B, build that with `dataclasses.replace(moves, mapping={})`.
+  - `def hash_stream(stream) -> str`, blake2b over `(file, qualname, kind)` via `record.fingerprint.Fingerprint`.
   - `def print_moves(moves) -> None` and `def short(key) -> str` live HERE, not in `diff_cmd.py` (controller ruling: `diff_cmd.py` is 736 lines and Task 4 adds to it; keep it under 800). `diff_cmd` imports and calls `print_moves`.
 - Produces (`diff_cmd.py`): `compare(trace_a, trace_b, moves=None)`, `compare_tasks(trace_a, trace_b, moves=None)`, `compare_task_streams(trace_a, trace_b, name, moves=None)`; the result dict gains `"moves": Moves | None`. CLI flag `--ignore-moves`.
 
-Semantics (spec §6, tightened): a qualname that is A-only under two or more files, or B-only under two or more files, is NOT paired; it stays in `removed`/`added` and is listed under `unpaired`, so a divergence inside it is reported as DIVERGED — never "MATCH with an undetectable region". Task streams are re-hashed at query time on BOTH sides (A projected, B as recorded) because stored task hashes use a root-relative file and a query-time hash must be computed one way for both sides.
+Semantics (spec §6, tightened): a qualname that is A-only under two or more files, or B-only under two or more files, is NOT paired; it stays in `removed`/`added` and is listed under `unpaired`, so a divergence inside it is reported as DIVERGED, never "MATCH with an undetectable region". Task streams are re-hashed at query time on BOTH sides (A projected, B as recorded) because stored task hashes use a root-relative file and a query-time hash must be computed one way for both sides.
 
-**Module frames of one-sided files (controller ruling, pre-flight):** a split creates new files, and each new file's `<module>` code object runs once at import (the Python-trio split added exactly five such CALLs). Those steps exist on one side only by construction, so under `--ignore-moves` the CALL/RETURN steps whose code object is `<module>` of a file present on ONE side only are dropped from both compared streams before comparison, and the verdict says so: `module frames not compared: N (files only in B: lib_helper.py; only in A: -)`. Only the `<module>` code object's own steps are dropped — anything that module-level code CALLS stays in the stream, so import-time side effects still diverge. A `<module>` of a file present on both sides is compared as before. `Moves` gains `one_sided_modules: list[tuple[str, str]]` (`("A"|"B", file)`), `project()` drops those steps, and `_shapes` with a mapping drops them from task streams the same way. The `<module>` qualname is exactly the string `"<module>"`.
+**Module frames of one-sided files (controller ruling, pre-flight):** a split creates new files, and each new file's `<module>` code object runs once at import (the Python-trio split added exactly five such CALLs). Those steps exist on one side only by construction, so under `--ignore-moves` the CALL/RETURN steps whose code object is `<module>` of a file present on ONE side only are dropped from both compared streams before comparison, and the verdict says so: `module frames not compared: N (files only in B: lib_helper.py; only in A: -)`. Only the `<module>` code object's own steps are dropped. Anything that module-level code CALLS stays in the stream, so import-time side effects still diverge. A `<module>` of a file present on both sides is compared as before. `Moves` gains `one_sided_modules: list[tuple[str, str]]` (`("A"|"B", file)`), `project()` drops those steps, and `_shapes` with a mapping drops them from task streams the same way. The `<module>` qualname is exactly the string `"<module>"`.
 
 - [ ] **Step 1: Write the failing unit tests for the detector**
 
@@ -710,23 +710,23 @@ and a planted call-site swap under the same move still reads DIVERGED."
 
 ---
 
-### Task 3: Trace format 4 — required meta at the choke point, recorder/lang/capabilities
+### Task 3: Trace format 4: required meta at the choke point, recorder/lang/capabilities
 
 **Files:**
 - Modify: `src/sensorium/store/db.py:6-23` (constant + docstring), `:103-114` (`open_trace`)
 - Modify: `src/sensorium/store/reader.py` (new properties after `fingerprint_basis`, line ~233)
 - Modify: `src/sensorium/record/boot.py:535-563` (`_write_run_meta`)
 - Modify: `tests/helpers.py` (new `FINAL_META`, `finalize_synthetic`)
-- Modify (mechanical, each listed): `tests/refocus_programs.py:467`, `tests/test_exception_identity.py:233,281,315`, `tests/test_exceptions.py:481,508,567,614,660,687,771,798,828,850`, `tests/test_runs_info.py:122,265,286,373`, `tests/test_boot_cli.py:497,528`, `tests/test_diff.py` (`_synthetic` if it sets `incomplete` False — it does not today)
+- Modify (mechanical, each listed): `tests/refocus_programs.py:467`, `tests/test_exception_identity.py:233,281,315`, `tests/test_exceptions.py:481,508,567,614,660,687,771,798,828,850`, `tests/test_runs_info.py:122,265,286,373`, `tests/test_boot_cli.py:497,528`, `tests/test_diff.py` (`_synthetic` if it sets `incomplete` False. It does not today)
 - Test: `tests/test_store_db.py` (append), `tests/test_format4.py` (new)
 
 **Interfaces:**
 - Produces (`db.py`): `TRACE_FORMAT = 4`; `REQUIRED_META: tuple[str, ...]`; `WITNESS_KEYS: dict[str, tuple[str, ...]]`; `def missing_required(conn) -> list[str]`; `open_trace` raises `TraceFormatError` naming recorder and keys when `trace_format >= 4`, `incomplete` is exactly `False`, and any required key is absent.
 - Produces (`reader.py`): `Trace.lang -> str`, `Trace.recorder -> str`, `Trace.capabilities -> dict[str, bool]`, `Trace.declares(cap: str) -> bool | None` (`None` = format < 4, nothing declared), `Trace.dropped_writes() -> int`.
 - Produces (`boot.py`): `CAPABILITIES: dict[str, bool]` (all True), `_recorder_id() -> str` (`"sensorium <version>"`), three new meta keys written at boot: `recorder`, `lang`, `capabilities`.
-- Produces (`tests/helpers.py`): `FINAL_META: dict`, `def finalize_synthetic(w, **overrides) -> None` — fills every required key that is absent with a neutral default and sets `incomplete` False.
+- Produces (`tests/helpers.py`): `FINAL_META: dict`, `def finalize_synthetic(w, **overrides) -> None`, fills every required key that is absent with a neutral default and sets `incomplete` False.
 
-Required set (spec §5.1, the refused-on-absence subset — `env`, `caps`, `focus`, `include`, `exclude`, `window`, `python`, `late_writes` are written by the Python recorder and read with defaults, not refused):
+Required set (spec §5.1, the refused-on-absence subset, `env`, `caps`, `focus`, `include`, `exclude`, `window`, `python`, `late_writes` are written by the Python recorder and read with defaults, not refused):
 
 ```python
 REQUIRED_META = ("run_id", "argv", "cwd", "env_hash", "start_ts", "end_ts",
@@ -1039,7 +1039,7 @@ In `_write_run_meta`, after `w.set_meta("python", ...)`:
     w.set_meta("capabilities", dict(CAPABILITIES))
 ```
 
-- [ ] **Step 6: `tests/helpers.py` — the finalize helper, then convert the listed sites**
+- [ ] **Step 6: `tests/helpers.py`, the finalize helper, then convert the listed sites**
 
 Append to `tests/helpers.py`:
 
@@ -1091,7 +1091,7 @@ def finalize_synthetic(w, **overrides) -> None:
     w.set_meta("incomplete", False)
 ```
 
-Then at each listed site replace the line `w.set_meta("incomplete", False)` with `finalize_synthetic(w)` (add `from tests.helpers import finalize_synthetic` to each file). For the two tuple-style sites in `tests/test_runs_info.py:265` and `:286`, append `finalize_synthetic(w)` after the loop and delete the `("incomplete", False)` tuple; for `test_info_flags_a_trace_that_predates_the_bookkeeping` (line ~257) the point of the test is ABSENT bookkeeping, so call `finalize_synthetic(w, capabilities={"line": True})` — `threads`/`children` are then declared false and no witness key is written — and keep its existing assertions (the wording Task 4 introduces keeps "not recorded in this trace:", each key name, and "not a record of absence"); update the docstring to say a format-4 trace states absence as a declaration. For `tests/test_boot_cli.py:497` (the `_LateWriteGuard`), write the keys through the guard before the `incomplete` line:
+Then at each listed site replace the line `w.set_meta("incomplete", False)` with `finalize_synthetic(w)` (add `from tests.helpers import finalize_synthetic` to each file). For the two tuple-style sites in `tests/test_runs_info.py:265` and `:286`, append `finalize_synthetic(w)` after the loop and delete the `("incomplete", False)` tuple; for `test_info_flags_a_trace_that_predates_the_bookkeeping` (line ~257) the point of the test is ABSENT bookkeeping, so call `finalize_synthetic(w, capabilities={"line": True})` (`threads`/`children` are then declared false and no witness key is written) and keep its existing assertions (the wording Task 4 introduces keeps "not recorded in this trace:", each key name, and "not a record of absence"); update the docstring to say a format-4 trace states absence as a declaration. For `tests/test_boot_cli.py:497` (the `_LateWriteGuard`), write the keys through the guard before the `incomplete` line:
 
 ```python
     for k, v in FINAL_META.items():
@@ -1099,7 +1099,7 @@ Then at each listed site replace the line `w.set_meta("incomplete", False)` with
     g.set_meta_final("incomplete", False)
 ```
 
-and for `:528` (`g.set_meta("incomplete", False)` after close — a late write that is absorbed) leave it as is: it never reaches the file.
+and for `:528` (`g.set_meta("incomplete", False)` after close. A late write that is absorbed) leave it as is: it never reaches the file.
 
 `tests/refocus_programs.py:467` sets several witness keys itself; replace only the `incomplete` line with `finalize_synthetic(w)` placed AFTER its other `set_meta` calls so its own values are kept (the helper never overwrites a present key).
 
@@ -1130,7 +1130,7 @@ tests.helpers.finalize_synthetic."
 
 ---
 
-### Task 4: Declared absence is not age — the four "predates" sites, `info`'s recorder line, `refocus`'s output blind spot
+### Task 4: Declared absence is not age: the four "predates" sites, `info`'s recorder line, `refocus`'s output blind spot
 
 **Files:**
 - Create: `src/sensorium/query/caps.py`
@@ -1141,8 +1141,8 @@ tests.helpers.finalize_synthetic."
 
 **Interfaces:**
 - Produces (`caps.py`):
-  - `def witness_gap(trace, cap: str, keys: str) -> str` — the sentence fragment for absent bookkeeping: `"predates <keys> bookkeeping, so … absence of the record is not a record of absence"` when `trace.declares(cap) is None`; `"<recorder> declares <cap> not witnessed, so …"` when it is `False`.
-  - `def require(trace, cap: str, command: str) -> str | None` — `None` when the trace declares `cap` (or predates declarations and is Python); otherwise a refusal sentence: `"<command> needs <cap>, which recorder <recorder> declares it does not produce (capabilities.<cap>: false); nothing was checked"`.
+  - `def witness_gap(trace, cap: str, keys: str) -> str`, the sentence fragment for absent bookkeeping: `"predates <keys> bookkeeping, so … absence of the record is not a record of absence"` when `trace.declares(cap) is None`; `"<recorder> declares <cap> not witnessed, so …"` when it is `False`.
+  - `def require(trace, cap: str, command: str) -> str | None`, `None` when the trace declares `cap` (or predates declarations and is Python); otherwise a refusal sentence: `"<command> needs <cap>, which recorder <recorder> declares it does not produce (capabilities.<cap>: false); nothing was checked"`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1423,7 +1423,7 @@ Expected: both fail (exit 0 or 1, no refusal text).
 > **Erratum (2026-09-02):** that snippet cannot satisfy its own Step-1 test.
 > The test's trace declares `line: false` AND `object_identity: false`, so
 > the `or` short-circuits on the `line` refusal and `flow --object` prints
-> "flow needs line" — never the `flow --object needs object_identity` line
+> "flow needs line", never the `flow --object needs object_identity` line
 > the test asserts. The shipped `flow_cmd.run` checks `object_identity`
 > FIRST when `--object` was given (the more specific refusal is the useful
 > one, and the general one still fires when `--object` was not given):
@@ -1465,7 +1465,7 @@ git commit -m "feat(query): flow and watch refuse a trace whose recorder declare
 - Create: `tests/vectors.py` (builder), `tests/test_vectors.py` (runner)
 
 **Interfaces:**
-- Produces (`tests/vectors.py`): `def build(vector: dict, sdir: Path, run_id: str) -> Path` — writes a trace from the vector's `meta`/`codes`/`frames`/`events`/`tasks` sections via `TraceWriter`; `"fingerprints": "compute"` computes per-thread (task_id NULL events) and per-task fingerprints with `record.fingerprint.Fingerprint` over `(file, qualname, kind)`.
+- Produces (`tests/vectors.py`): `def build(vector: dict, sdir: Path, run_id: str) -> Path`. Writes a trace from the vector's `meta`/`codes`/`frames`/`events`/`tasks` sections via `TraceWriter`; `"fingerprints": "compute"` computes per-thread (task_id NULL events) and per-task fingerprints with `record.fingerprint.Fingerprint` over `(file, qualname, kind)`.
 - Vector JSON shape:
 
 ```json
@@ -1624,17 +1624,17 @@ Shared meta block (`FINAL` below) for every vector unless a vector overrides a k
          "incomplete": false}
 ```
 
-`v01-missing-required-key.json` — `meta` = FINAL without `truncated_count`; no codes/events; one question: `["info", "$RUN"]`, `expect_exit: 2`, `expect_contains: ["lacks required meta truncated_count", "vector 1.0"]`.
+`v01-missing-required-key.json`, `meta` = FINAL without `truncated_count`; no codes/events; one question: `["info", "$RUN"]`, `expect_exit: 2`, `expect_contains: ["lacks required meta truncated_count", "vector 1.0"]`.
 
-`v02-declared-not-witnessed.json` — FINAL; one CALL/RETURN pair on thread 1 in one frame; `fingerprints: "compute"`; questions: `["info", "$RUN"]` expect_exit 0, `expect_contains: ["recorder: vector 1.0  lang: rust", "declares threads not witnessed"]`, `expect_absent: ["predates", "threads started: 0"]`.
+`v02-declared-not-witnessed.json`: FINAL; one CALL/RETURN pair on thread 1 in one frame; `fingerprints: "compute"`; questions: `["info", "$RUN"]` expect_exit 0, `expect_contains: ["recorder: vector 1.0  lang: rust", "declares threads not witnessed"]`, `expect_absent: ["predates", "threads started: 0"]`.
 
-`v03-two-thread-order.json` — FINAL with `capabilities.threads: true`, `threads_started: 1`, `live_threads: []`; codes `main` and `worker`; two frames (thread 1 root at event 1, thread 2 root at event 2); events: CALL main (t1), CALL worker (t2), RETURN worker (t2), RETURN main (t1) — ids 1..4 by position, so the two threads' events alternate; `fingerprints: "compute"`; question: `["tree", "$RUN"]` expect_exit 0, `expect_line: [["f1", "main"], ["f2", "worker"]]` and `expect_count: {"f1 e1": 1, "f2 e2": 1}`.
+`v03-two-thread-order.json` (FINAL with `capabilities.threads: true`, `threads_started: 1`, `live_threads: []`; codes `main` and `worker`; two frames (thread 1 root at event 1, thread 2 root at event 2); events: CALL main (t1), CALL worker (t2), RETURN worker (t2), RETURN main (t1)) ids 1..4 by position, so the two threads' events alternate; `fingerprints: "compute"`; question: `["tree", "$RUN"]` expect_exit 0, `expect_line: [["f1", "main"], ["f2", "worker"]]` and `expect_count: {"f1 e1": 1, "f2 e2": 1}`.
 
-`v04-main-thread-silent-tasks-carry.json` — FINAL with `copies: 2`; codes `t_alpha`, `t_beta`; two frames on threads 2 and 3, `tasks: [[1, "t::alpha", 2], [2, "t::beta", 3]]`; events CALL/RETURN for each with `"task": 1` / `"task": 2`; main thread 1 has NO events; `fingerprints: "compute"` (thread 1 gets a zero-count row: it must exist — add `"threads_with_rows": [1, 2, 3]` support in `_compute_fingerprints` by iterating `vector.get("threads_with_rows")` when present, else the event threads); question: `["diff", "$RUN", "$RUN2"]` expect_exit 0, `expect_contains: ["the tasks below carry the whole verdict", "2 task stream(s) on each side"]`.
+`v04-main-thread-silent-tasks-carry.json` (FINAL with `copies: 2`; codes `t_alpha`, `t_beta`; two frames on threads 2 and 3, `tasks: [[1, "t::alpha", 2], [2, "t::beta", 3]]`; events CALL/RETURN for each with `"task": 1` / `"task": 2`; main thread 1 has NO events; `fingerprints: "compute"` (thread 1 gets a zero-count row: it must exist) add `"threads_with_rows": [1, 2, 3]` support in `_compute_fingerprints` by iterating `vector.get("threads_with_rows")` when present, else the event threads); question: `["diff", "$RUN", "$RUN2"]` expect_exit 0, `expect_contains: ["the tasks below carry the whole verdict", "2 task stream(s) on each side"]`.
 
-`v05-closed-by-unwind-panic.json` — FINAL; one frame `closed_by: "unwind"`, `unwind_exc: {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}`; events CALL then RAISE (payload `{"exc": {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}}`); question: `["frame", "$RUN", "--fn", "main"]` expect_exit 0, `expect_contains: ["state: raised", "panic"]`, `expect_absent: ["state: open", "[None]"]`. (Confirm the exact `frame` invocation against `frame_cmd.add_parser` when writing the vector; adjust the flag, not the expectation.)
+`v05-closed-by-unwind-panic.json`: FINAL; one frame `closed_by: "unwind"`, `unwind_exc: {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}`; events CALL then RAISE (payload `{"exc": {"type": "panic", "msg": "boom", "serial": 1, "oid": 1}}`); question: `["frame", "$RUN", "--fn", "main"]` expect_exit 0, `expect_contains: ["state: raised", "panic"]`, `expect_absent: ["state: open", "[None]"]`. (Confirm the exact `frame` invocation against `frame_cmd.add_parser` when writing the vector; adjust the flag, not the expectation.)
 
-`v06-frames-kind-function.json` — FINAL; one frame with `kind: "function"` explicitly; question `["tree", "$RUN"]` expect_exit 0, `expect_absent: ["[None]", "[function]"]`, `expect_line: [["f1", "main"]]`.
+`v06-frames-kind-function.json`: FINAL; one frame with `kind: "function"` explicitly; question `["tree", "$RUN"]` expect_exit 0, `expect_absent: ["[None]", "[function]"]`, `expect_line: [["f1", "main"]]`.
 
 - [ ] **Step 4: Run the vectors; fix the vector (or the builder), never the CLI, unless the CLI is wrong**
 
@@ -1645,14 +1645,14 @@ Expected: 7 passed. A failing vector is either a vector-authoring error (fix the
 
 Sections, each short and exact (this is the contract a Rust converter is written against):
 
-1. **Purpose and versioning** — `trace_format` history 1→4 (copy the `TraceFormatError` docstring facts); format 4 = required-meta contract, no column change; readers refuse newer formats.
-2. **Storage** — one SQLite file per run under `$SENSORIUM_DIR/traces/<run-id>.db`; run-id shape `YYYYMMDD-HHMMSS-xxxxxx`; WAL at write, plain read; `0644` warning as in README.
-3. **Tables** — the `SCHEMA` from `db.py` verbatim, then per column: meaning, NULL semantics (`frames.parent_id` NULL = root; `events.task_id` NULL = no unit of work; `frames.kind` never NULL on format ≥ 3 — write `function`; `frames.closed_by ∈ {return, unwind}` or NULL = open).
-4. **Meta** — `REQUIRED_META` and `WITNESS_KEYS` from `db.py` with one line each; the refusal rule (`incomplete = false` + missing key → refuse); the Python-only keys (`python`, `late_writes`, `caps`, `focus`, `include`, `exclude`, `window`, `env`, `git_*`) and the Rust-only keys planned (`invocation`, `pid`, `ppid`, `exe`, `toolchain`, `cargo_args`, `profile`, `instrumented_units`, `uninstrumented`, `skipped`, `partial`, `records_dropped`); `capabilities` key list `{line, locals, return_value, tasks, threads, children, stdin, output, object_identity, refocus}` and what each command needs.
-5. **Enumerations** — event kinds; payload keys per kind (`CALL: args`, `RETURN: value`, `RAISE/HANDLED: exc{type,msg,serial,oid?}`, `LINE: deltas`, `YIELD: awaiting`, `RESUME: thrown`), noting `oid` is Python-only and `type`+`msg` are required by the renderer; `closed_by`; `unwind_exc` shape; the panic mapping.
-6. **Identity and order** — `events.id` is causal order across threads within one process; `ts_ns` monotonic; thread serials per process with main = 1; `main_thread_ident` written explicitly; `fingerprint_basis` explicit; task rows for every unit of work (asyncio task; Rust: test or spawned thread) with `task_fingerprints`; how `diff` compares (thread stream stepwise, tasks as a `(name, hash)` multiset, `Task-N` read as unnamed).
-7. **Fingerprints** — blake2b-16 over `f"{file}\x1f{qualname}\x1f{kind}\n"` per causal event; the Python recorder hashes a root-relative `file`; `diff --ignore-moves` re-hashes both sides at query time over `code_objects.file`.
-8. **Conformance vectors** — the JSON shape (copy the Interfaces block above), how to run them (`python -m pytest tests/test_vectors.py`), and the rule that every vector states what it asserts and asks at least one question.
+1. **Purpose and versioning**: `trace_format` history 1→4 (copy the `TraceFormatError` docstring facts); format 4 = required-meta contract, no column change; readers refuse newer formats.
+2. **Storage**: one SQLite file per run under `$SENSORIUM_DIR/traces/<run-id>.db`; run-id shape `YYYYMMDD-HHMMSS-xxxxxx`; WAL at write, plain read; `0644` warning as in README.
+3. **Tables** (the `SCHEMA` from `db.py` verbatim, then per column: meaning, NULL semantics (`frames.parent_id` NULL = root; `events.task_id` NULL = no unit of work; `frames.kind` never NULL on format ≥ 3) write `function`; `frames.closed_by ∈ {return, unwind}` or NULL = open).
+4. **Meta**: `REQUIRED_META` and `WITNESS_KEYS` from `db.py` with one line each; the refusal rule (`incomplete = false` + missing key → refuse); the Python-only keys (`python`, `late_writes`, `caps`, `focus`, `include`, `exclude`, `window`, `env`, `git_*`) and the Rust-only keys planned (`invocation`, `pid`, `ppid`, `exe`, `toolchain`, `cargo_args`, `profile`, `instrumented_units`, `uninstrumented`, `skipped`, `partial`, `records_dropped`); `capabilities` key list `{line, locals, return_value, tasks, threads, children, stdin, output, object_identity, refocus}` and what each command needs.
+5. **Enumerations**: event kinds; payload keys per kind (`CALL: args`, `RETURN: value`, `RAISE/HANDLED: exc{type,msg,serial,oid?}`, `LINE: deltas`, `YIELD: awaiting`, `RESUME: thrown`), noting `oid` is Python-only and `type`+`msg` are required by the renderer; `closed_by`; `unwind_exc` shape; the panic mapping.
+6. **Identity and order**: `events.id` is causal order across threads within one process; `ts_ns` monotonic; thread serials per process with main = 1; `main_thread_ident` written explicitly; `fingerprint_basis` explicit; task rows for every unit of work (asyncio task; Rust: test or spawned thread) with `task_fingerprints`; how `diff` compares (thread stream stepwise, tasks as a `(name, hash)` multiset, `Task-N` read as unnamed).
+7. **Fingerprints**: blake2b-16 over `f"{file}\x1f{qualname}\x1f{kind}\n"` per causal event; the Python recorder hashes a root-relative `file`; `diff --ignore-moves` re-hashes both sides at query time over `code_objects.file`.
+8. **Conformance vectors**: the JSON shape (copy the Interfaces block above), how to run them (`python -m pytest tests/test_vectors.py`), and the rule that every vector states what it asserts and asks at least one question.
 
 - [ ] **Step 6: Commit**
 
@@ -1685,15 +1685,15 @@ Expected: `0.5.0`.
 
 `### diff — shape, not location` (new, before `### refocus`):
 
-> `diff` compares two runs' causal streams on `(file, qualname, kind)`; a MATCH is the same shape of execution, not the same values. A function moved to another file changes `file` on every one of its events, so a pure move reads DIVERGED at the first moved CALL. `diff --ignore-moves` pairs a function that left one file with the same-named function that appeared in another — only when that pairing is unique on both sides — and prints the pairing with the verdict as `moved: helper  a.py -> b.py`. A name present under two files on one side is left unpaired and any divergence inside it is still reported. A planted call-site swap under the same move reads DIVERGED (tests/test_diff_moves.py).
+> `diff` compares two runs' causal streams on `(file, qualname, kind)`; a MATCH is the same shape of execution, not the same values. A function moved to another file changes `file` on every one of its events, so a pure move reads DIVERGED at the first moved CALL. `diff --ignore-moves` pairs a function that left one file with the same-named function that appeared in another (only when that pairing is unique on both sides) and prints the pairing with the verdict as `moved: helper  a.py -> b.py`. A name present under two files on one side is left unpaired and any divergence inside it is still reported. A planted call-site swap under the same move reads DIVERGED (tests/test_diff_moves.py).
 
 `info` section: one sentence that `info` prints `recorder`, `lang` and the declared capabilities, and that an absent witness record on a format-4 trace is printed as the recorder's declaration, never as a zero or as "predates".
 
 "What a trace file holds": add "The file layout is trace format 4; `docs/TRACE-FORMAT.md` is the contract, with conformance vectors under `docs/trace-format/vectors/`."
 
-"Overhead": add the reader line — `info` on a 93k-event trace 54.4 s → the Task-1 measured number; reported, not gated.
+"Overhead": add the reader line, `info` on a 93k-event trace 54.4 s → the Task-1 measured number; reported, not gated.
 
-- [ ] **Step 3: Acceptance — the Python-trio pair with the new instrument (spec §10, rung 0)**
+- [ ] **Step 3: Acceptance, the Python-trio pair with the new instrument (spec §10, rung 0)**
 
 ```bash
 time .venv/bin/sensorium info 20260901-210520-7f8854 | head -3
@@ -1703,14 +1703,14 @@ time .venv/bin/sensorium info 20260901-210520-7f8854 | head -3
 
 Expected: `info` under 1 s; plain `diff` = `verdict: DIVERGED at causal step 426` (as recorded 2026-09-01); `--ignore-moves` = `verdict: MATCH modulo location …` with the `moved:` list naming the functions the e209ed9 file table relocated (`_ledger_row`, `_infer_completed`, `_memory_stamp`, `_task_step_done`, `_write_jsonl` among them: `test_recompute.py -> _recompute_fixtures.py`) and `added (only in B):` naming the five new `<module>` code objects. Paste all three outputs verbatim into the ledger. If `--ignore-moves` reads DIVERGED, that is a finding about the split or about the detector: drill with the printed `sensorium tree … --around` commands and record which before touching code. Note: those two traces are format 1 (recorded by the stale 0.1.0 tool); the comparison is per-thread basis on both sides, which `diff` accepts.
 
-> **Erratum (2026-09-02, written after the run — the expectation above is
+> **Erratum (2026-09-02, written after the run. The expectation above is
 > wrong and was not met; the plan text is left standing rather than
 > rewritten).** `--ignore-moves` on that pair reads **`verdict: DIVERGED at
 > causal step 451`**, with 53 code objects paired first and the `moves:`
 > block naming exactly the classes and methods the e209ed9 file table
 > relocated. The controller adjudicated that verdict CORRECT: A's `e454 CALL
 > StampAuditTests` inside `test_recompute_v2.py`'s import against B's `e462
-> RETURN <module>` of that file — the class now lives in a new file that
+> RETURN <module>` of that file. The class now lives in a new file that
 > `unittest discover` imports later, so the test-file split changed the
 > collection and execution ORDER, which a sequence comparison must report.
 > e209ed9 verified the split by event COUNTS (`93,273 → 93,283`, `+5 CALL`),
@@ -1757,9 +1757,9 @@ EOF
 
 > **Erratum (2026-09-02):** the PR-body bullet "acceptance: the bloomery
 > Python-trio pair reads MATCH modulo location" states the verdict this
-> branch disproved — replace it when the PR is written with: "acceptance:
+> branch disproved (replace it when the PR is written with: "acceptance:
 > the bloomery Python-trio pair reads DIVERGED at causal step 451 after 53
-> moves are paired, adjudicated CORRECT — a test-file split changed
+> moves are paired, adjudicated CORRECT) a test-file split changed
 > `unittest discover`'s collection order, which e209ed9's count-only check
 > could not see (see Step 3's erratum and
 > `.superpowers/sdd/2026-09-02-sensorium-rung0-python-prep/task-7-acceptance.md`)".
@@ -1772,6 +1772,6 @@ Then verify origin is in sync (`git fetch && git status -sb`) and that CI is gre
 
 **Spec coverage (rung 0 items in §11):** reader fix → Task 1; `diff --ignore-moves` + E5 → Task 2; format-4 meta contract with the one-choke-point refusal → Task 3; declared-not-witnessed wording, `refocus` output blind spot → Task 4; capability gating → Task 5; `TRACE-FORMAT.md` + vectors → Task 6; version 0.5.0 + §10 acceptance → Task 7. Deferred to rung 2 with the spec amended to say so: the per-language vocabulary table (no Rust trace exists to render; the terms are the recorder's to define).
 
-**Placeholder scan:** none. Two places name a measured value to be filled at execution (`<measured>` in commit bodies) — these are numbers the executor reads off the box, not design gaps.
+**Placeholder scan:** none. Two places name a measured value to be filled at execution (`<measured>` in commit bodies), these are numbers the executor reads off the box, not design gaps.
 
 **Type consistency:** `Moves` fields (`mapping`, `moved`, `added`, `removed`, `unpaired`) match between Task 2's module, its tests and the printer; `compare*(…, moves=None)` and the result key `"moves"` are used identically in `run` and `print_comparison`; `declares()` returns `bool | None` and both `caps.py` functions branch on `None` first; `finalize_synthetic(w, **overrides)` is the one helper every converted test site calls; `REQUIRED_META`/`WITNESS_KEYS` names are spelled the same in `db.py`, the tests and `TRACE-FORMAT.md`.

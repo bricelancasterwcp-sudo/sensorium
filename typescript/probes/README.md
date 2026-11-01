@@ -1,4 +1,4 @@
-# `probes/` — the recorder recording itself
+# `probes/`: the recorder recording itself
 
 A self-contained vitest project whose only job is to be recorded. Its expected
 rows were pinned by the S5 mechanics spike (`docs/superpowers/spikes/2026-09-08-typescript-mechanics-spike.md`,
@@ -9,8 +9,8 @@ The same project is recorded two ways, and `check.mjs` asserts the same rows
 either way.
 
 **Directly**, with no driver at all: `vitest.config.ts` wires the recorder
-itself — the Vite plugin from `../src/vite.mjs`, `setup.mjs` (the driver's
-template with the in-tree import), and the R16 external declaration — but
+itself (the Vite plugin from `../src/vite.mjs`, `setup.mjs` (the driver's
+template with the in-tree import), and the R16 external declaration) but
 **only** when `SENSORIUM_PROBE_DIRECT=1`, which the `probe` script sets. That
 gate is not decoration: `sensorium ts run` writes a wrapper config that
 `mergeConfig`s this one and then adds the same three things, and `mergeConfig`
@@ -32,7 +32,7 @@ the run (`invocation: <id>`) rather than chosen in advance.
 ## The recipe (direct)
 
 Three environment variables and one script. Choose a spool directory OUTSIDE
-this repository — the spools are large and are never committed.
+this repository. The spools are large and are never committed.
 
 ```sh
 cd typescript/probes
@@ -57,18 +57,18 @@ npm run probe:nodetest
 That script runs three things with `;`: the four probe files as an EXPLICIT
 list (Node's own default test patterns would sweep the ten vitest probes under
 `src/` into the same run), then `nodetest/controls.mjs`, then the checker. The
-manifest directory is not optional here either — the `.cjs` probe's whole
+manifest directory is not optional here either. The `.cjs` probe's whole
 assertion is a tally, and the child that wrote it recorded no spool at all.
 
 Both scripts run the harness and then the checker with `;`, never `&&`. That is
-deliberate: **`vitest run` is red by design** — `never_settles.probe.test.ts`
+deliberate: **`vitest run` is red by design** (`never_settles.probe.test.ts`
 parks forever and vitest times it out, and `swallow3.probe.test.ts` raises a
-rejection nobody handles — so an `&&` would stop before the only thing that
+rejection nobody handles) so an `&&` would stop before the only thing that
 actually decides anything. **`check.mjs`'s exit status is the gate**: 0 all
 asserted, 1 a check failed, 2 it was called wrong.
 
 `check.mjs` refuses with exit 2 and one line of usage when a directory is
-missing — an unset variable reaches the script as an empty argument, which is
+missing. An unset variable reaches the script as an empty argument, which is
 the same refusal. The manifest directory is required in both modes, so the
 tally checks cannot be skipped by leaving an argument off.
 
@@ -111,9 +111,9 @@ it; this file is the equivalent rule for the capture no script performs.
 | `src/sites.probe.test.ts`, `src/sites.component.tsx` | E4: 20 shapes, each under a `// SITE <name>` marker |
 | `src/swallow.probe.test.ts` | E8 shapes 1, 2 and 4-12, each row under a `// SWALLOW <shape> <kind> <how>` marker: the catch words, the four callback shapes and the `finally` sink |
 | `src/swallow3.probe.test.ts` | E8 shape 3, the rejection nobody handles |
-| `src/escape.probe.test.ts` | E8: one `catch` clause per mention position of spec §2.1, plus the callback bare-rethrow marker (S5 rung 3, Task 3) — fourteen `// ESCAPE <id> <how>` markers in all, each naming the word its HANDLED must carry |
+| `src/escape.probe.test.ts` | E8: one `catch` clause per mention position of spec §2.1, plus the callback bare-rethrow marker (S5 rung 3, Task 3), fourteen `// ESCAPE <id> <how>` markers in all, each naming the word its HANDLED must carry |
 | `src/each.probe.test.ts` | `test.each`: three rows, three names, no `#k` |
-| `src/focus.probe.test.ts` | the focus tier (S5 rung 4, Task 4): eleven shapes of spec §3.2 (a `do…while` and a `for…in` among them), every LINE row under a `// LINE <fn> <name>=<text> [unbound:…]` marker and the focused CALL's arguments under `// ARGS`. **Recorded three ways**: focused directly (`vitest.config.ts`'s `FOCUS` list), and through the driver BOTH focused — `--focus focus.probe.test.ts:<fn>` for each of the eleven, added by ruling R27 as a gated live test — and unfocused. `check.mjs` asserts both readings and reports which one it saw as `focus:mode` |
+| `src/focus.probe.test.ts` | the focus tier (S5 rung 4, Task 4): eleven shapes of spec §3.2 (a `do…while` and a `for…in` among them), every LINE row under a `// LINE <fn> <name>=<text> [unbound:…]` marker and the focused CALL's arguments under `// ARGS`. **Recorded three ways**: focused directly (`vitest.config.ts`'s `FOCUS` list), and through the driver BOTH focused (`--focus focus.probe.test.ts:<fn>` for each of the eleven, added by ruling R27 as a gated live test) and unfocused. `check.mjs` asserts both readings and reports which one it saw as `focus:mode` |
 | `src/concurrent.probe.test.ts` | the naming hazard, counted and reported, never gated |
 | `src/never_settles.probe.test.ts` | a frame that parks and never returns |
 | `src/describe_chain.probe.test.ts` | `outer > inner > leaf`, synchronous describes (P11) |
@@ -130,7 +130,7 @@ it; this file is the equivalent rule for the capture no script performs.
 The `// SITE`, `// SWALLOW`, `// ESCAPE`, `// LINE` and `// ARGS` markers are
 read by `check.mjs` out of the source, so no line number is written down twice:
 move a function and its expectation moves with it. `// LINE` is the one that
-stacks — several markers in a row describe, in order, every row recorded at the
+stacks, several markers in a row describe, in order, every row recorded at the
 next line, because a loop head binds once per iteration and the loop's own
 completion row lands on the same line.
 
@@ -138,7 +138,7 @@ The focus probe is recorded under `SENSORIUM_FOCUS`, which `vitest.config.ts`
 sets from its `FOCUS` list in the DIRECT branch only, before the plugin is
 built. Both readers take it from the environment: the transform through the
 plugin, and the runtime in each forked worker, which declares
-`capabilities.line` from it. `check.mjs` holds the two together —
+`capabilities.line` from it. `check.mjs` holds the two together,
 `focus:agree` fails if the transform focused functions the runtime did not
 declare, which is what a variable that reached the main process but not the
 workers would look like.

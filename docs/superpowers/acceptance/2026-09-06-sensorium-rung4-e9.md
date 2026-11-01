@@ -1,4 +1,4 @@
-# Rung-4 acceptance, the focus tier — E9 (H1–H7)
+# Rung-4 acceptance, the focus tier: E9 (H1–H7)
 
 The record of whether `cargo sensorium --focus` puts one LINE event on every
 completed statement of a focused Rust function, carrying the bindings that
@@ -17,12 +17,12 @@ written and no number in them is re-measured.
 **§1 is byte-locked, and it is committed ALONE.** It is committed before the
 transform can splice a LINE, before the runtime can write one, before the
 driver can resolve a `--focus`, and before `rust/tests/acceptance_e9.py`
-exists — so no value below was chosen after seeing an instrument behave. The
+exists, so no value below was chosen after seeing an instrument behave. The
 lock is `awk '/^## 1/,/^## 2/' | sha256sum`; the runner refuses to start
 unless the range is byte-identical to the commit that locked it, and refuses
 outright while no lock sha is set. §1 references no footnote, so the extended
 lock range and the `awk` range are the same bytes. ~~§1 is not amended: there is one sha and no dated note inside it.~~ **Corrected
-2026-09-06, before any measurement: §1 IS amended — one dated note in §1.4's
+2026-09-06, before any measurement: §1 IS amended, one dated note in §1.4's
 lens (the reader's `--limit 1000`), committed alone at `ffaed19`; the runner
 carries both shas (original `a4264b5`, amended `ffaed19`) and no table row
 moved.**
@@ -30,8 +30,8 @@ moved.**
 **The subject is a workspace this project did not write.** The bloomery clone
 at `e209ed9` is read-only for the whole run; its HEAD and porcelain are
 recorded before and after. Two focus values were chosen by reading that source
-at `e209ed9`, and every number §1 pre-registers below — the statement count,
-the three `watch` triples, the two `flow` sightings — was hand-derived from
+at `e209ed9`, and every number §1 pre-registers below (the statement count,
+the three `watch` triples, the two `flow` sightings) was hand-derived from
 that source, with the derivation written beside it, before any instrument
 could produce a competing number.
 
@@ -354,24 +354,24 @@ runner carries both shas — the original lock `a4264b5` and this one.
 
 Measured 2026-09-06T18:59:05-0500 → 2026-09-06T19:02:38-0500 by `rust/tests/acceptance_e9.py`, launched detached; the raw facts it recorded are `results-e9-raw.json` in the gitignored plan ledger, with every command's log beside it. §3 below is rendered from `2026-09-06-sensorium-rung4-e9.results.json`, which `acceptance_e9_schema.assemble_e9` derived from that raw file.
 
-**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it — and refuses outright while no lock sha is set. The range is awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references — here §1 references no footnote (`footnotes_in_range` = none), so the extended range and `awk '/^## 1/,/^## 2/'` are the same bytes. Checked at `ffaed19`: 24095 bytes, sha256 `473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163` on both sides — identical: yes.
+**§1 byte-lock.** The runner refuses to start unless the locked range is byte-identical to the commit that locked it, and refuses outright while no lock sha is set. The range is awk '/^## 1/,/^## 2/' PLUS the definition of every footnote §1 references, here §1 references no footnote (`footnotes_in_range` = none), so the extended range and `awk '/^## 1/,/^## 2/'` are the same bytes. Checked at `ffaed19`: 24095 bytes, sha256 `473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163` on both sides, identical: yes.
 
-**Both locks.** §1 was committed ALONE at the ORIGINAL lock `a4264b5` (23424 bytes, sha256 `15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a15320424185b67a5`), and its §1.4 LENS was then amended — after that lock and before any number was read — to name the reader the instrument runs. Amended: yes (+671 bytes). Both shas are recorded here, and no endpoint, method, derivation or table row moved: every `|` row of the locked range is byte-identical at the two commits (`tests/test_acceptance_e9.py`).
+**Both locks.** §1 was committed ALONE at the ORIGINAL lock `a4264b5` (23424 bytes, sha256 `15f0537587f55ec949a60c86543e6c4e1f7a0929cc57eb4a15320424185b67a5`), and its §1.4 LENS was then amended (after that lock and before any number was read) to name the reader the instrument runs. Amended: yes (+671 bytes). Both shas are recorded here, and no endpoint, method, derivation or table row moved: every `|` row of the locked range is byte-identical at the two commits (`tests/test_acceptance_e9.py`).
 
 | Pin | Value |
 |---|---|
 | repo HEAD at the run | `5e943833cf358da67536a7b96dc91b7d096f145f` (branch `feat/rung4-focus-tier`) |
 | the clone under measurement (READ-ONLY input) | `/mnt/extra/sensorium-rung2/bloomery` at `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`; §1.4's pin `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`; porcelain before / after empty / empty; HEAD after `e209ed9b00f7eef647fb31d0b0895a5ad3b90807` |
 | the clone's `Cargo.lock` | sha256 `c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca` before, `c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca` after (moved: no); restored to the pin: yes |
-| driver — BUILT by the runner from HEAD | `/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium` (debug profile), `cargo build -p cargo-sensorium` exit 0 in 0.059 s from HEAD `5e943833cf358da67536a7b96dc91b7d096f145f`; rebuilt: no |
-| driver sha256 | `cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930` before, `cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930` after — unchanged: yes |
-| trace store — FRESH and empty at the start | `/mnt/extra/sensorium-rung2/sensorium-dir/e9` |
-| cargo target for the four runs — FRESH | `/mnt/extra/sensorium-rung2/bloomery-target-e9` |
-| H7's corpus target — FRESH | `/mnt/extra/sensorium-rung2/bloomery-target-e9-corpus` (named by `SENSORIUM_CORPUS_TARGET`: no) |
+| driver: BUILT by the runner from HEAD | `/mnt/extra/sensorium-rung2/rust-target/debug/cargo-sensorium` (debug profile), `cargo build -p cargo-sensorium` exit 0 in 0.059 s from HEAD `5e943833cf358da67536a7b96dc91b7d096f145f`; rebuilt: no |
+| driver sha256 | `cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930` before, `cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930` after, unchanged: yes |
+| trace store: FRESH and empty at the start | `/mnt/extra/sensorium-rung2/sensorium-dir/e9` |
+| cargo target for the four runs: FRESH | `/mnt/extra/sensorium-rung2/bloomery-target-e9` |
+| H7's corpus target: FRESH | `/mnt/extra/sensorium-rung2/bloomery-target-e9-corpus` (named by `SENSORIUM_CORPUS_TARGET`: no) |
 | Rust workspace target (H7's `cargo test --workspace`) | `/mnt/extra/sensorium-rung2/rust-target` |
-| `TMPDIR` as observed | None — TMPDIR was unset, so `std::env::temp_dir()` is `/tmp` and W1/W3/S1/S2 read as §1.2 and §1.3 derive them |
+| `TMPDIR` as observed | None. TMPDIR was unset, so `std::env::temp_dir()` is `/tmp` and W1/W3/S1/S2 read as §1.2 and §1.3 derive them |
 | `SENSORIUM_TIER` | unset -- §1.4 leaves the coarse tier at its default `call` for all four runs, so U1/U2 and F1/F2 differ only by `--focus` |
-| the invocation audit log | NOT silenced: SENSORIUM_NO_INVOCATION_LOG is unset, so every reader call this record makes appends a row to the store's `invocations.jsonl`, and the count is recorded at the end — rows in the store afterwards: 7 |
+| the invocation audit log | NOT silenced: SENSORIUM_NO_INVOCATION_LOG is unset, so every reader call this record makes appends a row to the store's `invocations.jsonl`, and the count is recorded at the end, rows in the store afterwards: 7 |
 | toolchain | rustc 1.96.0 (ac68faa20 2026-05-25) / cargo 1.96.0 (30a34c682 2026-05-25) |
 | reader | Python 3.14.4, sensorium 0.6.0 |
 | machine | 16 cpus, governor `powersave` |
@@ -396,11 +396,11 @@ Measured 2026-09-06T18:59:05-0500 → 2026-09-06T19:02:38-0500 by `rust/tests/ac
 
 **One launch, and it measured this record.** Launched once, detached, at 2026-09-06T18:59:05-0500 by `setsid
 nohup bash <ledger>/acceptance-e9/launch.sh`, stdout and stderr redirected to
-`<ledger>/acceptance-e9/logs/e9.log`, runner pid 2069504; it wrote `e9.DONE` carrying `exit=0` at 19:02:38 —
+`<ledger>/acceptance-e9/logs/e9.log`, runner pid 2069504; it wrote `e9.DONE` carrying `exit=0` at 19:02:38,
 **3 min 33 s**. It was polled with `ps -p` on the pid file and the two marker names in a bounded 30 s loop
 (bound 90 min; the marker appeared at poll 5), and **nothing was read before that marker existed**: not the
 log, not the raw record, not `results.json`, not the store. Nothing was killed, `pkill` was never used, and
-there is no `failed-launch-*` directory beside this record — §1.4's kill 2 was never exercised. `stop`,
+there is no `failed-launch-*` directory beside this record, §1.4's kill 2 was never exercised. `stop`,
 `refused` and `error` in `results.json` are all `null`, and all **34** `{value, n, lens, dropped}` cells carry
 a value: **0 nulls, 0 dropped reasons**.
 
@@ -414,28 +414,28 @@ false`).
 
 | check | value |
 |---|---|
-| `pgrep -a cargo` / `pgrep -a rustc` | both empty — nothing waited for, nothing killed |
+| `pgrep -a cargo` / `pgrep -a rustc` | both empty. Nothing waited for, nothing killed |
 | repo | `git status --porcelain` empty at `5e943833cf358da67536a7b96dc91b7d096f145f`, branch `feat/rung4-focus-tier` |
-| the three FRESH locations | all three **absent** — the E9 target, the derived corpus target, the store; the runner made them |
+| the three FRESH locations | all three **absent**, the E9 target, the derived corpus target, the store; the runner made them |
 | the clone | HEAD `e209ed9b00f7eef647fb31d0b0895a5ad3b90807`, porcelain empty, `Cargo.lock` sha256 `c089018581c9bd62a0d1d0d11effd8c042b4587ead0578f0351856e67beb9fca` |
 | disk | target filesystem 86 GB free (the runner refuses below 8); repo filesystem 12 GB, and nothing large was written to it |
 | `TMPDIR` | unset |
 | driver sha256 BEFORE the runner's own in-place build | `cf0c3f7fe4250e193f469794e6b95f33db2e358bf5efa7aa2f685015dfaad930` |
 | 1-minute load | 0.58 |
 | reader | `.venv/bin/python` → Python 3.14.4 |
-| §1 sha (`awk '/^## 1/,/^## 2/' \| sha256sum`) | `473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163` — the amended lock `ffaed19`'s |
+| §1 sha (`awk '/^## 1/,/^## 2/' \| sha256sum`) | `473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163`, the amended lock `ffaed19`'s |
 | whole Python suite, WITHOUT the driver env | exit 0, **1426 passed, 12 skipped in 63.5 s** |
 
 **The suite twice, and the driver once.** The pre-launch gate above ran under no `SENSORIUM_*` variable and
-read 1426/12; H7 runs the same suite with `SENSORIUM_CARGO_SENSORIUM` set and read **1437 passed, 1 skipped**
-— 1438 collected both times, the 11 tests that skip without a built driver running there. The runner built the
+read 1426/12; H7 runs the same suite with `SENSORIUM_CARGO_SENSORIUM` set and read **1437 passed, 1 skipped**,
+1438 collected both times, the 11 tests that skip without a built driver running there. The runner built the
 driver from HEAD in place (`cargo build -p cargo-sensorium`, debug, exit 0 in 0.059 s, `rebuilt: false`) and
 its sha256 `cf0c3f7fe425…d930` is the same by hand before the launch, in `built_from` before and after that
 build, and in `cleanup.driver_sha256_after` after H7's `cargo test --workspace`, which shares that target
 (`cleanup.driver_unchanged: true`).
 
 **What this run wrote, and one ledger tidy.** The store ended at 2 995 448 bytes over **4** traces and **7**
-rows in `invocations.jsonl` — one per reader call (H1's `info` and `watch`, H4's three, H5's two), the audit
+rows in `invocations.jsonl`, one per reader call (H1's `info` and `watch`, H4's three, H5's two), the audit
 log deliberately un-silenced (§1.4). The E9 target ended at 1 613 203 557 bytes and the corpus target at 657
 035 678; the target filesystem went 92.12 → 90.12 GB free, the repo filesystem 12.73 → 12.73 GB. The clone's
 `Cargo.lock` did not move (`clone_cargo_lock_moved: false`, `clone_cargo_lock_back_on_the_pin: true`). Before
@@ -447,7 +447,7 @@ the runner reads and no document was touched.
 
 The gate of each row, and both readings where §1 pre-committed two. A `null` is not-measured with its reason; `0` is a measured zero.
 
-### H1 — does an unfocused run stay unfocused?
+### H1: does an unfocused run stay unfocused?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -488,11 +488,11 @@ Rule: both values resolve to exactly one qualname; F1's counts equal U1's and F2
 | F2/U2 | ['test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s'] | ['test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s'] |
 
 
-### H3 — one LINE per completed statement?
+### H3: one LINE per completed statement?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
-| N — the LINE rows of A's activation (the gate: 26) | 26 | 26 | N: the LINE rows of focus value A's activation, of §1.1's hand count; the gate is 26, 25 and 27 are the two re… | none |
+| N, the LINE rows of A's activation (the gate: 26) | 26 | 26 | N: the LINE rows of focus value A's activation, of §1.1's hand count; the gate is 26, 25 and 27 are the two re… | none |
 | N equals the gate | True | 26 | N equals §1.1's reading A, the gate | none |
 | lines differing from §1.1's table (2nd reading) | 0 | 26 | SECOND reading: missing + unexpected + count-differing lines against §1.1's per-line table, of its 26 rows -- … | none |
 | activations of the focus value | 1 | None | frames whose code object is focus value A -- §1 derives N from ONE activation, so anything but 1 changes what … | none |
@@ -533,7 +533,7 @@ Missing lines: `[]`; unexpected: `[]`; count differences: `[]`.
 | 300 | 1 |
 
 
-### H4 — does `watch` answer?
+### H4: does `watch` answer?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -559,7 +559,7 @@ Rule: all three triples as predicted, on both readings.
 | W3 | 180 | 160 | 0 | 20 | 0 |
 
 
-### H5 — does `flow --value` see it?
+### H5: does `flow --value` see it?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -576,7 +576,7 @@ Every printed page held the whole sighting set.
 | S2 | `/tmp/bloomery-pager-contract2/j.jsonl` | 1 | 1 (1000) | 1 | yes |
 
 
-### H6 — what does it cost?
+### H6: what does it cost?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -592,7 +592,7 @@ Rule: reported, not gated.
 | F2/U2 | 0.0 s / 0.0 s | 6.587 s / 1.448 s |
 
 
-### H7 — did nothing else move?
+### H7: did nothing else move?
 
 | Measurement | Value | n | Lens (abridged; the full lens is in `results.json`) | Dropped |
 |---|---|---|---|---|
@@ -609,7 +609,7 @@ Corpus: 57 cases, 125 questions, failures `[]`, skipped `[]`.
 Rust: `['test result: ok. 278 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.14s', 'test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s', 'test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s', 'test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s', 'test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s', 'test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s', 'test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s', 'test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s', 'test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s', 'test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.73s', 'test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.38s', 'test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s', 'test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s', 'test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s', 'test result: ok. 81 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s', 'test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s', 'test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s', 'test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s', 'test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s', 'test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s', 'test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s', 'test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s', 'test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s', 'test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.59s', 'test result: ok. 0 passed; 0 failed; 9 ignored; 0 measured; 0 filtered out; finished in 0.00s', 'test result: ok. 0 passed; 0 failed; 14 ignored; 0 measured; 0 filtered out; finished in 0.00s']`.
 
 
-### Reported without a gate — §1.4's honesty counts
+### Reported without a gate: §1.4's honesty counts
 
 | run | LINE rows | LINE deltas | `{"k": "unread"}` | truncated | rows with `unread: ["locals"]` (`flags.bit0`) | recorder's `truncated_count` |
 |---|---|---|---|---|---|---|
@@ -625,14 +625,14 @@ Unread delta names, per run: `{'F1': {'fake': 1, 'images': 1, 'journal': 1, 'p':
 ## 4. Verdicts
 
 Written by hand against §1's rules, from `results.json` and the raw record and its logs in the gitignored plan
-ledger. One row per §1 endpoint, with the number that decided it and — where §1 pre-committed two readings —
+ledger. One row per §1 endpoint, with the number that decided it and (where §1 pre-committed two readings)
 both. Launched ONCE, detached, 18:59:05 → 19:02:38 on 2026-09-06, and measured once: nothing was re-run,
 re-scoped or re-classified after a number was read, no `--focus` was narrowed, no unfocused fallback was
-taken, there is exactly one `e9.DONE` at `exit=0` and no `failed-launch-*` beside it, and §1 was not touched —
-its sha256 is `473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163` before and after (§2), at the
+taken, there is exactly one `e9.DONE` at `exit=0` and no `failed-launch-*` beside it, and §1 was not touched.
+Its sha256 is `473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163` before and after (§2), at the
 amended lock `ffaed19`. **The assembly is deterministic.** ~~`--assemble` re-run once after `.DONE` gave a
 `results.json` whose leaf-path diff against the committed one has exactly one changed path.~~ **Corrected
-2026-09-06 (§5.7): that named the wrong side — the file committed HERE is the RE-assembly (`assembled.at`
+2026-09-06 (§5.7): that named the wrong side. The file committed HERE is the RE-assembly (`assembled.at`
 19:04:12), and the run's own is the one `e9.log` records (`assembled.at` 19:02:38). The run's `results.json`
 against the re-assembled one committed here differ at exactly ONE leaf path, `assembled.at`**;
 `section-2-3.md` byte-identical; raw record md5 `99b29dca3a93bb2002f90aa301ca0c14` unchanged before and after.
@@ -640,40 +640,40 @@ against the re-assembled one committed here differ at exactly ONE leaf path, `as
 | Id | §1's rule, verbatim | What was measured (both readings) | Verdict |
 |---|---|---|---|
 | H1 | "meta `capabilities.line = false` **and** `capabilities.locals = false`; **LINE rows = 0**; `watch` prints `REFUSED: watch needs line, …` and exits **3**." | U1's trace meta declares `line: false` and `locals: false`; **0** LINE rows over the whole trace (`select count(*) from events where kind = 'LINE'`); `watch --at missing_stats_… --expr events == 0` printed class **REFUSED** and returned exit **3**. Second reading (the one token that can move): the recorder the trace itself declares is `sensorium-rt 0.4.0`, and the printed sentence is **byte-equal** to the pinned one with that token substituted (`refusal_equal: true`). | **PASS** |
-| H2 | "Each value **resolves to exactly one qualname**; F1's pass/fail/ignored counts equal U1's and F2's equal U2's. … **A compile failure of a focused unit is a STOP**." | **2 of 2** values resolved to exactly one qualname, read from the driver's own `focus:` lines on stderr before cargo ran; **2 of 2** pairs have equal libtest counts (`15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out` for F1/U1, `20 passed; …` for F2/U2). Second readings: the set of distinct qualnames carrying LINE rows is exactly `{missing_stats_is_a_contract_violation_not_a_reply}` in F1 and exactly `{pager_with_model}` in F2 (**2 of 2**), and **2 of 2** pairs have equal process exit status (0 and 0). **0** focused runs failed to complete — `focused_build_failures` is 0 of 2, so kill 1 did not fire. | **PASS** |
-| H3 | "**LINE rows = N = 26** … **26 = PASS (the gate)**; 25 or 27 … a MISS … **Any other count is a STOP**." | **N = 26**, over **1** activation of focus value A, from the frame join `events → frames → code_objects`. Second reading: **0** line differences against §1.1's 26-row table — `missing []`, `unexpected []`, `count_diffs []`, every one of the 26 lines carrying exactly one LINE row. The code-object join gives the identical histogram (`joins_agree: true`); N is inside {25, 26, 27}, so kill 4 did not fire. | **PASS** |
-| H4 | "**All three as predicted → PASS.** Each prediction is two pre-committed readings … the verdict class … and the exit status … (0 / 1 / 3)." | **3 of 3** triples as predicted on BOTH readings. W1 `SATISFIED` / exit **0**; W2 `NOTHING WAS CHECKED` / exit **3**; W3 `not satisfied` / exit **1** — each the class §1.2 named and each the exit beside it. **0** triples where the two readings disagree, so the `Verdict`/`STATUS` finding §1 reserved a place for has nothing to report. | **PASS** |
-| H5 | "**Both found, and no unpredicted sighting of that literal among focus value A's LINE deltas → PASS.**" | **2 of 2** sightings found among focus value A's LINE deltas at the line §1.3 derives — S1 at 251, S2 at 264 — and **0** unpredicted sightings of either literal at any other line of A's LINE deltas. Second reading (reported, not gated): every sighting anywhere in the trace is `{S1: 2, S2: 1}`; neither printed page truncated (`--limit 1000`, 2 and 1 rows printed, `page_truncated: false` on both), so the gate was computed over the whole sighting set. | **PASS** |
-| H6 | "**Reported, not gated**, under both readings." | First reading (libtest's own reported time): **0.00 s** on all four runs — the binaries are too fast for libtest's resolution, so the pair deltas are 0.0 s and 0.0 s. Second reading (the whole invocation's wall, focused rebuild included): U1 **6.693 s**, F1 **6.690 s**, U2 **1.448 s**, F2 **6.587 s** — F1/U1 −0.003 s, F2/U2 **+5.139 s**. §5.3 reads them. | **REPORTED** (no gate) |
-| H7 | "**Every corpus case equal**; Python suite green; Rust workspace green." | The collector over **57** cases and **125** questions: **0** questions whose printed answer is not the registered one, **0** harness errors, **0** cases SKIPPED — so all 37 `corpus/rust/*` cases ran, the six `focus_*` cases of design §6 included, and none was skipped for want of a driver (57 = 20 Python + 37 Rust, counted from the tree, not a `results.json` field). Second reading, each suite's exit status: collector **0**, `pytest -q` **0** (`1437 passed, 1 skipped in 125.03s`), `cargo test --workspace` **0** over **39** `test result: ok.` lines. | **PASS** |
+| H2 | "Each value **resolves to exactly one qualname**; F1's pass/fail/ignored counts equal U1's and F2's equal U2's. … **A compile failure of a focused unit is a STOP**." | **2 of 2** values resolved to exactly one qualname, read from the driver's own `focus:` lines on stderr before cargo ran; **2 of 2** pairs have equal libtest counts (`15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out` for F1/U1, `20 passed; …` for F2/U2). Second readings: the set of distinct qualnames carrying LINE rows is exactly `{missing_stats_is_a_contract_violation_not_a_reply}` in F1 and exactly `{pager_with_model}` in F2 (**2 of 2**), and **2 of 2** pairs have equal process exit status (0 and 0). **0** focused runs failed to complete, `focused_build_failures` is 0 of 2, so kill 1 did not fire. | **PASS** |
+| H3 | "**LINE rows = N = 26** … **26 = PASS (the gate)**; 25 or 27 … a MISS … **Any other count is a STOP**." | **N = 26**, over **1** activation of focus value A, from the frame join `events → frames → code_objects`. Second reading: **0** line differences against §1.1's 26-row table, `missing []`, `unexpected []`, `count_diffs []`, every one of the 26 lines carrying exactly one LINE row. The code-object join gives the identical histogram (`joins_agree: true`); N is inside {25, 26, 27}, so kill 4 did not fire. | **PASS** |
+| H4 | "**All three as predicted → PASS.** Each prediction is two pre-committed readings … the verdict class … and the exit status … (0 / 1 / 3)." | **3 of 3** triples as predicted on BOTH readings. W1 `SATISFIED` / exit **0**; W2 `NOTHING WAS CHECKED` / exit **3**; W3 `not satisfied` / exit **1**, each the class §1.2 named and each the exit beside it. **0** triples where the two readings disagree, so the `Verdict`/`STATUS` finding §1 reserved a place for has nothing to report. | **PASS** |
+| H5 | "**Both found, and no unpredicted sighting of that literal among focus value A's LINE deltas → PASS.**" | **2 of 2** sightings found among focus value A's LINE deltas at the line §1.3 derives (S1 at 251, S2 at 264) and **0** unpredicted sightings of either literal at any other line of A's LINE deltas. Second reading (reported, not gated): every sighting anywhere in the trace is `{S1: 2, S2: 1}`; neither printed page truncated (`--limit 1000`, 2 and 1 rows printed, `page_truncated: false` on both), so the gate was computed over the whole sighting set. | **PASS** |
+| H6 | "**Reported, not gated**, under both readings." | First reading (libtest's own reported time): **0.00 s** on all four runs. The binaries are too fast for libtest's resolution, so the pair deltas are 0.0 s and 0.0 s. Second reading (the whole invocation's wall, focused rebuild included): U1 **6.693 s**, F1 **6.690 s**, U2 **1.448 s**, F2 **6.587 s**: F1/U1 −0.003 s, F2/U2 **+5.139 s**. §5.3 reads them. | **REPORTED** (no gate) |
+| H7 | "**Every corpus case equal**; Python suite green; Rust workspace green." | The collector over **57** cases and **125** questions: **0** questions whose printed answer is not the registered one, **0** harness errors, **0** cases SKIPPED, so all 37 `corpus/rust/*` cases ran, the six `focus_*` cases of design §6 included, and none was skipped for want of a driver (57 = 20 Python + 37 Rust, counted from the tree, not a `results.json` field). Second reading, each suite's exit status: collector **0**, `pytest -q` **0** (`1437 passed, 1 skipped in 125.03s`), `cargo test --workspace` **0** over **39** `test result: ok.` lines. | **PASS** |
 
-**Overall: six PASS and one REPORTED — all seven as pre-registered, and the one number the whole slice was
+**Overall: six PASS and one REPORTED, all seven as pre-registered, and the one number the whole slice was
 built to produce came back exactly.** H3 read **N = 26** with a per-line diff of zero: not merely the right
 total, but the right total on the right 26 lines (§5.1). Nothing was dropped, no reader hit its 120 s ceiling,
 no kill fired, and no endpoint fell back to an expectation.
 
 ## 5. Gaps
 
-### 5.1 The one line §1.1 said the design does not settle — and what measurement said
+### 5.1 The one line §1.1 said the design does not settle: and what measurement said
 
 §1.1 named line 259 as the single line the design's rules do not decide by themselves: its arm body is a bare
 expression (`=> assert!(…)`), not a block, and design §3.2 places an arm's binding LINE "inside the arm/loop
-body". It pre-registered three readings — **A** (26, the gate: the binding LINE is minted whether or not the
+body". It pre-registered three readings (**A** (26, the gate: the binding LINE is minted whether or not the
 body is a block, and the bare expression becomes the wrapping block's tail and so is not a statement), **B**
-(25), **C** (27) — with 25 and 27 accounted misses and anything else a STOP.
+(25), **C** (27)) with 25 and 27 accounted misses and anything else a STOP.
 
 **Measured N = 26 with a zero per-line diff.** `endpoints.H3.headline.value` is 26 over `n = 26`;
 `line_differences` is 0; `reported.line_histogram` gives each of §1.1's 26 lines exactly one row and no row at
-any other line, and `reported.line_histogram_via_code_id` — the independent code-object join — is the
+any other line, and `reported.line_histogram_via_code_id` (the independent code-object join) is the
 identical mapping (`joins_agree: true`), over `activations: 1`. **Reading A holds; B and C are both falsified
 here**: line 259 minted its binding LINE and did not mint a second, statement row. The count of 1 is not the
-whole of it — `watch`'s HIT rows say WHAT that row carries: `logs/h4/cli-h4-w1.log:17` reads `HIT   e2068 LINE
+whole of it, `watch`'s HIT rows say WHAT that row carries: `logs/h4/cli-h4-w1.log:17` reads `HIT   e2068 LINE
 … L259  msg="script exhausted"`, one row at 259 whose delta is `msg`, the arm pattern's binding, and no second
 row there. §3.2 therefore needs no amendment to say which reading ships, and §1.1's "obliging a §3.2 amendment
-and a corpus pin before merge" is not triggered — but the non-block arm body is now measured and still
+and a corpus pin before merge" is not triggered, but the non-block arm body is now measured and still
 unpinned (§5.5 item 2). **Which** 26 matters as much as how many: the arms not taken (260, 280), the empty arm
 body at 279, the four closure bodies and the four helper bodies all minted nothing, and there is no tail
-expression to exclude — written down as a rule before the transform could produce a competing number.
+expression to exclude, written down as a rule before the transform could produce a competing number.
 
 ### 5.2 The three `watch` triples and the two `flow` sightings
 
@@ -681,21 +681,21 @@ expression to exclude — written down as a rule before the transform could prod
 `exit_as_predicted` 3, `readings_disagree` 0). What makes the trio load-bearing is that W1 and W3 are the same
 literal on two runs: W1 must HIT on F1 and W3 must MISS on F2, and both did, so `--at` scoping and the
 parameters LINE are right in one measurement rather than separately. W2 exercised design §4.2's
-unevaluable-`len` path and returned `NOTHING WAS CHECKED` at exit 3 — the `evaluated == 0` branch — regardless
+unevaluable-`len` path and returned `NOTHING WAS CHECKED` at exit 3 (the `evaluated == 0` branch) regardless
 of how long the value's `Debug` runs. **The bucket counts §3 prints land where §1.2's derivation said**
 (`reported.watch_bucket_counts`, ungated): W1's 2 not-captured of 27 sites are exactly the pair §1.2 predicted
-as a caveat — the CALL row, which in Rust carries no args, and the parameters LINE at 250, which precedes the
-binding — and W3's 20 of 180 are the CALL rows of B's 20 activations.
+as a caveat (the CALL row, which in Rust carries no args, and the parameters LINE at 250, which precedes the
+binding) and W3's 20 of 180 are the CALL rows of B's 20 activations.
 
 **Both sightings found, neither page truncated** (2 and 1 rows against `--limit 1000`, `page_truncated:
 false`), with **0** unpredicted sightings among A's LINE deltas. §1.3 expected sightings outside those deltas,
 "the unfocused `common::pager` helpers … still instrumented at the call tier"; that is true of **one** of the
-two literals. S1's whole-trace set is 2 — its LINE row plus `fresh_dir`'s RETURN carrying the same text —
+two literals. S1's whole-trace set is 2 (its LINE row plus `fresh_dir`'s RETURN carrying the same text)
 while **S2's is 1**: `jpath2` is built at 264 by a `PathBuf::join` on an already-bound value, a std method no
 instrumented helper returns. The clause is reported, not a gate; the asymmetry is a fact about what the call
 tier sees.
 
-### 5.3 Reported without a gate — §1.4's honesty counts, and the cost
+### 5.3 Reported without a gate: §1.4's honesty counts, and the cost
 
 * **The capability flip is per build.** U1 and U2 declare `line: false, locals: false` and carry **0** LINE
   rows; F1 and F2 declare both `true` and carry **26** and **160**. Ruling F2 made the tier a compile-time
@@ -705,20 +705,20 @@ tier sees.
   sites (20 × (1 CALL + 8 LINE)) agreeing. The tier re-probes a function on every activation, not once per
   function.
 * **The unread deltas are exactly the five names §1.4 expected, and no others**
-  (`reported.unread_and_truncated_captures.per_run`). F1: 17 LINE deltas, **5** `{"k": "unread"}` — `fake`,
-  `images`, `journal`, `p`, `p2`, one each — and **3** truncated: `events`, `failed`, `status`. F2: 140
+  (`reported.unread_and_truncated_captures.per_run`). F1: 17 LINE deltas, **5** `{"k": "unread"}` (`fake`,
+  `images`, `journal`, `p`, `p2`, one each) and **3** truncated: `events`, `failed`, `status`. F2: 140
   deltas, **80** unread (the same names bar `p2`, 20 each), **0** truncated. `flags.bit0` was **never set** in
   any run, and none of the three truncated names is either `flow` literal or either `watch` binding, so no
   gate was decided by a value that was cut. Against capture totals 1934 / 1951 / 499 / 639, the focus added 17
   captures and 3 truncations to U1's trace, 140 captures and none to U2's.
-* **The cost, and what it is a cost of.** libtest reported **0.00 s** for all four binaries — too fast to time
+* **The cost, and what it is a cost of.** libtest reported **0.00 s** for all four binaries, too fast to time
   at its resolution, so H6's first reading is a floor. The invocation walls are U1 **6.693 s**, F1 **6.690
   s**, U2 **1.448 s**, F2 **6.587 s**: F1/U1 **−0.003 s** because U1 paid for the cold build F1 reused, F2/U2
-  **+5.139 s** because F2 rebuilt the test target under a focus. **Neither isolates run-time overhead** —
-  every wall is dominated by compilation, and §1 gates nothing on a wall.
+  **+5.139 s** because F2 rebuilt the test target under a focus. **Neither isolates run-time overhead**.
+  Every wall is dominated by compilation, and §1 gates nothing on a wall.
 * **The whole measurement took 3 min 33 s**, of which H7 is ~~3 min 12 s (collector 54.9 s, `pytest` 125.0 s,
-  `cargo test --workspace` 11 s)~~ **corrected 2026-09-06 (§5.7) to the three fields of `endpoints.H7.walls_s`
-  — corpus 54.852 s, python 125.31 s, cargo 11.028 s = 191.19 s, i.e. 3 min 11 s** — and the four runs
+  `cargo test --workspace` 11 s)~~ **corrected 2026-09-06 (§5.7) to the three fields of `endpoints.H7.walls_s`,
+corpus 54.852 s, python 125.31 s, cargo 11.028 s = 191.19 s, i.e. 3 min 11 s**, and the four runs
   together 21.4 s. The 90-minute poll bound was budgeted for a cold build of a large dependency tree; this one
   is **83** locked packages with no async runtime (counted from the clone's `Cargo.lock` at the pin, not a
   `results.json` field), so E9's cost is dominated by **this** repository's suites, not by the subject.
@@ -727,18 +727,18 @@ tier sees.
 
 * **One clone, one commit, two functions, one test binary each.** A focus value inside an inline `mod`, an
   `async` or macro-produced body, a value matching more than one qualname, and a focused unit that fails to
-  compile are all untested — the last is what §1's kill 1 exists for, and it did not fire. **No integer or
+  compile are all untested. The last is what §1's kill 1 exists for, and it did not fire. **No integer or
   bool binding was watched** (§1.2 says so and why; that branch of design §4.2 is pinned by the corpus), and
   **no second activation of focus value A**, so whether a second mints the same 26 is what F2's 20 activations
   suggest and what nothing here proves for A.
-* **The clone was read, not written** — HEAD, porcelain and `Cargo.lock` sha256 are the pin's before and
+* **The clone was read, not written**: HEAD, porcelain and `Cargo.lock` sha256 are the pin's before and
   after, and the lock did not move at all. **One launch**: pid 2069504, one `e9.DONE` at `exit=0`, no
-  `failed-launch-*` and no partial record, so §1.4's kill-2 relaunch rule was never exercised — said here
+  `failed-launch-*` and no partial record, so §1.4's kill-2 relaunch rule was never exercised. Said here
   rather than left to be inferred from an absence.
 * **One deviation from §1's spelled commands, already inside the lens.** Both `flow --value` commands ran with
   `--limit 1000`, because every H5 number is read off the printed rows and the tool's default page is 50. §1.4
-  carries the dated amendment for it — *"Amended 2026-09-06, before any measurement — the reader, not the
-  endpoint"* — committed alone at `ffaed19` after the original lock `a4264b5` and before any number was read,
+  carries the dated amendment for it (*"Amended 2026-09-06, before any measurement) the reader, not the
+  endpoint"*, committed alone at `ffaed19` after the original lock `a4264b5` and before any number was read,
   both shas in the record (`amended_after_the_original_lock: true`, +671 bytes, no `|` row moved). Its guard
   did not have to fire: neither page truncated, so H5 would have read the same under §1.3's unlimited
   spelling.
@@ -748,19 +748,19 @@ tier sees.
 1. **`reported.line_rows_per_run` published four nulls.** It reads `meta.counts`, a key the Rust trace's
    `meta` does not carry (format 4 has `truncated_count` but no `counts`; the `recorded: CALL … LINE …` line
    `info` prints is computed by the reader). The number §1.4 asks for under *"the LINE-row totals of F1 and
-   F2"* **is** in the record — the census's `line_events`, 0 / 26 / 0 / 160, which §3's ungated table prints —
+   F2"* **is** in the record (the census's `line_events`, 0 / 26 / 0 / 160, which §3's ungated table prints)
    so this is a duplicate field shaped for the Python recorder, not a missing number. It is reported, not a
    measurement cell, so the "no null without a reason" rule does not reach it: that is the residual.
 2. **The non-block arm body is measured but not pinned.** §5.1 settles line 259 in favour of reading A here;
    design §6's `focus_match_binding` ~~exercises block arm bodies only~~ **corrected 2026-09-06 (§5.7):
-   exercises no TAKEN, BINDING non-block arm body — its `None => 0` arm
+   exercises no TAKEN, BINDING non-block arm body. Its `None => 0` arm
    (`corpus/rust/focus_match_binding/src/main.rs:20`) IS non-block, but untaken and binds nothing**, so
    nothing would catch a regression of what E9 just decided.
 3. **H6's first reading carries no information at this size.** libtest reported `0.00s` four times and every
    wall is dominated by compilation, so the residual has two halves: a cost claim needs a subject whose test
-   binary takes long enough to time **and** an instrument that separates compile from run — a warm target, or
+   binary takes long enough to time **and** an instrument that separates compile from run, a warm target, or
    timing the built test binary directly rather than the `cargo sensorium` invocation around it.
-4. **The suite's skip count still depends on one variable** — 1426/12 without `SENSORIUM_CARGO_SENSORIUM`,
+4. **The suite's skip count still depends on one variable**: 1426/12 without `SENSORIUM_CARGO_SENSORIUM`,
    1437/1 with it, both seen today (§2). The entry slice's repair record carried the same residual at 1293/9
    against 1301/1; the delta is now 11 tests rather than 8.
 
@@ -768,29 +768,28 @@ tier sees.
 
 It licenses the focus tier's central claim **on this workspace**: under `cargo sensorium --focus`, a focused
 Rust function receives one LINE event per completed statement at every block depth, on exactly the lines
-design §3.1 and §3.2 predict and on no others — 26 of 26, zero differences — carrying the bindings that
+design §3.1 and §3.2 predict and on no others (26 of 26, zero differences) carrying the bindings that
 statement wrote; an unfocused build of the same crate stays unfocused (0 LINE rows, `line: false`); a focus
 resolves to exactly one qualname and changes neither the test outcome nor the exit status; and `watch` and
 `flow --value` read the resulting `dbg` captures under design §4.2 as §1.2 and §1.3 derived them, including
 the unevaluable-`len` path and the same-literal HIT/MISS control.
 
 It does **not** license, and none of it is done here: a generalisation beyond one clone at one commit (§5.4);
-a cost claim (§5.3, §5.5 item 3); a second measurement — §1.4's kill 5 binds this record, and a corrected or
-extended endpoint is a NEW pre-registration in a NEW document, measured once; or re-opening an earlier record
-— the rung-3 borrow-repair acceptance and both rung-4 entry-grain records stand as written.
+a cost claim (§5.3, §5.5 item 3); a second measurement (§1.4's kill 5 binds this record, and a corrected or
+extended endpoint is a NEW pre-registration in a NEW document, measured once; or re-opening an earlier record) the rung-3 borrow-repair acceptance and both rung-4 entry-grain records stand as written.
 
-### 5.7 Corrections of 2026-09-06, fix round 1 — every original sentence kept
+### 5.7 Corrections of 2026-09-06, fix round 1: every original sentence kept
 
 Prose only. **No phase re-ran, no measurement was retaken, no verdict moved**: H1–H7 read exactly what §3 and
-§4 already published, H3 is still N = 26 with a zero per-line diff, and §1 was not opened — its sha256 stays
+§4 already published, H3 is still N = 26 with a zero per-line diff, and §1 was not opened. Its sha256 stays
 `473f86203189bede2b56b19068770dbedba34f012b2c4a7f79012593d8960163`.
 
 **Struck in place with the correction beside them**, being sentences that stated something wrong: (1) **§4's
-determinism sentence named the wrong side** — the committed file IS the re-assembly (`assembled.at` 19:04:12)
+determinism sentence named the wrong side**. The committed file IS the re-assembly (`assembled.at` 19:04:12)
 and the run's own (19:02:38, in `e9.log`) is what it was compared against; both are now named, and the
-comparison, its result and the raw md5 are unchanged. (2) **§5.5 item 2 mis-described the corpus case** —
+comparison, its result and the raw md5 are unchanged. (2) **§5.5 item 2 mis-described the corpus case**,
 `focus_match_binding` does contain a non-block arm (`None => 0`); what it lacks is a TAKEN, BINDING one. (3)
-**§5.3's H7 breakdown mixed sources and rounded wrong** — "3 min 12 s (54.9 / 125.0 / 11 s)" came off log
+**§5.3's H7 breakdown mixed sources and rounded wrong**, "3 min 12 s (54.9 / 125.0 / 11 s)" came off log
 timestamps, where `endpoints.H7.walls_s` gives 54.852 / 125.31 / 11.028 s = 191.19 s, i.e. 3 min 11 s.
 
 **Edited in place, no strike**, being imprecise rather than false: §5.1 now cites the discriminating HIT row

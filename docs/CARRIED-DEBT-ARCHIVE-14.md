@@ -1,7 +1,7 @@
-# CARRIED-DEBT — volume 14
+# CARRIED-DEBT: volume 14
 
-The 2026-09-14 section — secrets redaction, PR B: captured values, the
-content rule, wire v4 and the readers — moved here **2026-09-16** (PR C, at
+The 2026-09-14 section (secrets redaction, PR B: captured values, the
+content rule, wire v4 and the readers) moved here **2026-09-16** (PR C, at
 its ledger task) so [`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md) stays under 800
 lines. It is the fourteenth numbered volume, on the rule
 [`docs/CARRIED-DEBT-ARCHIVE-2.md`](CARRIED-DEBT-ARCHIVE-2.md) set when it was
@@ -10,34 +10,34 @@ growing file.
 
 The move was measured before it was made, the way the ledger's own lesson
 asks: PR C's section was drafted at **342** lines against a live file of
-**591**, which would have taken it to **934** — a hundred and thirty-four
-over the ceiling — so the oldest section was cut rather than the content
+**591**, which would have taken it to **934** (a hundred and thirty-four
+over the ceiling) so the oldest section was cut rather than the content
 trimmed. The section moved here is **443** lines before the strike below and
 **447** after it.
 
 **The wording, the order and the strikes are unchanged**, but for the ONE
 strike PR C made inside this volume as it moved: the *Deferred by ruling*
-bullet **PR C — the retrofit** is struck where it stands and says what
+bullet **PR C. The retrofit** is struck where it stands and says what
 settled it, because that bullet named this slice and this slice ran. Nothing
 else was edited BY the move and nothing is deleted; every other deferred item
 here is still open unless it is struck.
 
-## 2026-09-14 — secrets redaction, PR B (captured values, the content rule, wire v4, the readers)
+## 2026-09-14: secrets redaction, PR B (captured values, the content rule, wire v4, the readers)
 
 The second of the design's three PRs
 (`docs/superpowers/specs/2026-09-13-sensorium-secrets-redaction-design.md`):
-part A took the environment, this takes everything a recording CAPTURES —
+part A took the environment, this takes everything a recording CAPTURES,
 arguments, locals, returns, exception messages, output chunks, and any
 secret-shaped SPAN inside any text a recorder stores. Twenty-eight plan
 decisions (**B1–B28**) and twenty-five rulings (**R1–R25**) are in the
 design's **§13** with what each costs if wrong, beside the twenty places
-the shipped code differs from the spec. **DONE** — E16 part B was measured
+the shipped code differs from the spec. **DONE**. E16 part B was measured
 **once**, on 2026-09-14
 (`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md` §3):
 H1-values **PASS**, H6-values **PASS**, H5 **measured and not gated**. The
 retrofit of every trace already on disk is PR C's.
 
-### Settled — closed here
+### Settled: closed here
 
 - **Every captured value is judged at the WRITER, in all three recorders.**
   A value whose NAME fires rule v1 is stored as `<redacted>` with an HMAC of
@@ -46,9 +46,9 @@ retrofit of every trace already on disk is PR C's.
   `2e92eaa`/`b246075`, the Rust runtime `422874d` and its converter
   `d47d371`/`7bbe6cc`, the TypeScript runtime and its ingest
   `f0df6cc`/`a5f4b50`. Measured: E16 **H1-values PASS** over 20 gated files
-  — every count 0 under the store, in every Rust `<pid>.proc.json` and in
+  (every count 0 under the store, in every Rust `<pid>.proc.json` and in
   the TypeScript spool, and the Rust `.spool` files exactly **3**
-  occurrences, the content window §5.2 names — with **762** further files
+  occurrences, the content window §5.2 names) with **762** further files
   swept beside them (the build tree, the disposable copies, the transcripts,
   `TMPDIR`), none holding the token.
 - **The content rule: nineteen patterns, three implementations, one
@@ -57,8 +57,8 @@ retrofit of every trace already on disk is PR C's.
   `typescript/src/redact.mjs` all read
   `docs/trace-format/redaction-v1.json`'s `content` rows (**B20**:
   `{"pattern", "text", "after"}`, a negative row's `after` equal to its
-  `text`). A **hit** means the text CHANGED, never that a pattern matched —
-  the userinfo pattern matches the marker it put there itself, which is what
+  `text`). A **hit** means the text CHANGED, never that a pattern matched.
+  The userinfo pattern matches the marker it put there itself, which is what
   makes re-conversion a fixed point and the `values` count honest.
   `06d325f`.
 - **The Rust wire is v4, and the tag is `4`** (**B1**). On a LINE row tag 3
@@ -76,14 +76,14 @@ retrofit of every trace already on disk is PR C's.
   `<redacted; no comparable value>`, ends a predicate that met only taken
   values at `NOTHING WAS CHECKED` and exit 3, and names the remedy
   (`SENSORIUM_REDACT_ALLOW=<name>`, **R13**) rather than only the diagnosis.
-  `flow --object` refuses at exit 2 — the address is real and its occupant
-  was never recorded (**B11**) — and `flow --value` never sights a marker,
+  `flow --object` refuses at exit 2 (the address is real and its occupant
+  was never recorded (**B11**)) and `flow --value` never sights a marker,
   which would otherwise report every secret in the run as sightings of one
   value. Vector `v42-redaction-render`.
 - **`redaction.values` is counted at the WRITE site** (**R10**, amending
   **B3**): `redact_values.count`/`count_capture` walk what is handed to
   `add_event`/`close_frame`, the tee counts a chunk whose text changed, and
-  the two converters count as they build — so the number is a pure function
+  the two converters count as they build, so the number is a pure function
   of the trace's contents. A secret local re-captured at every line of a
   loop counts ONCE; one text written into two rows counts once (an `Err`
   return and the exit RAISE synthesised in front of it, under one digest,
@@ -92,17 +92,17 @@ retrofit of every trace already on disk is PR C's.
   literals: the failure direction of this control is a lost fact, never a
   kept secret. `b246075`.
 - **`by` changes meaning, visibly** (**B2**). It reads `recorder` only where
-  the RUNTIME did the value half too — Rust wire v4 or better with a
-  `redaction` header whose mode is on, `sensorium-ts` 0.6.0 or better — and
+  the RUNTIME did the value half too (Rust wire v4 or better with a
+  `redaction` header whose mode is on, `sensorium-ts` 0.6.0 or better) and
   `converter` wherever a converter applied a half the runtime should have.
   `rust/cargo-sensorium/src/convert/redaction.rs`,
   `src/sensorium/ts/redaction.py`.
 - **`KEY` fires only inside a longer name, as `PWD` does** (**B28**,
   **R6**), on the census's own evidence: **8 of the 17 firing bindings**
   Task 0's static census found across `corpus/**`, the vectors and the
-  ts-spool fixtures were a bare `key` — a cache key, a dict key, a lookup
+  ts-spool fixtures were a bare `key` (a cache key, a dict key, a lookup
   key (`stale_cache` in two languages, Rust's `focus_unfocused_refuses`,
-  TypeScript's `focus_async` and `focus_catch_binding`, vector `v36`) — so
+  TypeScript's `focus_async` and `focus_catch_binding`, vector `v36`)) so
   rule v1 as first written would have answered `NOTHING WAS CHECKED` to
   `watch --expr key == …` on every mapping-iterating function in the
   language, the §12 false-positive cost paid on the commonest local
@@ -110,11 +110,11 @@ retrofit of every trace already on disk is PR C's.
   `secret_key`, `build_key`, `KEY_FILE`), and `SENSORIUM_REDACT_NAMES=key`
   restores it per run. **Amended into v1 rather than minted as v2**: no
   trace under the earlier spelling exists outside this box and CI, and the
-  identity rule binds from the first published release — §13 records the
+  identity rule binds from the first published release, §13 records the
   narrowing, which is security-relevant and was taken on design authority.
   `f7e0ef8`.
 - **The content rule's pre-check folds case where its patterns do**
-  (**R21**) — a LEAK found in prose, not in a test. **B18** put one
+  (**R21**). A LEAK found in prose, not in a test. **B18** put one
   alternation of literal prefixes in front of the twenty regexes so H5 would
   not measure them all on every string; `_TRIGGER` was case-SENSITIVE while
   `authorization-header` is `(?i)`, so `BEARER <token>` skipped the table
@@ -125,10 +125,10 @@ retrofit of every trace already on disk is PR C's.
   synthesised unit return `()` and a `dbg` text that is exactly `undefined`
   or `null`, on ANY site and in both hands. They say the program produced no
   value; a marker there would cost a reader that fact, hide no secret and
-  publish a digest of a constant. Whole texts and nothing near them — a
+  publish a digest of a constant. Whole texts and nothing near them. A
   `NaN` is a value the program had. `7bbe6cc`, `a5f4b50`.
-- **A SPAWNED process's command line stops reaching the trace in plaintext**
-  — the final whole-branch review's finding, and the last path rule v1 did
+- **A SPAWNED process's command line stops reaching the trace in plaintext**,
+the final whole-branch review's finding, and the last path rule v1 did
   not reach that nothing in the slice had named. `meta.children` holds the
   argv of every child the recorded program starts and `info` prints each one
   back verbatim, so a `subprocess.run(["curl", "-H", f"Authorization: Bearer
@@ -140,7 +140,7 @@ retrofit of every trace already on disk is PR C's.
   `tests/test_record_values_redaction.py::test_a_spawned_command_line_is_content_ruled_and_counted`
   (mutation: drop the rule at the sink and it fails on the plaintext token).
 - **E16 part B, measured once, 85.3 s wall clock.** H1-values PASS and
-  H6-values PASS (python **5**, rust **4**, typescript **4** — each trace
+  H6-values PASS (python **5**, rust **4**, typescript **4**. Each trace
   redacting exactly `SENSORIUM_E16_TOKEN`, the counts derived by hand from
   the probe sources at **B15** and pre-registered). H5 measured and never
   gated (§9, `rust/HONESTY.md` §10), `recorded/baseline` at `7dd25d2`
@@ -172,12 +172,12 @@ retrofit of every trace already on disk is PR C's.
   §9 says an outlier is a CARRIED-DEBT finding and never a stop, so it is
   recorded here rather than chased. *Cost if wrong:* a recording 20% slower
   than it needs to be, on a number that is reported and never gated.
-- ~~**PR C — the retrofit.** `sensorium redact [--all] [--dry-run]`, and H4
+- ~~**PR C, the retrofit.** `sensorium redact [--all] [--dry-run]`, and H4
   with it: every trace already on disk still holds plaintext values, and
-  nothing in this PR reaches one. One hazard still travels from A — a stale
+  nothing in this PR reaches one. One hazard still travels from A. A stale
   `redaction.key.<pid>.tmp` from a killed writer is left on disk by **R15**'s
   publication and nothing sweeps it. *Cost if wrong:* every trace recorded
-  before 0.15.0/0.16.0 stays as it is, which is what part C exists for.~~ —
+  before 0.15.0/0.16.0 stays as it is, which is what part C exists for.~~,
   **settled 2026-09-16 by PR C**, which is the slice this bullet named: the
   command ships, the sweep with it, and E16 part C read **H4 PASS** over a
   copy of the store's 273 traces. The live store's own pass is a post-merge
@@ -206,7 +206,7 @@ retrofit of every trace already on disk is PR C's.
   between the runtime and the converter.** The runtime does the name half
   (it needs no regex, and the crate stays dependency-free); everything else
   is the converter's, so a token inside a `Debug` rendering or
-  `get_token()`'s return is in the `.spool` file at 0600 until conversion —
+  `get_token()`'s return is in the `.spool` file at 0600 until conversion,
   exactly the 3 occurrences H1 counted. Taken by `cargo clean`, named in
   `rust/README.md` and `rust/HONESTY.md` §14 rather than left to be
   discovered. Closing it puts a regex dependency in a dependency-free
@@ -227,15 +227,15 @@ retrofit of every trace already on disk is PR C's.
   honestly carry a digest of the whole). *Cost if wrong:* an exception
   census that under-reports distinct failures by one row.
 - **B8's map-key rule is Python-only.** A `map` sample pair whose KEY is a
-  firing `str` has its VALUE withheld — which is what reaches a headers
-  dict's `authorization` entry — in the Python recorder alone. Rust and
+  firing `str` has its VALUE withheld (which is what reaches a headers
+  dict's `authorization` entry) in the Python recorder alone. Rust and
   TypeScript store a RENDERING of a struct or object rather than a
   decomposed map, so the content rule is their only reach into one, and
   E16's Rust and TypeScript header rows were counted as content hits for
   that reason. *Cost if wrong:* a headers dict whose value is on none of the
   nineteen patterns, plaintext in two of three languages.
 - **Every older spool re-converted under this release now says
-  `by: "converter"` where it said `recorder`** — a visible change to a
+  `by: "converter"` where it said `recorder`**, a visible change to a
   published key (**B2**). `tests/fixtures/rust-spools/redacted-env/` is the
   in-tree instance, re-pinned at Task 6. It is the truth about whose hand
   took the capture digests, and the CHANGELOG says so, but a reader diffing
@@ -243,8 +243,8 @@ retrofit of every trace already on disk is PR C's.
   no wire change under it. *Cost if wrong:* one confused reader per
   re-conversion.
 - **Outside this PR's promise, carried from A and still at default modes:**
-  `<target>/sensorium/{manifests,mirror,cache,rt}` — the **mirror holds a
-  copy of the user's source** — and `ts/wrapper.py`'s files inside the
+  `<target>/sensorium/{manifests,mirror,cache,rt}` (the **mirror holds a
+  copy of the user's source**) and `ts/wrapper.py`'s files inside the
   user's `node_modules`. PR B added no writer outside the store and the
   spools, and moved none of these. *Cost if wrong:* a world-readable copy of
   somebody's source under `target/`, unchanged from A.
@@ -258,40 +258,40 @@ Measured at this slice's last commit against the 800-line gate
 *.ts *.tsx` outside the three record directories); the next edit to each
 takes a seam, not a paragraph:
 
-- **`rust/HONESTY-BLIND-SPOTS.md` 800** — AT the gate, zero headroom. The
+- **`rust/HONESTY-BLIND-SPOTS.md` 800**: AT the gate, zero headroom. The
   next blind spot needs the file cut first, on the pattern `HONESTY.md`
   itself already took three times (`HONESTY-ERR-FLOW.md`,
   `HONESTY-OUTCOMES.md`, `HONESTY-REFOCUS.md`).
-- **`CHANGELOG.md` 799** after 0.16.0 and the fix wave's limits clause — the
+- **`CHANGELOG.md` 799** after 0.16.0 and the fix wave's limits clause. The
   **next** entry must move the
   oldest one to `CHANGELOG-ARCHIVE-2.md` (479) under a dated cut note
   BEFORE it is written, which is **R36**'s rule from A applied in advance
   rather than discovered.
 - **`docs/query.md` 798**, **`docs/TRACE-FORMAT.md` 797**, **`README.md`
-  796**, **`typescript/HONESTY.md` 796** — four documents with nine lines
+  796**, **`typescript/HONESTY.md` 796**, four documents with nine lines
   between them. **B25** is the pattern that kept TRACE-FORMAT net-zero this
   slice: the contract names the key, the reading lives one file away
   (`docs/redaction.md`). `docs/query-typescript.md` is query.md's named
   seam; `typescript/HONESTY-REDACTION.md` is the split
   `typescript/HONESTY.md` already took.
-- **`rust/HONESTY.md` 780** after §14 — 20 lines; the index
+- **`rust/HONESTY.md` 780** after §14, 20 lines; the index
   (`rust/HONESTY-INDEX.md`) is where a new row goes cheaply.
-- **`typescript/src/rt.mjs` 788** — **B13**'s five splits cleared A's named
+- **`typescript/src/rt.mjs` 788**: **B13**'s five splits cleared A's named
   seams (`redact_key.py`, `refocus_facts.py`, `flow_report.py`,
   `record/boot_io.py`, `convert/discover.rs`, `3af7850`…`c94157e`), and
   `typescript/src/capabilities.mjs` took rt.mjs's declaration block on top
   of them; what is left in rt.mjs is the recorder itself.
 - **`src/sensorium/ts/build.py` 773**, **`rust/tests/mechanics.sh` 795**,
   **`rust/cargo-sensorium/src/convert/redaction.rs` 763** and
-  **`convert/frames.rs` 743** — the four the value half grew most. The
+  **`convert/frames.rs` 743**, the four the value half grew most. The
   converter pair is the one to watch: `redaction.rs` gained the content and
   RETURN halves this slice.
 - **`typescript/src/redact.mjs` 711**, **`src/sensorium/query/flow_cmd.py`
   724**, **`src/sensorium/record/boot.py` 726** (the audit sink's own rule,
-  **R25**) and **`record/tracer.py` 698** — the write sites, with room.
+  **R25**) and **`record/tracer.py` 698**, the write sites, with room.
 - Clear after the splits, and named here so nobody re-splits them:
   `refocus_world.py` **657** (was 788), `redact.py` **304** (was 520).
-- **This file 591** after TWO cuts — volume 12 when PR B's section was
+- **This file 591** after TWO cuts, volume 12 when PR B's section was
   drafted, and volume 13 when the final fix wave's twenty-five lines would
   have taken the live file to **820**. The five lines of headroom the first
   cut left were not a wave's worth, so the rule at the top fired one slice
@@ -317,7 +317,7 @@ takes a seam, not a paragraph:
 
 None of these blocks the merge; the final whole-branch review triaged them
 and marked **★ next** on the three a next slice should take first, each
-with the reason it leads. The rest of the list is flat on purpose — an order
+with the reason it leads. The rest of the list is flat on purpose. An order
 nobody argued for would read as one somebody did.
 
 - **T0 (census, pre-registration, lock):** the census's parameter regexes
@@ -330,7 +330,7 @@ nobody argued for would read as one somebody did.
   rows and still says "both".
 - **T1 (the five splits):** six private helpers (`_write_key`, `_unlink`,
   `_NO_LINK`, `_ROOT_MODE`, `_MARK_ON_CALL`, `_MARK_ON_ACCESS`) are not
-  re-exported by their old modules — no importer anywhere, so the
+  re-exported by their old modules. No importer anywhere, so the
   constraint's purpose holds and its letter does not.
 - **T2 (the content rule):** `Cargo.toml`'s `regex` comment is 3 lines, not
   the 1 the brief budgeted; no fixture row mixes two patterns in one text,
@@ -345,7 +345,7 @@ nobody argued for would read as one somebody did.
   without a matching `reset()`; a payload dropped by `w.seal()` is counted
   though the trace does not hold it (`late_writes` already reports such a
   run).
-- **T4 (the readers):** **★ next** — the name-redaction predicate is spelled
+- **T4 (the readers):** **★ next**. The name-redaction predicate is spelled
   six times across four modules (`fmt`, `expr` ×2, `flow_values` ×2,
   `flow_cmd`) rather than once as `is_name_redacted(capture)`: six places to
   edit the day the marker's shape moves, and a fifth reader will spell it a
@@ -362,17 +362,17 @@ nobody argued for would read as one somebody did.
   unkeyed converter end to end (unit tests do); **B3**'s rule is stated in
   two comments; `tests/test_rust_convert.py` mints a fixed 0600 store key
   per fixture case (a harness change the reviewer accepted).
-- **T7 (TypeScript):** **★ next** — no structural guard that `rt.mjs` has
+- **T7 (TypeScript):** **★ next**. No structural guard that `rt.mjs` has
   no bare `dbg(` outside `captures`/`ret`/`pend` (a `graph.test.mjs` source
   assertion would close it): a fourth call site added later would store a
   plaintext capture and no test in the suite would say so. A stale comment at
   `redact.test.mjs:416` still calls `dbg()`/`exc()` "the CONTENT half";
   `_values`'s docstring overstates **B9** (a previously content-marked text
   is never re-scanned). ~~`typescript/README.md:14` says "Eighteen
-  modules"~~ — **settled in Task 9** (`f45424b`), which moved the count to
+  modules"~~, **settled in Task 9** (`f45424b`), which moved the count to
   "Nineteen modules and a version"; Task 7 had added `redact.mjs`'s row to
   the table below it and left the number behind.
-- **T8 (the corpus cases):** **★ next** — a case's `env:` could clobber
+- **T8 (the corpus cases):** **★ next**. A case's `env:` could clobber
   `SENSORIUM_DIR` or `PYTHONDONTWRITEBYTECODE` and there is no reserved-key
   guard: a case that names `SENSORIUM_*` would send the run at the
   developer's own store and write into it. The env-value refusal test does
@@ -388,9 +388,9 @@ nobody argued for would read as one somebody did.
   preflight refusal still says "part A"; stale `bench-<label>` and copy
   directories are not refused by the launcher; an unreadable `other` file is
   not named in `why` when a non-zero one co-occurs, and the assembler
-  coerces a `None` occurrence to 0, so an unreadable file renders as clean
-  — neither moves the gate.
-- **T11 (the measurement):** **Brice owed** — free `$E16_DIR` (part A's two
+  coerces a `None` occurrence to 0, so an unreadable file renders as clean,
+neither moves the gate.
+- **T11 (the measurement):** **Brice owed**, free `$E16_DIR` (part A's two
   runs and part B's `store-b`, the baseline worktree, the disposable copies
   and a 0600 plaintext token), and `git worktree remove` the
   `baseline-7dd25d2` tree (**R2**).
@@ -402,15 +402,15 @@ nobody argued for would read as one somebody did.
   tag 3 had meant UNBOUND since wire v3 shipped in 0.13.0, one design
   document and one day earlier. Nothing in the spec's own review caught it,
   because a reviewer reads the spec against the spec. **B1** caught it by
-  reading `line.rs` — the writer, not the document — before the first line
+  reading `line.rs` (the writer, not the document) before the first line
   of v4 was written. *A wire number is not a spec's to choose; it is the
   writer's to report.*
 - **A rule nobody has run over a named list is a rule nobody has read**,
   again, and the second run of A's lesson found more than the first.
-  **B27** made the census STATIC — every binding name in `corpus/**`, every
+  **B27** made the census STATIC (every binding name in `corpus/**`, every
   `args`/`deltas` key in the vectors, every `a`/`d` key in the ts-spool
   fixtures, against a committed
-  `tests/fixtures/corpus-firing-names.txt` — and it ran at Task 0, before
+  `tests/fixtures/corpus-firing-names.txt`) and it ran at Task 0, before
   any renderer existed. What it found was **B28**: half its firing bindings
   were a bare `key`, and rule v1 as written would have blinded `watch` on
   the commonest local in the language. The list is the finding, and a census
@@ -421,14 +421,14 @@ nobody argued for would read as one somebody did.
   corpus questions pin a refusal sentence carrying `sensorium-rt 0.5.0`, and
   a driver built from that tree prints 0.6.0. A's Task 9 corpus run had gone
   through the `~/.cargo/bin` `cargo-sensorium`, which embeds the runtime it
-  was BUILT with — so the gate answered about a binary nobody had rebuilt.
+  was BUILT with, so the gate answered about a binary nobody had rebuilt.
   **R3** now makes every Rust corpus run in a plan use a driver built from
   that worktree, first on `PATH`; PR #41 fixed `main`, **R4** cherry-picked
   it here, and **R9** made the one hand-typed pin
   (`test_acceptance_e9_read`) read `RT_VERSION` out of `spool.rs` instead.
   *A version pinned in two places is pinned in neither.*
 - **A pre-registration error found before launch is amended beside the
-  locked text, never edited** — **R11**, and this is the S5 slice's **P16**
+  locked text, never edited**. **R11**, and this is the S5 slice's **P16**
   applied a THIRD time, which is what makes it the repo's rule. §1's Python
   probe command read `sensorium run --focus handle -- main.py`; a bare
   `--focus handle` names a MODULE, so the recording would have carried no
@@ -441,14 +441,13 @@ nobody argued for would read as one somebody did.
 - **A count is a pure function of the trace's contents, or it is a guess.**
   The plan had `redaction.values` counted by the transforms as they applied
   the rule, with a roll-back when a payload was dropped. **R10** moved it to
-  the WRITE site — `count(payload)` over what is handed to `add_event` — so
+  the WRITE site (`count(payload)` over what is handed to `add_event`) so
   the number witnesses the trace and not the attempt. The roll-back
   disappeared with it, and the one residual case (a payload dropped by
   `w.seal()`) is a known minor rather than a wrong number in a
   documented key.
 - **A leak can be found through prose.** Task 9's reviewer read the
-  pre-check's completeness claim — *every positive case carries a trigger*
-  — against the code that implements it and found `_TRIGGER` case-sensitive
+  pre-check's completeness claim (*every positive case carries a trigger*) against the code that implements it and found `_TRIGGER` case-sensitive
   where `authorization-header` is `(?i)`: `BEARER <token>` skipped the whole
   table and was stored in plaintext (**R21**). No test failed, because every
   fixture positive was lowercase. *Documentation review is security review
@@ -456,7 +455,7 @@ nobody argued for would read as one somebody did.
 - **A sweep hole is found by review, before a once-only run.** Task 10's
   own review caught the instrument holding back the WHOLE Rust spool tree
   from the `rust-target/` sweep, so `<pid>.runner.json` and
-  `invocation.json` were in no grep set at all — two files H1 would have
+  `invocation.json` were in no grep set at all, two files H1 would have
   reported on and did not look at. Only the gated `.proc.json` and `.spool`
   files are held back now. A fourth dry run confirmed it, and `mint` became
   a precondition (**R23**) in the same round. An instrument measured once
@@ -465,7 +464,7 @@ nobody argued for would read as one somebody did.
   (Rust's synthesised `()`) and **R19** (a `dbg` text of `undefined` or
   `null`) were raised independently, in Tasks 6 and 7, by reviewers who had
   not read each other's rounds; **R19 refined** made the rule symmetric
-  across both hands and all three sites. The rule they share — *a value that
-  says the program produced nothing hides nothing* — was in neither the spec
+  across both hands and all three sites. The rule they share (*a value that
+  says the program produced nothing hides nothing*) was in neither the spec
   nor the plan. Convergent findings from independent reviewers are the
   cheapest evidence a rule is missing, not a duplicate to close.

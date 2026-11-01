@@ -1,10 +1,10 @@
-# Arc 2a — Coroutine Frames, Suspension States, Inspection — Implementation Plan
+# Arc 2a: Coroutine Frames, Suspension States, Inspection: Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give every traced code object — functions, generators, coroutines, async generators — a frame, record suspension and resumption as events, derive each frame's end state honestly (returned / raised / cancelled / abandoned / suspended at end of recording / open), and make `--focus`, `watch`, `tree`, `frame`, `exceptions` work inside `async def`; trace format 3.
+**Goal:** Give every traced code object (functions, generators, coroutines, async generators) a frame, record suspension and resumption as events, derive each frame's end state honestly (returned / raised / cancelled / abandoned / suspended at end of recording / open), and make `--focus`, `watch`, `tree`, `frame`, `exceptions` work inside `async def`; trace format 3.
 
-**Architecture:** The recorder's `tls.live` map (keyed by `id(frame)`, verified by code identity — measured stable across suspension) simply stops excluding generator-like code; `PY_YIELD`/`PY_RESUME`/`PY_THROW` become `YIELD`/`RESUME` events on the same frame; `--window` becomes an ancestry flag on the live entry (exact under concurrency) instead of a per-thread counter. The reader derives frame state from `closed_by`, `unwind_exc` and the frame's last suspension event; `tree`/`frame`/`exceptions`/`watch`/`info` consume that. Formats 1 and 2 keep rendering exactly as arc 1 left them (a real 0.2.0 fixture proves it).
+**Architecture:** The recorder's `tls.live` map (keyed by `id(frame)`, verified by code identity, measured stable across suspension) simply stops excluding generator-like code; `PY_YIELD`/`PY_RESUME`/`PY_THROW` become `YIELD`/`RESUME` events on the same frame; `--window` becomes an ancestry flag on the live entry (exact under concurrency) instead of a per-thread counter. The reader derives frame state from `closed_by`, `unwind_exc` and the frame's last suspension event; `tree`/`frame`/`exceptions`/`watch`/`info` consume that. Formats 1 and 2 keep rendering exactly as arc 1 left them (a real 0.2.0 fixture proves it).
 
 **Tech Stack:** Python 3.12–3.14, `sys.monitoring` (`PY_YIELD`, `PY_RESUME`, `PY_THROW` exist since 3.12), sqlite3, pytest, PyYAML (corpus), `uv`. Stdlib-only runtime.
 
@@ -14,7 +14,7 @@
 
 - Python floor `>=3.12`; every task's tests green on 3.12 / 3.13 / 3.14 (`uv venv /tmp/svX -p X` as in arc 1); stdlib-only runtime; the recorder never imports asyncio.
 - **Measured facts the code may rely on** (spec "Measurements"): frame identity is stable across suspension; a dropped suspended generator fires `PY_THROW(GeneratorExit)` + `PY_UNWIND`; a cancelled task fires `PY_THROW(CancelledError)` + `PY_UNWIND`; LINE fires inside coroutines with readable locals; `PY_YIELD` receives the yielded value, `PY_THROW` the exception; `STOP_ITERATION` is not subscribed.
-- Frame state is **derived by the reader** (`Trace.frame_state`) — never stored by the recorder; "cancelled"/"abandoned" require the thrown exception's **serial** to equal the unwind's serial (spec D2).
+- Frame state is **derived by the reader** (`Trace.frame_state`), never stored by the recorder; "cancelled"/"abandoned" require the thrown exception's **serial** to equal the unwind's serial (spec D2).
 - `YIELD`/`RESUME` are never passed to `Fingerprint.update`; the awaited object is recorded as a **type name only** via `plain_str`, never `repr` (spec honesty rules 3).
 - Hostile-program discipline unchanged: program code runs only inside `in_hook`; every new read of a program object is guarded.
 - Formats ≤ 2 keep arc 1's wording everywhere (honesty rule 4); a real 0.2.0 fixture (`tests/fixtures/format2_async.db`, recorded under `env -i`, `meta.env` keys exactly `['LANG','PATH','SENSORIUM_DIR']`) pins it.
@@ -66,7 +66,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -x 2>&1 | tail -2     # 
 - Create: `tests/test_format2_fixture.py`
 
 **Interfaces:**
-- Produces: a trace with `meta.trace_format == 2`, recorded by 0.2.0 (`main` @ d59cafc) WITH `--focus format2_async:worker`, whose program has two tasks (one cancelled), a generator helper, and a coroutine awaited by a coroutine — so it holds unframed CALL events with `unframed`, `parent_frame`, `caller_code`, and the arc-1 `NOTHING WAS CHECKED` shape for `watch`. `installed_fixture2` pytest fixture (copies it to a disposable store as run id `old2`).
+- Produces: a trace with `meta.trace_format == 2`, recorded by 0.2.0 (`main` @ d59cafc) WITH `--focus format2_async:worker`, whose program has two tasks (one cancelled), a generator helper, and a coroutine awaited by a coroutine, so it holds unframed CALL events with `unframed`, `parent_frame`, `caller_code`, and the arc-1 `NOTHING WAS CHECKED` shape for `watch`. `installed_fixture2` pytest fixture (copies it to a disposable store as run id `old2`).
 
 - [ ] **Step 1: Write the program**
 
@@ -227,7 +227,7 @@ git commit -m "test: capture a real 0.2.0 (format-2) coroutine trace as a fixtur
 
 ---
 
-### Task 1: Format 3 — schema, writer, reader `frame_state`, `fmt_event`
+### Task 1: Format 3: schema, writer, reader `frame_state`, `fmt_event`
 
 **Files:**
 - Modify: `src/sensorium/store/db.py` (`TRACE_FORMAT`, frames table, new table), `src/sensorium/store/writer.py` (`open_frame`, frames INSERT), `src/sensorium/store/reader.py` (`Frame`, `_FRAME_COLS_V2/V3`, `_frame`, `__init__` column detection, `FrameState`, `frame_state`), `src/sensorium/query/fmt.py` (`fmt_event`)
@@ -367,7 +367,7 @@ def test_fmt_event_renders_yield_and_resume():
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `PYTHONDONTWRITEBYTECODE=1 $PY -m pytest tests/test_store_db.py tests/test_writer.py tests/test_reader.py tests/test_fmt.py -q`
-Expected: FAIL — format 2, no `kind` column/kwarg, `FrameState` missing, `fmt_event` renders `e12 YIELD   worker`.
+Expected: FAIL, format 2, no `kind` column/kwarg, `FrameState` missing, `fmt_event` renders `e12 YIELD   worker`.
 
 - [ ] **Step 3: Implement**
 
@@ -480,9 +480,9 @@ In `Trace.__init__` after the events-column probe: `fcols = {r[1] for r in conn.
                 else f"{q} L{e.line}")
 ```
 
-- [ ] **Step 4: Run** — the four files, then `tests/test_format1_fixture.py tests/test_format2_fixture.py`, then the full suite `-x`, then `PYTHONDONTWRITEBYTECODE=1 $PY corpus/run_corpus.py` → 15/27/0 (the recorder still opens frames only for functions; `kind` defaults).
+- [ ] **Step 4: Run**, the four files, then `tests/test_format1_fixture.py tests/test_format2_fixture.py`, then the full suite `-x`, then `PYTHONDONTWRITEBYTECODE=1 $PY corpus/run_corpus.py` → 15/27/0 (the recorder still opens frames only for functions; `kind` defaults).
 
-- [ ] **Step 5: Mutation checks** — (a) `frame_state`: replace `ts == us` with `True` → `test_frame_state_cancelled_requires_the_serials_to_match` fails; (b) swap the `cancelled`/`abandoned` type strings → `test_frame_state_derives_each_state_from_evidence` fails; (c) `fmt_event`: drop the `awaiting` tail → fmt test fails. Restore each.
+- [ ] **Step 5: Mutation checks**. (a) `frame_state`: replace `ts == us` with `True` → `test_frame_state_cancelled_requires_the_serials_to_match` fails; (b) swap the `cancelled`/`abandoned` type strings → `test_frame_state_derives_each_state_from_evidence` fails; (c) `fmt_event`: drop the `awaiting` tail → fmt test fails. Restore each.
 
 - [ ] **Step 6: Commit**
 
@@ -496,12 +496,12 @@ git commit -m "feat(store): trace format 3 -- frames.kind, task_fingerprints, de
 ### Task 2: `--window` as an ancestry flag (retire `window_depths`)
 
 **Files:**
-- Modify: `src/sensorium/record/tracer.py` — `_TLS.__init__` (drop `window_depths`), `_on_start` (compute `in_window`, live entry gains slot 5), `_on_return`/`_on_unwind` (drop the decrement blocks), `_on_line` (consult `entry[5]`)
+- Modify: `src/sensorium/record/tracer.py`, `_TLS.__init__` (drop `window_depths`), `_on_start` (compute `in_window`, live entry gains slot 5), `_on_return`/`_on_unwind` (drop the decrement blocks), `_on_line` (consult `entry[5]`)
 - Test: `tests/test_focus.py`
 
 **Interfaces:**
 - Produces: live entry layout `[fid, code, cid, prev_locals, depth, in_window]`; `Tracer._in_window(parent_entry, win_key) -> bool` = `win_key is not None or (parent_entry is not None and parent_entry[5])`.
-- Existing window tests (`test_window_limits_line_capture_to_dynamic_extent`, `..._module_qualified_target`, `..._reentry_...`) must pass unchanged. `test_abandoned_generator_does_not_wedge_window_open` is REWRITTEN: its `tracer._tls.window_depths` assertion goes (the structure no longer exists); the behavioural half stays and gains the reason "a frame is in the window iff an ancestor is the window target — no counter can wedge".
+- Existing window tests (`test_window_limits_line_capture_to_dynamic_extent`, `..._module_qualified_target`, `..._reentry_...`) must pass unchanged. `test_abandoned_generator_does_not_wedge_window_open` is REWRITTEN: its `tracer._tls.window_depths` assertion goes (the structure no longer exists); the behavioural half stays and gains the reason "a frame is in the window iff an ancestor is the window target. No counter can wedge".
 
 - [ ] **Step 1: Failing tests**
 
@@ -559,9 +559,9 @@ def test_window_on_a_coroutine_excludes_another_tasks_helper_during_suspension(t
     assert sorted(tags) == ["in", "in-again"]
 ```
 
-(The second test will not pass until Task 3 gives `windowed` a frame; write it now, mark it `@pytest.mark.xfail(strict=True, reason="coroutine frames arrive in Task 3")`, and REMOVE the xfail in Task 3 — that is the contract between the two tasks.)
+(The second test will not pass until Task 3 gives `windowed` a frame; write it now, mark it `@pytest.mark.xfail(strict=True, reason="coroutine frames arrive in Task 3")`, and REMOVE the xfail in Task 3, that is the contract between the two tasks.)
 
-- [ ] **Step 2: Run to verify** — `tests/test_focus.py -q`: the rewritten abandoned test FAILS on `not hasattr(...window_depths)`; the xfail test xfails.
+- [ ] **Step 2: Run to verify**. `tests/test_focus.py -q`: the rewritten abandoned test FAILS on `not hasattr(...window_depths)`; the xfail test xfails.
 
 - [ ] **Step 3: Implement**
 
@@ -596,20 +596,20 @@ with
             return None
 ```
 
-Update the `_TLS.live` comment to document slot 5 and the arc-1 test `test_parent_of_rejects_a_live_entry…` entries (they construct 5-slot lists — extend them to 6 slots `[7, code, 1, {}, 0, False]`).
+Update the `_TLS.live` comment to document slot 5 and the arc-1 test `test_parent_of_rejects_a_live_entry…` entries (they construct 5-slot lists, extend them to 6 slots `[7, code, 1, {}, 0, False]`).
 
-- [ ] **Step 4: Run** — `tests/test_focus.py tests/test_async.py tests/test_tracer.py`, full suite, corpus.
+- [ ] **Step 4: Run**, `tests/test_focus.py tests/test_async.py tests/test_tracer.py`, full suite, corpus.
 
-- [ ] **Step 5: Mutation** — in `_on_start` set `in_window = win_key is not None` (drop ancestry): `test_window_limits_line_capture_to_dynamic_extent` fails (inner's frames are not the window target). Restore.
+- [ ] **Step 5: Mutation**, in `_on_start` set `in_window = win_key is not None` (drop ancestry): `test_window_limits_line_capture_to_dynamic_extent` fails (inner's frames are not the window target). Restore.
 
-- [ ] **Step 6: Commit** — `git commit -m "refactor(record): --window is an ancestry flag on the live entry, not a per-thread counter"`.
+- [ ] **Step 6: Commit**, `git commit -m "refactor(record): --window is an ancestry flag on the live entry, not a per-thread counter"`.
 
 ---
 
 ### Task 3: Frames for every kind of code
 
 **Files:**
-- Modify: `src/sensorium/record/tracer.py` — `_classify` (return `kind` not `frameless`), `_frame_kind(code)`, `_on_start` (always `open_frame(..., kind)`; drop `unframed`/`parent_frame` payload keys), `_exc_event` and `_on_line` (drop kind exclusions), `_GENLIKE` comment, module docstring lines 30–36
+- Modify: `src/sensorium/record/tracer.py`, `_classify` (return `kind` not `frameless`), `_frame_kind(code)`, `_on_start` (always `open_frame(..., kind)`; drop `unframed`/`parent_frame` payload keys), `_exc_event` and `_on_line` (drop kind exclusions), `_GENLIKE` comment, module docstring lines 30–36
 - Modify: `tests/test_async.py` (three flipped tests rewritten), `tests/test_tracer.py::test_generators_recorded_frameless` → `test_generators_get_frames_of_kind_generator`, `tests/test_focus.py` (remove the xfail from Task 2's test)
 - Test: new `tests/test_coroutine_frames.py`
 
@@ -683,7 +683,7 @@ def test_focus_on_a_coroutine_records_its_lines(tmp_path):
 
 Rewrite in `tests/test_async.py`: `test_sync_helper_inside_a_coroutine_is_not_parented_to_the_module` → assert `f.parent_id` is a `worker` frame and NO `caller_code` (keep the name, rewrite the docstring: "arc 1 named the caller; arc 2 has a frame for it"); DELETE `test_coroutine_calls_are_recorded_unframed_with_their_kind` (its subject no longer exists; the format-2 fixture test covers the old shape); `test_generator_helper_names_the_generator_and_key_fn_finds_main` → `parse` frames' `parent_id == rows frame`, `rank` unchanged, and remove the `unframed_calls` assertions. `tests/test_tracer.py::test_generators_recorded_frameless` → rename `test_generators_get_frames_of_kind_generator` asserting `t.frames(code_id=gen_code.id)[0].kind == "generator"`.
 
-- [ ] **Step 2: Run to verify** — the new file fails (no coroutine frames; `unframed_calls()` non-empty); the rewritten tests fail likewise.
+- [ ] **Step 2: Run to verify**. The new file fails (no coroutine frames; `unframed_calls()` non-empty); the rewritten tests fail likewise.
 
 - [ ] **Step 3: Implement**
 
@@ -703,22 +703,22 @@ def _frame_kind(code) -> str:
     return "function"
 ```
 
-`_classify`: `kind = _frame_kind(code)`; drop the `_focus_hits` block (Task 5 removes the attribute; leave `self._focus_hits` assignment in `__init__` until then — or remove both here and adjust `unframed_focus` to return `[]`; choose removing both here and make `unframed_focus()` return `[]` with a docstring "retired in arc 2; removed in Task 5"); return `(True, rel, code.co_qualname, focused, kind, win_key)`; `untraced = (False, None, None, False, "function", None)`. Every caller that unpacked `frameless` now unpacks `kind` (`_on_start`, `_on_return`, `_on_unwind`, `_exc_event`, `_on_line`) — rename the variable; in `_on_start` delete the `if frameless:` payload block and the `if not frameless:` guard so the frame is ALWAYS opened: `fid = self.writer.open_frame(pfid, cid, eid, depth, tid, kind)`; in `_on_line` change `if not traced or not focused or frameless:` to `if not traced or not focused:`. Module docstring lines 30–36: replace with "Every traced code object opens a frame, generators and coroutines included (arc 2); a suspendable frame stays in `live` across its suspensions and leaves through PY_RETURN/PY_UNWIND like any other — the dropped-while-suspended case arrives as PY_THROW(GeneratorExit) + PY_UNWIND." Keep `_GENLIKE` for `_frame_kind` only.
+`_classify`: `kind = _frame_kind(code)`; drop the `_focus_hits` block (Task 5 removes the attribute; leave `self._focus_hits` assignment in `__init__` until then, or remove both here and adjust `unframed_focus` to return `[]`; choose removing both here and make `unframed_focus()` return `[]` with a docstring "retired in arc 2; removed in Task 5"); return `(True, rel, code.co_qualname, focused, kind, win_key)`; `untraced = (False, None, None, False, "function", None)`. Every caller that unpacked `frameless` now unpacks `kind` (`_on_start`, `_on_return`, `_on_unwind`, `_exc_event`, `_on_line`), rename the variable; in `_on_start` delete the `if frameless:` payload block and the `if not frameless:` guard so the frame is ALWAYS opened: `fid = self.writer.open_frame(pfid, cid, eid, depth, tid, kind)`; in `_on_line` change `if not traced or not focused or frameless:` to `if not traced or not focused:`. Module docstring lines 30–36: replace with "Every traced code object opens a frame, generators and coroutines included (arc 2); a suspendable frame stays in `live` across its suspensions and leaves through PY_RETURN/PY_UNWIND like any other, the dropped-while-suspended case arrives as PY_THROW(GeneratorExit) + PY_UNWIND." Keep `_GENLIKE` for `_frame_kind` only.
 
 Remove the `xfail` marker from `test_window_on_a_coroutine_excludes_another_tasks_helper_during_suspension`.
 
-- [ ] **Step 4: Run** — `tests/test_coroutine_frames.py tests/test_async.py tests/test_tracer.py tests/test_focus.py`; then the full suite: EXPECT failures in `tests/test_tree_frame.py`, `tests/test_runs_info.py`, `tests/test_watch.py`, `tests/test_exceptions.py::test_exceptions_refuses_to_classify_a_frameless_handler`, `tests/test_boot_cli.py` (focus warning) and the corpus (`generator_swallow`, `async_*`, `unframed_callers`) — these are the query-side and corpus flips Tasks 5–11 own. Record the exact list in your report; do NOT "fix" them here. The suite is red between Task 3 and Task 11 by design; each task's own files must be green.
+- [ ] **Step 4: Run** (`tests/test_coroutine_frames.py tests/test_async.py tests/test_tracer.py tests/test_focus.py`; then the full suite: EXPECT failures in `tests/test_tree_frame.py`, `tests/test_runs_info.py`, `tests/test_watch.py`, `tests/test_exceptions.py::test_exceptions_refuses_to_classify_a_frameless_handler`, `tests/test_boot_cli.py` (focus warning) and the corpus (`generator_swallow`, `async_*`, `unframed_callers`)) these are the query-side and corpus flips Tasks 5–11 own. Record the exact list in your report; do NOT "fix" them here. The suite is red between Task 3 and Task 11 by design; each task's own files must be green.
 
-- [ ] **Step 5: Mutation** — make `_frame_kind` return `"function"` always: the kind assertions fail. Restore.
+- [ ] **Step 5: Mutation**, make `_frame_kind` return `"function"` always: the kind assertions fail. Restore.
 
-- [ ] **Step 6: Commit** — `git commit -m "feat(record): every traced code object opens a frame, generators and coroutines included"`.
+- [ ] **Step 6: Commit**, `git commit -m "feat(record): every traced code object opens a frame, generators and coroutines included"`.
 
 ---
 
 ### Task 4: `YIELD` / `RESUME` events and the `suspended` slot
 
 **Files:**
-- Modify: `src/sensorium/record/tracer.py` — `install`/`uninstall` subscriptions, new `_on_yield`, `_on_resume`, `_on_throw`, live entry slot 6 `suspended`
+- Modify: `src/sensorium/record/tracer.py`, `install`/`uninstall` subscriptions, new `_on_yield`, `_on_resume`, `_on_throw`, live entry slot 6 `suspended`
 - Test: `tests/test_coroutine_frames.py`
 
 **Interfaces:**
@@ -816,11 +816,11 @@ def test_yield_and_resume_never_touch_the_fingerprint(tmp_path):
 
 Add `from sensorium.store.reader import FrameState` to the file's imports.
 
-- [ ] **Step 2: Run to verify** — FAIL: no YIELD events; states come back `open`/`raised`.
+- [ ] **Step 2: Run to verify**: FAIL: no YIELD events; states come back `open`/`raised`.
 
 - [ ] **Step 3: Implement**
 
-`_TLS`-independent: live entry becomes `[fid, code, cid, prev_locals, depth, in_window, suspended]` — in `_on_start` append `False`. Add the three callbacks after `_on_unwind`:
+`_TLS`-independent: live entry becomes `[fid, code, cid, prev_locals, depth, in_window, suspended]`, in `_on_start` append `False`. Add the three callbacks after `_on_unwind`:
 
 ```python
     def _suspension(self, code, kind, payload):
@@ -866,15 +866,15 @@ Add `from sensorium.store.reader import FrameState` to the file's imports.
         return self._suspension(code, "RESUME", {"thrown": capture_exc(exc, serial)})
 ```
 
-(`sys._getframe(2)` because `_suspension` sits one call deeper than the registered callback — verify with the cancel test that `YIELD` rows carry the worker frame's id; if `_getframe(2)` is wrong on your interpreter the test tells you, and `_getframe(1)` inside each callback passed down is the alternative.)
+(`sys._getframe(2)` because `_suspension` sits one call deeper than the registered callback, verify with the cancel test that `YIELD` rows carry the worker frame's id; if `_getframe(2)` is wrong on your interpreter the test tells you, and `_getframe(1)` inside each callback passed down is the alternative.)
 
 `install`: register `E.PY_YIELD → self._on_yield`, `E.PY_RESUME → self._on_resume`, `E.PY_THROW → self._on_throw`; add the three to `events`. `uninstall`: add them to the unregister tuple. Do NOT add them to `Fingerprint.update` anywhere.
 
-- [ ] **Step 4: Run** — `tests/test_coroutine_frames.py tests/test_async.py tests/test_tracer.py tests/test_focus.py tests/test_reader.py`.
+- [ ] **Step 4: Run**, `tests/test_coroutine_frames.py tests/test_async.py tests/test_tracer.py tests/test_focus.py tests/test_reader.py`.
 
-- [ ] **Step 5: Mutations** — (a) in `_on_throw` pass `serial=None` → the cancel test's `state == "cancelled"` fails (reader sees no serial match → "raised"); (b) skip `entry[6] = ...` → no test fails (slot unused until uninstall; note it); (c) add `self._fp(tid).update(...)` to `_suspension` → the fingerprint test fails. Restore.
+- [ ] **Step 5: Mutations**. (a) in `_on_throw` pass `serial=None` → the cancel test's `state == "cancelled"` fails (reader sees no serial match → "raised"); (b) skip `entry[6] = ...` → no test fails (slot unused until uninstall; note it); (c) add `self._fp(tid).update(...)` to `_suspension` → the fingerprint test fails. Restore.
 
-- [ ] **Step 6: Commit** — `git commit -m "feat(record): record YIELD/RESUME (and thrown-in RESUME) on suspendable frames"`.
+- [ ] **Step 6: Commit**, `git commit -m "feat(record): record YIELD/RESUME (and thrown-in RESUME) on suspendable frames"`.
 
 ---
 
@@ -884,7 +884,7 @@ Add `from sensorium.store.reader import FrameState` to the file's imports.
 - Modify: `src/sensorium/record/tracer.py` (`_focus_hits`, `unframed_focus` removed), `src/sensorium/record/boot.py` (`_finalize_meta` loses `focus_unframed`; the warning loop goes)
 - Test: `tests/test_focus.py` (replace the two `unframed_focus` tests), `tests/test_boot_cli.py` (replace the two warning tests)
 
-- [ ] **Step 1: Tests** — in `tests/test_focus.py` replace `test_focus_that_matched_only_coroutine_code_is_reported` and `test_focus_entry_that_matched_framed_and_unframed_code_is_not_reported` with:
+- [ ] **Step 1: Tests**, in `tests/test_focus.py` replace `test_focus_that_matched_only_coroutine_code_is_reported` and `test_focus_entry_that_matched_framed_and_unframed_code_is_not_reported` with:
 
 ```python
 def test_focus_on_a_coroutine_records_its_lines_with_locals(tmp_path):
@@ -913,7 +913,7 @@ def test_run_with_focus_on_a_coroutine_records_lines_and_stamps_no_warning(tmp_p
 
 ---
 
-### Task 6: `tree` — kinds, state tails, caller-tag wording
+### Task 6: `tree`: kinds, state tails, caller-tag wording
 
 **Files:**
 - Modify: `src/sensorium/query/tree_cmd.py` (`frame_line`, `_caller_of`, module docstring, footers unchanged)
@@ -922,10 +922,10 @@ def test_run_with_focus_on_a_coroutine_records_lines_and_stamps_no_warning(tmp_p
 **Interfaces:**
 - Produces: `frame_line` renders `fN eM qual(args)  [coroutine]` + tail; tails per spec D4 from `trace.frame_state(frame)`: ` -> value` / ` !! Exc` / ` ~ cancelled (CancelledError thrown in at L29)` / ` ~ abandoned (dropped while suspended at L6)` / ` ~ unwound by ValueError thrown in at L6` / ` ~ suspended at L29 at end of recording` / ` (open)`; kind marker only for non-`function` kinds; `_caller_of` wording: `(unframed)` when `trace.format < 3`, `(no frame: started before recording)` otherwise.
 
-- [ ] **Step 1: Tests** — rewrite the flipped tests in `tests/test_tree_frame.py`:
+- [ ] **Step 1: Tests**, rewrite the flipped tests in `tests/test_tree_frame.py`:
   - `test_tree_groups_by_task_and_names_the_real_caller` → `test_tree_groups_by_task_with_coroutine_frames`: in section `task t2: task-A`, a line `worker(name='A')  [coroutine] -> 'A:2'` exists and the `step(` lines are indented two more spaces than it; no `<- worker` anywhere; no `[coroutine, unframed]`.
   - `test_tree_unframed_count_matches_the_trace` → assert the unframed footer is ABSENT on a format-3 trace (`"unframed call(s) in this trace" not in out`).
-  - `test_tree_renders_a_generator_call_under_the_frame_that_called_it` → `rows(` line shows `[generator] -> None`? No — `rows` is a generator consumed by `list()`: it returns `None` at exhaustion → tail `-> None`; `parse(` lines indented under it; no tags.
+  - `test_tree_renders_a_generator_call_under_the_frame_that_called_it` → `rows(` line shows `[generator] -> None`? No, `rows` is a generator consumed by `list()`: it returns `None` at exhaustion → tail `-> None`; `parse(` lines indented under it; no tags.
   - `test_tree_around_an_unframed_event_says_so` → `--around` on a `YIELD` event resolves to its frame (record `ASYNC_SRC`, find a YIELD event, `tree --around eN` exit 0 and prints the `worker(` line).
   - `test_tree_depth_withholds_an_unframed_call_and_counts_it`, `test_tree_limit_pins_the_page…` → keep the `--limit`/`--depth` mechanics but assert on frames (the unframed counts are 0 on format 3): `--limit 1` prints exactly one frame line and the note names `--limit 1`.
   - `test_tree_names_the_unframed_caller_of_an_unframed_call` → `test_tree_nests_an_awaited_coroutine_under_its_awaiter`: `inner(` line is indented under `amain(` and both carry `[coroutine]`.
@@ -966,7 +966,7 @@ and `_caller_of`: `why = "unframed" if trace.format < 3 else "no frame: started 
 
 ---
 
-### Task 7: `frame` — header kind+state, suspension rows in the timeline
+### Task 7: `frame`: header kind+state, suspension rows in the timeline
 
 **Files:** `src/sensorium/query/frame_cmd.py`; tests in `tests/test_tree_frame.py`, `tests/test_format2_fixture.py`.
 
@@ -975,7 +975,7 @@ and `_caller_of`: `why = "unframed" if trace.format < 3 else "no frame: started 
 
 ---
 
-### Task 8: `exceptions` — lift the under-claim; thrown-in rule
+### Task 8: `exceptions`: lift the under-claim; thrown-in rule
 
 **Files:** `src/sensorium/query/exceptions_cmd.py` (docstring lines 85–91, `_unreadable_frame`, `classify` rule 2, `_swallowed` text), `tests/test_exceptions.py`, `tests/programs.py` (new shapes), `tests/test_format2_fixture.py`.
 
@@ -1026,7 +1026,7 @@ main()
 """
 ```
 
-tests: `CORO_SWALLOW_THEN_CANCELLED` → a line `SWALLOWED at e` … `(frame later cancelled at L` and `dispositions: swallowed 1`, `CancelledError` RAISE classified separately (propagated/ambiguous — assert only the swallow line); `GEN_SWALLOW_THEN_PARKED` → `ambiguous` with `never closed` (the existing arm; the new under-claim pin). Format-2 fixture: `exceptions old2` still prints `no frame recorded` for the fixture's cancelled worker? (the fixture has no handler inside a coroutine — assert only that the command exits 0 and prints no `~`/state claims).
+tests: `CORO_SWALLOW_THEN_CANCELLED` → a line `SWALLOWED at e` … `(frame later cancelled at L` and `dispositions: swallowed 1`, `CancelledError` RAISE classified separately (propagated/ambiguous, assert only the swallow line); `GEN_SWALLOW_THEN_PARKED` → `ambiguous` with `never closed` (the existing arm; the new under-claim pin). Format-2 fixture: `exceptions old2` still prints `no frame recorded` for the fixture's cancelled worker? (the fixture has no handler inside a coroutine, assert only that the command exits 0 and prints no `~`/state claims).
 - [ ] **Implement:** in `classify` rule 2, replace `if frame is not None and frame.closed_by == "return":` with `if frame is not None and (frame.closed_by == "return" or _closed_by_thrown_in_other(trace, frame, key)):` where
 
 ```python
@@ -1041,11 +1041,11 @@ def _closed_by_thrown_in_other(trace, frame, key) -> bool:
     return exc_key(s.exc, frame.thread_id) != key
 ```
 
-and `_swallowed` appends ` (frame later {state} at L{line})` when the frame's state is one of those three. `_unreadable_frame`'s `frame is None` arm: text → `"recorded by a sensorium before coroutine frames existed (format <= 2); no closed_by to read"`. Update the module docstring and README bullet later (Task 12). Update `tests/test_corpus.py::test_the_classifiers_under_claim_is_registered_somewhere` to point at the NEW corpus case `suspended_handler` (Task 11) — do it in Task 11. Commit `feat(exceptions): classify handlers inside coroutine/generator frames; thrown-in unwinds do not make an earlier handler ambiguous`.
+and `_swallowed` appends ` (frame later {state} at L{line})` when the frame's state is one of those three. `_unreadable_frame`'s `frame is None` arm: text → `"recorded by a sensorium before coroutine frames existed (format <= 2); no closed_by to read"`. Update the module docstring and README bullet later (Task 12). Update `tests/test_corpus.py::test_the_classifiers_under_claim_is_registered_somewhere` to point at the NEW corpus case `suspended_handler` (Task 11), do it in Task 11. Commit `feat(exceptions): classify handlers inside coroutine/generator frames; thrown-in unwinds do not make an earlier handler ambiguous`.
 
 ---
 
-### Task 9: `watch`, `info` — tests re-pointed, `info` wording
+### Task 9: `watch`, `info`: tests re-pointed, `info` wording
 
 **Files:** `src/sensorium/query/info_cmd.py`; `tests/test_watch.py`, `tests/test_runs_info.py`, `tests/test_format2_fixture.py`.
 
@@ -1054,21 +1054,21 @@ and `_swallowed` appends ` (frame later {state} at L{line})` when the frame's st
 
 ---
 
-### Task 10: Corpus — re-register five cases, add four
+### Task 10: Corpus: re-register five cases, add four
 
 **Files:** the five existing case dirs; new `corpus/abandoned_generator/`, `corpus/suspended_handler/`, `corpus/window_across_suspension/`, `corpus/async_handler/`; `tests/test_corpus.py` (count ≥ 19; the under-claim pin moves to `suspended_handler`).
 
 Discipline: rewrite each `questions.yaml` BEFORE running the case; record timestamps; bite-check each changed question. Rulings: Ruling 2 (format pre-flight) stands.
 
 - [ ] **generator_swallow**: `truth` → the frame exists and `closed_by` is `return` for each handler → `dispositions: swallowed 2`; `expect_contains: ["dispositions: swallowed 2"]`; `expect_line: [["SWALLOWED at e", "parse_all"], ...×2 via expect_count {"SWALLOWED": 2}]`; `expect_absent: ["no frame recorded", "ambiguous"]`; docstring in `main.py` rewritten: "until 0.3.0 this was the honest under-claim; frames made it decidable".
-- [ ] **async_cancelled**: `did-b-finish` keeps its counts, adds `expect_line [["worker()", "[coroutine]", "~ cancelled (CancelledError thrown in at L29)"]]` (the line number is the file's `await GATE.wait()` — re-verify; the tree tail names it); `whose-second-step-was-it` → `depth 1` (step is now a child of worker's frame) and the truth text updated; `where-was-b-when-cancelled` → command `frame $RUN --fn worker --nth 2` with `expect_line [["state: cancelled at L29"]]` plus keep the `exceptions` RAISE pin as a second question.
+- [ ] **async_cancelled**: `did-b-finish` keeps its counts, adds `expect_line [["worker()", "[coroutine]", "~ cancelled (CancelledError thrown in at L29)"]]` (the line number is the file's `await GATE.wait()`, re-verify; the tree tail names it); `whose-second-step-was-it` → `depth 1` (step is now a child of worker's frame) and the truth text updated; `where-was-b-when-cancelled` → command `frame $RUN --fn worker --nth 2` with `expect_line [["state: cancelled at L29"]]` plus keep the `exceptions` RAISE pin as a second question.
 - [ ] **async_focus**: → `watch` now HITs: `expect_contains ["HIT"]`, `expect_absent ["NOTHING WAS CHECKED", "opens no frame"]`; ask/truth rewritten ("the coroutine is framed and focused; the predicate held at N sites").
 - [ ] **async_interleaved**: `update` frames are children of `writer` frames: `expect_line [["writer(wait_for=", "[coroutine]"], ["update(key='last_seen', value=2)"]]`, `expect_count {"[coroutine]": 3}`, drop the `<- writer` pins; `the-winning-frame-names-its-task` → `depth 1`.
 - [ ] **unframed_callers**: rename the case dir to `generator_callers` (git mv), `rows(` line `[generator]`, `parse(` lines children (indent), `expect_absent ["<- rows"]`, `rank` unchanged.
-- [ ] **New `abandoned_generator`**: a generator dropped mid-iteration (planted bug: a consumer `break`s early and the cleanup in the generator's `finally` never ran … no — keep it pure: `tree` shows `~ abandoned (dropped while suspended at L<n>)`); question: "did the generator finish, and if not where was it when it was dropped?"
+- [ ] **New `abandoned_generator`**: a generator dropped mid-iteration (planted bug: a consumer `break`s early and the cleanup in the generator's `finally` never ran … no, keep it pure: `tree` shows `~ abandoned (dropped while suspended at L<n>)`); question: "did the generator finish, and if not where was it when it was dropped?"
 - [ ] **New `suspended_handler`** (the under-claim pin): `GEN_SWALLOW_THEN_PARKED` shape; `exceptions` → `dispositions: ambiguous 1`, `never closed`; `tree` → `~ suspended at L<n> at end of recording`. `tests/test_corpus.py::test_the_classifiers_under_claim_is_registered_somewhere` → asserts this case pins `"dispositions: ambiguous 1"` and `expect_absent` contains `"SWALLOWED"`.
 - [ ] **New `window_across_suspension`**: `TWO_TASK_WINDOW` shape, `record: {focus: ["main:helper"], window: "windowed"}`, `watch --at main:helper --expr "x == 'out'"` → `NOT SATISFIED`/no hit for `"out"` and sites only from the windowed task (pin `sites: 2`); the `why_logs_fail`: a print in helper fires three times and cannot say which ran during the other task's suspension.
-- [ ] **New `async_handler`** (field target): a FastAPI-shaped program — `async def handle(req): items = parse(req); await asyncio.sleep(0); return summarise(items)` driven by a tiny `serve()` that creates one task per request; planted bug in `summarise`; `record: {focus: ["main:handle"]}`; questions: `watch --at main:handle --expr "len(items) > 2"` HIT/verdict; `tree` shows `handle(` `[coroutine]` per task with `parse`/`summarise` children.
+- [ ] **New `async_handler`** (field target): a FastAPI-shaped program, `async def handle(req): items = parse(req); await asyncio.sleep(0); return summarise(items)` driven by a tiny `serve()` that creates one task per request; planted bug in `summarise`; `record: {focus: ["main:handle"]}`; questions: `watch --at main:handle --expr "len(items) > 2"` HIT/verdict; `tree` shows `handle(` `[coroutine]` per task with `parse`/`summarise` children.
 - [ ] Run each `--only`, then the whole corpus (19 cases), bite-checks, `tests/test_corpus.py`; commit `test(corpus): re-register five cases for coroutine frames; add abandoned, suspended-handler, window, handler cases`.
 
 ---
@@ -1090,7 +1090,7 @@ async def spin(n):
 asyncio.run(spin(20000))
 '''
 ```
-registered `"await_dense": (AWAIT_DENSE, "prog:spin")` (focusable now — LINE inside the coroutine); docstring "WHY FOUR WORKLOADS": the fourth measures YIELD+RESUME per suspension. Run `--bench` on this branch and on 0.2.0 (worktree at d59cafc; the 0.2.0 table lacks the row); record both in the report.
+registered `"await_dense": (AWAIT_DENSE, "prog:spin")` (focusable now: LINE inside the coroutine); docstring "WHY FOUR WORKLOADS": the fourth measures YIELD+RESUME per suspension. Run `--bench` on this branch and on 0.2.0 (worktree at d59cafc; the 0.2.0 table lacks the row); record both in the report.
 - [ ] README: the "On an asyncio program…" paragraph → coroutine frames, states, `--focus`/`watch` inside `async def`; `### tree` second paragraph → "(a caller that started before recording)"; `### exceptions` bullet → "Generators and coroutines have frames (0.3.0); a handler inside one is classified by the same rules; a frame later unwound by a thrown-in CancelledError/GeneratorExit does not make an earlier handler ambiguous (it says `frame later cancelled at Ln`). A generator still suspended when recording stopped is `ambiguous … never closed`."; "What sensorium sees" bullet 167 → states list; `## Not yet` → drop the inside-async item, add "refocus/diff compare tasks by content (plan 2b)"; Overhead: add the `await_dense` row + one sentence with the measured per-event cost vs the 114 ns floor; Corpus: 19 cases / N questions + the new honesty cases; version `0.3.0`; spec status line → `Status: plan 2a implemented on feat/async-arc2; plan 2b pending`.
 - [ ] Matrix 3.12/3.13/3.14 tests + corpus (as in arc 1 Task 12); commit `docs: inspectable coroutines (arc 2a) -- README, version 0.3.0`.
 
@@ -1098,8 +1098,8 @@ registered `"await_dense": (AWAIT_DENSE, "prog:spin")` (focusable now — LINE i
 
 ## Self-review
 
-**Spec coverage:** D1 (frames for all, YIELD/RESUME/THROW events, `in_window`, retirements) → Tasks 2–5; D2 (derived states) → Task 1 (`frame_state`) + Task 4 (end-to-end) + Task 6 (rendering); D3 (format 3, fixture) → Tasks 0–1; D4 (`tree`, `frame`, `exceptions`, `watch`, `info`, `grep` via `fmt_event`) → Tasks 1, 6, 7, 8, 9; D5 (`--window` across suspension) → Task 2 + corpus `window_across_suspension`; D7 verification (re-registrations, new cases, bench, matrix) → Tasks 10–11; honesty rules 1–6 → Task 6 tails (1, 2), Task 4 fingerprint test (3), fixture tests (4), Task 8 text (5), Task 11 README (6). D6 (2b) deliberately absent — its table exists from Task 1.
+**Spec coverage:** D1 (frames for all, YIELD/RESUME/THROW events, `in_window`, retirements) → Tasks 2–5; D2 (derived states) → Task 1 (`frame_state`) + Task 4 (end-to-end) + Task 6 (rendering); D3 (format 3, fixture) → Tasks 0–1; D4 (`tree`, `frame`, `exceptions`, `watch`, `info`, `grep` via `fmt_event`) → Tasks 1, 6, 7, 8, 9; D5 (`--window` across suspension) → Task 2 + corpus `window_across_suspension`; D7 verification (re-registrations, new cases, bench, matrix) → Tasks 10–11; honesty rules 1–6 → Task 6 tails (1, 2), Task 4 fingerprint test (3), fixture tests (4), Task 8 text (5), Task 11 README (6). D6 (2b) deliberately absent. Its table exists from Task 1.
 
-**Placeholder scan:** none; Tasks 5–9 and 11 are specified by deltas + code where the surface is small, with the exact strings the tests pin. Task 10's new programs are sketched by shape where the brief's pre-registration rule requires the implementer to author the YAML before running — the facts to pin are named.
+**Placeholder scan:** none; Tasks 5–9 and 11 are specified by deltas + code where the surface is small, with the exact strings the tests pin. Task 10's new programs are sketched by shape where the brief's pre-registration rule requires the implementer to author the YAML before running. The facts to pin are named.
 
 **Type consistency:** `Frame.kind: str = "function"`; `FrameState(state, line, exc)`; `Trace.frame_state(frame)`; `Trace.suspensions(fid)`; live entry `[fid, code, cid, prev_locals, depth, in_window, suspended]` (Tasks 2→4); `_classify` 6-tuple with `kind`; `TraceWriter.open_frame(..., kind="function")`; `fmt_event` YIELD/RESUME forms used by Task 7's timeline.

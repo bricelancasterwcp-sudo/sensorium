@@ -1,7 +1,7 @@
-# CARRIED-DEBT — volume 7
+# CARRIED-DEBT: volume 7
 
-The S5 slice-2 section — the E6″ ceiling exception and the E10′ converter
-ladder — moved here **2026-09-11** (S5 rung 3, naming the ambiguity, in its
+The S5 slice-2 section (the E6″ ceiling exception and the E10′ converter
+ladder) moved here **2026-09-11** (S5 rung 3, naming the ambiguity, in its
 final review's fix wave) so [`docs/CARRIED-DEBT.md`](CARRIED-DEBT.md) stays
 under 800 lines. It is the seventh numbered volume, on the rule
 [`docs/CARRIED-DEBT-ARCHIVE-2.md`](CARRIED-DEBT-ARCHIVE-2.md) set when it was
@@ -10,8 +10,8 @@ growing file.
 
 The move was measured before it was made, the way the ledger's own lesson
 asks: the fix wave's four new debt rows were drafted at **40** lines against a
-live file of **799**, which would have taken it to **839** — 39 over the
-ceiling before this volume's own pointer paragraph was counted — so the oldest
+live file of **799**, which would have taken it to **839** (39 over the
+ceiling before this volume's own pointer paragraph was counted) so the oldest
 section was cut rather than the ceiling discovered.
 
 **The wording, the order and the strikes are unchanged**, with no exception:
@@ -20,12 +20,12 @@ exactly as it was in the live file, and nothing is deleted. The house rule
 stated in `docs/CARRIED-DEBT.md`'s header governs every volume, and a deferred
 item below is still open unless it is struck.
 
-## 2026-09-10 — S5 slice 2 (Python 0.9.1 / sensorium-ts 0.1.1)
+## 2026-09-10: S5 slice 2 (Python 0.9.1 / sensorium-ts 0.1.1)
 
-The slice that answers the two things rung 1 shipped open — E6′'s STOPped
-timing clause and E10's design input — and fixes what the `node --test` path
-was getting wrong. Ten plan decisions (P1–P10), and — read off the slice's
-SDD ledger rather than counted by hand — **eleven** distinct controller
+The slice that answers the two things rung 1 shipped open (E6′'s STOPped
+timing clause and E10's design input) and fixes what the `node --test` path
+was getting wrong. Ten plan decisions (P1–P10), and (read off the slice's
+SDD ledger rather than counted by hand) **eleven** distinct controller
 rulings, two of them stated twice (once in a task's risk table and again in
 its bullet), one clause each:
 
@@ -38,13 +38,13 @@ its bullet), one clause each:
 4. the timed region keeps `rss_run.py`'s ~16 ms start-up in **every** stage,
    so the bound stands as written and no threshold moves;
 5. the 4.0 load guard admits repetitions on a jobs-16 cell's own decaying
-   load — the pre-registered guard stands and the readings are in the JSON;
+   load. The pre-registered guard stands and the readings are in the JSON;
 6. Task 3 absorbs two record minors and builds `TraceWriter.discard()`
    (rollback then close) behind `Builder.abort()`;
 7. the streaming reader's UTF-8 refusal names the **line**, where the old
    reader named the file;
 8. `sensorium diff` MATCH compares causal structure and row counts and not
-   recorded values — so E10′-eq stands on its own pre-registered rule, and a
+   recorded values, so E10′-eq stands on its own pre-registered rule, and a
    NEW ungated check, E10′-eq-content, is pre-registered before it runs;
 9. Task 7 adds `tests/test_ts_ingest_refusals.py` to CI's `typescript` job
    file list, for symmetry with the matrix jobs' bare `pytest -q`;
@@ -65,33 +65,33 @@ number below is copied from
 byte-locked before any of this code existed.
 
 **Measured before it was written, the way the rule asks.** This section was
-drafted at **250** lines against a live file of **452** — 415 at the
-slice's start, plus **37** the strikes above added — which took it to
+drafted at **250** lines against a live file of **452** (415 at the
+slice's start, plus **37** the strikes above added) which took it to
 **703**, under the 800-line ceiling. Nothing was cut, and no volume
 was opened. *(Re-measured 2026-09-10 after the task's review: the fix wave
 added **19** lines here, so the section is **269** and the file **722**. A
 line count stated in a paragraph goes stale the next time the paragraph's own
-section is edited — this file's header has recorded that happening to three
-volume counts — so the number is re-taken rather than left standing, and both
+section is edited (this file's header has recorded that happening to three
+volume counts) so the number is re-taken rather than left standing, and both
 readings are kept. Re-measured a third time the same day, after the FINAL
 review's fix wave struck the ` > ` row, enumerated the rulings above and
 amended the version-token row: the section is **313** and the file **774**,
-this sentence's own four lines included — writing the count moved the count,
+this sentence's own four lines included, writing the count moved the count,
 which is the lesson in one line. Still under the 800-line ceiling.)*
 
 ### Settled
 
-- **E6″ — PASS on all five clauses.** One guarded session on the lens (five
+- **E6″: PASS on all five clauses.** One guarded session on the lens (five
   plain runs, one call-tier recording, five plain runs, the manifest last):
   manifest **748 OK / 0 FAILED** before and after, ten of ten plain runs at
   `372 passed (372)` / `4278 passed (4278)` and **nothing dropped**, **0**
   `__srt` markers over the 2 cache directories that exist,
   `node_modules/.sensorium` **absent**, and the after arm's median
-  **22.1136 s** inside the band **[21.9834, 22.3652]** — the before arm's own
+  **22.1136 s** inside the band **[21.9834, 22.3652]**, the before arm's own
   median **22.1743** ± its own range **0.1909**. The after arm is **0.0607 s
   faster** than the before arm. E6 is closed for this recorder on this lens,
   and the rung-1 spec's §11 carries the dated line saying so.
-- **E10′ — PASS on all three gated clauses; the converter stays Python.**
+- **E10′: PASS on all three gated clauses; the converter stays Python.**
   **E10′-suite 16.3859 s** (n=5) against the pinned **22.5925 s** wall,
   **E10′-file 0.1648 s** (n=5) against **0.4002 s**, and **E10′-eq 372 MATCH
   / 0 DIVERGED / 0 REFUSED** over the same set converted twice. Two levers,
@@ -106,29 +106,29 @@ which is the lesson in one line. Still under the 800-line ceiling.)*
   pre-registered *after* the gate was read so it could not touch its verdict:
   **E10′-eq-content**, every row of `events`, `frames`, `code_objects`,
   `tasks`, `fingerprints`, `task_fingerprints` and `output` compared column
-  for column across all 372 pairs — **372 / 372 identical**, the only `meta`
+  for column across all 372 pairs, **372 / 372 identical**, the only `meta`
   key differing on any pair being the minted `run_id`. The instrument was
   mutation-checked before it ran: a changed column, a deleted row and a
   changed `meta` value were each caught and named.
-- **H1 — the loader hook returns Node's own format and erases nothing**
+- **H1. The loader hook returns Node's own format and erases nothing**
   (`05e5338`). It classified by extension and forced `format: 'module'`; it
   now asks `nextLoad` and takes the answer, so **Node** strips and the
   recorder splices. The `.mts` that was instrumented and never stripped now
   records.
-- **H2 — one probe per extension, two controls, under `node --test`**
+- **H2, one probe per extension, two controls, under `node --test`**
   (`761c935`). `.ts`, `.mts`, `.mjs`, `.cjs` and the controls `enum.ts` and
   `jsx.tsx`: `check.mjs nodetest` reads **25 checks, 0 failures**, and both
   controls fail **identically** hooked and plain
   (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, `ERR_UNKNOWN_FILE_EXTENSION`,
   `same: true` twice). The controls discriminate, measured: against the
   pre-fix hook `enum.ts` **loaded** under the recorder and failed plain.
-- **H3 / R45 — a run that recorded nothing says why when the tallies know**
+- **H3 / R45. A run that recorded nothing says why when the tallies know**
   (`5af2def`). Where every tally reads `files_transformed: 0` and the
   exclusions are non-empty, the refusal names them by reason with counts
   (`commonjs x2, parse-error x1`), the ES-modules-only clause appended only
   when `commonjs` is among them (plan P6, R27's precedent). A partial suite
   keeps the old sentence: a real recording failure is not an exclusion.
-- **H4 / R47 — `hook.mjs:98` became `hook.mjs` `load`** (`90d6380`). A line
+- **H4 / R47, `hook.mjs:98` became `hook.mjs` `load`** (`90d6380`). A line
   number in a ledger is a citation that goes stale on the next edit; H1 moved
   those lines in this same slice. No `hook.mjs:<line>` citation remains in
   any document this slice can edit.
@@ -148,16 +148,16 @@ which is the lesson in one line. Still under the 800-line ceiling.)*
 Each row is a decision that was made rather than a thing forgotten, with the
 number or the ruling that made it and what it costs if it was wrong.
 
-- **A2, largest-first dispatch — not built.** Spec §3.3 conditioned it on
+- **A2, largest-first dispatch, not built.** Spec §3.3 conditioned it on
   A1 + A3 leaving the suite cell above the bound; a3's 0d read **16.5088 s**,
   **6.0837 s** below the 22.5925 s bound. *Cost if wrong:* a converter faster
   than the verdict needed is not built, and the numbers say exactly how much
   headroom was left.
-- **A4, the per-record Python cost — not built**, on the same condition and
+- **A4, the per-record Python cost, not built**, on the same condition and
   the same number. *Cost if wrong:* the same, plus the attribution question
   A3 raised (which share of its 1.25 s is decode, allocator or collector)
   stays unanswered.
-- **Arm B — a Node or Rust converter — never built** (*Brice's ruling
+- **Arm B (a Node or Rust converter) never built** (*Brice's ruling
   2026-09-10, spec §10.1*): Arm B stops at the report, a Node converter is a
   later slice. The suite clause PASSed, so nothing asked for it. *Cost if
   wrong:* none this slice can see; the ladder's rungs are on record for
@@ -174,7 +174,7 @@ number or the ruling that made it and what it costs if it was wrong.
   default** (T2 M3). One sentence. *Cost if wrong:* a reader of the class
   learns the default from the constructor signature instead.
 - **A `Spool` that is never iterated leaves its handle to the collector**
-  (T3 M3) — a `ResourceWarning` under `-W error`, not a leak in any shipped
+  (T3 M3), a `ResourceWarning` under `-W error`, not a leak in any shipped
   path. *Cost if wrong:* a future caller that constructs and abandons spools
   in a loop holds file descriptors longer than it should.
 - **`torn_tail` still has no production consumer** (T3 M7, pre-existing).
@@ -183,8 +183,8 @@ number or the ruling that made it and what it costs if it was wrong.
 - **`sensorium diff` exit 0 counts its leniencies as MATCH** (T4 M5):
   "MATCH modulo location" and "nothing to compare" are not separated from a
   plain MATCH by the gate's instrument. Closed in practice by
-  E10′-eq-content's 372/372 — the rows are identical, so no pair could have
-  been leniently matched — but the instrument still cannot tell them apart.
+  E10′-eq-content's 372/372 (the rows are identical, so no pair could have
+  been leniently matched) but the instrument still cannot tell them apart.
   *Cost if wrong:* a future gate on a set where the leniencies fire reads
   MATCH for something weaker.
 - **`probes/check.mjs` collapses duplicate probe names and pins no spool
@@ -200,19 +200,19 @@ number or the ruling that made it and what it costs if it was wrong.
   parsed, and each report says so. *Cost if wrong:* a future rung reads a
   zero as a measurement.
 - **A dropped plain run STOPs E6″'s suite clause outright** (T6 M2), so the
-  "fewer than four usable walls" STOP-by-instrument is nearly unreachable —
-  the conjunction fails first. It is the conservative direction (an
+  "fewer than four usable walls" STOP-by-instrument is nearly unreachable.
+  The conjunction fails first. It is the conservative direction (an
   instrument that cannot manufacture a PASS), and it was not disclosed in the
   pre-registration. *Cost if wrong:* a future session reading the rule
   expects a graceful degradation it will not get.
 - **The five E6″ clauses cannot see a failed call run** (T6 M3). The call run
   is the contamination *source* and deliberately outside the clause (record
-  §5 gap 10); its greenness was checked by hand — call row ok, exit 0, 372
+  §5 gap 10); its greenness was checked by hand, call row ok, exit 0, 372
   spools. *Cost if wrong:* a session whose recording half-failed reads as a
   clean PASS unless someone looks.
 - **The manifest's sha256 is recorded, not enforced** (T6 M4). `e6pp.sh`
   derives the expected OK count from the manifest's own `wc -l`, so it writes
-  the manifest's sha into the cell to anchor *which* 748 — but nothing
+  the manifest's sha into the cell to anchor *which* 748, but nothing
   compares that sha to the pinned value automatically. *Cost if wrong:* a
   truncated or swapped manifest passes the count clause and the mismatch is
   visible only to a reader who checks the sha by eye.
@@ -224,14 +224,14 @@ number or the ruling that made it and what it costs if it was wrong.
   §5 gap 8): ±0.1909 s here against the ±0.4085 s spec §2.2's worked example
   derives from E1′. A PASS here is a claim against a tighter yardstick, not a
   tighter claim, and sensitivity is not comparable across sessions. A session
-  wanting stable sensitivity would pre-register a floor on the band's width —
+  wanting stable sensitivity would pre-register a floor on the band's width,
   which §2.2 deliberately refused, a chosen width being the thing it refused.
   *Cost if wrong:* a later E6 whose control arm is noisier passes a clause this
   one would have failed, and the two PASSes get read as the same claim.
 - **"Under 4.0" is not "idle"** (record §5 gap 9). Ten of the eleven guarded
   readings were above 3.0 and only the before arm's first run was cold
-  (0.35). The asymmetry runs **against** a contamination finding — the arm on
-  the quieter box is the slower one — but a guard that wanted the arms
+  (0.35). The asymmetry runs **against** a contamination finding (the arm on
+  the quieter box is the slower one) but a guard that wanted the arms
   ambient-matched would wait for a *return* to a baseline, not for a ceiling.
   *Cost if wrong:* on a session where the asymmetry ran the other way, ambient
   load and not the recording would be the thing the band measured.
@@ -260,22 +260,22 @@ number or the ruling that made it and what it costs if it was wrong.
   provenance is the point and it is written down.
 - **`assemble.py`'s `load()` leaks a filesystem path into an absent-file
   reason**, where every other field is redacted. No absent cell occurred, so
-  no path shipped. *Cost if wrong:* one box path in a committed results file
-  — which is exactly what `offenders()` exists to refuse.
+  no path shipped. *Cost if wrong:* one box path in a committed results file,
+which is exactly what `offenders()` exists to refuse.
 - ~~**`docs/TRACE-FORMAT.md`'s `capabilities.err_flow` sentence still names
   `sensorium-ts 0.1.0`**, and so does
   `corpus/typescript/exceptions_refused/questions.yaml:12` ("no TypeScript
-  disposition rules exist in 0.1.0", in the case's `truth` prose) — **two**
+  disposition rules exist in 0.1.0", in the case's `truth` prose), **two**
   version tokens this slice left standing, not one. *(Amended 2026-09-10 in
   the final fix wave: this row claimed to be the only one.)* Both are true
-  of 0.1.0 and still true of 0.1.1 — the same rung still owes the
-  disposition rules, and `capabilities.err_flow` is false in both — and the
+  of 0.1.0 and still true of 0.1.1 (the same rung still owes the
+  disposition rules, and `capabilities.err_flow` is false in both) and the
   corpus file is left alone because no test reads that prose, and
   `docs/TRACE-FORMAT.md` sits at **799** of 800 lines, which this slice
   pre-committed not to open (plan Global Constraints). *Cost if wrong:* a
   reader on 0.1.1 goes looking for a version statement that has not moved
   because it did not need to. The four others the first pass missed were
-  taken 2026-09-10 rather than deferred, so this row — in its two places —
+  taken 2026-09-10 rather than deferred, so this row (in its two places)
   is the whole of the deferral: `typescript/README.md`'s
   "Arguments are unread" and `typescript/HONESTY.md`'s `capabilities.err_flow`
   sentence are now **version-free** ("in this version"), because both describe
@@ -283,7 +283,7 @@ number or the ruling that made it and what it costs if it was wrong.
   "Not yet" clause and `typescript/HONESTY.md`'s "a trace this 0.1.0 runtime
   wrote" **keep `0.1.0` and name `0.1.1` beside it**, because both are about
   traces a 0.1.0 runtime actually wrote and both versions declare the same
-  capability.~~ — **Both closed 2026-09-10, S5 rung 2**, and neither by a
+  capability.~~, **Both closed 2026-09-10, S5 rung 2**, and neither by a
   version-token sweep: `docs/TRACE-FORMAT.md`'s sentence was rewritten when
   `err_flow` became a key **two** recorders declare (it names `sensorium-ts`
   ≥ 0.2.0 now), and the corpus case was renamed `silent_swallow` with its
@@ -312,13 +312,13 @@ The per-task minors this slice did not fund are in the slice's SDD ledger
   reading is the defect. The second was caught by mutation: `e6pp_report.py`
   had a test that compared the after arm's **wall** where the rule compares
   its **median**, and a mutant that swapped them survived until the mutation
-  round found it — fifteen mutations, one real gap. An instrument gets the
+  round found it, fifteen mutations, one real gap. An instrument gets the
   same evidence standard as the thing it measures, or the measurement is
   worth what the instrument's tests are worth.
 - **A prediction can fail in the fast direction, and that is still a
   falsification.** Six of the ten per-cell predictions this ladder
   pre-registered did not hold as written, and **five of the six were faster
-  than predicted** — A1's "0e unchanged" by a factor of 2.2004, A3's "wall
+  than predicted**: A1's "0e unchanged" by a factor of 2.2004, A3's "wall
   within noise" by about 1.25 s on each large cell. The temptation each time
   is to read a happy number as a held prediction; the discipline is that the
   prediction said something specific and the cell said something else, so the
@@ -328,7 +328,7 @@ The per-task minors this slice did not fund are in the slice's SDD ledger
 - **Check that two numbers are the same kind of number before naming their
   difference a finding.** Rung 1's E10 reading and this slice's Arm 0 both
   measure "full-suite ingest", and neither is comparable to E6″'s call run
-  (n=1, unguarded within itself, over a set nothing pinned) — the record says
+  (n=1, unguarded within itself, over a set nothing pinned). The record says
   so in three places rather than letting a reader subtract them. The same
   care named the wrapper's start-up as part of the timed region *before* a
   gated clause stood on it, and named the band's width as a session property
@@ -336,6 +336,6 @@ The per-task minors this slice did not fund are in the slice's SDD ledger
 - **Draft, measure, then cut.** The previous CHANGELOG cut was sized by
   guessing at the entry's length and the file landed at 833. This one drafted
   the `0.9.1` entry first (**105** lines against a live file of **756**,
-  which would have taken it to **862**), and only then cut — two entries
+  which would have taken it to **862**), and only then cut, two entries
   rather than one, with the arithmetic for both written into the archive's
   own note. The same order was used for this section.

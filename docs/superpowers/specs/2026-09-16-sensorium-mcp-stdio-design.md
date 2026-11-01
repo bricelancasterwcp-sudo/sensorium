@@ -1,10 +1,10 @@
-# sensorium as an MCP server — the local stdio slice
+# sensorium as an MCP server: the local stdio slice
 
 2026-09-16, against `main` @ `7844571` (0.17.0). The first slice of the
 product direction Brice ruled on 2026-09-13: sensorium is to be offered as
 an MCP service for companies with a free tier for individuals. This slice
-ships the free tier as it will be used — one process, `sensorium mcp`, over
-the developer's own store, speaking the Model Context Protocol on stdio —
+ships the free tier as it will be used (one process, `sensorium mcp`, over
+the developer's own store, speaking the Model Context Protocol on stdio)
 and it is also the exact process a hosted deployment will later run per
 tenant. Transport, upload, tenants and authentication are the next slice
 (§11).
@@ -20,7 +20,7 @@ exists).
   surface, the policy knobs and the audit log ship now; a hosted transport
   is a later slice.
 - **Execution (Brice, 2026-09-16):** read-only by default. `record` and
-  `refocus` — the two operations that run the user's program — exist as
+  `refocus` (the two operations that run the user's program) exist as
   tools only when the server is started with an explicit flag, default
   off. A hosted deployment never sets it.
 - **Approach (Brice, 2026-09-16, of three offered):** the CLI is the tool
@@ -39,7 +39,7 @@ exists).
 ## 1. What ships
 
 - `sensorium mcp [--allow-run] [--store DIR] [--max-output BYTES]
-  [--timeout SECONDS] [--run-timeout SECONDS]` — a JSON-RPC 2.0 server on
+  [--timeout SECONDS] [--run-timeout SECONDS]`, a JSON-RPC 2.0 server on
   stdin/stdout, one line per message, that answers the MCP lifecycle
   (both the legacy `initialize` handshake and the 2026-07-28
   `server/discover` model), `ping`, `tools/list`, `tools/call` and the
@@ -78,10 +78,10 @@ name `run` reads as "execute" in every client's prior and is the same word
 as the `run` *field* every query carries; `record` is the README's first
 verb and precise.
 
-### 2.2 Descriptions — one source, two surfaces
+### 2.2 Descriptions: one source, two surfaces
 
 A tool's description is the parser's `help=` one-liner, a full stop, and
-its `description=` sentence — the same two strings `sensorium <cmd>
+its `description=` sentence. The same two strings `sensorium <cmd>
 --help` prints (**D3**). Today every query parser has a `help=` and no
 `description=`; this slice writes the eleven sentences below into the
 parsers, so `--help` gains them too. Each sentence carries what the prior
@@ -109,7 +109,7 @@ make; `after` is a cursor in Relay and a context count in grep; `watch`
 is a periodic re-run in coreutils and a watchpoint in gdb); each sentence
 above pulls the intended prior by naming what the value is.
 
-### 2.3 Fields — derived from the parsers
+### 2.3 Fields: derived from the parsers
 
 At boot `schema.derive()` builds a private `argparse` subparsers object,
 calls every query module's `add_parser(sub)` on it, and reads each
@@ -132,22 +132,22 @@ subparser's actions (**D4**). The rules, closed:
 
 Three deliberate rules on top:
 
-- **D5 — `run` defaults to `last`.** Wherever a parser has a positional
+- **D5, `run` defaults to `last`.** Wherever a parser has a positional
   named exactly `run`, the field is optional with `"default": "last"`, and
   an absent field becomes the argv word `last`. The model stops echoing
   the same word on every call (designing-notation §1: delete ceremony).
-  `diff`'s `run_a`/`run_b` stay required — there is no "last two".
-- **D6 — no `oneOf` for `flow`.** `--value | --object` is an argparse
+  `diff`'s `run_a`/`run_b` stay required. There is no "last two".
+- **D6. No `oneOf` for `flow`.** `--value | --object` is an argparse
   mutually-exclusive group; both fields are optional strings and the
   description says one is required. Both-or-neither is the CLI's own
   exit 2 with its own sentence; the schema does not duplicate a rule the
   answer already states.
-- **D7 — `record` is the one hand-written schema.** `run`'s parser has a
+- **D7, `record` is the one hand-written schema.** `run`'s parser has a
   `REMAINDER` positional and two suppressed flags, so it is not derived.
   Its fields: `command` (array of string, required, at least one element:
   the target argv exactly as the CLI's `-- <command>` takes it), `focus`,
   `include`, `exclude` (arrays), `window` (string), and two the CLI reads
-  from its process instead — `cwd` (string; the directory to record from,
+  from its process instead, `cwd` (string; the directory to record from,
   default the server's own) and `python` (string; the interpreter to
   record under, default the server's own; it must import sensorium and
   the target's dependencies, the setup rule the debugging skill already
@@ -179,10 +179,10 @@ is the tool name. No icons (**D9**).
 
 1. Every key must be a field of the tool; an unknown key is rejected as
    JSON-RPC `-32602` with `unknown field 'x' for grep; fields: run,
-   pattern, kind, fn, after, limit` — the field and the whole valid set,
+   pattern, kind, fn, after, limit`, the field and the whole valid set,
    because the diagnostic is where a model repairs (designing-notation §8).
 2. Every value must match its type (integer, boolean, array of string,
-   string; enum member) — rejected the same way, naming the field and the
+   string; enum member), rejected the same way, naming the field and the
    expected type.
 3. Required fields present, or rejected naming the missing ones.
 4. argv = command word, positionals in parser order (`run` substituted
@@ -223,7 +223,7 @@ are answered:
   is `-32022 Unsupported protocol version` with `data: {supported,
   requested}`. **D13:** a `_meta` that carries the version but not
   `clientCapabilities` is tolerated and counted (`meta_incomplete` in the
-  audit line), not rejected, although 2026-07-28 says MUST reject — a
+  audit line), not rejected, although 2026-07-28 says MUST reject. A
   server that turns away real clients on a field it never reads has the
   cost backwards. Falsifier: if H2's official client sends
   `clientCapabilities` on every request, the next slice tightens.
@@ -236,12 +236,12 @@ are answered:
 
 | method | answer |
 |---|---|
-| `ping` | `{}` — from the reader thread, never queued (§4.2) |
+| `ping` | `{}`, from the reader thread, never queued (§4.2) |
 | `tools/list` | `{tools}`; under the per-request model also `resultType: "complete"`, `ttlMs: 3600000`, `cacheScope: "private"`. No pagination: eleven tools fit one page; a `cursor` is ignored. |
 | `tools/call {name, arguments}` | §5, or `-32602 Unknown tool: <name>` (the spec's own example wording) |
 | `notifications/cancelled {requestId}` | §4.3 |
 | `notifications/initialized`, `notifications/roots/list_changed`, any unknown notification | ignored |
-| `logging/setLevel`, `resources/*`, `prompts/*`, `completion/*`, anything else | `-32601 Method not found` — the server declares only `tools` |
+| `logging/setLevel`, `resources/*`, `prompts/*`, `completion/*`, anything else | `-32601 Method not found`, the server declares only `tools` |
 
 Framing (**D14**): one JSON object per line, UTF-8, no embedded newlines;
 responses written with `separators=(",", ":")`, `ensure_ascii=False`, a
@@ -303,8 +303,8 @@ per-call timeout field in this slice; falsifier: an audit census showing
 The **reader** thread owns stdin: parse each line; answer `ping`
 immediately; handle `notifications/cancelled`; put every other request
 on a queue. The **worker** thread takes requests in order and answers
-them (**D18**). Calls are therefore serialized — a client issuing two
-`tools/call`s concurrently gets them one after the other — and a
+them (**D18**). Calls are therefore serialized (a client issuing two
+`tools/call`s concurrently gets them one after the other) and a
 two-minute `record` never leaves a `ping` unanswered, which is what would
 make a client declare the server dead. Concurrency across calls is a
 non-goal for a single developer's store; the hosted slice owns it.
@@ -316,7 +316,7 @@ non-goal for a single developer's store; the hosted slice owns it.
   is sent for that id** (the spec: the result will be unused; a response
   after a cancel is ignored). Naming a queued request: it is dropped. Both
   are audit lines with `cancelled: true`. Kill by process group, never by
-  name — `pkill -f` self-matches and a killed parent leaves the test
+  name, `pkill -f` self-matches and a killed parent leaves the test
   process running (memory: mutation-harness lesson).
 - **Timeout.** The same kill; the response is a result with `isError:
   true`, header `no answer: timed out after N s (server flag --timeout /
@@ -337,7 +337,7 @@ exit 1: the trace answered negatively -- no match, no frame, no exception, none
 <stderr, only when non-empty>
 ```
 
-- **D19 — the header** is the first line, always, and its words are the
+- **D19. The header** is the first line, always, and its words are the
   exit module's own docstrings, which the debugging skills already teach:
   `exit 0: the trace answered affirmatively` · `exit 1: the trace answered
   negatively -- no match, no frame, no exception, none` · `exit 2: the
@@ -349,15 +349,15 @@ exit 1: the trace answered negatively -- no match, no frame, no exception, none
   produced no exit: `no answer: <cause>` (§4.3). A model branches on the
   header before it reads prose, exactly as the skill says to branch on
   `$?`.
-- **D20 — stderr** follows stdout under a `--- stderr ---` line only when
+- **D20, stderr** follows stdout under a `--- stderr ---` line only when
   both are non-empty; when stdout is empty (an argparse rejection) stderr
   follows the header directly. The label is a line of its own so the
   corpus client can split it back out (§8).
-- **D21 — `structuredContent`** is `{"exit": N}` (`null` for no answer),
+- **D21, `structuredContent`** is `{"exit": N}` (`null` for no answer),
   declared by `outputSchema` `{"type": "object", "properties": {"exit":
   {"type": ["integer", "null"]}}, "required": ["exit"]}`. Under
   `2025-03-26`, which predates structured content, neither is sent.
-- **D22 — `isError`** is true exactly when the exit is **2** or there is no
+- **D22, `isError`** is true exactly when the exit is **2** or there is no
   exit. 2 is the case the model should repair itself, which is what the
   spec says `isError` is for. 1 and 3 are answers about the trace, not
   errors of the call, and stay `false`.
@@ -394,7 +394,7 @@ what a single developer's deployment needs and no further:
 
 Without `--allow-run`, `record` and `refocus` are absent from
 `tools/list` **and** a `tools/call` naming them is `-32602 Unknown tool:
-record` — the same answer as any name the server never had (**D25**),
+record`, the same answer as any name the server never had (**D25**),
 because a distinguishable "exists but disabled" answer invites the model
 to look for the switch. `docs/mcp.md` says the flag exists; the wire does
 not.
@@ -425,7 +425,7 @@ that starts printing values is the change that adds one.
   by string before they are written (**D28**): a model that types a
   secret into `grep`'s pattern or `watch`'s expression leaves the marker
   in the audit, not the value. The invocation log the child writes does
-  not apply the rule to argv — an asymmetry older than this slice, named
+  not apply the rule to argv, an asymmetry older than this slice, named
   in CARRIED-DEBT, not changed here.
 - Never the environment, never `cwd`, never the result text: `bytes` says
   how much was shown and `truncated` whether all of it; "what was shown"
@@ -438,7 +438,7 @@ that starts printing values is the change that adds one.
   added there (**D30**): its four-key shape is a contract the E4
   instruments read.
 
-## 7. `sensorium mcp` — the command
+## 7. `sensorium mcp`: the command
 
 Registered in `cli.py` beside `run` and `ts`, **never** in
 `_QUERY_MODULES` (**D31**): the tool table is derived from that list, and
@@ -461,8 +461,8 @@ otherwise.
 ## 8. The corpus, asked through the server
 
 `corpus/run_corpus.py --via mcp` (**D32**) replaces the one seam every
-question already passes through — `_cli(args, cwd, sdir, extra_env)`,
-which runs `[sys.executable, "-m", "sensorium", *args]` — with
+question already passes through (`_cli(args, cwd, sdir, extra_env)`,
+which runs `[sys.executable, "-m", "sensorium", *args]`) with
 `corpus/mcp_client.py`:
 
 - One server per case: `sensorium mcp --allow-run --store <sdir>`, cwd the
@@ -471,13 +471,13 @@ which runs `[sys.executable, "-m", "sensorium", *args]` — with
   Python, cargo and vitest paths are unchanged); only the *questions* go
   through the wire.
 - Each question's argv is parsed with the same derived parsers into
-  `{dest: value}` — positionals plus every option whose value is not its
-  default — and sent as `tools/call`. The returned object carries
+  `{dest: value}` (positionals plus every option whose value is not its
+  default) and sent as `tools/call`. The returned object carries
   `.stdout` = the text with the header line removed and the `--- stderr
   ---` section split off into `.stderr`, and `.returncode` =
   `structuredContent.exit`. `check_question` is untouched.
 - A question whose command is not a tool (`redact`, `ts`, `run`) is
-  **skipped and named** — `not a tool: N questions` on the summary line,
+  **skipped and named**, `not a tool: N questions` on the summary line,
   never a failure and never silent (the corpus lesson of PR C:
   the runner names skips, a reader must not take 0 failures for "all
   asked"). Task 0 counts them and locks the list.
@@ -541,10 +541,9 @@ value and a `dropped` list, never a zero that was not measured.
   outside `tests/`.
 - **Docs:** `docs/mcp.md` (new: what a tool is, the eleven, the header,
   the cap, the gate, the audit, registration, what the server refuses);
-  the README at **797** takes the cut *before* the slice writes into it —
-  `## Overhead` (91 lines) moves whole to `docs/overhead.md`, wording
+  the README at **797** takes the cut *before* the slice writes into it (`## Overhead` (91 lines) moves whole to `docs/overhead.md`, wording
   unchanged, the README keeping three lines and a link (the `query.md`
-  and `corpus.md` precedent) — then gains `## MCP` (≤ 12 lines) and a row
+  and `corpus.md` precedent)) then gains `## MCP` (≤ 12 lines) and a row
   in *Use*. `docs/query.md` (798) and `docs/TRACE-FORMAT.md` (797) are not
   touched. `CHANGELOG.md` (684) takes 0.18.0. `docs/CARRIED-DEBT.md` is at
   **795**: PR C's section moves to `CARRIED-DEBT-ARCHIVE-15.md` under a
@@ -565,28 +564,28 @@ value and a `dropped` list, never a zero that was not measured.
   query modules change only in `add_parser` (help and description
   strings, **D33**: no behaviour change rides in this slice).
 - **Skills:** the three `debugging-*-with-sensorium` skills gain a
-  *through MCP* paragraph after E17, as local files outside the repo —
-  the repo's side is `docs/mcp.md` (**D34**).
+  *through MCP* paragraph after E17, as local files outside the repo.
+  The repo's side is `docs/mcp.md` (**D34**).
 
 ## 11. Not in this slice
 
 - **Streamable HTTP, authentication, tenants, upload, name lists, tier
-  gating** — the hosted slice. The tool surface, the header, the cap and
+  gating**, the hosted slice. The tool surface, the header, the cap and
   the audit line are designed to be what that slice runs per tenant
   unchanged.
 - **Traces as MCP resources, prompts, tool-list-changed notifications,
-  progress notifications, streaming output** — none demanded yet; a
+  progress notifications, streaming output**, none demanded yet; a
   census line that shows the demand is what adds one.
-- **A per-call timeout field, an `env` field on `record`** — the second
+- **A per-call timeout field, an `env` field on `record`**: the second
   is a secret-into-trace vector on purpose left out; the first waits on
   the timeout census (§4.1).
-- **`redact` as a tool; `seal`; scanner parity** — as the redaction spec
+- **`redact` as a tool; `seal`; scanner parity**: as the redaction spec
   left them.
-- **Concurrent calls** — serialized by design (§4.2).
-- **Windows** — the process-group kill and the file modes are POSIX; the
+- **Concurrent calls**: serialized by design (§4.2).
+- **Windows**: the process-group kill and the file modes are POSIX; the
   server does not refuse to start there, and `docs/mcp.md` says what is
   advisory.
-- **Rewriting the debugging skills to prefer MCP over the shell** — a
+- **Rewriting the debugging skills to prefer MCP over the shell**: a
   ruling after E17's H7, not before it.
 
 ## 12. Risks named
@@ -609,7 +608,7 @@ value and a `dropped` list, never a zero that was not measured.
 
 ## 13. Dated amendments
 
-### 2026-09-17 — MCP stdio shipped: the plan's decisions, the controller's rulings, and where the code differs
+### 2026-09-17: MCP stdio shipped: the plan's decisions, the controller's rulings, and where the code differs
 
 The slice ran as `docs/superpowers/plans/2026-09-16-sensorium-mcp-stdio.md`
 (Tasks 0–12) on `feat/mcp-stdio`. Nothing in §§0–12 above is edited; this
@@ -622,9 +621,9 @@ against.
 
 | # | as shipped |
 |---|---|
-| P1 | The tool tables are EXPLICIT — `tools.QUERY_MODULES` (the nine), `EXECUTE_MODULES = (refocus_cmd,)`, `NOT_TOOLS = (redact_cmd,)` — and `test_every_query_module_is_placed` closes them over `cli._QUERY_MODULES`. Shipped as written; field derivation stays automatic, and a new *command* fails the suite until somebody places it. |
+| P1 | The tool tables are EXPLICIT (`tools.QUERY_MODULES` (the nine), `EXECUTE_MODULES = (refocus_cmd,)`, `NOT_TOOLS = (redact_cmd,)`) and `test_every_query_module_is_placed` closes them over `cli._QUERY_MODULES`. Shipped as written; field derivation stays automatic, and a new *command* fails the suite until somebody places it. |
 | P2 | `action.required is True` puts a field in `required`, and a required `_AppendAction` also gets `"minItems": 1`. Shipped as written (`watch --at`, `watch --expr`, `refocus --focus`), with the fix round adding that an EMPTY required array is a `missing_fields` rejection rather than an argv the CLI would refuse with exit 2. |
-| P3 | The header words are `exit.MEANING`, a dict in `exit.py` holding D19's four sentences verbatim. Shipped as written — one source for the header, `INSTRUCTIONS` and the docs. |
+| P3 | The header words are `exit.MEANING`, a dict in `exit.py` holding D19's four sentences verbatim. Shipped as written, one source for the header, `INSTRUCTIONS` and the docs. |
 | P4 | `--- stderr ---` is emitted whenever stderr is non-empty, stdout empty or not. Shipped as written, amending D20; **R10** fixed the join so the label always starts a line (a stdout without a trailing newline gains one), which is what makes the corpus client's `split_text` lossless. |
 | P5 | Under the per-request model both `io.modelcontextprotocol/protocolVersion` and `…/clientCapabilities` are required, and a per-request request is recognised by the PRESENCE of the version key, never by `_meta` being present. Shipped as written, tightening D13; H2 test (h) pins the `-32602` naming the missing key. |
 | P6 | Every per-request result carries `resultType: "complete"` and `_meta` serverInfo (the `{}` ping reply included); `server/discover` and `tools/list` also carry `ttlMs: 3600000` and `cacheScope: "private"`. Shipped as written, with **R1** giving each field one owner. |
@@ -636,11 +635,11 @@ against.
 | P12 | No CARRIED-DEBT archive cut at Task 0; Task 11 measures `538 + len(section)` and cuts only if the sum exceeds 800. Shipped as written, and the measurement said cut: 425 + 538 = 963, so PR C's section became `docs/CARRIED-DEBT-ARCHIVE-15.md`. |
 | P13 | The README's stale corpus count is corrected in passing. Shipped as written: `115 cases and 253 questions`, re-measured at Task 8. |
 | P14 | The E17 instrument is self-contained (`e17_run.py` holds its own `phase`, `_keep`, `_run`, `Refused`), with `PIN = "E17_DIR="`, its own lock test, and `part_word` (**DONE** iff H1–H6 all PASS). Shipped as written; the part word was DONE. |
-| P15 | E17's preflight runs children by the venv's absolute interpreter and asserts `<venv>/bin/python -m sensorium mcp --help` exits 0 and the installed version is `0.18.0`; §9's `which -a sensorium` clause is replaced by this. Shipped as written — `which -a` is still PRINTED into the transcript, but nothing is asserted about PATH. |
+| P15 | E17's preflight runs children by the venv's absolute interpreter and asserts `<venv>/bin/python -m sensorium mcp --help` exits 0 and the installed version is `0.18.0`; §9's `which -a sensorium` clause is replaced by this. Shipped as written, `which -a` is still PRINTED into the transcript, but nothing is asserted about PATH. |
 | P16 | The audit's four rejection shapes (`unknown_tool`, `unknown_fields`, `bad_fields`, `missing_fields`), each with `code`, `reason`, `fields` and `message`. Shipped as written; **R11** also passes `tool`, `fields` and `message` through the content rule. |
 | P17 | `tests/test_mcp_conformance.py` skips by name when `mcp` is absent, and CI gains a `conformance` job (Python 3.14, `.[dev,conformance]`). Shipped as written; ten tests, the pinned oracle `mcp` 2.2.0. |
 | P18 | `--via mcp --compare-cli` joins CI: the `test` job's 3.14 leg only, plus the `rust` and `typescript` jobs beside their existing corpus step. Shipped as written. |
-| P19 | The `mcp` parser's three strings, and the parser added to `test_vocab`'s builder so they are scanned like every other subcommand's. Shipped as written — including the `description=`, whose "every query command is a tool" is false of `redact` and is carried as a defect in CARRIED-DEBT (the README and `docs/mcp.md` were corrected at Task 8; this string was not). |
+| P19 | The `mcp` parser's three strings, and the parser added to `test_vocab`'s builder so they are scanned like every other subcommand's. Shipped as written, including the `description=`, whose "every query command is a tool" is false of `redact` and is carried as a defect in CARRIED-DEBT (the README and `docs/mcp.md` were corrected at Task 8; this string was not). |
 | P20 | `tools/list` ignores `cursor`; `ping` is `{}` under legacy and before any handshake, and carries `resultType`/`_meta` under a per-request version. Shipped as written. |
 | P21 | Request ids are echoed and matched by JSON value with the type preserved. Shipped as written. |
 | P22 | Boot answers `server/discover` from a table built before the reader thread starts; the e2e test asserts time-to-first-answer under 2 s. Shipped as written, and E17's latency cell measured spawn-to-discover at **49.5 ms**. |
@@ -648,7 +647,7 @@ against.
 | P24 | A `record` or `refocus` killed by cancel or timeout leaves an INCOMPLETE trace under the store, and H5 expects to see it. Shipped as written; H5 read one trace, one incomplete. |
 | P25 | `from_argv` sends every positional and every option whose parsed value differs from the parser's default. Shipped as written. |
 | P26 | Under `--compare-cli` the CLI path runs a second time only for `executes == False` tools, AFTER the MCP path, comparing `stdout` and `exit`; a `refocus` question is never re-run. The per-case server runs with `--max-output 1048576`. Shipped as written. |
-| P27 | `initialize` echoes the offered version iff it is in `LEGACY` (`SUPPORTED[1:]`); anything else — unknown, or `2026-07-28` — is answered `LEGACY_LATEST = 2025-11-25`. Shipped as written, amending D12. |
+| P27 | `initialize` echoes the offered version iff it is in `LEGACY` (`SUPPORTED[1:]`); anything else (unknown, or `2026-07-28`) is answered `LEGACY_LATEST = 2025-11-25`. Shipped as written, amending D12. |
 | P28 | `NARROWING = ("depth", "limit", "after", "around", "context", "misses", "fn", "kind")`, so `tree`'s marker reads `narrow with: depth, limit, around`. Shipped as written, and a cells test derives H3's pre-registered regex from the code so the two cannot drift. |
 | P29 | `INSTRUCTIONS` is §3.3's paragraph with its last sentence shortened, under 800 characters, pinned by a test. Shipped as written: **781** characters, byte-identical to §3.3 but for that sentence. |
 | P30 | Argument-validation failures are a RESULT with `isError: true` carrying the exit-2 header and the rejection's message, not a protocol error; `Unknown tool: <name>` stays `-32602`. Shipped as written, amending D10's channel; the audit rejection lines (P16) are unchanged. |
@@ -661,15 +660,15 @@ its evidence. The third column is the cost the ruling was taken at.
 | R | the ruling | cost if wrong |
 |---|---|---|
 | R1 | (pre-flight) `result.call_result` and `result.rejection_result` add `resultType: "complete"` when `modern`; the server's `_modern()` adds ONLY the `_meta` serverInfo (and `ttlMs`/`cacheScope` where the method needs them), never a second `resultType`. One field, one owner. | a duplicated key is harmless JSON, so nothing |
-| R2 | (pre-flight) `e17_cells.h1` reads `doc.get("via_cli", [])` and `doc.get("mcp_differences")`; a MISSING `mcp_differences` under a `--compare-cli` run is STOP as instrument, a missing `via_cli` is `[]`. | a vacuous H1 — guarded by the census clause |
-| R3 | (pre-flight) the lock's one-byte mutation test asserts its needle occurs EXACTLY once in the record before mutating a copy; `"65536"` is not unique, and the needle shipped as `**115 cases / 253 questions**` with a `count == 1` guard. | a mutation test that passes vacuously — the uniqueness assertion prevents it |
-| R4 | (Task 1, **REVERSED the same day**) `refocus`'s description was to be transcribed with `--` for its em dash, because every parser string was ASCII. Reversed to VERBATIM (U+2014): the spec is the binding authority and the CLI already prints non-ASCII (`fmt.py:103` `…`, `exceptions_group.py:439` `×`, `exceptions_typescript.py:598` `→`), so the ASCII argument was a preference, not a rule. All eleven descriptions are byte-identical to §2.2. | nothing — one character, no test depends on it |
+| R2 | (pre-flight) `e17_cells.h1` reads `doc.get("via_cli", [])` and `doc.get("mcp_differences")`; a MISSING `mcp_differences` under a `--compare-cli` run is STOP as instrument, a missing `via_cli` is `[]`. | a vacuous H1, guarded by the census clause |
+| R3 | (pre-flight) the lock's one-byte mutation test asserts its needle occurs EXACTLY once in the record before mutating a copy; `"65536"` is not unique, and the needle shipped as `**115 cases / 253 questions**` with a `count == 1` guard. | a mutation test that passes vacuously, the uniqueness assertion prevents it |
+| R4 | (Task 1, **REVERSED the same day**) `refocus`'s description was to be transcribed with `--` for its em dash, because every parser string was ASCII. Reversed to VERBATIM (U+2014): the spec is the binding authority and the CLI already prints non-ASCII (`fmt.py:103` `…`, `exceptions_group.py:439` `×`, `exceptions_typescript.py:598` `→`), so the ASCII argument was a preference, not a rule. All eleven descriptions are byte-identical to §2.2. | nothing, one character, no test depends on it |
 | R5 | (Task 1) `schema.py` at 335 lines stands against the plan's ≤260: the plan's per-file numbers are budgets under the binding 800-line gate, not gates themselves, and the describe-vs-translate seam is recorded for a later split. It is **360** as shipped, after **R6**. | one split commit later (the ledger's final line on R5, 'STANDS'; the first ruling's cost read "a 335-line module where two ~170-line ones were intended; reversible in one commit") |
-| R6 | (Task 2) `schema.py` gains a public `validate(ts, arguments)` extracted from `to_argv`'s three rejection passes (no behaviour change; `to_argv` calls it), so `tools.command_argv` can validate `record`'s arguments — whose `command` is an array positional `to_argv` cannot serialise — without re-implementing P30's rejections. | ~10 lines in `schema.py` |
+| R6 | (Task 2) `schema.py` gains a public `validate(ts, arguments)` extracted from `to_argv`'s three rejection passes (no behaviour change; `to_argv` calls it), so `tools.command_argv` can validate `record`'s arguments (whose `command` is an array positional `to_argv` cannot serialise) without re-implementing P30's rejections. | ~10 lines in `schema.py` |
 | R7 | (for Task 5) `src/sensorium/mcp/cmd.py` imports only argparse/os/pathlib at module level and imports `server` and `tools` lazily inside `run(args)`, so `cli.py`'s module-level import of `cmd` cannot cycle through `tools` → `cli`. | an ImportError at CLI start, caught by the first test |
 | R8 | (Task 3) `Child.__init__` takes `name: str | None = None` (the tool name for its one log line) and treats `cwd == ""` / `python == ""` as absent. | a log line saying `tool run` instead of `tool record`; a `""` cwd would otherwise make `Popen` raise |
-| R9 | (Task 3) **The kill contract is SINGLE-READER.** `kill_group(proc, grace, reap=True)`; `cancel()` calls it with `reap=False` (signal TERM → grace → KILL, never `communicate`), then waits up to `REAP` on a `_done` event the worker sets after ITS `communicate` returns, and only if the worker is still blocked shuts the pipes. `run()`'s exception path reaps the leader. A `cancel()` after `_done` is a no-op. Two readers on one `Popen` is undefined in CPython's design (`subprocess.py:1239, 2116-2121` rebinds `_fileobj2output` for the second entrant); the plan mandated the shape without seeing it. | a cancel whose worker is blocked on an escaped descendant now waits REAP before the pipes are closed — the same bound as before |
-| R10 | (Task 4) `text_of` joins header + stdout, then — only when stderr is non-empty — a newline if the text does not already end in one, then the label and stderr. A stdout without a trailing newline therefore gains one before the label; it is the only case `split_text` cannot recover exactly, and it does not occur in the corpus. | one byte of parity on a case that does not exist |
+| R9 | (Task 3) **The kill contract is SINGLE-READER.** `kill_group(proc, grace, reap=True)`; `cancel()` calls it with `reap=False` (signal TERM → grace → KILL, never `communicate`), then waits up to `REAP` on a `_done` event the worker sets after ITS `communicate` returns, and only if the worker is still blocked shuts the pipes. `run()`'s exception path reaps the leader. A `cancel()` after `_done` is a no-op. Two readers on one `Popen` is undefined in CPython's design (`subprocess.py:1239, 2116-2121` rebinds `_fileobj2output` for the second entrant); the plan mandated the shape without seeing it. | a cancel whose worker is blocked on an escaped descendant now waits REAP before the pipes are closed, the same bound as before |
+| R10 | (Task 4) `text_of` joins header + stdout, then (only when stderr is non-empty) a newline if the text does not already end in one, then the label and stderr. A stdout without a trailing newline therefore gains one before the label; it is the only case `split_text` cannot recover exactly, and it does not occur in the corpus. | one byte of parity on a case that does not exist |
 | R11 | (Task 4) The signal name is looked up under a guard (`signal.Signals(n).name`, `except ValueError` → `signal {n}`), so a real-time signal renders rather than raising inside the renderer; riders: `keep_tail = max(1, min(KEEP_TAIL, limit // 4))`, the two cap docstrings say a newline-free window is a raw byte cut that may end in U+FFFD, and `record_rejection` scrubs `tool`, `fields` and `message` too. | none observable at the enforced 4096-byte floor |
 | R12 | (Task 5 split) Task 5 runs as 5a (`jsonrpc.py`, `corpus/mcp_client.py`) and 5b (`server.py`, `cmd.py`, `cli.py`, the e2e and cmd tests), each with its own review. | one extra review seat |
 | R13 | (Task 5a) Id-less and null-id server objects go to `McpClient.unaddressed` and are never dropped; `wait(None, timeout)` pops the oldest; a blank stdout line is recorded in `bad_lines` like any other non-object line; ids are minted under the Condition; the drainer falls back to memory; a fresh `McpError` per raise. The client may grow to ≤ 320 lines (**329** as shipped, after R18). | 20 lines |
@@ -677,7 +676,7 @@ its evidence. The third column is the cost the ruling was taken at.
 | R15 | (Task 8) The README's `## MCP` section goes at the end of `## Use`; the Overhead headline keeps 194× and says it is the call-dense workload under `--focus`; "MCP wrapper" leaves the README's `## Not yet` list. | prose |
 | R16 | (Task 9) The E17 pin table writes `E17_CARGO_BIN` / `E17_NODE_BIN` with `$HOME` as `~`, so only `E17_DIR=` lines carry a box path and the lock's rule holds while the pins stay informative. | a pin a reader expands by hand |
 | R17 | (Task 10, H7) H7's `serve.sh` serves a FRESH store (`--store $E17_DIR/h7/store`), so the deploy-target session never writes the live store; the session is print mode (`claude -p … --output-format stream-json --verbose --allowedTools "mcp__sensorium__*" --model opus`) and the model is recorded in `h7.json`, as the locked row requires. Recorded as an amendment beside §1. | none to the reading; the row records the store and the model |
-| R18 | (design, controller) **`structuredContent` and `outputSchema` LEAVE THE WIRE.** A `tools/call` result is text only; the header line is the exit's machine-readable carrier (`^exit (-?\d+): ` / `^no answer: `); `isError` stays (exit 2 or no exit). `OUTPUT_SCHEMA` is gone, `title` is still gated on 2025-06-18+, and `corpus/mcp_client.CallResult.exit` is parsed from the header. D21 is amended by this row; the LOCKED §1 of the record is not edited — a dated amendment beside it carries the consequences for H2(c) and H5. Why: the deploy target renders structured content INSTEAD of the text for every non-error result, so a structured twin that is not a complete representation hides the product. | a client that wanted the exit as JSON parses one line instead |
+| R18 | (design, controller) **`structuredContent` and `outputSchema` LEAVE THE WIRE.** A `tools/call` result is text only; the header line is the exit's machine-readable carrier (`^exit (-?\d+): ` / `^no answer: `); `isError` stays (exit 2 or no exit). `OUTPUT_SCHEMA` is gone, `title` is still gated on 2025-06-18+, and `corpus/mcp_client.CallResult.exit` is parsed from the header. D21 is amended by this row; the LOCKED §1 of the record is not edited. A dated amendment beside it carries the consequences for H2(c) and H5. Why: the deploy target renders structured content INSTEAD of the text for every non-error result, so a structured twin that is not a complete representation hides the product. | a client that wanted the exit as JSON parses one line instead |
 | R19 | (Task 9) `e17_cells.py` at 502 lines is PARKED under R5/R14's precedent; the split (one module per cell family) is for the final review to triage. It is **530** as shipped, after the fix round. | one split commit |
 
 #### (c) Where the shipped code differs from §§2–10
@@ -707,9 +706,9 @@ the sections above would be told something the code does not do.
    print only to stderr, and the corpus client must attribute a body to a
    stream. **R10** adds that the label always starts a line. Where:
    `result.text_of`.
-5. **D13's leniency is gone before it shipped** (**P5**). Its falsifier —
+5. **D13's leniency is gone before it shipped** (**P5**). Its falsifier,
    *if H2's official client sends `clientCapabilities` on every request, the
-   next slice tightens* — was answered by reading the SDK at design time, so
+   next slice tightens* was answered by reading the SDK at design time, so
    a per-request request missing either key is `-32602` naming it, and the
    session model is decided by the PRESENCE of the version key (a legacy
    request may carry `"_meta": {}`). Where: `server.version`,
@@ -721,7 +720,7 @@ the sections above would be told something the code does not do.
    own answer never reached the model. Both keys are gone, the header is the
    machine-readable carrier, `isError` is unchanged, and our own client
    parses the exit off the header's second token where it used to read a
-   JSON field — while the SDK's client and Claude Code's now get the text
+   JSON field, while the SDK's client and Claude Code's now get the text
    the header begins, which is the point. Where: `result.call_result`,
    `result.rejection_result`, `tools.to_wire`,
    `corpus/mcp_client.CallResult`.
@@ -735,7 +734,7 @@ the sections above would be told something the code does not do.
    costs nothing.
 8. **`initialize` echoes only a LEGACY version** (**P27**, amending
    **D12**). D12 keyed the echo on the whole supported list, which includes
-   `2026-07-28` — a version with no `initialize` — and the SDK refuses an
+   `2026-07-28` (a version with no `initialize`) and the SDK refuses an
    `initialize` result outside its own handshake list. Where:
    `server.LEGACY`, `server.LEGACY_LATEST`.
 9. **The narrowing list is ordered `depth, limit, after, around, …`**
@@ -754,7 +753,7 @@ the sections above would be told something the code does not do.
     amending **D10**'s channel). §2.5 routes every rejection through
     JSON-RPC `-32602`; both MCP revisions reserve that code for unknown
     tools and malformed requests and route input validation through
-    `isError`, which is the channel a model sees and repairs from — D10's
+    `isError`, which is the channel a model sees and repairs from: D10's
     own reason for naming the fields. `Unknown tool: <name>` stays `-32602`
     (the spec's example, and D25 and H4 depend on it). The audit lines are
     unchanged. Where: `server._call`, `result.rejection_result`.
@@ -770,7 +769,7 @@ the sections above would be told something the code does not do.
     its three `redact` questions have rewritten the store, so skipping the
     three strands the two. They are asked through the CLI path and named on
     the summary and in `via_cli`. **P8** adds that the per-case server's
-    environment is `_cli`'s and never the case's `env:` block — `info`
+    environment is `_cli`'s and never the case's `env:` block, `info`
     prints `redaction: OFF (SENSORIUM_NO_REDACT)` from the live environment,
     so carrying the case's block into the server would have made MCP and CLI
     differ on that very case. Where: `corpus/via_mcp.py`,
@@ -790,14 +789,14 @@ the sections above would be told something the code does not do.
     method mints its own `sk-e17-…` token, verifies it in the server's own
     `/proc/<pid>/environ` before any question, and counts occurrences in the
     texts, `mcp.jsonl` and the stderr transcript; **H7**'s prompt is
-    `probes/h7-prompt.txt`. What came LATER — after the block was locked and
-    before any cell ran — is a dated amendment written BESIDE §1 rather than
+    `probes/h7-prompt.txt`. What came LATER (after the block was locked and
+    before any cell ran) is a dated amendment written BESIDE §1 rather than
     into it: **R16**'s `~` in the pin table, **R17**'s fresh H7 store and
     print mode, **R18**'s consequences for H2 (c) and H5, T_cli = 63 s
     setting H1's timer at its 600 s floor, and the per-cell fresh stores.
 15. **§10's CARRIED-DEBT arithmetic was wrong, and the cut became a
     measurement** (**P12**). §10 said the file was at **795** and scheduled
-    an archive cut at Task 0; it was **538** — 795 was PR A's number. The
+    an archive cut at Task 0; it was **538**, 795 was PR A's number. The
     plan replaced the scheduled cut with the rule the file already carries:
     draft the section, measure, cut only if the sum exceeds 800. It did
     (425 + 538 = 963), so PR C's section moved to
@@ -822,7 +821,7 @@ the sections above would be told something the code does not do.
 17. **`record`'s `cwd` and `python` ARE audited, and `refocus` takes no
     interpreter.** §2.5 says the two fields are passed to the child runner
     "never to argv", which is true, and §6.3 says the audit records
-    "never … `cwd`" — meaning the SERVER's working directory. A `cwd` a model
+    "never … `cwd`", meaning the SERVER's working directory. A `cwd` a model
     TYPED is an argument like any other and is written (through the content
     rule) as one. `refocus` re-runs under the server's own interpreter with
     no `python` override. Where: `tools.command_argv`, `audit.record_call`,
@@ -834,7 +833,7 @@ the sections above would be told something the code does not do.
     a string the CONTENT rule MATCHES and of no other:
     `redact_content.content("hunter2")` returns it unchanged, and it is
     written to `mcp.jsonl` verbatim. The rule is nineteen shapes, each with a
-    minimum length — a floor, not a secret scanner — so the clause before it
+    minimum length (a floor, not a secret scanner) so the clause before it
     ("arguments pass the content rule") is exact and the "so" clause
     over-reads it. `docs/mcp.md` now says what the rule actually does (which
     spans are replaced by `<redacted>`, and that a value in no published
@@ -848,7 +847,7 @@ the sections above would be told something the code does not do.
     tool name and a rejected field name are echoed back to the client as
     model-typed text, and a model does emit lone surrogates (a tokenizer
     splitting an emoji). Such a string cannot be encoded onto a UTF-8 stdout
-    at all: the write raised `UnicodeEncodeError` — a `ValueError` — the
+    at all: the write raised `UnicodeEncodeError` (a `ValueError`) the
     writer's `except` swallowed it as a gone pipe, and the response vanished
     with nothing logged on any channel. Escaped, it is `\ud800` on the wire
     and `json.loads` hands the client back the same string. The same wave
@@ -859,7 +858,7 @@ the sections above would be told something the code does not do.
 #### (d) E17's outcome
 
 Measured **once**, 2026-09-17, **251.2 s** wall clock, under `e17.sh` from a
-plain shell after a full rehearsal on a two-case subset: **DONE** — H1 parity
+plain shell after a full rehearsal on a two-case subset: **DONE**: H1 parity
 **PASS**, H2 conformance **PASS**, H3 the cap **PASS**, H4 the gate **PASS**,
 H5 liveness **PASS**, H6 secrecy **PASS**, H7 the deploy target **reported**
 (n = 1), latency **measured**. The reading is
@@ -875,7 +874,7 @@ erratum.
 | H4 | 9 tools without the flag and `-32602 Unknown tool: record`; 11 with it; `record` answered `exit 0: the recorded command's own status …`, `runs` listed the one trace, `exceptions` satisfied that case's `what-was-dropped` |
 | H5 | 10 pings, the slowest answered in **0.8 ms**; the cancelled child's group gone **0.10 s** after the cancel with no response for that id; the next `runs` listed 1 trace, 1 INCOMPLETE; the timeout header exact, `isError` true, the exit `None`, answered 3.05 s and the group gone 3.06 s after the send |
 | H6 | **0** occurrences of the minted token in the 4 result texts, in `mcp.jsonl` (4 lines) and in the 430-byte stderr transcript; H6b's audit line reads `<redacted>` |
-| H7 | Claude Code **2.1.258**, model `claude-opus-5`, print mode, a fresh store: `record` passed `['main.py']`, **5** sensorium calls over `record`, `info`, `exceptions`, `tree` and `frame`, and the frame it named — **`load_all`** — IS the case's `truth`. Handshake: `initialize 2025-11-25 -> 2025-11-25` |
+| H7 | Claude Code **2.1.258**, model `claude-opus-5`, print mode, a fresh store: `record` passed `['main.py']`, **5** sensorium calls over `record`, `info`, `exceptions`, `tree` and `frame`, and the frame it named, **`load_all`** IS the case's `truth`. Handshake: `initialize 2025-11-25 -> 2025-11-25` |
 | latency | median `runs` through the wire **3704.9 ms** against **3709.1 ms** through the CLI, a ratio of **1.00×**; spawn to the `server/discover` answer **49.5 ms** |
 
 **Erratum, same day, in the record.** The H7 row's rendered sentence says
@@ -899,8 +898,8 @@ zero MCP/CLI differences. Then H7 ran the real client. Claude Code 2.1.258
 renders a result's structured content INSTEAD of its text whenever one is
 present and the result is not an error: for every non-error call the model
 received the eight bytes `{"exit":0}` and nothing else. It still found the
-swallowed exception — by probing exit codes across **40** sensorium calls —
-and said so itself: *assembled from binary answers — I never saw sensorium's
+swallowed exception (by probing exit codes across **40** sensorium calls)
+and said so itself: *assembled from binary answers. I never saw sensorium's
 own SWALLOWED verdict line.* The product's entire output, the honest verdict
 this tool exists to print, was invisible to the model it was written for.
 
@@ -910,7 +909,7 @@ frame named from the text.
 
 The rule the next slice inherits: *a structured rendering that is not a
 COMPLETE representation of the answer is not a convenience, it is a second
-surface a client may prefer — and a conformance oracle proves you speak the
+surface a client may prefer, and a conformance oracle proves you speak the
 protocol, never that the client shows the user what you said.* The smoke test
 that runs the real deploy target is what found it; run that test before the
 docs are written, not after.

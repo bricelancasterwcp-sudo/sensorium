@@ -1,10 +1,10 @@
-# rust/ — the sensorium recorder for Rust
+# rust/: the sensorium recorder for Rust
 
 Record what a Rust program actually did; ask it the same questions.
 
 `cargo sensorium test` wraps one `cargo test` invocation, instruments your
 workspace's own crates at build time, and writes one sensorium trace per
-process — the same SQLite format 4 the Python recorder writes, read by the same
+process. The same SQLite format 4 the Python recorder writes, read by the same
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
@@ -25,18 +25,18 @@ writes; later that day the rung-4 debts slice moved them to `0.4.2` (a focus
 resolution that no longer splices) and `0.5.1` (the hard-linked shim and the
 `driver.rs` split); on 2026-09-08 the recorder's-footprint slice moved them
 to `0.4.3` (three pure file splits, the goldens pinning the output byte for
-byte) and `0.5.2` (no behaviour change at all — the number exists so a rebuilt
+byte) and `0.5.2` (no behaviour change at all (the number exists so a rebuilt
 tree carries a `driver_version` token a trace can name); and later that day the
 queue-buttoned-up slice moved all three, `sensorium-rt` for the first time
-since `0.4.0`: the same sha256 stood in all three crates, so the leaf — the one
+since `0.4.0`: the same sha256 stood in all three crates, so the leaf) the one
 with zero dependencies, and therefore the only one the other two can both
-depend on — now owns it as a `pub mod` and the copies are gone
+depend on, now owns it as a `pub mod` and the copies are gone
 (`0.4.1`/`0.4.4`/`0.5.3`). Nothing the runtime records changed and the wire did
 not move there; what moved was the identity `sensorium-rt` declares, so a trace
 that runtime wrote said `recorder: sensorium-rt 0.4.1`. On 2026-09-12 the
 rung-4-debts-funded slice moved `sensorium-rt` to **`0.5.0`**, and this time the
 wire did move: the LINE payload gained a fourth delta tag, `3`, an unbound
-name — a name with no value that went out of scope on that row — and a second
+name (a name with no value that went out of scope on that row) and a second
 entry point, `line_unbinding`, that writes one after the deltas, so a
 block-like statement's row says which of its bindings died with it and a
 reader's fold stops answering for a `let` that is gone. No new record kind, no
@@ -44,9 +44,8 @@ header change, and the fragment of a statement that unbinds nothing is byte for
 byte the one `0.4.1` spliced; a trace this runtime writes says
 `recorder: sensorium-rt 0.5.0`. `sensorium-transform` moved with it, to
 **`0.5.0`**, because it is the crate that decides which names go in such a
-row: a block-like statement in statement position — a plain block, an
-`unsafe`, an `if`/`if let`, a `match`, a `loop`/`while`/`for`, a `try` block
-— unbinds, in source order and each name once, its own head pattern's names
+row: a block-like statement in statement position (a plain block, an
+`unsafe`, an `if`/`if let`, a `match`, a `loop`/`while`/`for`, a `try` block) unbinds, in source order and each name once, its own head pattern's names
 and the `let`s of its DIRECT blocks. Never a nested block-like statement's
 (that one has a row of its own), never a closure's or an `async` block's (no
 probe ever bound them), and never a `let` a `cfg` may take out of the build.
@@ -54,8 +53,8 @@ A statement with nothing to unbind splices the `line` fragment it always
 spliced, so an instrumented build without a block is byte for byte what
 `0.4.4` produced. `cargo-sensorium` moved with them, to **`0.6.0`**, as the
 side that READS that wire: it takes tag 3 as a name with no value and writes
-the names on the row under `unbound` — the key the trace format already had
-for Python's `del` and for a TypeScript block — so `frame` prints `unbound:x`
+the names on the row under `unbound` (the key the trace format already had
+for Python's `del` and for a TypeScript block) so `frame` prints `unbound:x`
 and `watch` pops the name on a Rust trace through readers that needed no
 change. A record naming one binding as both a delta and an unbound name is
 refused, not read: a statement cannot write what it unbinds.
@@ -77,20 +76,20 @@ One from-scratch, NIST-vector-pinned SHA-256 serves all three: `sensorium-rt`
 owns it as `pub mod sha256` (its zero-dependency policy rules out `sha2`), and
 `sensorium-transform` (`Focus::focus_hash`) and `cargo-sensorium` (the tool
 hash, the mirror's cache key, each mirrored source's `source_hash`) depend on
-the leaf crate to hash with. That is a build-time dependency only — the driver
+the leaf crate to hash with. That is a build-time dependency only, the driver
 embeds the runtime's sources and compiles them with its own bare `rustc` line,
 so nothing of the runtime reaches a transformed unit by this route and D1
 (design spec §2.3) holds. Until 0.8.7 the same implementation stood in all
 three crates, kept in sync by the same vectors; the copies are gone.
 
-**What v1 records** — tier `call`: calls and returns with an outcome and a
+**What v1 records** (tier `call`: calls and returns with an outcome and a
 captured return value, panics, threads as tasks (libtest's per-test threads and
-the ones your code spawns), and — since 0.3.0 — **err flow**: a record at every
+the ones your code spawns), and) since 0.3.0, **err flow**: a record at every
 `?` on a `Result`, at the four written sinks, at `let _ = <value>` and at every
 classified `Err` arm, which is what makes `sensorium exceptions` answer here
 instead of refusing. Since 0.4.0, and only under a `--focus`, it also records
 **one LINE per completed statement** of the named functions, carrying the
-bindings that statement wrote — which is what makes `watch` and `flow` answer
+bindings that statement wrote, which is what makes `watch` and `flow` answer
 here. Since `cargo-sensorium` 0.5.0 it also records `refocus_of`,
 `workspace_root` and `invocation_processes`, which is what makes
 `sensorium refocus` re-run a recorded invocation one flag deeper and compare
@@ -98,7 +97,7 @@ the pair instead of refusing. Workspace crates only, Linux, stable rustc, no
 nightly, no root, no hand annotation. What it does *not* see, and what says so
 in the trace, is [`HONESTY.md`](HONESTY.md) with
 [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) and
-[`HONESTY-ERR-FLOW.md`](HONESTY-ERR-FLOW.md) — read those before you
+[`HONESTY-ERR-FLOW.md`](HONESTY-ERR-FLOW.md). Read those before you
 trust an answer. The trace contract every recorder is written against is
 [`../docs/TRACE-FORMAT.md`](../docs/TRACE-FORMAT.md).
 
@@ -121,14 +120,14 @@ coexist and what makes it cost disk.
 That puts `cargo-sensorium` on `PATH`, which is what makes `cargo sensorium` a
 cargo subcommand. Reading the traces needs the Python side too: `sensorium`
 0.6.0+ reads these traces, **0.8.0+ is what `exceptions` needs**, and
-**0.8.3+ is what `watch` and `flow` need on a focused trace** — the `::`
-qualname boundary and the rules for reading a `dbg` capture are 0.8.3's — and
+**0.8.3+ is what `watch` and `flow` need on a focused trace** (the `::`
+qualname boundary and the rules for reading a `dbg` capture are 0.8.3's) and
 **0.8.4+ is what `refocus` needs on a Rust trace**, its re-run path being
 0.8.4's, against a trace a 0.5.0 driver wrote. An
 0.6.0/0.7.0 reader opens a 0.3.0 trace and answers every other question, but
 its `exceptions` still refuses, because the Rust disposition rules are 0.8.0's.
-A reader older than 0.6.0 opens them too — they are format 4 and carry every
-required key — but narrates them in Python's words, which is a claim about
+A reader older than 0.6.0 opens them too (they are format 4 and carry every
+required key) but narrates them in Python's words, which is a claim about
 provenance the trace does not carry.
 
 ## Record
@@ -150,7 +149,7 @@ so switching tiers rebuilds nothing.
 selects, so the trace carries one LINE event per completed statement with the
 bindings that statement wrote. It is **repeatable**, it takes the file-local
 qualname the recorder itself prints (`Counter::new`, `tests::fill`), and a
-value that names a CONTAINER selects its children — `--focus Counter` selects
+value that names a CONTAINER selects its children, `--focus Counter` selects
 `Counter::new` and `Counter::add`, matching on the `::` boundary so
 `--focus Counter` never quietly selects `Counters::new`.
 
@@ -163,7 +162,7 @@ suggestions:
 
 A value whose only matches are functions the transform never instruments
 (`async`, `const`, `extern`, macro-produced) is refused the same way, naming
-every one of them with its reason — being told only the first would mean
+every one of them with its reason, being told only the first would mean
 meeting the same refusal again. A focus that resolves prints one line per
 selected qualname on stderr before cargo runs, so a record of a run can quote
 what the focus actually selected rather than what was typed:
@@ -174,7 +173,7 @@ The tier is a **compile-time** decision, so it is the build that carries it:
 a focused build declares `capabilities.line` and `capabilities.locals` true
 and records `focus` and `focus_matched` in the trace's meta, and an unfocused
 build of the same crate declares both false and carries no LINE row at all.
-`sensorium info` prints both — `line=yes locals=yes`, and the `focus:` line —
+`sensorium info` prints both (`line=yes locals=yes`, and the `focus:` line)
 so a later reader knows what was instrumented without having launched it.
 What a focus still does not reach is `HONESTY-BLIND-SPOTS.md` item 3.
 
@@ -183,9 +182,8 @@ What a focus still does not reach is `HONESTY-BLIND-SPOTS.md` item 3.
 `--refocus-of <run id>` records the new trace as a re-run of an existing one:
 the id reaches every process of the invocation and the converter writes it as
 `meta.refocus_of`, which is the link `sensorium refocus` finds the pair by and
-the `refocus-of:<run>` `runs` prints. It is **not** a flag you normally type —
-`sensorium refocus <run> --focus <name>` is what builds this argv and runs it
-from the workspace the original recorded (see `../docs/query.md`) — but it is
+the `refocus-of:<run>` `runs` prints. It is **not** a flag you normally type (`sensorium refocus <run> --focus <name>` is what builds this argv and runs it
+from the workspace the original recorded (see `../docs/query.md`)) but it is
 what the driver takes, and it is documented here because the trace carries it.
 
 At most once (`--refocus-of given twice`, exit **2**), and recognised only
@@ -196,25 +194,25 @@ is rewritten or built:**
     REFUSED: --refocus-of ../traces/20260101-000000-abcdef is not a run id; nothing was built.
     REFUSED: --refocus-of 20260101-000000-abcdef names no trace in /home/you/.sensorium; nothing was built.
 
-The first is the shape check — a path separator, `.`, `..`, an absolute path or
-an empty value — and it runs before the store is consulted, because
+The first is the shape check (a path separator, `.`, `..`, an absolute path or
+an empty value) and it runs before the store is consulted, because
 `--refocus-of ../traces/<a real run>` would otherwise stamp a link the store
 could never resolve (design 2026-09-07, amendment B2); a trailing `.db` is
 stripped once, so `<id>.db` names `<id>`. The second is the existence check
-against the current store, and it names the store ROOT — what `SENSORIUM_DIR`
-was set to, which is what a person can act on — not the `traces` subdirectory
+against the current store, and it names the store ROOT (what `SENSORIUM_DIR`
+was set to, which is what a person can act on) not the `traces` subdirectory
 the file was looked for in
 (`tests/refocus_of_gate.rs` pins both sentences through the binary).
 
 Two more invocation-scoped meta keys ride along with it and are written on
 every run, refocus or not: `workspace_root`, the workspace the invocation ran
-in, and `invocation_processes`, the number of runner processes it produced —
+in, and `invocation_processes`, the number of runner processes it produced,
 test binaries and doctests alike. They are what `sensorium refocus` reads to
 decide whether a re-run of this recording would be legitimate at all.
 `TRACE_FORMAT` stays **4**: all three keys are optional meta.
 
 Everything the tool writes inside your workspace lives under
-`<target>/sensorium/` — the mirror it builds in, the per-unit manifests, and
+`<target>/sensorium/`. The mirror it builds in, the per-unit manifests, and
 the spool directory for the invocation. Your sources, your `Cargo.lock` and
 your plain artifacts are untouched, and a plain `cargo test` afterwards is
 still plain.
@@ -227,7 +225,7 @@ One line per trace it converted:
 
 `exit:` is a status somebody waited for, or `unwitnessed` for a process the
 runner did not start (a child a test spawned itself). It is never cargo's
-status wearing this process's name — see `HONESTY.md` §5.
+status wearing this process's name, see `HONESTY.md` §5.
 
 When one invocation produced more than one test binary you also get:
 
@@ -239,7 +237,7 @@ wants a run of one binary.
 
 ## Where traces go
 
-`$SENSORIUM_DIR/traces/`, default `~/.sensorium/traces` — the same place the
+`$SENSORIUM_DIR/traces/`, default `~/.sensorium/traces`, the same place the
 Python and TypeScript recorders write, so one `sensorium runs` lists all three. A trace holds the
 recorded process's environment, command line, source digests and captured
 values; treat one the way you would treat a core dump.
@@ -248,25 +246,25 @@ The same goes for the spool directory the recording itself writes,
 `<target>/sensorium/spool/<invocation>/`: each `<pid>.proc.json` there carries
 the **process environment** and the `.spool` files beside it hold the captured
 return values. Conversion does not remove them. Treat that directory as a core
-dump too — it is inside `target/`, so a `cargo clean` takes it, and it should
+dump too. It is inside `target/`, so a `cargo clean` takes it, and it should
 not be uploaded as a build artifact.
 
 From `sensorium-rt 0.6.0` / `cargo-sensorium 0.7.0` two things are different.
 **Rule v1** runs at the runtime's own writer, before the environment reaches a
 string: a secret-*named* variable is stored as `<redacted>` and the proc header
-carries two siblings after `env_hash` — `env_redaction`, the name → digest
+carries two siblings after `env_hash`, `env_redaction`, the name → digest
 table, and `redaction`, the rule, the mode, the key and the two knobs, which
 the converter folds into the trace's one `redaction` key. **The driver mints
 the store's `redaction.key`** (0600, beside `traces/`) and hands the hex to the
 recorded process as `SENSORIUM_REDACT_KEY`, which the runtime deletes from what
 it records. A store whose key cannot be created or read records unkeyed and
-says so on stderr once, **before** the build — `sensorium: no redaction key at
+says so on stderr once, **before** the build, `sensorium: no redaction key at
 <path> (<reason>); digests will be absent`. A store root that resolves to
-nothing — neither `SENSORIUM_DIR` nor `HOME` set — produces no trace at all:
+nothing (neither `SENSORIUM_DIR` nor `HOME` set) produces no trace at all:
 cargo runs, and the converter's own error afterwards names the missing store.
 And every file either of them creates **under the store and the spool
-directories** is **0600** in a **0700** directory — the spool, the proc header,
-the runner record, the trace and `traces/` — by explicit mode at creation,
+directories** is **0600** in a **0700** directory (the spool, the proc header,
+the runner record, the trace and `traces/`) by explicit mode at creation,
 never a later `chmod`. The build tree under `<target>/sensorium/` (the mirror,
 which holds a copy of your source) is not covered and stays at the platform
 default. `tests/convert_e2e.rs` (`check_modes`, `check_redaction`) asserts
@@ -276,7 +274,7 @@ pins the store root the key is minted under;
 [`docs/redaction.md`](../docs/redaction.md) is the rule and its limits.
 
 From `sensorium-rt 0.7.0` / `cargo-sensorium 0.8.0` the rule reaches CAPTURED
-values too, and the two crates split the work — which is why the spool's wire
+values too, and the two crates split the work, which is why the spool's wire
 moved to **v4**. The runtime applies the NAME rule to a LINE delta at its own
 writer and writes the result as a fourth delta tag; `src/spool.rs`'s module
 comment is the format's one home, and these are its changed lines, verbatim
@@ -296,24 +294,24 @@ Tag 4 appears on LINE rows only. RETURN payloads are unchanged from v3.
 
 Tag 3 is UNBOUND and predates this; tag 4 is the new one. The converter reads
 versions 2, 3 and 4 and refuses anything else by number, and tag 4 is read
-only on a v4 file — a v3 spool carrying one is corruption, not a capture
+only on a v4 file. A v3 spool carrying one is corruption, not a capture
 (`rust/sensorium-rt/tests/redact/line.rs`,
 `rust/cargo-sensorium/src/convert/spool/tests/line.rs::a_tag_four_delta_on_a_version_three_spool_is_still_refused_by_number`).
 
 **Everything else is the CONVERTER's**, because `sensorium-rt` is
 dependency-free and has no regex engine. It applies the CONTENT rule to every
-`dbg` text it writes — a LINE delta, a RETURN value, an `Err` message — and
+`dbg` text it writes (a LINE delta, a RETURN value, an `Err` message) and
 the RETURN name rule against the site's qualname from the manifest, since the
 runtime's exit probe has no qualname to fire on. **So the spool under
 `<target>/sensorium/spool/` holds content-plaintext between the two**: a token
 inside a struct's `Debug` rendering, and `get_token()`'s return. Never a
-name-hit LINE delta and never an environment value — the runtime took those.
+name-hit LINE delta and never an environment value. The runtime took those.
 Those files are `0600` and a `cargo clean` takes them, but the window is real
 (`rust/HONESTY.md` §14).
 
 That split is what `redaction.by` says. It reads **`recorder`** only where the
-runtime did the value half too — wire v4 or better with a `redaction` header
-whose mode is on — and **`converter`** otherwise, so a v3 spool re-converted
+runtime did the value half too (wire v4 or better with a `redaction` header
+whose mode is on) and **`converter`** otherwise, so a v3 spool re-converted
 under this driver produces a trace that says `converter` where the environment
 alone would have said `recorder`
 (`rust/cargo-sensorium/tests/convert_redaction.rs`,
@@ -340,7 +338,7 @@ whole invocation under one header.
 
 No command here answers from a capability the recorder declared it does not
 have, and each refusal names the capability and the recorder. `watch` and
-`flow` print why and exit **3** — change the recording, not the call — but
+`flow` print why and exit **3** (change the recording, not the call) but
 only on a trace recorded WITHOUT a `--focus`; on a focused one they answer.
 `exceptions` answers from 0.3.0, and refuses on exactly one thing: a trace an
 older runtime wrote, which carries no err-flow records to judge. `refocus`
@@ -348,15 +346,15 @@ answers from 0.5.0 and no longer refuses on the capability for traces that
 driver converts; on a recording an OLDER driver made it still does, because
 that trace declares `capabilities.refocus: false`. On a 0.5.0 trace the five
 refusals are about this particular RUN instead, and each exits **2** with
-`nothing was re-run` in it — see below.
+`nothing was re-run` in it, see below.
 
 | Command | Exit | Why |
 |---|---|---|
-| `exceptions` | 3, **only on a pre-0.3.0 trace** | `capabilities.err_flow: false` — the recorder produced no RAISE/HANDLED records, so there is nothing to judge. On a 0.3.0 trace it answers. |
-| `refocus` | 2, **only on a pre-0.5.0 trace** | `capabilities.refocus: false` — recorded before the driver could be re-invoked, so nothing was re-run and the reader's next move is a different command. A trace a 0.5.0 driver converted declares `refocus: true` and is refused, if at all, by one of the five per-run sentences below. |
-| `watch`, `flow` | 3, **only on an unfocused trace** | `capabilities.line: false` — no `--focus` was given, so no LINE record exists. On a focused trace they answer. |
+| `exceptions` | 3, **only on a pre-0.3.0 trace** | `capabilities.err_flow: false`. The recorder produced no RAISE/HANDLED records, so there is nothing to judge. On a 0.3.0 trace it answers. |
+| `refocus` | 2, **only on a pre-0.5.0 trace** | `capabilities.refocus: false`, recorded before the driver could be re-invoked, so nothing was re-run and the reader's next move is a different command. A trace a 0.5.0 driver converted declares `refocus: true` and is refused, if at all, by one of the five per-run sentences below. |
+| `watch`, `flow` | 3, **only on an unfocused trace** | `capabilities.line: false`. No `--focus` was given, so no LINE record exists. On a focused trace they answer. |
 
-The unfocused refusal, in full — the sentence
+The unfocused refusal, in full, the sentence
 `corpus/rust/focus_unfocused_refuses` pins byte for byte:
 
     REFUSED: watch needs line, which recorder sensorium-rt 0.5.0 declares it does not produce (capabilities.line: false); nothing was checked
@@ -370,13 +368,13 @@ libtest; probes in closure and `async` bodies; place writes (`*p = e`,
 `a.b = e`) and `&mut` mutation as deltas; arguments on a CALL row;
 `flow --object`, since object identity is not a thing Rust has an equivalent
 of. `?` sites, sinks and `Err`-arm classification **shipped in rung 3**
-(0.3.0) — what they still cannot see is `HONESTY-ERR-FLOW.md` §11 and
+(0.3.0), what they still cannot see is `HONESTY-ERR-FLOW.md` §11 and
 `HONESTY-BLIND-SPOTS.md` items 15–26. LINE and locals under a `--focus`
-**shipped in rung 4 slice 1** (0.4.0) — what they still cannot see is
+**shipped in rung 4 slice 1** (0.4.0), what they still cannot see is
 `HONESTY.md` §12 and `HONESTY-BLIND-SPOTS.md` item 3, narrowed to exactly
 that. `refocus` by re-invocation **shipped in rung 4 slice 2**
 (`cargo-sensorium` 0.5.0), measured as **E4** over 61 tests of a real
-workspace — what it still does not compare is `HONESTY.md` §13 and
+workspace, what it still does not compare is `HONESTY.md` §13 and
 `HONESTY-BLIND-SPOTS.md` item 12, narrowed the same way.
 
 The design and its rungs are in
@@ -388,7 +386,7 @@ rung 1 measured, including everything it could not do, is in
 
 Reported, never gated. Recording a bloomery test suite measured
 indistinguishable from a plain run at the suite's own granularity, and about
-+5 ns per site on call-dense code at `opt-level = 0` — two readings roughly
++5 ns per site on call-dense code at `opt-level = 0`, two readings roughly
 1900× apart in event density, and both true. `HONESTY.md` §10 states them
 together, with the lens on each; the acceptance document carries the numbers
 with their `n`.
@@ -397,35 +395,35 @@ with their `n`.
 (`../docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`,
 *reported without a gate*) the clone's `-p bloomery-daemon --lib` suite ran
 **0.063 s plain against 0.132 s recorded**, medians of n=5 alternating arms
-with the load recorded per arm — a difference of 0.069 s on a near-vacuous
+with the load recorded per arm, a difference of 0.069 s on a near-vacuous
 workload, which is the honest way to read it rather than as a ratio. The
 records themselves are cheap and rare: **13 RAISE and 17 HANDLED events in
 1 424** on that trace, at 405.573 bytes per record over a 577 536-byte file.
-A RAISE or HANDLED costs more bytes than a CALL — it carries a type name and
-the `Err`'s capped `Debug` text, ≈ 60–350 bytes against a CALL's 24 — and
+A RAISE or HANDLED costs more bytes than a CALL (it carries a type name and
+the `Err`'s capped `Debug` text, ≈ 60–350 bytes against a CALL's 24) and
 there is no type-intern table, which was a decision for simplicity with this
 number as its check.
 
-**What a focus costs, reported the same way — and what E9 could not measure.**
+**What a focus costs, reported the same way, and what E9 could not measure.**
 A focus is part of the build's cache key: the wrapper shim's path carries the
 focus hash, so every distinct focus gets its own `-C metadata`, its own mirror
 and its own unit manifests, and those **accumulate in the target directory**
 across invocations. The shim itself stopped being a per-focus COPY in
 `cargo-sensorium` **0.5.1**: it is a **hard link** to the driver wherever the
 target directory shares the driver's filesystem, and a copy only where it
-cannot be — another mount, or any other error, both named in one message if the
+cannot be, another mount, or any other error, both named in one message if the
 copy fails too. Sharing the driver's inode is safe because the key already
 hashes the driver's own bytes, so a replaced driver takes a different key and
 no live shim is ever written through. One consequence for anyone sizing the
 directory: `du` over `<target>/sensorium/shim` counts those bytes **once**
 however many focused keys are present, and a per-entry sum would report a
-number the disk never held. Budget one artifact set per distinct focus — that
-is the part that still accumulates — and expect a focused build after an
+number the disk never held. Budget one artifact set per distinct focus (that
+is the part that still accumulates) and expect a focused build after an
 unfocused one to compile rather than to be `Fresh`. The runtime cost of the probes themselves
 is **not measured**: on the rung-4 acceptance run
 (`../docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`, endpoint
 **H6**, whose verdict is **REPORTED** with no gate) libtest reported
-**0.00 s** for all four binaries — too fast to time at its resolution — and
+**0.00 s** for all four binaries (too fast to time at its resolution) and
 the four invocation walls (U1 **6.693 s**, F1 **6.690 s**, U2 **1.448 s**,
 F2 **6.587 s**) are each dominated by compilation, so *"neither isolates
 run-time overhead"* (record §5.3). A cost claim needs a subject whose test
