@@ -1,5 +1,62 @@
 # sensorium
 
+Record one run of your program, then let a coding agent ask what actually happened: call trees, exceptions, and where a value came from, answered from the trace or refused.
+
+<!-- Demo GIF goes here: an agent hits a failing test, queries Sensorium over MCP, and fixes the bug.
+![Sensorium demo](docs/demo.gif)
+-->
+
+## Quickstart (Python 3.12+, uv)
+
+    uv venv .venv && uv pip install -p .venv/bin/python "sensorium @ git+https://github.com/bricelancasterwcp-sudo/sensorium" pytest
+    .venv/bin/sensorium run -- pytest tests/test_something.py
+    .venv/bin/sensorium exceptions last
+
+Run these from your project root, in your project's own venv, so recordings import your dependencies. Not on PyPI yet; the `sensorium` name on PyPI and npm belongs to unrelated projects.
+
+## Connect your agent (MCP)
+
+Use the absolute path to your project venv's `sensorium`. `--allow-run` lets the agent record and rerun; leave it off for read-only.
+
+Cursor, `.cursor/mcp.json`, and Claude Desktop, `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "sensorium": {
+      "command": "/abs/path/to/project/.venv/bin/sensorium",
+      "args": ["mcp", "--allow-run"]
+    }
+  }
+}
+```
+
+VS Code, `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "sensorium": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/bin/sensorium",
+      "args": ["mcp", "--allow-run"]
+    }
+  }
+}
+```
+
+Claude Code:
+
+    claude mcp add sensorium -- /abs/path/to/project/.venv/bin/sensorium mcp --allow-run
+
+## How this differs from live debuggers and LLM tracing
+
+- **Live debuggers over MCP** (DAP-based servers) make the agent step through a paused process, one breakpoint at a time. Sensorium records the whole run once, and the agent queries it afterward, as often as it likes, with stable event ids.
+- **LLM tracing** (LangSmith, Langfuse and similar) records the model's prompts and tool calls. Sensorium records the program under test: its calls, returns, exceptions and values.
+- **Not sensorium-mcp.** [andriyshevchenko/sensorium-mcp](https://github.com/andriyshevchenko/sensorium-mcp) is an unrelated Telegram and memory agent that shares the name.
+
+## What Sensorium is
+
 Record what a program actually did; ask it questions afterward.
 
 Sensorium records one run of a program (every call, return and exception,
