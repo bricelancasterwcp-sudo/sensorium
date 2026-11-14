@@ -86,6 +86,7 @@ exists to link. A thread's tables die with the thread, and `uninstall` clears
 every live thread's tables and in-flight slot, after which this recorder
 holds no exception object at all.
 """
+import inspect
 import sys
 import threading
 import time
@@ -110,6 +111,24 @@ from sensorium.record.tracer_frames import (  # noqa: F401
 
 M = sys.monitoring
 TOOL = M.PROFILER_ID
+
+
+def _call_arg_names(code):
+    """Every parameter name, including `*args` and `**kwargs`.
+
+    `co_varnames` lays them out as positional, then keyword-only, then the
+    variadic names when the flags say they exist, then the other locals.
+    The slice that stops at `co_argcount + co_kwonlyargcount` drops the
+    variadic bindings, so a call's `*args` and `**kwargs` never reached
+    the trace.
+    """
+    n = code.co_argcount + code.co_kwonlyargcount
+    flags = code.co_flags
+    if flags & inspect.CO_VARARGS:
+        n += 1
+    if flags & inspect.CO_VARKEYWORDS:
+        n += 1
+    return code.co_varnames[:n]
 
 
 def locals_snapshot(frame) -> dict | None:
@@ -228,7 +247,7 @@ class Tracer(_FrameDecisions):
         tls.in_hook = True
         try:
             frame = sys._getframe(1)
-            names = code.co_varnames[:code.co_argcount + code.co_kwonlyargcount]
+            names = _call_arg_names(code)
             # Through the same snapshot as `_on_line`, for the same reason.
             # A frame with parameters always has interpreter-built locals, so
             # this path is not the one that was reachable -- but "reachable

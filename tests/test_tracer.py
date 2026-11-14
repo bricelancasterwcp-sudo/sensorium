@@ -7,7 +7,7 @@ bound, control-flow serials, and what `uninstall` does to all of it -- are
 on 2026-09-08; `ADD`, `SEQ_THREADS` and `UNCAUGHT_THROUGH_FINALLY` below are
 read from both sides.
 """
-from tests.helpers import record_inproc, record_inproc_full
+from tests.helpers import record_inproc, record_inproc_full, record_script, run_cli
 
 ADD = """
 def add(a, b):
@@ -200,6 +200,41 @@ def main():
         t.start()
         t.join()
 """
+
+
+def test_varargs_and_kwargs_are_recorded_and_shown(tmp_path):
+    """`*args` and `**kwargs` sit past the keyword-only names in
+    `co_varnames`. A slice that stops at `co_argcount + co_kwonlyargcount`
+    drops them, so the call is recorded without the bindings the function
+    actually received."""
+    src = """
+def mix(a, *rest, b, **opts):
+    return a
+
+def main():
+    return mix(1, 2, 3, b=4, flag=True)
+
+main()
+"""
+    t, err = record_inproc(tmp_path, src)
+    assert err is None
+    call = next(e for e in t.events(kind="CALL")
+                if t.code(e.code_id).qualname == "mix")
+    args = call.payload["args"]
+    assert set(args) == {"a", "rest", "b", "opts"}
+    assert args["a"] == {"k": "num", "v": 1}
+    assert args["b"] == {"k": "num", "v": 4}
+    assert args["rest"]["k"] == "seq" and args["rest"]["len"] == 2
+    assert [x["v"] for x in args["rest"]["sample"]] == [2, 3]
+    assert args["opts"]["k"] == "map" and args["opts"]["len"] == 1
+    run_id, _trace, r = record_script(tmp_path / "shown", src)
+    assert run_id, r.stderr
+    out = run_cli(["tree", run_id], cwd=tmp_path / "shown",
+                  sensorium_dir=tmp_path / "shown" / "sdir").stdout
+    line, = [ln for ln in out.splitlines() if "mix(" in ln]
+    assert "rest=tuple[2]=[2, 3]" in line
+    assert "opts=dict[1]={'flag': True}" in line
+    assert "b=4" in line
 
 
 def test_calls_returns_args_and_frames(tmp_path):
