@@ -105,6 +105,14 @@ trust an answer. The trace contract every recorder is written against is
 
     cd rust && cargo build --release
 
+The recorder builds with **rustc 1.96.0 or newer**, the toolchain
+`rust-toolchain.toml` pins. `cargo sensorium` refuses an older compiler by
+name, before it compiles the runtime. Debian's cargo 1.85 (and other distro
+cargos of that shape) invokes the workspace wrapper as the bare word `rustc`
+rather than a path; that spelling is accepted from `cargo-sensorium` 0.8.1.
+The compiler that then runs is `rustc` on `PATH`, or `$RUSTC` when that is
+set. A distro rustc 1.85 is not new enough to compile the runtime.
+
 Build the driver `--release` for anything you intend to measure: it hashes
 itself to key the per-version shim, and a debug binary makes that ~0.5 s of
 fixed cost on every invocation against 0.025 s for a release one.

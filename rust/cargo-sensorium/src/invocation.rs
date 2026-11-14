@@ -128,6 +128,59 @@ pub fn parse_version_verbose(text: &str) -> Result<(String, String), String> {
     Ok((toolchain, host))
 }
 
+/// Oldest `rustc` this recorder builds the runtime with. The pin in
+/// `rust/rust-toolchain.toml`. A distro compiler older than this (Debian's
+/// 1.85) is refused by name rather than left to fail inside the runtime.
+pub const RUSTC_FLOOR: (u64, u64, u64) = (1, 96, 0);
+
+/// Refuse a toolchain line whose release is older than [`RUSTC_FLOOR`].
+///
+/// `toolchain` is the first line of `rustc -vV` (`rustc 1.96.0 (hash date)`).
+/// The comparison is the numeric `major.minor.patch`. A pre-release suffix
+/// does not lower it: nightly builds of 1.96 are still 1.96.
+///
+/// # Errors
+/// The line is not a rustc version, or the release is below the floor. The
+/// sentence names 1.96.0 and how a distro cargo selects the compiler (the
+/// bare word `rustc` on `PATH`, or `$RUSTC`).
+pub fn require_rustc_floor(toolchain: &str) -> Result<(), String> {
+    let version = toolchain
+        .strip_prefix("rustc ")
+        .and_then(|rest| rest.split_whitespace().next())
+        .ok_or_else(|| {
+            format!(
+                "cannot read a rustc version from {toolchain:?}; this recorder needs rustc \
+                 1.96.0 or newer"
+            )
+        })?;
+    let triple = parse_rustc_triple(version).ok_or_else(|| {
+        format!(
+            "cannot read a rustc version from {toolchain:?}; this recorder needs rustc 1.96.0 or \
+             newer"
+        )
+    })?;
+    if triple < RUSTC_FLOOR {
+        return Err(format!(
+            "rustc {version} is older than 1.96.0, the oldest compiler this recorder builds \
+             with. A distro cargo passes this wrapper the bare word `rustc`, and the runtime \
+             is then compiled by whatever `rustc` is on PATH, or by $RUSTC when that is set. \
+             Install rustc 1.96.0 or newer and put it on PATH, or set RUSTC to that compiler."
+        ));
+    }
+    Ok(())
+}
+
+/// `1.96.0` or `1.85.1` out of a release token. Extra dot-components are
+/// ignored; a `-` or `+` suffix is not part of the triple.
+fn parse_rustc_triple(version: &str) -> Option<(u64, u64, u64)> {
+    let numeric = version.split(['-', '+']).next()?;
+    let mut parts = numeric.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let patch = parts.next().unwrap_or("0").parse().ok()?;
+    Some((major, minor, patch))
+}
+
 /// `YYYYMMDD-HHMMSS-<6 hex>` in LOCAL time: sensorium's run-id shape, the same
 /// one `paths.new_run_id` mints on the Python side. The shape is what groups a
 /// day's traces in a listing, so it is local time there and local time here.
@@ -244,6 +297,19 @@ mod tests {
     fn rustc_output_without_a_host_line_is_an_error_not_a_guess() {
         assert!(parse_version_verbose("rustc 1.96.0\nrelease: 1.96.0\n").is_err());
         assert!(parse_version_verbose("").is_err());
+    }
+
+    #[test]
+    fn an_older_rustc_is_refused_by_name_and_1_96_0_is_the_floor() {
+        let old = require_rustc_floor("rustc 1.85.1 (abc 2025-01-01)").unwrap_err();
+        assert!(old.contains("1.85.1"), "{old}");
+        assert!(old.contains("1.96.0"), "{old}");
+        assert!(old.contains("bare word"), "{old}");
+        assert!(require_rustc_floor("rustc 1.96.0 (abc 2026-05-25)").is_ok());
+        assert!(require_rustc_floor("rustc 1.96.0-nightly (abc 2026-05-25)").is_ok());
+        assert!(require_rustc_floor("rustc 1.97.0 (abc 2026-06-01)").is_ok());
+        assert!(require_rustc_floor("rustc 1.95.0 (abc 2026-01-01)").is_err());
+        assert!(require_rustc_floor("not a compiler").is_err());
     }
 
     #[test]
