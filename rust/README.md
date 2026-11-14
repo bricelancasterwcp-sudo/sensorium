@@ -113,6 +113,12 @@ rather than a path; that spelling is accepted from `cargo-sensorium` 0.8.1.
 The compiler that then runs is `rustc` on `PATH`, or `$RUSTC` when that is
 set. A distro rustc 1.85 is not new enough to compile the runtime.
 
+From 0.8.2 a frame that returned through `?` on a `Result` prints
+`-> Err(...)`: the try probe's Debug of the error, wrapped as `Err`. The
+wire outcome stays `none`. An `Option` `?` still prints `?`. A `?` that
+converts with `From` prints the error from before the conversion. The
+contract is [`HONESTY-OUTCOMES.md`](HONESTY-OUTCOMES.md).
+
 Build the driver `--release` for anything you intend to measure: it hashes
 itself to key the per-version shim, and a debug binary makes that ~0.5 s of
 fixed cost on every invocation against 0.025 s for a release one.

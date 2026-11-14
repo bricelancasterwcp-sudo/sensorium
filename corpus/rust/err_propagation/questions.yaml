@@ -44,10 +44,12 @@ questions:
     truth: >
       No. The first row parsed: `field -> Ok(4)`, `threshold -> Ok(4)`,
       `budget -> Ok(40)`, `plan -> Ok(41)`, four returns with values. The
-      second row's four frames returned nothing at all -- `?` propagated
-      past each tail, so the recorder has no value to report and prints `?`
-      -- and the bottom of that second stack is the one frame that produced
-      an Err. Two passes through the same four functions, and the trace
+      second row returned the same error from every frame that touched it.
+      `field` built `Err(BadRow("4o"))`, and `threshold`, `budget`, `plan`
+      and the test function each propagated it with `?`. Those frames print
+      `-> Err(BadRow("4o"))`: the try probe's Debug of the error, wrapped
+      as `Err(...)`, which for a same-type `?` is the value that left the
+      frame. Two passes through the same four functions, and the trace
       keeps them apart by activation rather than by function name.
     why_logs_fail: >
       A log line per function would print eight lines with nothing to say
@@ -62,4 +64,6 @@ questions:
       - ["budget()", "-> Ok(40)"]
       - ["field()", "-> Ok(4)"]
       - ["field()", '-> Err(BadRow("4o"))']
-    expect_count: {"-> ?": 4}
+      - ["threshold()", '-> Err(BadRow("4o"))']
+      - ["plan()", '-> Err(BadRow("4o"))']
+    expect_count: {'-> Err(BadRow("4o"))': 5}

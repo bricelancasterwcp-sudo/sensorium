@@ -35,6 +35,19 @@ struct OpenFrame {
     /// never said what it returns is not one this converter may read a `()`
     /// into (`rust/HONESTY.md` §1's none-versus-zero discipline).
     ret: Option<RetKind>,
+    /// The error a `?` (`How::Try`) on this frame last propagated, as the
+    /// try probe rendered it. The exit probe never runs for that return, so
+    /// the RETURN record carries no value; this is what the converter prints
+    /// in its place. `None` means this frame's return was not a `?`.
+    pending_try: Option<PendingTry>,
+}
+
+/// What the try probe saw of the error a `?` propagated.
+enum PendingTry {
+    /// `Debug` of the error operand, and whether the probe cut that text.
+    Debug { text: String, truncated: bool },
+    /// The probe could not read the error at all.
+    Unread,
 }
 
 struct PendingPanic {
@@ -213,6 +226,7 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     qualname: site.qualname.clone(),
                     line: site.line,
                     ret: site.ret,
+                    pending_try: None,
                 });
             }
             KIND_RETURN => {
@@ -292,6 +306,10 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     // converter writes.
                     let value = if is_unit_none {
                         Some(json!({"k": "dbg", "v": "()"}))
+                    } else if let Some(synthesized) =
+                        synthesized_try_value(r.outcome, payload.tag, &top)
+                    {
+                        Some(synthesized)
                     } else {
                         match payload.tag {
                             TAG_NO_VALUE => None,
@@ -526,10 +544,13 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 // a site whose enclosing CALL was refused, has nothing to be
                 // reported against. Counted instead, the way a panic outside
                 // every frame is.
-                let Some(top) = stacks.get(&thread_id).and_then(|s| s.last()) else {
+                let Some(top) = stacks.get_mut(&thread_id).and_then(|s| s.last_mut()) else {
                     err_flow_outside_frames += 1;
                     continue;
                 };
+                if how == How::Try {
+                    top.pending_try = Some(pending_try_of(&seen));
+                }
                 let chain = chains.at_record(thread_id, r.seq).ok_or_else(|| {
                     format!("{label}: no chain was minted for this {kind_name} record")
                 })?;
@@ -617,6 +638,40 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
 // `PendingPanic.msg_mark`) and, under R16, an `err` RETURN's value (the RETURN
 // and the origin RAISE synthesised in front of it, through the mark read back
 // off the RETURN row).
+
+/// Remember a `?` on the frame it fired in. Later tries on the same frame
+/// replace it: a `?` returns, so the last one is the return.
+fn pending_try_of(seen: &spool::ErrFlowPayload) -> PendingTry {
+    match &seen.msg {
+        Some(text) => PendingTry::Debug {
+            text: text.clone(),
+            truncated: seen.msg_truncated,
+        },
+        None => PendingTry::Unread,
+    }
+}
+
+/// The value to print for a `?` that bypassed the exit probe.
+///
+/// Only a value-returning frame whose wire outcome is `none` and whose
+/// RETURN carried no stash. The text is `Err(` plus the try probe's `Debug`
+/// of the error operand, which is the value from before `From`. Same-type
+/// `?` therefore matches `Result`'s own `Debug`. The wire outcome stays
+/// `none`: this is a display value, not an `err` close, so chain hops do
+/// not move. An `Option` `?` writes no try record and stays without a value.
+fn synthesized_try_value(outcome: u8, tag: u8, top: &OpenFrame) -> Option<Value> {
+    if outcome != 0 || tag != TAG_NO_VALUE || top.ret != Some(RetKind::Value) {
+        return None;
+    }
+    match top.pending_try.as_ref()? {
+        PendingTry::Debug { text, truncated } => Some(json!({
+            "k": "dbg",
+            "v": format!("Err({text})"),
+            "trunc": *truncated,
+        })),
+        PendingTry::Unread => Some(json!({"k": "unread"})),
+    }
+}
 
 /// One RETURN value, under the returning site's qualname.
 fn redact_return(rule: Option<&Key>, qualname: &str, value: Value, count: &mut usize) -> Value {

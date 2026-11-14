@@ -39,12 +39,12 @@ questions:
       back, is there anything that says a setting was lost?
     truth: >
       No, and that is the case. `load` returned
-      `Config { port: 8080, retries: 3 }` -- a perfectly ordinary config --
-      and the two `read_port` activations returned nothing at all (`?`
-      propagated past their tails, so the recorder has no value for them and
-      prints `?` rather than inventing one). The only frames whose return
-      values name the failure are the two `parse_port` activations, two
-      levels below the frame that decided to ignore them.
+      `Config { port: 8080, retries: 3 }`, a perfectly ordinary config,
+      and the two `read_port` activations returned the errors they
+      propagated: `Err(BadSetting("http"))` and `Err(BadSetting("many"))`.
+      The same values are on the two `parse_port` activations one level
+      below. `load` ignored them at its sinks; the return values are not
+      missing.
     why_logs_fail: >
       This is the counterfactual the whole case rests on: the program's own
       output is the config it built, and that config is well formed. A
@@ -56,7 +56,8 @@ questions:
     command: ["tree", "$RUN"]
     expect_line:
       - ["load()", "-> Config { port: 8080, retries: 3 }"]
-      - ["read_port()", "-> ?"]
+      - ["read_port()", '-> Err(BadSetting("http"))']
+      - ["read_port()", '-> Err(BadSetting("many"))']
       - ["parse_port()", '-> Err(BadSetting("http"))']
       - ["parse_port()", '-> Err(BadSetting("many"))']
     expect_absent: ["closed: unwind", "panic("]

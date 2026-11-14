@@ -53,10 +53,10 @@ questions:
       The spawned one, and it is named after the spawn site: the task is
       `spawn@collect#1`, so the worker's frames are attributed to the
       `thread::spawn` call in `collect` rather than to an opaque thread id.
-      `worker` returned nothing (its `?` propagated past the tail) and
-      `ingest` beneath it returned the error, while on the main thread
-      `collect` returned an ordinary 0. Two threads, two stories, joined by
-      a name that points at a line of source.
+      `worker` returned `Err("ingest refused 9 rows")` (its `?` propagated
+      that error) and `ingest` beneath it returned the same error, while on
+      the main thread `collect` returned an ordinary 0. Two threads, two
+      stories, joined by a name that points at a line of source.
     why_logs_fail: >
       A thread id in a log line is a number that changes every run and
       corresponds to no line of source, so pairing "the failure" with "the
@@ -67,5 +67,5 @@ questions:
     expect_line:
       - ["task", "spawn@collect#1"]
       - ["collect()", "-> 0"]
-      - ["worker()", "-> ?"]
+      - ["worker()", '-> Err("ingest refused 9 rows")']
       - ["ingest()", '-> Err("ingest refused 9 rows")']

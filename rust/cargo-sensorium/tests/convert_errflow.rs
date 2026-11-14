@@ -94,6 +94,98 @@ fn a_try_chain_is_written_as_an_origin_raise_and_a_hop() {
     );
 }
 
+/// A `?` bypasses the exit probe, so the RETURN record has no value. The
+/// converter prints `Err(<the try probe's Debug>)` anyway. The wire outcome
+/// stays `none`: this is not an `err` close, and the chain's hops do not move.
+#[test]
+fn a_try_then_a_valueless_return_prints_err_of_the_probes_debug() {
+    let f = Fixture::new("errflow-try-value");
+    f.manifest(&two_fns_and_a_try());
+    wire::write_proc_header_caps(
+        &f.spool_dir,
+        611,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+        Some(true),
+    );
+    wire::SpoolBuilder::new(611, 1, "main")
+        .version(3)
+        .call(0, 1000, 0, 0)
+        .call(1, 1100, 0, 1)
+        .ret_err_typed(2, 1200, 0, 1, Some("demo::E"), Some("Err(E1)"))
+        .err_flow(
+            3,
+            1300,
+            0,
+            2,
+            KIND_RAISE,
+            HOW_TRY,
+            Some("demo::E"),
+            Some("E1"),
+        )
+        .ret_none(4, 1400, 0, 0)
+        .thread_end(5, 1500)
+        .write(&f.spool_dir);
+    let conn = f.converted();
+    assert_eq!(
+        kinds(&conn),
+        ["CALL", "CALL", "RAISE", "RETURN", "RAISE", "RETURN"],
+        "synthesising a display value adds no event"
+    );
+    let returns: Vec<serde_json::Value> = events(&conn)
+        .into_iter()
+        .filter(|(kind, _, _)| kind == "RETURN")
+        .map(|(_, _, payload)| payload)
+        .collect();
+    assert_eq!(returns[0]["outcome"], "err");
+    assert_eq!(returns[0]["value"]["v"], "Err(E1)");
+    assert_eq!(returns[1]["outcome"], "none", "the wire outcome stays none");
+    assert_eq!(
+        returns[1]["value"],
+        serde_json::json!({"k": "dbg", "v": "Err(E1)", "trunc": false}),
+        "Err( plus the try probe's Debug of the error, before From"
+    );
+}
+
+/// An unread try probe has no text to wrap. The return says unread, not `?`.
+#[test]
+fn an_unread_try_prints_an_unread_return_value() {
+    let f = Fixture::new("errflow-try-unread");
+    f.manifest(&[
+        site(0, "outer", 3, "value"),
+        err_site(1, "outer", 5, "try", "try"),
+    ]);
+    wire::write_proc_header_caps(
+        &f.spool_dir,
+        612,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+        Some(true),
+    );
+    wire::SpoolBuilder::new(612, 1, "main")
+        .version(3)
+        .call(0, 1000, 0, 0)
+        .err_flow(1, 1100, 0, 1, KIND_RAISE, HOW_TRY, Some("demo::E"), None)
+        .ret_none(2, 1200, 0, 0)
+        .thread_end(3, 1300)
+        .write(&f.spool_dir);
+    let conn = f.converted();
+    let payload: String = conn
+        .query_row(
+            "SELECT payload FROM events WHERE kind = 'RETURN'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let p: serde_json::Value = serde_json::from_str(&payload).unwrap();
+    assert_eq!(p["outcome"], "none");
+    assert_eq!(p["value"], serde_json::json!({"k": "unread"}));
+}
+
 /// The two err-flow events belong to the frame they were recorded in, not to
 /// the site's own qualname: `code_id` is the top frame's, which is what makes
 /// `frame` and `tree` able to place them.

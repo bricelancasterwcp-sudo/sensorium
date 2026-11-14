@@ -42,13 +42,11 @@ questions:
       `main` printed one failure. Which of the two did it get, and what
       happened to the other?
     truth: >
-      `main` got `work`'s. `run` closed with nothing to hand back -- `?`
-      propagated past its tail, so the recorder has no value for that frame
-      and prints `?` rather than guessing -- while both `cleanup` and `work`
-      returned their errors one level down. So the run's own output names
-      the second failure and the first one exists in the recording only as
-      the value absorbed at the sink, which is precisely why one of them is
-      easy to find and the other is not.
+      `main` got `work`'s. `run` returned that same error through `?`
+      (`-> Err("work 7 failed")`), and both `cleanup` and `work` returned
+      their errors one level down. The cleanup error was absorbed at the
+      sink. The one that reached `main` is `work`'s, and `run`'s printed
+      return is that value, taken from the try probe before `From`.
     why_logs_fail: >
       The printed line IS the second error, so a reader working from output
       alone has one failure, believes it is the failure, and never learns
@@ -57,7 +55,7 @@ questions:
       RUST_BACKTRACE never fires here.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["run()", "-> ?"]
+      - ["run()", '-> Err("work 7 failed")']
       - ["cleanup()", '-> Err("cleanup scratch.tmp failed")']
       - ["work()", '-> Err("work 7 failed")']
-    expect_count: {"-> ?": 1}
+    expect_count: {'-> Err("work 7 failed")': 2}
