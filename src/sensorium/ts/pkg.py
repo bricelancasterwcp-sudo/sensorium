@@ -7,11 +7,12 @@ package that has never been installed. Each is a refusal with a sentence
 naming the fix, and neither leaves a spool directory behind.
 
 The package's location is one rule in one place (`locate`). `SENSORIUM_TS_PKG`
-names it when the library lives somewhere else -- a wheel install beside a
-checkout, a test pointing at an empty directory -- and otherwise it is the
-`typescript/` directory beside `src/`, found from this module's own file.
-The same variable is exported to the harness, so what the driver checked and
-what the loader hook resolves are the same directory by construction.
+names it when the library lives somewhere else -- a test pointing at an empty
+directory, a checkout beside a wheel -- and otherwise it is the `typescript/`
+directory beside `src/` when this module was imported from a checkout, or the
+`sensorium/_typescript` tree a wheel ships next to the package. The same
+variable is exported to the harness, so what the driver checked and what the
+loader hook resolves are the same directory by construction.
 """
 import os
 import re
@@ -49,11 +50,32 @@ def locate() -> Path:
     """The `sensorium-ts` package directory.
 
     An EMPTY variable is not a location -- `or` and not a presence test, so
-    `SENSORIUM_TS_PKG=` falls through to the checkout rather than resolving
-    to the process's working directory.
+    `SENSORIUM_TS_PKG=` falls through rather than resolving to the process's
+    working directory.
+
+    A checkout (and an editable install of one) keeps the Node package at
+    `typescript/` beside `src/`. A non-editable install has no such
+    directory: `parents[2]` of an installed `sensorium/__init__.py` is the
+    virtualenv, not the repository. The wheel carries the Node sources at
+    `sensorium/_typescript`, which is the location a `git+https` install
+    can actually see. `node_modules` is not part of that tree; `check`
+    still refuses until `npm ci --prefix` that directory.
     """
-    return Path(os.environ.get(ENV_VAR)
-                or Path(sensorium.__file__).resolve().parents[2] / "typescript")
+    env = os.environ.get(ENV_VAR)
+    if env:
+        return Path(env)
+    here = Path(sensorium.__file__).resolve()
+    checkout = here.parents[2] / "typescript"
+    if (checkout / "package.json").is_file():
+        return checkout
+    installed = here.parent / "_typescript"
+    if (installed / "package.json").is_file():
+        return installed
+    raise PackageError(
+        "cannot find the recorder's Node package. A checkout keeps it at "
+        "typescript/ beside src/. A wheel install ships it inside the "
+        "sensorium package, at sensorium/_typescript. Set "
+        f"{ENV_VAR} to the directory that contains package.json.")
 
 
 def check(pkg: Path) -> None:
