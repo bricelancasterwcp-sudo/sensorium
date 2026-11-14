@@ -6,7 +6,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # ubuntu-latest is 26.04, and actions/setup-python publishes no 3.13.5
+    # build for it (the manifest has that point release through 24.04).
+    # Debian's interpreter is the one this leg exists to run, so it takes
+    # ubuntu-24.04. Every other version stays on ubuntu-latest.
+    runs-on: ${{ matrix.python-version == '3.13.5' && 'ubuntu-24.04' || 'ubuntu-latest' }}
     strategy:
       # Report every version's result; one red leg must not cancel the others.
       fail-fast: false
