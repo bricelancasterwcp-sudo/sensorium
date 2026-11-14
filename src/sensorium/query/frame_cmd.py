@@ -188,10 +188,11 @@ def run(args) -> int:
             print("  " + prefix + fmt_event(trace, e))
     else:
         mod = code.file.rsplit("/", 1)[-1].removesuffix(".py")
-        # The reason a timeline is missing is not the same in both
-        # languages, and naming a `--focus` command on a trace whose
-        # recorder produces no LINE events -- and whose `refocus` refuses --
-        # would send the reader to a command that cannot help.
+        # The reason a timeline is missing is not the same for every
+        # recorder. Rust has had per-statement LINE under
+        # `cargo sensorium --focus` since 0.4.0, so its hint names that
+        # command. A recorder that produces no LINE events at all says so
+        # instead of naming a command that cannot help.
         print("timeline: not captured ("
               + terms(trace).timeline_hint.format(mod=mod,
                                                   qualname=code.qualname)

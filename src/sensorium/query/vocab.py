@@ -131,6 +131,11 @@ class Terms:
     #: it. `{mod}` and `{qualname}` name the site. A language whose
     #: recorder produces no LINE events at all has no `--focus` to
     #: suggest, and says why instead of naming a command that refuses.
+    #: Rust is not that language: per-statement LINE has been opt-in
+    #: under `cargo sensorium --focus` since 0.4.0, and its hint names
+    #: that command. An unfocused Rust trace still declares
+    #: `capabilities.line: false`; the watch refusal for that fact is
+    #: separate from this hint.
     timeline_hint: str
     #: Which language's formatter wrote a `dbg` capture, so `watch --expr`
     #: and `flow --value` read one text the same way (`query/dbg_dialects`
@@ -346,9 +351,10 @@ RUST = Terms(
         "program's own Debug impls inside the probe, so an instrument that "
         "changes the program leaves no mark on the fingerprint"),
     blind_spot_tasks="libtest's per-test threads and spawned threads",
-    timeline_hint=("this recorder produces no LINE events at all "
-                   "(capabilities.line: false), so there is no per-line "
-                   "record to focus"),
+    timeline_hint=("record again with `cargo sensorium --focus {qualname} "
+                   "test` or `cargo sensorium --focus {qualname} run`; "
+                   "per-statement capture has existed since 0.4.0 and is "
+                   "opt-in at record time"),
     dbg_dialect="rust",
     # NOT the file stem the spec first proposed: Rust's printed listing
     # today is `module_name_for`'s dotted spelling and a closed record

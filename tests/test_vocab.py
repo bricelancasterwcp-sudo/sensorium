@@ -586,6 +586,26 @@ def test_the_command_that_records_this_trace_again():
     assert RUST.command_key == "cargo_args"
 
 
+def test_the_rust_timeline_hint_names_focus_since_0_4_0():
+    """Per-statement LINE has been opt-in under `cargo sensorium --focus`
+    since 0.4.0. The hint used to say this recorder produces no LINE
+    events at all, which sent a reader away from the command that records
+    them. An unfocused trace still declares `capabilities.line: false`;
+    that refusal is not this sentence."""
+    assert "no LINE events at all" not in RUST.timeline_hint
+    assert "capabilities.line: false" not in RUST.timeline_hint
+    assert RUST.timeline_hint == (
+        "record again with `cargo sensorium --focus {qualname} test` or "
+        "`cargo sensorium --focus {qualname} run`; per-statement capture "
+        "has existed since 0.4.0 and is opt-in at record time")
+    assert "sensorium run --focus" not in RUST.timeline_hint
+    # Python's sentence is untouched: it is the one this column was
+    # written to keep byte-for-byte.
+    assert PYTHON.timeline_hint == (
+        "locals need line-level focus; refocus with --focus "
+        "{mod}:{qualname}")
+
+
 def test_the_typescript_notes_name_the_command_this_rung_shipped():
     """Both sentences said rung 3 had no deeper capture to re-run for.
     Rung 4 gave this recorder one, so both name it -- and neither may name
