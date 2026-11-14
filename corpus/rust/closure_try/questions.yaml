@@ -37,11 +37,11 @@ questions:
     truth: >
       A frame of its own, named for the function that encloses it, and that
       is what makes the `?` legible: the closure ran twice, returned `Ok(6)`
-      the first time, and the second time returned nothing at all because
-      `?` propagated past its tail. `total`, meanwhile, returned 6 and never
-      failed. If the closure had no frame, the second row's `?` would look
-      like an early return from `total`, and `total` visibly did not return
-      early.
+      the first time, and the second time returned
+      `Err("row \"x\" is not a number")` because `?` propagated the error
+      `parse_one` built. `total`, meanwhile, returned 6 and never failed.
+      If the closure had no frame, that second return would look like an
+      early return from `total`, and `total` visibly did not return early.
     why_logs_fail: >
       A closure has no name to log under: `dbg!` inside it prints values
       with no indication of which invocation they came from, and the
@@ -53,6 +53,6 @@ questions:
     expect_line:
       - ["total()", "-> 6"]
       - ["total::{{closure}}#1()", "-> Ok(6)"]
-      - ["total::{{closure}}#1()", "-> ?"]
+      - ["total::{{closure}}#1()", '-> Err("row \"x\" is not a number")']
       - ["parse_one()", '-> Err("row \"x\" is not a number")']
     expect_count: {"total::{{closure}}#1()": 2}

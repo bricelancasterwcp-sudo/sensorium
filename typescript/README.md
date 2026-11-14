@@ -286,7 +286,7 @@ thing to do instead:
 | `jest …` | 2 | *"jest is not supported: not measured, and the consumer does not run it."* By name, not by silence. |
 | anything else after `--` | 2 | The command names no harness this recorder wires; the refusal names both forms it does. |
 | `node` below 24 | 2 | Checked before a spool directory exists, so a refused run leaves nothing behind. |
-| `typescript/node_modules` not installed | 2 | Names `npm ci --prefix <pkg>`. Set `SENSORIUM_TS_PKG` if the package is not beside the Python one. |
+| `typescript/node_modules` not installed | 2 | Names `npm ci --prefix <pkg>`. A wheel install ships the sources at `sensorium/_typescript`; a checkout keeps them at `typescript/`. Set `SENSORIUM_TS_PKG` to point somewhere else. |
 | your project has no `typescript` in `node_modules` | 2 | The transform parses with **your** compiler, not this package's, so the root must have one; resolved the way Node resolves it, parents included. Names `npm install --save-dev typescript`. |
 | a `node_modules` that cannot be written | 2 | The wrapper has to live under `node_modules` for `vitest/config` to resolve from your tree, so this is a refusal rather than a write somewhere else in your source. |
 | a vitest `test.projects` / `test.workspace` config | 2 | vitest resolves a config per project and the wrapper merges onto one, so the plugin never reaches those pipelines and the suite would run unrecorded. Refused at config load, by name. |

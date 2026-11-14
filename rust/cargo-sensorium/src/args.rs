@@ -11,10 +11,12 @@ use std::path::Path;
 
 /// Which of the binary's lives this invocation is.
 ///
-/// Cargo's contracts make this decidable without env sniffing: the workspace
-/// wrapper is always called with the real rustc's path in `argv[1]`, which is
-/// never `test`, never `run`, and never starts with `-`; the target runner is
-/// always called with the value the driver put in
+/// Cargo's contracts make this decidable without env sniffing. The workspace
+/// wrapper is always called with rustc in `argv[1]`: rustup passes that
+/// compiler's path (it contains `/`), and a distro cargo such as Debian's
+/// 1.85 passes the bare word `rustc`. Neither spelling is `test`, `run`, or
+/// a leading `-`. Any other bare word is a mistyped subcommand. The target
+/// runner is always called with the value the driver put in
 /// `CARGO_TARGET_<HOST>_RUNNER`, whose second word is `--runner`.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Role {
@@ -56,10 +58,16 @@ pub fn role(argv: &[String]) -> Role {
         Some(a) if a == "test" || a == "run" || a.starts_with('-') => {
             Role::Driver(argv[1..].to_vec())
         }
-        // Cargo invokes a workspace wrapper with the rustc it resolved, which
-        // is a PATH. A bare word here is a mistyped subcommand, and saying so
-        // beats trying to execute it as a compiler and reporting whatever the
-        // shell says about it.
+        // rustup's cargo passes the rustc it resolved, which is a path.
+        // Debian's cargo (and other distro cargos of that shape) passes the
+        // bare word `rustc`: treating that word as a subcommand made the
+        // driver print `unknown subcommand rustc`. Any other bare word is
+        // still a mistyped subcommand, and saying so beats trying to execute
+        // it as a compiler.
+        Some("rustc") => Role::Wrapper {
+            rustc: "rustc".to_owned(),
+            args: argv[2..].to_vec(),
+        },
         Some(rustc) if rustc.contains('/') => Role::Wrapper {
             rustc: rustc.to_owned(),
             args: argv[2..].to_vec(),
@@ -694,6 +702,25 @@ mod tests {
         assert_eq!(
             role(&v(&["cargo-sensorium", "build"])),
             Role::Driver(v(&["build"]))
+        );
+    }
+
+    #[test]
+    fn a_bare_rustc_is_the_wrapper_a_distro_cargo_passes() {
+        // Debian /usr/bin/cargo 1.85 invokes RUSTC_WORKSPACE_WRAPPER with the
+        // bare word, not a path. `cargo sensorium rustc` (the subcommand
+        // form) stays a driver invocation: that word is a mistype, not cargo
+        // handing us a compiler.
+        assert_eq!(
+            role(&v(&["cargo-sensorium", "rustc", "-vV"])),
+            Role::Wrapper {
+                rustc: "rustc".to_owned(),
+                args: v(&["-vV"]),
+            }
+        );
+        assert_eq!(
+            role(&v(&["cargo-sensorium", "sensorium", "rustc"])),
+            Role::Driver(v(&["rustc"]))
         );
     }
 

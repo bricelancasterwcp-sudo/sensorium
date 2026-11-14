@@ -49,7 +49,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-sensorium"
-version = "0.8.0"
+version = "0.8.2"
 dependencies = [
  "blake2",
  "libc",

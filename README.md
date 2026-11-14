@@ -513,7 +513,7 @@ trace per process, trace format 4, read by the same `sensorium` command line.
 `rust/` ships `sensorium-rt 0.7.0` (zero dependencies, the runtime linked into
 every instrumented unit, and the owner of the one sha256 the other two hash
 with), `sensorium-transform 0.5.0` (the `syn` rewriter), and `cargo-sensorium
-0.8.0` (driver, workspace wrapper, target runner, converter, one binary, four
+0.8.2` (driver, workspace wrapper, target runner, converter, one binary, four
 roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
 with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
 [`rust/README.md`](rust/README.md) is the full build/install/record reference.
@@ -692,6 +692,12 @@ file; [`typescript/README.md`](typescript/README.md) is the full reference.
     npm ci --prefix typescript
     npm --prefix typescript run check                        # type-check
     sensorium ts run [--tier off|call] -- vitest run         # or: -- node --test src/
+
+A `pip install`, including the git install in the quickstart, ships those
+Node sources inside the installed package (`sensorium/_typescript`).
+`npm ci --prefix typescript` is the checkout. After a non-editable install:
+
+    npm ci --prefix "$(python -c 'import sensorium.ts.pkg as p; print(p.locate())')"
     sensorium ts run --focus diceQueue.ts:parseDiceGroups -- npx vitest run src/lib
 
 Everything after `--` is yours, spawned as typed, and the driver exits with the

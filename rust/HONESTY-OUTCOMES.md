@@ -78,6 +78,18 @@ payload as `{"outcome": "ok" | "err" | "panic" | "none"}`.
   `panic!`, `unreachable!`, `todo!`, `unimplemented!`, `std::process::exit`,
   `std::process::abort`), or a `-> !` function. `none` is not "no error"; it is
   "this trace does not know".
+  **Amended 2026-11-14 (`cargo-sensorium` 0.8.2).** A `?` on a `Result`
+  (`how: try`) still closes `none`: the exit probe did not run, and the wire
+  outcome is not rewritten to `err`, so a chain's hops do not move. The
+  converter now fills the RETURN's display value from that try probe, as
+  `Err(` plus the probe's `Debug` of the error operand. Same-type `?` therefore
+  prints the `Result` `Debug` would have printed (`-> Err(BadCode("BOGUS"))`).
+  The text is the error from **before** `From`: a `?` that converts types
+  prints the pre-conversion error, not the value the caller received. An
+  unread probe prints `unread` rather than a guessed `Err`. An `Option` `?`
+  writes no try record, so that frame still has no value and the tree prints
+  `?`. A diverging operand, a `-> !` function, a generic `fn f<T>() -> T`, and
+  a stash that refused a 65th capture still close `none` with no value.
 - **That list is not closed, and the mechanism can produce `none` too.** A
   frame's exit operand leaves its capture on a per-thread LIFO stack keyed by
   `(site, frame depth)`, and the frame's own guard takes it back, top of stack,

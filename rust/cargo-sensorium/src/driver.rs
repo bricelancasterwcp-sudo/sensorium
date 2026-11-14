@@ -14,7 +14,8 @@ use sensorium_rt::redact::Key;
 use sensorium_transform::Focus;
 
 use crate::invocation::{
-    invocation_id, profile, toolchain_and_host, write_invocation, Invocation, DRIVER_VERSION,
+    invocation_id, profile, require_rustc_floor, toolchain_and_host, write_invocation, Invocation,
+    DRIVER_VERSION,
 };
 use crate::launch;
 use crate::perms;
@@ -99,6 +100,11 @@ fn go(args: &[String]) -> Result<i32, String> {
 
     let rustc = rustc_path();
     let (toolchain, host) = toolchain_and_host(&rustc)?;
+    // Before the runtime, the shim, the spool and cargo. An older compiler
+    // fails deep inside the runtime build with a rustc diagnostic; the floor
+    // says which compiler this recorder was written for, and how a distro
+    // cargo ends up selecting it.
+    require_rustc_floor(&toolchain)?;
     let exe = std::env::current_exe().map_err(|e| format!("cannot find own path: {e}"))?;
     let tool_hash = rt_build::tool_hash(&exe, rt_src::FILES)?;
     let rt = rt_build::rt_dir(&target, &tool_hash);

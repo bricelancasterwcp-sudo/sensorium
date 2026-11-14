@@ -33,6 +33,8 @@ its entry across its suspensions -- parked in a tracer-level table between
 YIELD and RESUME, so the thread that resumes it need not be the one that
 opened it -- and leaves through PY_RETURN/PY_UNWIND like any other. The
 dropped-while-suspended case arrives as PY_THROW(GeneratorExit) + PY_UNWIND.
+Some point releases close a simple generator without those events; install
+measures that once and records the same RESUME and unwind when it happens.
 Each suspension is recorded: YIELD names the TYPE being awaited and RESUME
 carries the exception thrown in, if any. Neither is fingerprinted --
 how often a coroutine parks is the event loop's business, not the program's.
@@ -84,6 +86,7 @@ exists to link. A thread's tables die with the thread, and `uninstall` clears
 every live thread's tables and in-flight slot, after which this recorder
 holds no exception object at all.
 """
+import inspect
 import sys
 import threading
 import time
@@ -103,10 +106,29 @@ from sensorium.record.tracer_exc import (  # noqa: F401
 # The frame-classification layer, split out at the same ceiling, re-exported
 # for the same reason.
 from sensorium.record.tracer_frames import (  # noqa: F401
-    FocusSpec, WindowSpec, _FrameDecisions, module_name_for)
+    FocusSpec, WindowSpec, _FrameDecisions, detect_silent_generator_close,
+    module_name_for)
 
 M = sys.monitoring
 TOOL = M.PROFILER_ID
+
+
+def _call_arg_names(code):
+    """Every parameter name, including `*args` and `**kwargs`.
+
+    `co_varnames` lays them out as positional, then keyword-only, then the
+    variadic names when the flags say they exist, then the other locals.
+    The slice that stops at `co_argcount + co_kwonlyargcount` drops the
+    variadic bindings, so a call's `*args` and `**kwargs` never reached
+    the trace.
+    """
+    n = code.co_argcount + code.co_kwonlyargcount
+    flags = code.co_flags
+    if flags & inspect.CO_VARARGS:
+        n += 1
+    if flags & inspect.CO_VARKEYWORDS:
+        n += 1
+    return code.co_varnames[:n]
 
 
 def locals_snapshot(frame) -> dict | None:
@@ -167,6 +189,10 @@ class Tracer(_FrameDecisions):
         # owned HERE or by exactly one thread's `live`, never by both.
         self._parked: dict[int, list] = {}
         self._parked_lock = threading.Lock()
+        # Set in install, from a one-shot probe. True only when this
+        # interpreter closes a simple generator without PY_UNWIND.
+        self._silent_gen_close = False
+        self._silent_closed: set[int] = set()
         self._seen_codes: list = []    # pins code objects so id() cannot recycle
         self._fps: dict[int, Fingerprint] = {}
         self._task_fps: dict[int, Fingerprint] = {}   # task serial -> fp
@@ -221,7 +247,7 @@ class Tracer(_FrameDecisions):
         tls.in_hook = True
         try:
             frame = sys._getframe(1)
-            names = code.co_varnames[:code.co_argcount + code.co_kwonlyargcount]
+            names = _call_arg_names(code)
             # Through the same snapshot as `_on_line`, for the same reason.
             # A frame with parameters always has interpreter-built locals, so
             # this path is not the one that was reachable -- but "reachable
@@ -365,6 +391,7 @@ class Tracer(_FrameDecisions):
                                   entry[0], entry[2], frame.f_lineno, payload,
                                   task_id=self._task_serial(tls))
             if suspending:
+                self._arm_silent_owner(entry, frame)
                 self._park(tls, frame, entry)
         finally:
             tls.in_hook = False
@@ -617,6 +644,10 @@ class Tracer(_FrameDecisions):
     # -- lifecycle ---------------------------------------------------------
     def install(self) -> None:
         E = M.events
+        # Before this tool id is taken: the probe borrows another id and
+        # frees it. A silent close is a property of this interpreter, not
+        # of the program about to run.
+        self._silent_gen_close = detect_silent_generator_close()
         try:
             M.use_tool_id(TOOL, "sensorium")
         except ValueError as e:
@@ -658,6 +689,9 @@ class Tracer(_FrameDecisions):
         # has stopped, and a worker parked in a `finally` must not keep its
         # last exception (and that exception's frames and locals) alive for
         # the rest of the process.
+        # Before the retention tables are cleared: a synthesized GeneratorExit
+        # takes its serial from this thread's control-flow table.
+        self._finish_silent_parked()
         for refs in self._live_exc_refs():
             refs.clear()
         # Whatever is still parked was suspended when recording stopped --

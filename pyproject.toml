@@ -1,6 +1,6 @@
 [project]
 name = "sensorium"
-version = "0.18.1"
+version = "0.18.2"
 description = "Execution-trace recorder for Python programs, driver and converter for the TypeScript recorder, and the LLM-native query CLI that reads every sensorium trace: Python's, the Rust recorder's and the TypeScript recorder's alike"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -28,6 +28,22 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sensorium"]
+# The Node recorder. Not a Python package, so `packages` does not ship it,
+# and a git+https install otherwise has nowhere for `sensorium ts` to find
+# it. `node_modules` stays out: it is gitignored, and `check` tells the
+# user to `npm ci --prefix` the directory the wheel laid down.
+[tool.hatch.build.targets.wheel.force-include]
+"typescript/package.json" = "sensorium/_typescript/package.json"
+"typescript/package-lock.json" = "sensorium/_typescript/package-lock.json"
+"typescript/src" = "sensorium/_typescript/src"
+
+# The same files in the sdist, so a wheel built from the sdist (not only
+# from a git checkout) can still copy them. Paths stay `typescript/...`:
+# the wheel mapping above reads them from the project root.
+[tool.hatch.build.targets.sdist.force-include]
+"typescript/package.json" = "typescript/package.json"
+"typescript/package-lock.json" = "typescript/package-lock.json"
+"typescript/src" = "typescript/src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

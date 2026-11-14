@@ -9,7 +9,7 @@ process. The same SQLite format 4 the Python recorder writes, read by the same
 reading logs is reading a diary, and this is watching the execution.
 
 Three crates, all `publish = false`: **`sensorium-rt 0.7.0`**,
-**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.8.0`**. On 2026-09-13
+**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.8.2`**. On 2026-09-13
 secrets redaction part A moved `sensorium-rt` to `0.6.0` and `cargo-sensorium`
 to `0.7.0` (rule v1 over the environment at the runtime's own writer, the
 driver's key, and 0600/0700 on everything either creates under the store and
@@ -104,6 +104,20 @@ trust an answer. The trace contract every recorder is written against is
 ## Build
 
     cd rust && cargo build --release
+
+The recorder builds with **rustc 1.96.0 or newer**, the toolchain
+`rust-toolchain.toml` pins. `cargo sensorium` refuses an older compiler by
+name, before it compiles the runtime. Debian's cargo 1.85 (and other distro
+cargos of that shape) invokes the workspace wrapper as the bare word `rustc`
+rather than a path; that spelling is accepted from `cargo-sensorium` 0.8.1.
+The compiler that then runs is `rustc` on `PATH`, or `$RUSTC` when that is
+set. A distro rustc 1.85 is not new enough to compile the runtime.
+
+From 0.8.2 a frame that returned through `?` on a `Result` prints
+`-> Err(...)`: the try probe's Debug of the error, wrapped as `Err`. The
+wire outcome stays `none`. An `Option` `?` still prints `?`. A `?` that
+converts with `From` prints the error from before the conversion. The
+contract is [`HONESTY-OUTCOMES.md`](HONESTY-OUTCOMES.md).
 
 Build the driver `--release` for anything you intend to measure: it hashes
 itself to key the per-version shim, and a debug binary makes that ~0.5 s of
