@@ -163,10 +163,15 @@ class _TLS(threading.local):
         # OBSERVED one: dropping a suspended generator fires
         # PY_THROW(GeneratorExit) then PY_UNWIND, and cancelling a task fires
         # PY_THROW(CancelledError) then PY_UNWIND (spec, "Measurements",
-        # facts 1-2), so the entry still leaves before the frame does. What
-        # backs it up is the `entry[1] is code` re-check every reader makes
-        # (`_parent_of`, `_live_entry`, `_adopt`): a recycled address can
-        # only answer for a frame running the very same code object.
+        # facts 1-2), so the entry still leaves before the frame does. That
+        # observation is not true of every point release: 3.13.5 closes a
+        # simple generator with neither event. Install probes the behavior
+        # (`detect_silent_generator_close`) and, when the probe sees a silent
+        # close, reconciles a parked entry whose owner has closed before the
+        # address is reused. What backs the key up either way is the
+        # `entry[1] is code` re-check every reader makes (`_parent_of`,
+        # `_live_entry`, `_adopt`): a recycled address can only answer for a
+        # frame running the very same code object.
         # THE ONE RESIDUAL is a frame still suspended when recording stops:
         # nothing terminal ever fires for it, so its entry is simply dropped
         # at `uninstall` and the reader derives "suspended at end of

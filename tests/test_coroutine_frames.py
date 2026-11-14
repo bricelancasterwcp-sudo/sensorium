@@ -229,6 +229,57 @@ def test_dropped_generator_is_abandoned_and_a_parked_one_is_suspended_at_end(tmp
     assert f2.closed_by is None
 
 
+def test_a_kept_closed_generator_is_abandoned_and_a_visible_close_is_once(
+        tmp_path):
+    """Two shapes the silent-close point releases split apart.
+
+    `g.close()` on a generator with no `finally` emits nothing on those
+    builds, and the generator object is still alive afterwards, so the
+    recorder has to notice `GEN_CLOSED` rather than a dead weak reference.
+    `h.close()` on a generator with a `finally` emits the real throw on
+    every build, and that path must stay one RESUME, not a second one
+    written on top.
+    """
+    src = """
+def plain():
+    yield 1
+    yield 2
+
+def guarded():
+    try:
+        yield 1
+    finally:
+        pass
+
+def main():
+    g = plain()
+    next(g)
+    g.close()
+    kept.append(g)
+    h = guarded()
+    next(h)
+    h.close()
+
+kept = []
+"""
+    t, err = record_inproc(tmp_path, src)
+    assert err is None
+    plain, = t.frames(code_id=_by_qual(t, "plain").id)
+    guarded, = t.frames(code_id=_by_qual(t, "guarded").id)
+    sp = t.frame_state(plain)
+    sg = t.frame_state(guarded)
+    assert sp.state == "abandoned" and sp.exc["type"] == "GeneratorExit"
+    assert sp.line == 3
+    assert sg.state == "abandoned" and sg.exc["type"] == "GeneratorExit"
+    assert sg.line == 8
+    for frame in (plain, guarded):
+        thrown = [e for e in t.events(kind="RESUME")
+                  if e.frame_id == frame.id
+                  and (e.payload or {}).get("thrown")]
+        assert len(thrown) == 1, frame.id
+        assert thrown[0].payload["thrown"]["serial"] == frame.unwind_exc["serial"]
+
+
 def test_a_generator_left_by_a_break_derives_as_abandoned(tmp_path):
     """The `for/break` case of the same fact: the loop drops the generator,
     CPython closes it, and the frame is abandoned AT THE YIELD it was parked
