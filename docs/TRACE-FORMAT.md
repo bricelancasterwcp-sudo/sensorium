@@ -525,13 +525,29 @@ it was handed.
 A captured **value** is a tagged object read by `query/fmt.fmt_value`:
 `{"k": "none"}`, `{"k": "num"|"bool", "v": …}`, `{"k": "str", "v": …,
 "trunc": bool}`, `{"k": "seq"|"map", "type": …, "len": n|null, "sample":
-[…], "trunc": bool}`, `{"k": "obj", "type": …, "oid": n}`,
+[…], "trunc": bool}`, `{"k": "obj", "type": …, "oid": n}` with optional
+`repr`, `trunc`, `fields` and `fields_trunc` (below),
 `{"k": "dbg", "v": "<text>", "trunc": bool}`, or
 `{"k": "unread"}` (with `type` and `oid` where the recorder has them).
 `len: null` prints `?`; an `unread` list names the reads the observed object
 refused. A payload key a recorder cannot fill is **omitted**, never filled
 with a zero or an empty string. A capture may carry an optional **`redacted`**
 object, `{by, digest}`: rule v1's two operations, in [`redaction.md`](redaction.md).
+
+An **`obj`** may also carry `repr` (the text `repr()` returned, clipped to
+the `repr` cap, with `trunc: true` when it was clipped) and, when that
+repr is `object.__repr__`, a shallow `fields` map. `fields` is
+`{name: value}` for up to eight `__dict__` keys (insertion order) and
+`__slots__` names, each value captured with a 60-character text clip and
+no further field summary. `fields_trunc: true` means more names existed.
+Both keys are optional. A reader that does not know them still has `type`
+and `oid`. `fmt_value` prints a custom repr as `Type#oid <repr>` (a `~`
+when `trunc` is set) and a field summary as `Type#oid {name: value, ...}`.
+The default `<Name object at 0x...>` text is not printed: the address
+changes every run and names no field. `grep` searches that rendered line.
+`flow --value` treats a non-truncated `repr` as an exact string sighting
+and walks `fields`. A name-taken object keeps `type` and `oid` only; its
+`repr` and `fields` are withheld ([`redaction.md`](redaction.md)).
 
 Two of those tags are what a recorder that does not decompose values writes,
 and both render as themselves rather than as `?`:

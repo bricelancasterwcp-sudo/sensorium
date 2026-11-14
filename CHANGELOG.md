@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.18.3 (unreleased)
+
+**Review round 2, in progress.** The package version stays **0.18.2** until
+this slice ships. `TRACE_FORMAT` stays **4**.
+
+- **Object contents are visible and searchable.** `tree`, `frame` and
+  `grep` print a custom repr (`Grid#99 <Grid>`), and `grep` / `flow --value`
+  can find it. An instance whose class has no `__repr__` of its own stores
+  a shallow field summary (up to 8 names from `__dict__` and `__slots__`,
+  each text clipped to 60 characters, no nested summary) and prints that
+  instead of `<Name object at 0x...>`. A name-taken object still prints
+  identity only. The caps published in `meta.caps` are unchanged.
+
 ## 0.18.2 — 2026-11-14
 
 **Review round 1.** Python **0.18.2**. `TRACE_FORMAT` stays **4**.

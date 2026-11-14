@@ -7,6 +7,41 @@ from tests.programs import CLEAN, CRASH, HELPERS, SWALLOW, record, synthetic
 
 
 # -- grep ------------------------------------------------------------------
+OBJ = """
+class Item:
+    def __init__(self, sku):
+        self.sku = sku
+
+class Tag:
+    def __init__(self, sku):
+        self.sku = sku
+
+    def __repr__(self):
+        return "Tag(%r)" % (self.sku,)
+
+def show(item, tag):
+    return item.sku
+
+def main():
+    show(Item("widget-42"), Tag("widget-42"))
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+def test_grep_finds_an_object_repr_and_a_field_summary(
+        tmp_path, monkeypatch, capsys):
+    """The rendered call line is what grep searches. A custom repr and a
+    default-repr field summary both have to be on that line."""
+    run_id = record(tmp_path, monkeypatch, OBJ)
+    assert cli.main(["grep", run_id, "widget-42"]) == 0
+    out = capsys.readouterr().out
+    assert "sku: 'widget-42'" in out
+    assert "Tag('widget-42')" in out
+    assert "object at 0x" not in out
+
+
 def test_grep_by_value_content(tmp_path, monkeypatch, capsys):
     run_id = record(tmp_path, monkeypatch, SWALLOW)
     assert cli.main(["grep", run_id, "carol"]) == 0

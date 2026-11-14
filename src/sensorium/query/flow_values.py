@@ -121,6 +121,14 @@ def matches(cap: dict, target, write=debug_text) -> bool:
         return k == "bool" and cap.get("v") == target
     if isinstance(target, (int, float)):
         return k == "num" and cap.get("v") == target
+    if k == "obj" and isinstance(target, str):
+        # A custom repr is the text the object captured. A truncated one is
+        # a prefix, same rule as a clipped string. The default
+        # `<Name object at 0x...>` form compares equal only to that exact
+        # string; `grep` is what searches a rendered field summary.
+        text = cap.get("repr")
+        return (not cap.get("trunc") and isinstance(text, str)
+                and text == target)
     return k == "str" and not cap.get("trunc") and cap.get("v") == target
 
 
@@ -159,6 +167,19 @@ def _walk(v: dict, path: str = ""):
             kcap, vcap = pair
             yield from _walk(kcap, f"{path}[key {i}]")
             yield from _walk(vcap, path + _key_step(kcap))
+    elif k == "obj":
+        fields = v.get("fields")
+        if isinstance(fields, dict):
+            for name, child in fields.items():
+                if isinstance(child, dict):
+                    yield from _walk(child, path + _field_step(name))
+
+
+def _field_step(name) -> str:
+    """How to render "the value of this field" in a path label."""
+    if isinstance(name, str) and _IDENT.fullmatch(name):
+        return f".{name}"
+    return f"[{name!r}]"
 
 
 def find_in_value(v: dict, target, path: str = "",

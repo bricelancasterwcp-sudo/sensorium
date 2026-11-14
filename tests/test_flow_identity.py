@@ -234,14 +234,14 @@ if __name__ == "__main__":
 """
 
 # The ranking case. `x` holds the address across the whole loop body, and its
-# capture never changes -- `repr(Node(...))` is just the address, so two Nodes
-# at one address are captured identically and no delta is ever emitted. The
+# capture never changes: every rebuild stores the same field, so two Nodes at
+# one address are captured identically and no delta is ever emitted. The
 # binding therefore spans a gap in which a Node was demonstrably rebuilt.
 # Measured identical across three runs: one address hosts two of the four.
 CTOR_HIDDEN = """
 class Node:
     def __init__(self, v):
-        self.v = v
+        self.v = 0
 
 def make(v):
     return Node(v)
@@ -486,7 +486,7 @@ def test_flow_object_ranks_a_constructor_above_a_binding_that_spans_it(
     which the binding is wrong.
 
     `x` holds this address across the whole loop body and never changes
-    capture -- `repr` of an instance is just its address, so two Nodes at one
+    capture: every rebuild stores the same field, so two Nodes at one
     address are recorded identically and no delta is ever emitted. Reading
     that as continuity is the round-1 hole; the constructor in the middle of
     it is the evidence that settles the question, so it must out-rank the

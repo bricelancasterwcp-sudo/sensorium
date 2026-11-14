@@ -287,7 +287,7 @@ scan, and the content rule refuses anything already carrying `redacted`
 |---|---|
 | `str` | `v` = `<redacted>`, `trunc` dropped; the digest is over the CLIPPED text, which is what the trace would otherwise have held |
 | `num` | `v` = `<redacted>`; the digest is over `repr(v)`, so `1234` and `"1234"` never share one |
-| `obj` | `repr` = `<redacted>`, `trunc` dropped; `type` and `oid` stay. An identity is not a value |
+| `obj` | `repr` = `<redacted>`, `trunc`, `fields` and `fields_trunc` dropped; `type` and `oid` stay. An identity is not a value. The digest is over the repr text, which is the text the capture already stored |
 | `dbg` | `v` = `<redacted>`, `trunc` written **false** rather than dropped, so a reader never has to guess whether the formatter was cut short; the digest is over the text |
 | `seq`, `map` | `sample`, `trunc` and `unread` dropped; `type`, `len` and `oid` stay, and `digest` is `null`. A container has no single text to hash |
 | `none`, `bool`, `unread` | untouched. They withhold nothing, so a marker would cost a reader a fact and hide no secret |
@@ -312,7 +312,7 @@ and eight hex of it is what a screen shows
 
 | Reader | A value taken by name | A content hit |
 |---|---|---|
-| `frame`, `tree`, `grep` | `token=<redacted #01234567>` for a `str`/`num`/`dbg` (or `<redacted>` unkeyed); `cfg=dict[3]=<redacted>` for a container, whose size is a fact about the program; `Cfg#7` for an `obj`, byte for byte what it printed before | as stored: `url='postgres://u:<redacted>@h/db'` |
+| `frame`, `tree`, `grep` | `token=<redacted #01234567>` for a `str`/`num`/`dbg` (or `<redacted>` unkeyed); `cfg=dict[3]=<redacted>` for a container, whose size is a fact about the program; `Cfg#7` for an `obj` (identity only: the repr and any field summary are withheld) | as stored: `url='postgres://u:<redacted>@h/db'`. An object whose repr was edited prints `Cfg#7 <Cfg(pw='<redacted>')>` |
 | `watch` | a state line reads `token=<redacted; no comparable value>`; a predicate that met only taken values ends `NOTHING WAS CHECKED` at exit 3, listed as `token: redacted by rule v1; no comparable value`, and the guidance names the remedy, `export SENSORIUM_REDACT_ALLOW=token && <the re-record command>` | compared as the text the trace holds |
 | `flow --object` | refuses at exit 2: `'token' at e1 is redacted (by name) and has no identity or value to follow`. The kept address is real and its occupant was never recorded | followed exactly as before |
 | `flow --value` | sights nothing, including `--value '<redacted>'`: a literal that happens to be the marker would report every secret in the run as sightings of one value | sighted by the text the trace holds |

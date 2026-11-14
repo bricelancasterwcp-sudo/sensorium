@@ -19,7 +19,20 @@ from itertools import islice
 
 CAPS = {"str": 200, "repr": 200, "sample": 8, "depth": 3}
 
+#: A default-repr object's field summary. Kept OUT of `CAPS`: `meta.caps`
+#: and TRACE-FORMAT pin that four-key dict, and a field summary is a
+#: display aid with its own tighter clip. Eight names, each value's text
+#: clipped to 60 characters, and no nested field summary (a field that is
+#: itself an object keeps a repr, not another `{...}`).
+FIELD_KEYS = 8
+FIELD_REPR = 60
+
 capture_stats = {"truncated": 0}
+
+#: Slot names that are not data. `__dict__` and `__weakref__` appear in
+#: `__slots__` when a class asks for them; they are the machinery, not
+#: fields a reader should see.
+_SKIP_SLOTS = frozenset({"__dict__", "__weakref__"})
 
 
 def _guarded(read, unread: list, name: str):
@@ -128,7 +141,7 @@ def _trunc_str(s: str, cap: int) -> tuple[str, bool]:
     return s[:cap], True
 
 
-def capture_value(obj, depth: int = 0) -> dict:
+def capture_value(obj, depth: int = 0, *, summarize: bool = True) -> dict:
     """Capture one value. Never raises -- see the module docstring.
 
     The outer guard is not belt-and-braces over the inner ones: `isinstance`
@@ -136,16 +149,22 @@ def capture_value(obj, depth: int = 0) -> dict:
     already a call into user code, as is `_trunc_str`'s `len()` on a `str`
     subclass. Whatever gets past the specific guards still may not reach the
     program.
+
+    `summarize` is true for a value captured as an argument, a local, a
+    return, or a member of one of those. Field values pass False, so a
+    field that is itself an object keeps a repr and does not grow another
+    field summary. Container members keep the flag: a list of plain
+    objects still shows each object's fields.
     """
     try:
-        return _capture(obj, depth)
+        return _capture(obj, depth, summarize=summarize)
     except BaseException:
         capture_stats["truncated"] += 1
         return {"k": "unread", "type": type_name(obj), "oid": id(obj),
                 "unread": ["value"]}
 
 
-def _capture(obj, depth: int) -> dict:
+def _capture(obj, depth: int, *, summarize: bool) -> dict:
     if obj is None:
         return {"k": "none"}
     if isinstance(obj, bool):
@@ -160,13 +179,14 @@ def _capture(obj, depth: int) -> dict:
         return out
     if isinstance(obj, (list, tuple, set, frozenset)):
         return _capture_sized(obj, depth, "seq",
-                              lambda o, d: [capture_value(x, d)
+                              lambda o, d: [capture_value(x, d, summarize=summarize)
                                             for x in islice(iter(o), CAPS["sample"])])
     if isinstance(obj, dict):
         return _capture_sized(obj, depth, "map",
-                              lambda o, d: [[capture_value(k, d), capture_value(v, d)]
+                              lambda o, d: [[capture_value(k, d, summarize=summarize),
+                                             capture_value(v, d, summarize=summarize)]
                                             for k, v in islice(o.items(), CAPS["sample"])])
-    return _capture_obj(obj)
+    return _capture_obj(obj, summarize=summarize)
 
 
 def _capture_sized(obj, depth, kind, sampler) -> dict:
@@ -199,7 +219,7 @@ def _capture_sized(obj, depth, kind, sampler) -> dict:
     return out
 
 
-def _capture_obj(obj) -> dict:
+def _capture_obj(obj, *, summarize: bool = True) -> dict:
     out = {"k": "obj", "type": type_name(obj), "oid": id(obj)}
     try:
         r = repr(obj)
@@ -212,7 +232,176 @@ def _capture_obj(obj) -> dict:
     out["repr"] = s
     if t:
         out["trunc"] = True
+    if summarize:
+        _attach_fields(obj, out)
     return out
+
+
+def _uses_default_repr(obj) -> bool:
+    """True when the first `__repr__` on the type's MRO is `object.__repr__`.
+
+    Walks class dicts, never the instance. A class that defines no
+    `__repr__` inherits `object`'s, whose text is `<Name object at 0x...>`
+    and names no field. Anything that cannot be read is treated as custom,
+    so a type that refuses the question does not grow an invented summary.
+    """
+    try:
+        default = object.__dict__.get("__repr__")
+        for cls in type(obj).__mro__:
+            found = cls.__dict__.get("__repr__")
+            if found is not None:
+                return found is default
+    except BaseException:
+        return False
+    return False
+
+
+def _as_field_name(raw):
+    """A field name as an exact `str`, or None when it is not a name."""
+    if type(raw) is str:
+        name = raw
+    elif isinstance(raw, str):
+        coerced = plain_str(raw)
+        name = coerced if type(coerced) is str else None
+    else:
+        return None
+    if name is None or name in _SKIP_SLOTS or name == "_":
+        return None
+    return name
+
+
+def _slot_items(raw):
+    """Names in a `__slots__` declaration: a string, or a list/tuple of them.
+
+    Anything else is ignored. A custom iterable would run the program's
+    `__iter__` from inside the callback, which this summary does not need.
+    """
+    if isinstance(raw, str):
+        return (raw,)
+    if type(raw) in (list, tuple):
+        return tuple(raw)
+    return ()
+
+
+def _collect_names(obj) -> list:
+    """`__dict__` keys in insertion order, then `__slots__` along the MRO."""
+    names = []
+    seen = set()
+
+    def add(raw) -> None:
+        try:
+            name = _as_field_name(raw)
+        except BaseException:
+            return
+        if name is None or name in seen:
+            return
+        seen.add(name)
+        names.append(name)
+
+    try:
+        d = object.__getattribute__(obj, "__dict__")
+    except BaseException:
+        d = None
+    if type(d) is dict:
+        for key in d:
+            add(key)
+    elif isinstance(d, dict):
+        try:
+            keys = list(d)
+        except BaseException:
+            keys = []
+        for key in keys:
+            add(key)
+
+    try:
+        mro = type(obj).__mro__
+    except BaseException:
+        return names
+    for cls in mro:
+        try:
+            raw = cls.__dict__.get("__slots__")
+        except BaseException:
+            continue
+        if raw is None:
+            continue
+        try:
+            slots = _slot_items(raw)
+        except BaseException:
+            continue
+        for slot in slots:
+            add(slot)
+    return names
+
+
+def _field_value(val) -> dict:
+    """One field, clipped tighter than a normal capture and not re-summarised.
+
+    Containers are captured at the depth cap, so they keep a type and a
+    length and no sample. Strings clip once, at `FIELD_REPR`, rather than
+    at `CAPS["str"]` and then again.
+    """
+    if isinstance(val, str):
+        s, t = _trunc_str(val, FIELD_REPR)
+        out = {"k": "str", "v": s}
+        if t:
+            out["trunc"] = True
+        return out
+    cap = capture_value(val, depth=CAPS["depth"], summarize=False)
+    if cap.get("k") == "obj" and isinstance(cap.get("repr"), str):
+        text = cap["repr"]
+        if len(text) > FIELD_REPR:
+            cap = dict(cap)
+            cap["repr"] = text[:FIELD_REPR]
+            if not cap.get("trunc"):
+                capture_stats["truncated"] += 1
+            cap["trunc"] = True
+    return cap
+
+
+def _read_field(obj, name: str) -> dict:
+    """The value of one field. A failed read is `unread`, never a captured None."""
+    try:
+        d = object.__getattribute__(obj, "__dict__")
+    except BaseException:
+        d = None
+    if type(d) is dict and name in d:
+        try:
+            return _field_value(d[name])
+        except BaseException:
+            capture_stats["truncated"] += 1
+            return {"k": "unread", "unread": ["value"]}
+    try:
+        return _field_value(object.__getattribute__(obj, name))
+    except BaseException:
+        capture_stats["truncated"] += 1
+        return {"k": "unread", "unread": ["value"]}
+
+
+def _attach_fields(obj, out: dict) -> None:
+    """A shallow `{name: capture}` on `out` when `obj` uses `object.__repr__`.
+
+    Absent when the class defines its own repr (that text is the summary)
+    and absent when the instance has no fields. `fields_trunc` means more
+    names existed than `FIELD_KEYS`. A summary that itself fails is
+    `unread: ["fields"]` on the object, and the repr already stored stays.
+    """
+    if not _uses_default_repr(obj):
+        return
+    try:
+        names = _collect_names(obj)
+    except BaseException:
+        out.setdefault("unread", []).append("fields")
+        capture_stats["truncated"] += 1
+        return
+    if not names:
+        return
+    kept = names[:FIELD_KEYS]
+    fields = {name: _read_field(obj, name) for name in kept}
+    if fields:
+        out["fields"] = fields
+    if len(names) > FIELD_KEYS:
+        out["fields_trunc"] = True
+        capture_stats["truncated"] += 1
 
 
 def capture_exc(exc: BaseException, serial: int | None = None) -> dict:

@@ -196,6 +196,46 @@ def test_content_reaches_a_str_inside_a_seq_sample(installed):
     assert rv.count_capture(out) == 1
 
 
+def test_a_firing_name_drops_an_objects_fields(installed):
+    """The digest stays over the repr. The fields are the rest of the value,
+    and a secret that lived only there must not survive beside the marker."""
+    cap = {"k": "obj", "type": "Cfg", "oid": 7, "repr": "<Cfg object at 0x1>",
+           "fields": {"api_key": {"k": "str", "v": SECRET},
+                      "name": {"k": "str", "v": "plain"}},
+           "fields_trunc": True, "trunc": True}
+    out = unchanged(lambda c: rv.named("credentials", c), cap)
+    assert out == {"k": "obj", "type": "Cfg", "oid": 7,
+                   "repr": redact.REDACTED,
+                   "redacted": {"by": "name",
+                                "digest": KEY.digest("<Cfg object at 0x1>")}}
+    assert "fields" not in out and "fields_trunc" not in out
+    assert rv.count_capture(out) == 1
+    assert SECRET not in str(out)
+
+
+def test_a_field_under_a_firing_name_is_taken_and_counted(installed):
+    cap = {"k": "obj", "type": "Cfg", "oid": 7,
+           "repr": "<Cfg object at 0x1>",
+           "fields": {"api_key": {"k": "str", "v": SECRET},
+                      "name": {"k": "str", "v": "plain"}}}
+    out = unchanged(rv.value, cap)
+    assert out["repr"] == "<Cfg object at 0x1>"
+    assert "redacted" not in out
+    assert out["fields"]["name"] == {"k": "str", "v": "plain"}
+    assert out["fields"]["api_key"]["v"] == redact.REDACTED
+    assert out["fields"]["api_key"]["redacted"]["by"] == "name"
+    assert rv.count_capture(out) == 1
+
+
+def test_content_on_a_repr_and_a_field_are_both_counted(installed):
+    cap = {"k": "obj", "type": "Cfg", "oid": 7, "repr": f"Cfg({TOKEN!r})",
+           "fields": {"note": {"k": "str", "v": f"use {TOKEN} now"}}}
+    out = unchanged(rv.value, cap)
+    assert out["redacted"]["by"] == "content"
+    assert out["fields"]["note"]["redacted"]["by"] == "content"
+    assert rv.count_capture(out) == 2
+
+
 def test_content_reaches_an_obj_repr(installed):
     cap = {"k": "obj", "type": "Cfg", "oid": 7, "repr": f"Cfg({TOKEN!r})"}
     out = unchanged(rv.value, cap)

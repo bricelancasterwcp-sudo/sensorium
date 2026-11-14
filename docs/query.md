@@ -259,7 +259,14 @@ reporting `hits: 0`.
 ### `flow`: lineage, not dataflow analysis
 
 `flow --value V` follows a captured value by equality through calls and
-returns. **On a Rust trace, spell the literal as the trace prints it**: `flow`
+returns. A Python object with its own repr is a sighting of that exact
+string when the repr was not truncated, and a default-repr object's
+fields are walked the same way a dict's entries are. `grep` searches the
+rendered line, so the same repr or field text is found there too
+(`Type#oid <repr>`, or `Type#oid {name: value}` when the class has no
+repr of its own).
+
+**On a Rust trace, spell the literal as the trace prints it**: `flow`
 compares a `dbg` capture's Debug TEXT while `watch --expr` compares resolved
 values, so `flow --value 5.0` finds no sighting of an integer capture printed
 `5` even though `watch --expr x == 5.0` is true of that same capture (design

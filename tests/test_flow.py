@@ -239,6 +239,15 @@ def test_find_in_value_reports_paths_and_never_matches_a_clipped_string():
     assert flow_cmd.matches(clipped, "abc") is False
     assert flow_cmd.matches({"k": "str", "v": "abc"}, "abc") is True
 
+    item = {"k": "obj", "type": "Item", "oid": 3,
+            "repr": "<Item object at 0x1>",
+            "fields": {"sku": {"k": "str", "v": "widget"}}}
+    assert flow_cmd.find_in_value(item, "widget") == [".sku"]
+    tag = {"k": "obj", "type": "Tag", "oid": 4, "repr": "Tag('widget')"}
+    assert flow_cmd.matches(tag, "Tag('widget')") is True
+    assert flow_cmd.matches({**tag, "trunc": True}, "Tag('widget')") is False
+    assert flow_cmd.find_in_value(tag, "Tag('widget')") == [""]
+
 
 def test_flow_does_not_search_exception_payloads(tmp_path, monkeypatch,
                                                  capsys):
