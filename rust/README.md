@@ -9,7 +9,7 @@ process. The same SQLite format 4 the Python recorder writes, read by the same
 reading logs is reading a diary, and this is watching the execution.
 
 Three crates, all `publish = false`: **`sensorium-rt 0.7.0`**,
-**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.8.0`**. On 2026-09-13
+**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.8.2`**. On 2026-09-13
 secrets redaction part A moved `sensorium-rt` to `0.6.0` and `cargo-sensorium`
 to `0.7.0` (rule v1 over the environment at the runtime's own writer, the
 driver's key, and 0600/0700 on everything either creates under the store and

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.18.2 — 2026-11-14
+
+**Review round 1.** Python **0.18.2**. `TRACE_FORMAT` stays **4**.
+`cargo-sensorium` is **0.8.2** (driver and converter only; the runtime and
+the transformer did not move).
+
+- **A generator closed early is abandoned on 3.12 through 3.15.** Some 3.13
+  point releases (Debian's 3.13.5) emit neither `PY_THROW` nor `PY_UNWIND`
+  when a simple generator is closed. Install probes that behavior and, where
+  the close is silent, records the same GeneratorExit resume and unwind close
+  the other point releases already emit.
+- **`*args` and `**kwargs` are recorded** on Python call events and shown by
+  `tree` and `frame`.
+- **The Rust timeline hint names `--focus`.** Per-statement LINE has existed
+  since 0.4.0. The hint no longer says Rust records no lines.
+- **A wheel ships the TypeScript recorder** at `sensorium/_typescript`.
+  `sensorium ts run` finds it after `pip install`, including `git+https`,
+  without `SENSORIUM_TS_PKG`. `npm ci --prefix` that directory still installs
+  `magic-string`; `node_modules` is not in the wheel.
+- **`cargo-sensorium` 0.8.1 accepts a distro cargo's bare `rustc`** and refuses
+  a compiler older than 1.96.0 by name. **0.8.2 prints the `Err` a `?`
+  propagated** (`-> Err(...)`) from the try probe's Debug. The wire outcome
+  stays `none`. An `Option` `?` still prints `?`. A `From` conversion prints
+  the error from before the conversion.
+
 ## 0.18.1 — 2026-09-20
 
 **The agent path.** Install, record one Python run, query it, and serve

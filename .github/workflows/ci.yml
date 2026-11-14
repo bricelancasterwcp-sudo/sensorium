@@ -11,10 +11,13 @@ jobs:
       # Report every version's result; one red leg must not cancel the others.
       fail-fast: false
       matrix:
-        # 3.12 is the floor (sys.monitoring); 3.14 is where a multiprocessing
-        # spawn becomes witnessable, so refocus's child-witnessing licence
-        # behaves differently across the range and all three are exercised.
-        python-version: ["3.12", "3.13", "3.14"]
+        # 3.12 is the floor (sys.monitoring). 3.13.5 is Debian's point release,
+        # which closes a simple generator without PY_THROW or PY_UNWIND;
+        # 3.13 (latest 3.13) and 3.15 do emit those events, and the classifier
+        # has to be right on both. 3.14 is where a multiprocessing spawn
+        # becomes witnessable, so refocus's child-witnessing licence behaves
+        # differently across the range.
+        python-version: ["3.12", "3.13.5", "3.13", "3.14", "3.15"]
     name: py${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +56,33 @@ jobs:
       - name: Corpus through the MCP server (3.14 leg)
         if: matrix.python-version == '3.14'
         run: python corpus/run_corpus.py --via mcp --compare-cli
+      # A non-editable install has no checkout beside it. `locate` must find
+      # the Node sources the wheel shipped at sensorium/_typescript, and
+      # `check` must name that directory (and `npm ci`) rather than a missing
+      # typescript/ tree. One leg is enough: the layout does not depend on
+      # the interpreter. 3.13.5 is the leg that already exists to pin the
+      # generator classifier.
+      - name: Wheel install locates the Node package (3.13.5 leg)
+        if: matrix.python-version == '3.13.5'
+        run: |
+          python -m venv /tmp/sen-wheel
+          /tmp/sen-wheel/bin/pip install --upgrade pip
+          /tmp/sen-wheel/bin/pip install .
+          /tmp/sen-wheel/bin/python - <<'PY'
+          import sensorium.ts.pkg as p
+          loc = p.locate()
+          assert (loc / "package.json").is_file(), loc
+          assert (loc / "src" / "rt.mjs").is_file(), loc
+          assert loc.name == "_typescript", loc
+          try:
+              p.check(loc)
+          except p.PackageError as e:
+              text = str(e)
+          else:
+              raise SystemExit("check() should refuse before npm ci")
+          assert "npm ci" in text, text
+          assert str(loc) in text, text
+          PY
 
   rust:
     runs-on: ubuntu-latest
@@ -100,6 +130,25 @@ jobs:
       - name: Build the driver (release)
         working-directory: rust
         run: cargo build --release -p cargo-sensorium
+      # Distro cargo (Debian's 1.85) invokes the workspace wrapper as the
+      # bare word `rustc`, which used to be classified as a subcommand and
+      # answered `unknown subcommand rustc`. Invoking the binary the way
+      # that cargo does is the portable check: ubuntu-latest's cargo is
+      # rustup's and passes a path, so it would not catch this.
+      - name: Bare rustc is the wrapper, not an unknown subcommand
+        working-directory: rust
+        run: |
+          set +e
+          out=$(./target/release/cargo-sensorium rustc -vV 2>&1)
+          code=$?
+          set -e
+          printf '%s\n' "$out"
+          if printf '%s\n' "$out" | grep -q "unknown subcommand"; then
+            echo "bare rustc was classified as a subcommand" >&2
+            exit 1
+          fi
+          printf '%s\n' "$out" | grep -q "rustc "
+          test "$code" -eq 0
       - name: cargo test --workspace
         working-directory: rust
         run: cargo test --workspace

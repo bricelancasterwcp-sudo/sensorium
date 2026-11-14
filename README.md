@@ -513,7 +513,7 @@ trace per process, trace format 4, read by the same `sensorium` command line.
 `rust/` ships `sensorium-rt 0.7.0` (zero dependencies, the runtime linked into
 every instrumented unit, and the owner of the one sha256 the other two hash
 with), `sensorium-transform 0.5.0` (the `syn` rewriter), and `cargo-sensorium
-0.8.0` (driver, workspace wrapper, target runner, converter, one binary, four
+0.8.2` (driver, workspace wrapper, target runner, converter, one binary, four
 roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
 with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
 [`rust/README.md`](rust/README.md) is the full build/install/record reference.
