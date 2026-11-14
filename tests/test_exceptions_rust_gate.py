@@ -152,7 +152,8 @@ def test_an_err_type_spelled_panic_is_judged_and_a_panic_raise_is_not(
     assert "panicked -- the frame holding it unwound (f1, panic('boom'))" in o
     # the panic RAISE is not a chain, and the answer says it exists
     assert ("panics: 1 event(s) recorded -- this command judges Err flow; "
-            "a panic is a frame's unwind, printed by `tree` and `frame`"
+            "a panic is a frame's unwind, printed by `tree` and `frame`, "
+            "and a failed test that panicked is listed by `failures`"
             ) in o, o
 
 # -- R9: the capability gate, before any rule runs --------------------------

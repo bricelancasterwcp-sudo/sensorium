@@ -121,6 +121,7 @@ record](#install-and-record), under Rust.
     sensorium frame last --fn compute             # one activation, in full
     sensorium grep last compute --kind RETURN     # every event that mentions it
     sensorium exceptions last                     # what blew up, what got caught
+    sensorium failures last                       # failed tests, and the frame they failed in
     sensorium flow last --value 1800              # where did that number come from
     sensorium flow last --object build_key:record # what happened to that object
     sensorium diff RUN_A RUN_B                    # where two runs part

@@ -1,25 +1,12 @@
-# What four answers claim, in detail
+# What the answers claim, in detail
 
-`exceptions`, `watch` and `flow` (the three commands whose claims need the
-most saying) **moved here 2026-09-06 (the focus tier, rung 4 slice 1) so
-`README.md` stays under 800 lines**. `docs/CARRIED-DEBT.md` named this split
-at the rung-4 entry slice's close ("the next paragraph the README's
-`exceptions` section wants should go to a file it links, not into the
-README"), so it is taken deliberately rather than discovered at the ceiling.
-**The wording and order are unchanged**; the README keeps a paragraph for
-each with its load-bearing claim and a link here.
-
-A fourth section was **added here 2026-09-07** (the refocus slice, rung 4
-slice 2) rather than moved: `refocus` on a **Rust** trace, which is new
-behaviour and not a relocation of anything. `refocus`'s own three verdicts and
-its licence stay in [`../README.md`](../README.md), and this section is what
-the Rust half of them means.
-
-The rest of *What the answers claim* (`diff`, `refocus`'s general shape,
-`tree`, `info` and `runs`) is still in [`../README.md`](../README.md), and so
-is everything about what a trace file holds and what sensorium sees at all.
-Read those first: they are what the commands below answer from. What rule v1
-withholds from a recording is [`redaction.md`](redaction.md).
+`exceptions`, `watch` and `flow` moved here 2026-09-06 so `README.md` stays
+under 800 lines. The wording and order of those three are unchanged; the
+README keeps a paragraph for each and a link here. `refocus` on a Rust trace
+was added here 2026-09-07, and `failures` in review round 2. The rest
+(`diff`, `refocus`'s general shape, `tree`, `info` and `runs`) stays in
+[`../README.md`](../README.md). What rule v1 withholds is
+[`redaction.md`](redaction.md).
 
 ### `exceptions`: five dispositions, and a real refusal
 
@@ -184,19 +171,30 @@ this mode and exits **2** (an event id belongs to one process and this answer
 spans many) and a member whose recorder declares `capabilities.err_flow:
 false` refuses the whole answer, naming it.
 
-**What the grain was measured to be worth.** On the E6⁗ workspace sweep's
-busiest process, 54 SWALLOWED lines print as **3** shapes (20 166 bytes under
-0.8.1 → 3 360 bytes over 32 lines); the 144 per-process answers that sweep
-needed (182 334 bytes over 1634 lines) become **one** answer of 128 167
-bytes over 927 lines
-(`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §3;
-the repair's re-measurement under the shipped key reads 129 355 bytes over 936
-lines, its §3). It was measured twice and the second record's H4′ verdict is
-open. Read §4 and §5.2 of both records before quoting any of this.
-
+The byte counts behind that grain are in
+`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §3.
 **Python traces are untouched**: they still print one block per raise and page
-by event id. Grouping there waits on a definition of the site each Python
-disposition's verdict is about, and is a rung-4 item.
+by event id.
+
+### `failures`: the test, and the frame it failed in
+
+Each failed test, and the frame the assertion, panic or exception was
+recorded on. A test that caught it and returned is not listed.
+
+Python: a frame whose qualname's last segment starts with `test_` and
+whose state is `raised`. The line is the deepest RAISE of the escaping
+exception in that frame's subtree, or no line when the raise was not
+traced. Rust: a panic walked up to a `meta.sites` row marked `test`
+(`assert!` and `assert_eq!` keep their message and `loc`); a panic that
+never reaches one is not a test failure, and `exceptions` still only
+counts panics. TypeScript: a task whose root callback closed `raised`.
+A vitest `expect` writes no RAISE; `failures` reads the unwind, and
+`exceptions` still does not see a raise. The line is printed only when
+a RAISE of that exception is in the failing frame.
+
+No test frames, no test-marked sites, or no tasks, each say so. Tests
+that ran and none failed say `no test failures recorded`. An empty
+answer on an unfinished recording is exit 3.
 
 ### `watch`: a predicate at every recorded site
 

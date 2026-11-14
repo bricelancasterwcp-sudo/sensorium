@@ -71,9 +71,9 @@ LOCKED_VIA_CLI_IDS = tuple(f"{VIA_CLI_CASE}/{q}" for q in LOCKED_VIA_CLI)
 LOCKED_CENSUS = (115, 253)
 #: The subject: this branch's Python package, asserted by the preflight.
 EXPECTED_VERSION = "0.18.0"
-#: The nine a client is always offered, and the two `--allow-run` adds.
-NINE = ("runs", "info", "tree", "frame", "grep", "exceptions", "flow",
-        "watch", "diff")
+#: The tools a client is always offered, and the two `--allow-run` adds.
+NINE = ("runs", "info", "tree", "frame", "grep", "exceptions", "failures",
+        "flow", "watch", "diff")
 ELEVEN = NINE + ("refocus", "record")
 #: H3's bound and H2's floor.
 CAP_BYTES = 65536
@@ -163,8 +163,8 @@ _SENSORIUM_PREFIX = "mcp__sensorium__"
 def _sensorium_tools(used) -> list[str]:
     """This server's tools in `used`, first-seen order, prefix stripped.
 
-    A name is sensorium if it is one of the eleven, or the host prefix
-    plus one of the eleven. Host tools (Skill, ToolSearch, ...) are
+    A name is sensorium if it is one of `ELEVEN`, or the host prefix
+    plus one of `ELEVEN`. Host tools (Skill, ToolSearch, ...) are
     dropped so H7 cannot count them as ours.
     """
     known = set(ELEVEN)
@@ -314,8 +314,9 @@ def _set_read(what: str, got, want) -> str:
 
 def h4(names_off, err_off, names_on, record_header, runs_text,
        exceptions_check) -> dict:
-    """§9's H4: nine tools without the flag and `record` unknown, eleven
-    with it, and a recording made and read back through the wire."""
+    """§9's H4: the always-offered tools without the flag and `record`
+    unknown, those plus `refocus` and `record` with it, and a recording
+    made and read back through the wire."""
     gone = _missing(names_off=names_off, names_on=names_on,
                     record_header=record_header, runs_text=runs_text,
                     exceptions_check=exceptions_check)

@@ -54,7 +54,7 @@ def test_cli_records_silent_swallow_and_exceptions_names_the_two_swallows(
 
 def test_mcp_records_the_same_program_and_answers_the_same_exceptions(
         tmp_path):
-    """The MCP half: `--allow-run --store`, eleven tools, record, query.
+    """The MCP half: `--allow-run --store`, the allow-run tool list, record, query.
 
     `SENSORIUM_DIR` is stripped from the child environment so the flag,
     not an inherited store, is what the recording lands in (the same

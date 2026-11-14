@@ -376,8 +376,8 @@ outside a throw statement*; a throw inside a promise executor with no open
 frame; a throw in untraced code (`JSON.parse`, a dependency) whose HANDLED
 reads *born outside traced code*; and an assertion failure born in vitest's own
 `expect`, which throws inside untraced code and writes no RAISE at all, so
-`exceptions` cannot see it and `info`'s exit line is where it shows (blind spot
-26).
+`exceptions` cannot see it. `failures` lists that test from the task's unwound
+frame (blind spot 26). `info`'s exit line still shows the harness status.
 
 **And the cost rung 1 pre-committed is still paid.** A trace a **0.1.x**
 runtime wrote declares `err_flow: false`, and `exceptions` refuses it at exit

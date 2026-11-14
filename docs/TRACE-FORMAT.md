@@ -534,20 +534,15 @@ refused. A payload key a recorder cannot fill is **omitted**, never filled
 with a zero or an empty string. A capture may carry an optional **`redacted`**
 object, `{by, digest}`: rule v1's two operations, in [`redaction.md`](redaction.md).
 
-An **`obj`** may also carry `repr` (the text `repr()` returned, clipped to
-the `repr` cap, with `trunc: true` when it was clipped) and, when that
-repr is `object.__repr__`, a shallow `fields` map. `fields` is
-`{name: value}` for up to eight `__dict__` keys (insertion order) and
-`__slots__` names, each value captured with a 60-character text clip and
-no further field summary. `fields_trunc: true` means more names existed.
-Both keys are optional. A reader that does not know them still has `type`
-and `oid`. `fmt_value` prints a custom repr as `Type#oid <repr>` (a `~`
-when `trunc` is set) and a field summary as `Type#oid {name: value, ...}`.
-The default `<Name object at 0x...>` text is not printed: the address
-changes every run and names no field. `grep` searches that rendered line.
-`flow --value` treats a non-truncated `repr` as an exact string sighting
-and walks `fields`. A name-taken object keeps `type` and `oid` only; its
-`repr` and `fields` are withheld ([`redaction.md`](redaction.md)).
+An **`obj`** may also carry `repr` (clipped to the `repr` cap; `trunc` when
+clipped) and, when that repr is `object.__repr__`, `fields`: up to eight
+`__dict__` keys in insertion order then `__slots__` names, each a
+60-character clip with no nested summary (`fields_trunc` when more names
+existed). `fmt_value` prints a custom repr as `Type#oid <repr>` and fields
+as `Type#oid {name: value, ...}`, not the default `<Name object at 0x...>`
+text. `grep` searches that line; `flow --value` matches a non-truncated
+`repr` exactly and walks `fields`. A name-taken object keeps `type` and
+`oid` only ([`redaction.md`](redaction.md)).
 
 Two of those tags are what a recorder that does not decompose values writes,
 and both render as themselves rather than as `?`:
@@ -791,25 +786,13 @@ with `kind` one of `CALL`, `RETURN`, `RAISE`, `HANDLED`. `n_events` is the
 number of updates. Values, timing and `LINE` events are excluded by
 construction, so capture depth can never alter a fingerprint.
 
-Two things a converter must know about `file` here:
-
-- **The Python recorder hashes a ROOT-RELATIVE file** (`prog.py`), while
-  `code_objects.file` holds the absolute path. The two are deliberately
-  different strings, and a hash computed over one basis cannot be looked up
-  against the other.
-- **`diff --ignore-moves` re-hashes both sides at query time over
-  `code_objects.file`** (`query/moves.hash_stream`), never one side from the
-  stored row and the other from a fresh computation. That is why the flag can
-  pair a function that moved between files: the pairing is applied to the
-  stream, and the stream is hashed again with the same function the recorder
-  uses.
-
-Under `fingerprint_basis = "per-task"` a thread's row covers the causal
-events that ran in **no** unit of work, and each unit owns a row of its own.
-Under `"per-thread"` (every trace recorded before the marker) a thread's row
-covers every causal event on the thread, task events included. The two are
-not comparable, and `diff` refuses to compare traces recorded under
-different bases when either ran a task. Format 5 adds `"per-generation"` (MODEL-TRACES §6); `diff` never compares that basis with either program basis (exit 2, not 3).
+The Python recorder hashes a **root-relative** file (`prog.py`) while
+`code_objects.file` is absolute. `diff --ignore-moves` re-hashes both sides
+over `code_objects.file` (`query/moves.hash_stream`), so a moved function
+still pairs. `"per-task"` covers events in no unit of work (each unit has
+its own row); `"per-thread"` covers every causal event on the thread.
+`diff` refuses to compare those bases when either side ran a task. Format
+5's `"per-generation"` is never compared with either (exit 2; MODEL-TRACES §6).
 
 ## 8. Conformance vectors
 

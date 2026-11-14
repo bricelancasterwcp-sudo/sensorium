@@ -288,8 +288,11 @@ the claim that this is the whole of it. A bare `§n` below is a section of
 26. **An assertion failure born in `expect` writes no RAISE row at all.**
     vitest's `expect` throws inside vitest's own untraced code, so
     `exceptions` never sees it: the `propagated (to the harness)` verdict is
-    reachable only from a `throw` in traced code. The failure is not lost (`info`'s exit line and the task's own outcome carry it) but the command
-    a reader would reach for first cannot answer about it. This is why
+    reachable only from a `throw` in traced code. The failure is not lost.
+    The test task's root frame closes `raised` with that assertion on
+    `unwind_exc`, and `failures` lists the test from that frame. `info`'s
+    exit line still shows the harness status. `exceptions` is unchanged:
+    it does not synthesize a RAISE. This is why
     `corpus/typescript/test_failed` is a `throw` statement and not a failing
     `expect` (spec §6.1's dated amendment). *(Added 2026-09-10.)*
     *Falsifier:* `corpus/typescript/test_failed`,

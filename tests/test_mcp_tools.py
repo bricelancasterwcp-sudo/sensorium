@@ -48,11 +48,9 @@ from sensorium import cli
 from sensorium.mcp import schema, tools
 from sensorium.query import redact_cmd, refocus_cmd
 
-#: The nine, in the order a client is shown them: the two that open a
-#: trace, then the four that read one, then the three that compare and
-#: check.
-THE_NINE = ["runs", "info", "tree", "frame", "grep", "exceptions", "flow",
-            "watch", "diff"]
+#: The always-offered tools, in the order a client is shown them.
+THE_NINE = ["runs", "info", "tree", "frame", "grep", "exceptions",
+            "failures", "flow", "watch", "diff"]
 
 
 def _run_parser():
@@ -211,7 +209,7 @@ def test_descriptions_are_help_then_sentence():
 
 def test_annotations_by_kind():
     """D9. `record` and `refocus` run a program that may do anything;
-    the other nine read a file that is already written."""
+    every other tool reads a file that is already written."""
     assert tools.ANNOTATIONS_QUERY == {"readOnlyHint": True,
                                        "destructiveHint": False,
                                        "idempotentHint": True,

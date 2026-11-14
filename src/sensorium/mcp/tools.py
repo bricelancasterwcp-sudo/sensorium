@@ -5,7 +5,7 @@ parser. This module answers the questions no parser can: which of the
 CLI's commands a client is offered at all, which of those may execute,
 what each tool is called, and what sentence it says about itself.
 
-THE TABLES ARE EXPLICIT (P1). `QUERY_MODULES` names nine; `refocus` is
+THE TABLES ARE EXPLICIT (P1). `QUERY_MODULES` names ten; `refocus` is
 the one query that runs a program, so it appears only under
 `--allow-run`; `redact` rewrites a stored trace, which is not a
 question anyone asks a debugger, so it is in `NOT_TOOLS`. Deriving the
@@ -38,13 +38,13 @@ from dataclasses import dataclass
 from sensorium import cli
 from sensorium.mcp import schema
 from sensorium.mcp.schema import Field, ToolSchema
-from sensorium.query import (diff_cmd, exceptions_cmd, flow_cmd, frame_cmd,
-                             grep_cmd, info_cmd, redact_cmd, refocus_cmd,
-                             runs_cmd, tree_cmd, watch_cmd)
+from sensorium.query import (diff_cmd, exceptions_cmd, failures_cmd, flow_cmd,
+                             frame_cmd, grep_cmd, info_cmd, redact_cmd,
+                             refocus_cmd, runs_cmd, tree_cmd, watch_cmd)
 
-#: The nine a client is always offered, in the order it is shown them.
+#: The ten a client is always offered, in the order it is shown them.
 QUERY_MODULES = (runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
-                 exceptions_cmd, flow_cmd, watch_cmd, diff_cmd)
+                 exceptions_cmd, failures_cmd, flow_cmd, watch_cmd, diff_cmd)
 
 #: ...and the one query that re-runs the recorded command: offered only
 #: under `--allow-run`.
@@ -59,7 +59,7 @@ NOT_TOOLS = (redact_cmd,)
 NARROWING = ("depth", "limit", "after", "around", "context", "misses", "fn",
              "kind")
 
-#: D9. Nine tools read a file that is already written...
+#: D9. Ten tools read a file that is already written...
 ANNOTATIONS_QUERY = {"readOnlyHint": True, "destructiveHint": False,
                      "idempotentHint": True, "openWorldHint": False}
 

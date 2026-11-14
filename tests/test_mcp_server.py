@@ -70,9 +70,9 @@ from sensorium.mcp import tools
 from sensorium.mcp.result import STDERR_LABEL
 from tests.helpers import record_script
 
-#: The nine a client is always offered, in the order it is shown them.
-NINE = ("runs", "info", "tree", "frame", "grep", "exceptions", "flow",
-        "watch", "diff")
+#: The tools a client is always offered, in the order it is shown them.
+NINE = ("runs", "info", "tree", "frame", "grep", "exceptions", "failures",
+        "flow", "watch", "diff")
 
 #: One flat call tree, four hundred activations deep enough to be worth
 #: capping (`tests/test_mcp_server_process.py` caps this same trace).
@@ -683,7 +683,7 @@ class _Stdin:
 def test_time_to_discover_answer_under_two_seconds(sdir, tmp_path):
     """P22: the whole table is built before the first answer, so this
     measures the boot a client actually waits through -- `Popen` to the
-    discover result, imports, eleven derived schemas and all."""
+    discover result, imports, the derived schemas and all."""
     started = time.monotonic()
     with spawn(sdir, tmp_path) as client:
         elapsed = time.monotonic() - started
