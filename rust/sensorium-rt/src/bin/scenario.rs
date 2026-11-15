@@ -102,6 +102,8 @@ macro_rules! serr_unbound {
 // `src/bin/scenario/` instead. The dispatch itself stays in a file NAMED
 // `scenario.rs` because `file!()` is part of the `SITE_*` constants below and
 // `tests/spawn.rs` pins that file name as the shape of a baked spawn site.
+#[path = "scenario/async_drive.rs"]
+mod async_drive;
 #[path = "scenario/cap.rs"]
 mod cap;
 #[path = "scenario/errflow.rs"]
@@ -243,6 +245,11 @@ fn main() {
         "line-redact-long" => line_redact_long(),
 
         "cap-loop" => cap_loop(),
+
+        "async-pending-ready" => async_drive::pending_then_ready(),
+        "async-nested" => async_drive::nested_during_poll(),
+        "async-drop-pending" => async_drive::drop_while_pending(),
+        "async-panic" => async_drive::panic_during_poll(),
 
         other => {
             eprintln!("scenario: unknown scenario {other:?}");

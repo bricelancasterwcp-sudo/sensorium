@@ -13,11 +13,13 @@ print hedges about gaps that cannot exist.
 The gate moves with it (ruling R13). A serial rides on EVERY capture this
 recorder writes -- a RETURN value at the call tier, an argument and a
 statement's delta under a focus -- so `flow --object` needs
-`object_identity` and nothing else. `flow --value` still needs `line`: a
-value that only lived in a local between call and return is not in a trace
-that recorded no statement. The "no LINE events" note prints on an object
-flow all the same, because what it says (a local was never captured) is
-just as true there.
+`object_identity` and nothing else. `flow --value` searches whichever of
+those captures the trace holds. `capabilities.line: false` is not itself
+a refusal: a return or an argument is a real answer, a miss says the
+literal was not in what was recorded, and the command refuses only when
+no line tier and no return or argument capture was recorded. The "no
+LINE events" note prints on both flows, because a statement local was
+never captured.
 """
 import pytest
 
@@ -25,6 +27,12 @@ from sensorium import cli
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
 from sensorium.query.dbg_dialects import INSPECT, RUST
 from sensorium.query.flow_values import ObjTarget, matches
+from tests.helpers import rust_trace
+from tests.rust_traces import FILE as RUST_FILE
+from tests.rust_traces import call as rust_call
+from tests.rust_traces import dbg as rust_dbg
+from tests.rust_traces import frame as rust_frame
+from tests.rust_traces import ret as rust_ret
 from tests.ts_traces import (TS_CAPABILITIES, TS_CAPABILITIES_0_1, call,
                              frame, line_ev, out, ret, task, ts_trace)
 
@@ -187,14 +195,101 @@ def test_an_object_flow_needs_identity_and_not_line(
     assert "REFUSED" not in out(capsys)
 
 
-def test_a_value_flow_still_needs_line(tmp_path, monkeypatch, capsys):
-    """Unchanged, and for a reason the note above states: a value that only
-    lived in a local between call and return is not in this trace."""
+def test_a_value_missing_from_a_call_tier_trace_is_not_found(
+        tmp_path, monkeypatch, capsys):
+    """`call_tier_trace` returns `undefined` and records no arguments and
+    no LINE row. `5` is in none of those, so the answer is negative about
+    what was recorded. It must not claim the search never ran."""
     run_id = call_tier_trace(tmp_path, monkeypatch)
+    assert cli.main(["flow", run_id, "--value", "5"]) == NEGATIVE
+    text = out(capsys)
+    assert "sightings: 0" in text
+    assert "capture(s) searched" in text
+    assert "statement locals were not recorded" in text
+    assert "local between call and return" in text
+    assert "nothing was checked" not in text
+    assert "REFUSED" not in text
+    assert ("captured-value equality, not true dataflow analysis: the trace "
+            "records values, not the edges between them") in text
+
+
+def test_a_return_on_an_unfocused_rust_trace_is_found(
+        tmp_path, monkeypatch, capsys):
+    """No LINE row, `capabilities.line` false, and the RETURN value is the
+    literal. That is a sighting, named as a return."""
+    run_id = rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[RUST_FILE, "price", 10]],
+        frames=[rust_frame(1, 1, 2)],
+        events=[rust_call(1000, 1, 10), rust_ret(2000, 1, 1, "ok", "5")])
+    assert cli.main(["flow", run_id, "--value", "5"]) == ANSWERED
+    text = out(capsys)
+    assert "[return]" in text
+    assert "sightings: 1 event(s), 1 capture(s)" in text
+    assert "statement locals were not recorded" in text
+    assert "nothing was checked" not in text
+    assert "REFUSED" not in text
+
+
+def test_a_call_argument_on_an_unfocused_trace_is_found(
+        tmp_path, monkeypatch, capsys):
+    """Same gate, the other capture a call-tier trace holds. The return
+    is `()` and is not the hit."""
+    run_id = rust_trace(
+        tmp_path, monkeypatch,
+        codes=[[RUST_FILE, "price", 10]],
+        frames=[rust_frame(1, 1, 2)],
+        events=[
+            {"ts": 1000, "thread": 1, "kind": "CALL", "code": 1, "line": 10,
+             "payload": {"args": {"points": rust_dbg("5")}}, "task": None},
+            rust_ret(2000, 1, 1, "ok", "()"),
+        ])
+    assert cli.main(["flow", run_id, "--value", "5"]) == ANSWERED
+    text = out(capsys)
+    assert "[arg points]" in text
+    assert "sightings: 1 event(s), 1 capture(s)" in text
+    assert "[return]" not in text
+    assert "statement locals were not recorded" in text
+    assert "nothing was checked" not in text
+
+
+def test_nothing_searchable_still_refuses(tmp_path, monkeypatch, capsys):
+    """No LINE row, a CALL with no arguments, and a RETURN whose payload
+    carries no value. Unread is not a capture. Nothing was searched."""
+    run_id = ts_trace(
+        tmp_path, monkeypatch,
+        codes=[[FILE, "loadSettings", 12]],
+        frames=[frame(1, 1, 2)],
+        events=[
+            call(1000, 1, 12, task=1),
+            {"ts": 2000, "thread": 1, "kind": "RETURN", "frame": 1,
+             "code": 1, "line": None,
+             "payload": {"outcome": "ok", "value": {"k": "unread"}},
+             "task": 1},
+        ],
+        tasks=[task(1, "settings > shares")],
+        root=ROOT)
     assert cli.main(["flow", run_id, "--value", "5"]) == UNSETTLED
+    text = out(capsys)
     assert ("REFUSED: flow needs line, which recorder sensorium-ts 0.4.0 "
             "declares it does not produce (capabilities.line: false); "
-            "nothing was checked") in out(capsys)
+            "nothing was checked") in text
+    assert "sightings:" not in text
+    assert "capture(s) searched" not in text
+
+
+def test_an_object_flow_on_a_call_tier_trace_still_answers(
+        tmp_path, monkeypatch, capsys):
+    """R13 stays: no LINE rows, and the shared object's returns are still
+    one serial."""
+    run_id = _with_returns(tmp_path, monkeypatch)
+    assert cli.main(["flow", run_id, "--object",
+                     "loadSettings:return"]) == ANSWERED
+    text = out(capsys)
+    assert "flow of object #4 (Object)" in text
+    assert "[return]" in text
+    assert "REFUSED" not in text
+    assert "continuity: exact (serial identity)" in text
 
 
 def test_an_object_flow_on_a_recorder_with_no_identity_is_refused(

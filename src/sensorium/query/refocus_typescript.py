@@ -686,7 +686,8 @@ def _verify(args, orig: Trace, orig_name: str, meta: dict, new_id: str,
     # included (`vocab.blind_spots`); what follows it is the pair's own
     # unrun checks, which are findings about THIS pair rather than about the
     # recorder, and are stamped as well as printed.
-    code = report(orig, new, res, orig_name, new_id, a)
+    code = report(orig, new, res, orig_name, new_id, a,
+                  compact=bool(getattr(args, "compact", False)))
     print_unverifiable(checks)
     return code
 

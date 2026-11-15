@@ -541,13 +541,14 @@ capabilities in it is not a list a reader can use; what each key said before is
 in this file's git history and in `CHANGELOG.md`'s 0.9.0 and 0.10.0 entries.)*
 
 **`locals` and `line` are the focus tier's, and say what this RUN decided.**
-On a run that named no `--focus` both are `false`: no LINE record exists, and
-`watch` and `flow --value` refuse at exit 3 naming the capability and the
-recorder the TRACE carries. Arguments are still read on every CALL (an empty
-list means none; a CALL that omitted `a` still says `unread: ["locals"]`).
-On a focused run both are `true` and the same commands answer. §11. The pair
-is a statement about what this recorder PRODUCED for this recording, never
-about what the program did: absence of the LINE record, reported as its own.
+On a run that named no `--focus` both are `false`: no LINE record exists.
+`watch` refuses at exit 3 naming the capability and the recorder the TRACE
+carries. `flow --value` searches the RETURN values and CALL arguments that
+were recorded, warns that statement locals were not, and refuses at exit 3
+only when none of those captures exist. Arguments are still read on every
+CALL (an empty list means none; a CALL that omitted `a` still says
+`unread: ["locals"]`). On a focused run both are `true`. The pair states what
+this recorder PRODUCED, never what the program did.
 
 **`object_identity` is `true` on every recording from 0.3.0 on**, focused or
 not: an `oid` and a `type` ride on every object capture the recorder writes, so
@@ -597,9 +598,9 @@ CommonJS file under the root is loaded as Node loads it, and counted`),
 `corpus/typescript/watch_refused`, `corpus/typescript/object_identity` (the
 case that was `object_refused` until 0.3.0 answered it (R13, R36): `flow
 --object loadSettings:return` now prints three sightings under one serial on an
-UNFOCUSED recording, and the case's third question still refuses, through
-`line: false`, because `flow --value` reads per-line state this run does not
-hold) and the E5-TS split control of the acceptance record's §3.2.
+UNFOCUSED recording, and the case's third question sights `retriesOf`'s
+return of `9` on that same recording and warns that statement locals were
+not recorded) and the E5-TS split control of the acceptance record's §3.2.
 
 ## 8. Preserved by construction, tested
 

@@ -1,8 +1,9 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.7.2`, `sensorium-transform 0.5.1`, `cargo-sensorium 0.8.4`,
-v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.2`~~,
+`sensorium-rt 0.7.3`, `sensorium-transform 0.5.2`, `cargo-sensorium 0.8.4`,
+v1, the call tier, with err flow, the focus tier, and async fn frames.
+(~~`sensorium-rt 0.7.2`, `sensorium-transform 0.5.1`, `cargo-sensorium 0.8.4`~~,
+before them ~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.2`~~,
 before them ~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.0`~~,
 before them ~~`sensorium-rt 0.6.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.7.0`~~,
 before them ~~`sensorium-rt 0.5.0`, `sensorium-transform 0.5.0`,
@@ -103,8 +104,9 @@ holding a `?`; chains minted at conversion; and the dispositions
 `sensorium exceptions` prints on a Rust trace, §11. **Added 2026-09-06
 (rung 4, slice 1):** under `cargo sensorium --focus <qualname>`, one LINE
 event per completed statement of a focused function, carrying the bindings
-that statement wrote, which is what makes `watch` and `flow` answer here
-instead of refusing, §12. Not `refocus`, not `--window`, not program output,
+that statement wrote. `watch` answers here instead of refusing; `flow
+--value` sees those bindings, and without a focus still searches returns
+and arguments (§12). Not `refocus`, not `--window`, not program output,
 and nothing per-line in a function no `--focus` named. §8 is the list, with
 what declares each absence.
 
@@ -591,11 +593,12 @@ before it, rather than one discovered at the ceiling.
 
 Added 2026-09-06 by rung 4, slice 1
 (`docs/superpowers/specs/2026-09-06-sensorium-rung4-focus-tier-design.md`, §3
-and amendments A1–A12). `sensorium watch` and `sensorium flow` answer on a
-Rust trace instead of refusing, and this section is what that answer may mean.
-**None of it is true of a run without a `--focus`**: the tier is a
-compile-time decision, so an unfocused build carries no LINE probe at all
-rather than an inert one, §8 item 3 is what such a run still cannot see.
+and amendments A1-A12). `watch` answers on a focused Rust trace instead of
+refusing. `flow --value` reads the LINE bindings this section describes, and
+on a run with no `--focus` it still searches recorded returns and call
+arguments. **The LINE tier is not true of a run without a `--focus`**: the
+tier is a compile-time decision, so an unfocused build carries no LINE probe
+at all rather than an inert one. §8 item 3 is what such a run still cannot see.
 
 **One LINE per completed statement of a focused function, its `deltas` the
 bindings that statement wrote and nothing else.** One probe after every

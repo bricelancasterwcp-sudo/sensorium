@@ -194,6 +194,9 @@ pub enum SiteKind {
     /// (design 2026-09-06 §3.1). Exists only under a `--focus`, which is what
     /// makes `capabilities.line` true for a run.
     Line,
+    /// An `async { }` block. A frame, like a closure: CALL/RETURN may name it.
+    /// An `async fn` is [`SiteKind::Fn`], not this. Serialized `async`.
+    Async,
 }
 
 /// One instrumented site. A [`SiteKind::Fn`] one mirrors a Python
@@ -246,11 +249,14 @@ pub struct Site {
 ///   allow. Decided by re-parsing the wrap, not by a rule
 ///   (`errflow::Ctx::err_wrap`).
 /// * `"async-block"` -- a `?` inside an `async {}` block or an `async` closure
-///   (design R5/R6). The future may be polled on a thread other than the one
-///   that built it, so a probe there would record the site against whichever
-///   thread happened to poll -- the same reason an `async fn` gets no guard. A
+///   (design R5/R6). The block itself is a frame (the drive future parks it on
+///   the thread that polls it). The `?` stays declared rather than wrapped, so
+///   the try-site identity does not move and an async closure, which is not a
+///   frame, is not given a probe that would fire on a thread with no frame. A
 ///   plain closure created INSIDE an async block is not affected: its body runs
-///   when it is called, so its `?` is wrapped like any other.
+///   when it is called, so its `?` is wrapped like any other. An `async fn` is
+///   the other way around: `in_async` is not set for the item, so a `?` in its
+///   body is wrapped and attaches to the frame the drive future has open.
 ///
 /// A `let _ = <place expression>;` is NOT here: `_` does not bind, so that
 /// statement moves nothing and drops nothing, and no error is absorbed at it.
@@ -330,14 +336,13 @@ pub struct SpawnSite {
 /// E2's denominator, counted by the same parser and the same eligibility rules
 /// that do the instrumenting.
 ///
-/// `const_fns`, `extern_fns` and `async_fns` are DISJOINT subsets of `fn_items`,
-/// so nothing is ever subtracted twice.
+/// `const_fns` and `extern_fns` are disjoint subsets of `fn_items`, so nothing
+/// is ever subtracted twice. `async_fns` is the count of async fns this tier
+/// still skips. Review round 4 instruments them, so the count is zero and the
+/// identity `instrumented + async_fns == eligible` still holds.
 ///
-/// [`Census::eligible`] subtracts only const and extern, because that is what
-/// endpoint E2 pre-registered as "eligible" before `async` was ruled a skip. The
-/// pre-registration is not edited after the fact: `async_fns` is reported
-/// alongside, and the honest identity a caller checks is
-/// `instrumented + async_fns == eligible`.
+/// [`Census::eligible`] subtracts only const and extern, the denominator E2
+/// pre-registered. `async_fns` is not subtracted.
 ///
 /// `parsed` is the none-versus-zero discipline in a struct: a file `syn` could
 /// not parse yields `Census { parsed: false, .. }` with every count at zero, and
@@ -347,7 +352,9 @@ pub struct Census {
     pub fn_items: usize,
     pub const_fns: usize,
     pub extern_fns: usize,
-    /// Skipped at this tier (plan decision D6), but INSIDE `eligible()`.
+    /// Async fns still skipped. Review round 4 instruments them, so this is
+    /// zero. Kept so the census row and `instrumented + async_fns == eligible`
+    /// stay the same shape. Inside `eligible()`, and not subtracted from it.
     pub async_fns: usize,
     /// Every `syn::ExprTry` the walk meets, in any position: E2″'s denominator.
     ///
@@ -453,20 +460,21 @@ pub const MAX_SITE_INDEX: u32 = 0x00FF_FFFF;
 ///
 /// `focus` decides which functions carry LINE probes (design 2026-09-06 §2.1):
 /// a value selects the qualname it names and everything under it at a `::`
-/// boundary. It is read AFTER eligibility, so a `const`/`extern`/`async` fn is
-/// never focused, and [`Focus::EMPTY`] produces byte-for-byte the output this
-/// crate produced before the focus tier existed. [`Transformed::focused`] names
-/// what was selected here.
+/// boundary. It is read AFTER eligibility, so a `const` or `extern` fn is
+/// never focused. An `async fn` is instrumented at call tier, but a focus does
+/// not place LINE probes inside it: a suspension has no statement boundary
+/// this walker closes. [`Focus::EMPTY`] adds no LINE probes.
+/// [`Transformed::focused`] names what actually received LINE probes.
 ///
 /// # Eligibility
 ///
 /// `ItemFn`, `ImplItemFn` and `TraitItemFn` WITH A BODY, at any nesting.
 /// Declared in `skipped` and not instrumented: `const fn` (`"const"`), fns with
-/// an ABI (`"extern"`), `async fn` (`"async"` -- a guard inside a future is
-/// dropped with the future, possibly on another thread, which contradicts spec
-/// §3.2's sole-emitter rule), and `fn` tokens inside a `macro_rules!` body
-/// (`"macro"`, invisible to `syn` as items). A bodiless trait fn is none of
-/// these: there is nothing to instrument and nothing to excuse.
+/// an ABI (`"extern"`), and `fn` tokens inside a `macro_rules!` body
+/// (`"macro"`, invisible to `syn` as items). An `async fn` is instrumented:
+/// the body is a `drive_async` / `drive_value` future, not a sync guard whose
+/// `Drop` would run on the wrong poll. A bodiless trait fn is none of these:
+/// there is nothing to instrument and nothing to excuse.
 ///
 /// A CLOSURE is not a fn item and is never counted as one, but a closure whose
 /// body holds a `?` at its own depth gets a frame of its own (design R5,

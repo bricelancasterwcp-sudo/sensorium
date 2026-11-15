@@ -106,7 +106,7 @@ def test_record_schema_carries_every_non_suppressed_run_option():
                and a.help is not argparse.SUPPRESS}
     assert set(actions) == {"focus", "include", "exclude", "window",
                             "max_events", "max_bytes", "max_calls",
-                            "no_cap"}
+                            "no_cap", "no_children"}
 
     by_name = {f.name: f for f in tools.RECORD.fields}
     assert set(actions) <= set(by_name)
@@ -125,7 +125,7 @@ def test_record_schema_carries_every_non_suppressed_run_option():
     assert list(js["properties"]) == ["command", "focus", "include",
                                       "exclude", "window", "max_events",
                                       "max_bytes", "max_calls", "no_cap",
-                                      "cwd", "python"]
+                                      "no_children", "cwd", "python"]
     assert js["properties"]["no_cap"]["type"] == "boolean"
     for name in ("max_events", "max_bytes", "max_calls"):
         assert js["properties"][name]["type"] == "string"
@@ -331,7 +331,7 @@ def test_command_argv_for_record_refuses_by_the_same_rules():
     assert unknown.value.reason == "unknown_fields"
     assert unknown.value.fields == ("cwdd",)
     assert ("command, focus, include, exclude, window, max_events, "
-            "max_bytes, max_calls, no_cap, cwd, python") in (
+            "max_bytes, max_calls, no_cap, no_children, cwd, python") in (
         unknown.value.message)
 
     with pytest.raises(schema.Rejection) as missing:
@@ -362,4 +362,20 @@ def test_command_argv_for_a_query_has_no_extras():
         ["grep", "--", "last", "compute"], {})
     refocus = tools.table(allow_run=True)["refocus"]
     assert tools.command_argv(refocus, {"run": "r1", "focus": ["a"]}) == (
-        ["refocus", "--focus=a", "--", "r1"], {})
+        ["refocus", "--focus=a", "--compact", "--", "r1"], {})
+
+
+def test_refocus_compact_defaults_on_and_false_omits_the_flag():
+    """Omitted and `compact: true` pass `--compact`. `compact: false`
+    is the long report, so the flag is absent. The schema default is
+    true; this is the seam that actually puts it on the child's argv."""
+    refocus = tools.table(allow_run=True)["refocus"]
+    bare = {"run": "r1", "focus": ["a"]}
+    omitted, extras = tools.command_argv(refocus, bare)
+    explicit, _ = tools.command_argv(refocus, {**bare, "compact": True})
+    full, _ = tools.command_argv(refocus, {**bare, "compact": False})
+    assert omitted == ["refocus", "--focus=a", "--compact", "--", "r1"]
+    assert explicit == omitted
+    assert "--compact" not in full
+    assert full == ["refocus", "--focus=a", "--", "r1"]
+    assert extras == {}

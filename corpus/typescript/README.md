@@ -70,7 +70,7 @@ one spool with two BOOT records and a refusal.
 | `pass_vs_fail` | two test FILES of one invocation: compared straight they part at causal step 0 on the split itself, and `--ignore-moves` pairs the two test callbacks and finds the real parting at step 2, `gold` against `silver`. Also the exit rule, `unwitnessed` per container, `1 (waited)` for the harness | `diff`, `diff --ignore-moves`, `info`, `runs` |
 | `nondeterministic` | a branch decided by a file outside the process: the second invocation is a DIFFERENT execution (DIVERGED at step 4), and nothing in the store claims the two runs are related | `diff`, `runs` |
 | `async_interleaved` | two `test.concurrent` tests write one key; every row of each is in its own task, including the write after the `await`, and the naming cross-check DISAGREED once on a concurrent test and said so (`task names: mixed, 1 conflict(s)`) | `tree`, `frame` ×2, `info` |
-| `object_identity` | an identity question this recorder now ANSWERS, and one it still refuses: two callers hold one object, `flow --object loadSettings:return` sights it three times under one serial (`continuity: exact (serial identity)`) with no focus recorded at all, the values it captured are byte-identical and settle nothing on their own, and `flow --value` still refuses through `line: false`. Named `object_refused` until S5 rung 4 gave every 0.3.0 trace an identity | `flow --object`, `tree`, `flow --value` |
+| `object_identity` | an identity question this recorder now ANSWERS, and a value question it answers only as far as the captures go: two callers hold one object, `flow --object loadSettings:return` sights it three times under one serial (`continuity: exact (serial identity)`) with no focus recorded at all, the values it captured are byte-identical and settle nothing on their own, and `flow --value 9` sights `retriesOf`'s return while warning that statement locals were not recorded. Named `object_refused` until S5 rung 4 gave every 0.3.0 trace an identity | `flow --object`, `tree`, `flow --value` |
 | `watch_refused` | a per-line question this recorder cannot answer: `watch` REFUSES through `line: false` (exit 3), while the same fault is still reachable through return values (`compute -> 200` inside `refresh -> 100`) | `watch`, `tree` |
 | `silent_swallow` | a swallowed parse error: the RAISE and the HANDLED rows ARE recorded, `err_flow=yes` says they carry what a verdict needs, and `exceptions` calls it SWALLOWED at the `catch` whose frame returned a healthy-looking default | `exceptions`, `info`, `tree` |
 | `each_naming` | three `test.each` rows named as vitest expands them (`squares 2/3/4`), `task names: vitest`, no `#k`; and the `beforeEach` hook's twelve events counted outside every test | `info` ×2, `tree` |
@@ -159,8 +159,9 @@ planted truth is that the token never reaches the trace at all, which
 
 **Arguments are on every CALL.** An empty list means none were found.
 `capabilities.locals` is still false without a `--focus`, and that key is
-the LINE tier: `watch` and `flow --value` refuse, and `frame` says the
-timeline was not captured. A function's parameters print on its CALL
+the LINE tier: `watch` refuses, `flow --value` searches the arguments and
+returns that were recorded and warns that statement locals were not, and
+`frame` says the timeline was not captured. A function's parameters print on its CALL
 (`helper(tier='bronze')`, `total(items=[ 1, 2 ], member=true)`), focused or
 not. `focus_args` pins both in one tree. A spool from before 0.6.1 still
 reads `name() <unread: locals>`.

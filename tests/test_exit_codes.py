@@ -125,8 +125,9 @@ def _other_lang(tmp_path, monkeypatch):
 
 
 def _undeclared(tmp_path, monkeypatch):
-    """A recorder that declares it produces neither LINE events nor object
-    identity -- the two capabilities `watch` and `flow` are gated on."""
+    """No LINE tier, no object identity, and a CALL that recorded no
+    arguments. `watch` and `flow --object` refuse on the capabilities;
+    `flow --value` refuses because nothing it could compare was recorded."""
     w = synthetic(tmp_path, monkeypatch)
     c = w.intern_code("/tmp/prog.rs", "main", 1)
     w.add_event(0, 1, "CALL", None, c, 1, {"args": {}})

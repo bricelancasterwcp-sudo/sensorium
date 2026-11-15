@@ -256,12 +256,13 @@ fn census_counts_const_and_extern_as_disjoint_subsets() {
     assert_eq!((c.fn_items, c.const_fns, c.extern_fns), (2, 0, 1));
     assert_eq!(c.eligible(), 1);
 
-    // `const unsafe fn frozen` is const AND has no abi; `async fn later` is a
-    // fourth, disjoint bucket that `eligible()` does NOT subtract.
+    // `const unsafe fn frozen` is const AND has no abi. `async fn later` is
+    // instrumented, so `async_fns` (still-skipped) stays 0 and `eligible()`
+    // still does not subtract it.
     let c = census(&read("unsafe_fn", "in"));
     assert_eq!(
         (c.fn_items, c.const_fns, c.extern_fns, c.async_fns),
-        (3, 1, 0, 1)
+        (3, 1, 0, 0)
     );
     assert_eq!(c.eligible(), 2, "eligible() must not subtract async");
 

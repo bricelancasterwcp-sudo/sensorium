@@ -178,9 +178,10 @@ do, only that the recording is not silently different underneath it.
 **Arguments are on every CALL.** Each parameter is `Debug` text, the same
 cap as a return, so `tree` prints `price(points=1000, total=100.0)` rather
 than a bare name. An empty list means the function had no parameters.
-`capabilities.line` stays false without a `--focus`, so `watch` and
-`flow --value` still refuse, and a focused function's parameters LINE
-records the same values a second time. A hand-written `enter`, and a spool
+`capabilities.line` stays false without a `--focus`, so `watch` still
+refuses. `flow --value` searches the arguments and returns that tier
+recorded and warns that statement locals were not; a focused function's
+parameters LINE records the same values a second time. A hand-written `enter`, and a spool
 from before 0.7.1, still read `name() <unread: locals>`.
 
 **`info`'s `units:` line is partly a fact about the build tree.** The

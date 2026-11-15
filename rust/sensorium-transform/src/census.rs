@@ -89,15 +89,12 @@ impl Ctx<'_> {
             self.extern_fns += 1;
             return Some("extern");
         }
-        if sig.asyncness.is_some() {
-            // A guard in an `async fn` body lives inside the future, so it is
-            // dropped when the future is dropped -- possibly on a different
-            // thread than the one that created it, and never at the `.await`
-            // boundaries the caller would read as returns. That contradicts
-            // spec §3.2's "the guard's Drop is the SOLE emitter of RETURN".
-            self.async_fns += 1;
-            return Some("async");
-        }
+        // `async fn` is instrumented (review round 4). `async_fns` stays the
+        // count of async fns this walk still skips, which is none: the field
+        // is part of the census row, and `instrumented + async_fns == eligible`
+        // still holds with it at zero. A sync guard is not what records the
+        // body. `fn_item` wraps it in `drive_async`, whose RETURN is the
+        // output, not `Drop` of a guard left across `.await`.
         None
     }
 

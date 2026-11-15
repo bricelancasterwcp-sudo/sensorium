@@ -244,9 +244,14 @@ impl<'ast> Visit<'ast> for Ctx<'_> {
         }
     }
 
-    /// An `async {}` block: never framed, and every `?` inside is declared
-    /// rather than wrapped (design R5/R6).
+    /// An `async {}` block is a frame when this walk emits. A `?` inside stays
+    /// declared (`in_async`), including inside an async closure, which is not
+    /// framed. The census walk (`emit` false) mints no block site, or it would
+    /// inflate `fn_sites` against a walk that does not see blocks.
     fn visit_expr_async(&mut self, node: &'ast ExprAsync) {
+        if self.emit && !self.const_ctx {
+            self.frame_async_block(node);
+        }
         self.in_async_scope(true, |ctx| syn::visit::visit_expr_async(ctx, node));
     }
 

@@ -20,9 +20,33 @@ tests against -- so it imports them inside its own body, the way
 `refocus_licence` already does and for the same reason: a module-level
 import back would be a cycle.
 """
+import re
+
 from sensorium.query.refocus_threads import harness_exclusion
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
+
+# Pytest's own result words, longest first so "subtests passed" is not
+# read as a count plus the word "passed". Anything outside this list is
+# the program's text, and a number in it still counts.
+_PYTEST_STAT = (
+    r"subtests passed|subtests failed|subtests skipped|"
+    r"passed|failed|skipped|deselected|xfailed|xpassed|"
+    r"warnings|warning|errors|error"
+)
+_PYTEST_SUMMARY_CORE = re.compile(
+    rf"^(?:no tests ran|(?:\d+ (?:{_PYTEST_STAT}))"
+    rf"(?:, \d+ (?:{_PYTEST_STAT}))*)$")
+# The footer token, including the ` (H:MM:SS)` pytest adds past 60s.
+# Anchored at the end so "loaded in 0.02s, then failed" is not one.
+_PYTEST_ELAPSED = re.compile(
+    r"\s+in \d+(?:\.\d+)?s(?: \(\d+:\d{2}:\d{2}\))?\s*$")
+_PYTEST_DURATION = re.compile(
+    r"^(?P<secs>\d+(?:\.\d+)?)s[ \t]+"
+    r"(?P<when>call|setup|teardown)[ \t]+(?P<rest>\S.*?)\s*$")
+
+#: Lines matched, but the bytes did not: the old whitespace sentence.
+_WHITESPACE = object()
 
 
 def _output_text(trace: Trace) -> dict[str, str]:
@@ -34,6 +58,78 @@ def _output_text(trace: Trace) -> dict[str, str]:
 
 def _clip(s: str, cap: int = 60) -> str:
     return repr(s if len(s) <= cap else s[:cap] + "...")
+
+
+def _pytest_summary_core(line: str) -> str | None:
+    """The result words of a pytest footer, or None if this is not one.
+
+    `=== 1 passed in 0.02s ===` and a bare `1 passed in 0.02s` are the
+    same footer: the `=` padding is pytest fitting the line to the
+    terminal, and it changes length when the time token does.
+    """
+    text = line.strip()
+    if len(text) >= 2 and text.startswith("=") and text.endswith("="):
+        text = text.strip("=").strip()
+    elapsed = _PYTEST_ELAPSED.search(text)
+    if elapsed is None:
+        return None
+    core = text[:elapsed.start()].strip()
+    if _PYTEST_SUMMARY_CORE.fullmatch(core):
+        return core
+    return None
+
+
+def _pytest_duration_key(line: str) -> tuple[str, str] | None:
+    """`(phase, test)` of a durations-report line, ignoring the seconds."""
+    match = _PYTEST_DURATION.match(line.strip())
+    if match is None:
+        return None
+    return match.group("when"), match.group("rest")
+
+
+def _pytest_timing_only(left: str, right: str) -> bool:
+    """True when two captured lines differ only by pytest's elapsed time.
+
+    Pytest prints wall-clock duration into the stream the licence treats
+    as the program's output: the summary footer (`1 passed in 0.02s` vs
+    `1 passed in 0.03s`, padding and all) and the durations report
+    (`0.02s call test_foo` vs `0.03s call test_foo`). Two runs of the
+    same tests differ there and nowhere else, and that is not the
+    program differing. Counts, failure text, and which test is named
+    still count. Arbitrary numbers are left alone: a line is eligible
+    only when it is one of those two pytest shapes.
+    """
+    left_duration = _pytest_duration_key(left)
+    right_duration = _pytest_duration_key(right)
+    if left_duration is not None or right_duration is not None:
+        return (left_duration is not None
+                and left_duration == right_duration)
+    left_core = _pytest_summary_core(left)
+    right_core = _pytest_summary_core(right)
+    return left_core is not None and left_core == right_core
+
+
+def _first_captured_difference(was: str, now: str):
+    """The first real line difference, `_WHITESPACE`, or None.
+
+    None means the texts differ only by pytest timing (or not at all).
+    Timing-only lines are skipped, so a real line later in the stream is
+    what gets reported rather than the footer that happens to sit above it.
+    """
+    wl, nl = was.splitlines(), now.splitlines()
+    saw_timing = False
+    for i in range(max(len(wl), len(nl))):
+        x = wl[i] if i < len(wl) else "(no more output)"
+        y = nl[i] if i < len(nl) else "(no more output)"
+        if x == y:
+            continue
+        if _pytest_timing_only(x, y):
+            saw_timing = True
+            continue
+        return i, x, y
+    if saw_timing:
+        return None
+    return _WHITESPACE
 
 
 def _output_difference(orig: Trace, new: Trace) -> str | None:
@@ -49,14 +145,15 @@ def _output_difference(orig: Trace, new: Trace) -> str | None:
         was, now = a.get(stream, ""), b.get(stream, "")
         if was == now:
             continue
-        wl, nl = was.splitlines(), now.splitlines()
-        for i in range(max(len(wl), len(nl))):
-            x = wl[i] if i < len(wl) else "(no more output)"
-            y = nl[i] if i < len(nl) else "(no more output)"
-            if x != y:
-                return (f"the program's own captured {stream} differs, first "
-                        f"at line {i + 1}: {_clip(x)} -> {_clip(y)}")
-        return f"the program's own captured {stream} differs in whitespace"
+        found = _first_captured_difference(was, now)
+        if found is None:
+            continue
+        if found is _WHITESPACE:
+            return (f"the program's own captured {stream} differs in "
+                    "whitespace")
+        i, x, y = found
+        return (f"the program's own captured {stream} differs, first "
+                f"at line {i + 1}: {_clip(x)} -> {_clip(y)}")
     return None
 
 

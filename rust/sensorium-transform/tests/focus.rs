@@ -450,18 +450,16 @@ fn an_arm_entry_line_sits_outside_an_err_arm_probe_in_both_arm_forms() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn an_async_fn_named_in_the_focus_is_skipped_with_its_existing_reason() {
+fn an_async_fn_named_in_the_focus_is_call_tier_only() {
     let t = run("focus_skipped");
-    assert!(t.sites.is_empty(), "an async fn is not instrumented at all");
-    assert_eq!(
-        t.skipped
-            .iter()
-            .map(|s| (s.qualname.as_str(), s.line, s.reason))
-            .collect::<Vec<_>>(),
-        [("spun", 5, "async")]
+    assert_eq!(sites(&t), [(7, "spun", 4, RetKind::Unit)]);
+    assert!(t.skipped.is_empty(), "{:?}", t.skipped);
+    assert!(
+        t.focused.is_empty(),
+        "a focus does not place LINE probes in an async fn"
     );
-    assert!(t.focused.is_empty(), "a skipped fn is not a match");
     assert!(!t.source.contains("::sensorium_rt::line("));
+    assert!(t.source.contains("::sensorium_rt::drive_async("));
 }
 
 #[test]

@@ -59,7 +59,7 @@ use crate::errflow::How;
 /// not a value a probe can borrow). An empty list is `|| []`: the arguments
 /// were read and there were none, which is a different record from `enter`'s
 /// empty payload.
-pub(crate) fn guard_fragment(site: u32, names: &[String]) -> String {
+fn arg_list(names: &[String]) -> String {
     let mut deltas = String::new();
     for (i, name) in names.iter().enumerate() {
         if i > 0 {
@@ -69,10 +69,52 @@ pub(crate) fn guard_fragment(site: u32, names: &[String]) -> String {
             "(\"{name}\", ::sensorium_rt::probe_cap!(&{name}))"
         ));
     }
+    deltas
+}
+
+/// The closure a value-returning async body uses to read its output. Spelled
+/// at the splice, not inside the runtime: a generic function cannot see the
+/// concrete `Debug` impl (the same reason an exit wrap is not a runtime call
+/// that takes `T: Debug`).
+const OUTPUT_PROBE: &str = "|__r| { use ::sensorium_rt::probe::*; \
+     ((&&Probe(__r)).debug_cap(), (&&Probe(__r)).outcome()) }";
+
+pub(crate) fn guard_fragment(site: u32, names: &[String]) -> String {
+    let deltas = arg_list(names);
     format!(
         "let _sens_guard = ::sensorium_rt::enter_args(&crate::__SENSORIUM_UNIT, {site}, || [{deltas}]);"
     )
 }
+
+/// Opening statement of an async fn body. `value` selects [`drive_value`]
+/// (the output is probed) or [`drive_async`] (unit / `!`, no value on the
+/// RETURN). The close is [`ASYNC_FN_CLOSE`], spliced in front of the body's
+/// `}`.
+pub(crate) fn async_fn_open(site: u32, names: &[String], value: bool) -> String {
+    let deltas = arg_list(names);
+    let caps = format!(
+        "let __sens_caps = ::sensorium_rt::capture_args(&crate::__SENSORIUM_UNIT, {site}, || [{deltas}]);"
+    );
+    if value {
+        format!("{caps} ::sensorium_rt::drive_value(__sens_caps, {OUTPUT_PROBE}, async move {{")
+    } else {
+        format!("{caps} ::sensorium_rt::drive_async(__sens_caps, async move {{")
+    }
+}
+
+/// Closes [`async_fn_open`] and awaits it, so the async fn's output is the
+/// inner future's output and `return` inside the body returns from that future.
+pub(crate) const ASYNC_FN_CLOSE: &str = "}).await";
+
+/// Wraps an `async { .. }` expression. No `.await`: the expression's value is
+/// still the future. The close is [`ASYNC_BLOCK_CLOSE`].
+pub(crate) fn async_block_open(site: u32) -> String {
+    format!(
+        "::sensorium_rt::drive_value(::sensorium_rt::capture_args(&crate::__SENSORIUM_UNIT, {site}, || []), {OUTPUT_PROBE}, "
+    )
+}
+
+pub(crate) const ASYNC_BLOCK_CLOSE: &str = ")";
 
 /// The opening half of an exit wrap; the closing half is [`RET_CLOSE`].
 pub(crate) fn ret_open_fragment(site: u32) -> String {

@@ -17,6 +17,12 @@ frame that called them when that frame was open, otherwise at the top of
 their task group -- tagged with the caller's name and never re-parented.
 That whole rendering, and the "unframed" wording that goes with it, is what
 those traces support and is kept exactly as arc 1 wrote it.
+
+A Python OS thread other than the one the program ran on is grouped under
+a `thread` heading when the trace recorded `thread_starts` and more than
+one thread has roots. The heading names the frame that called `start` or
+`submit` only when that frame id is in the trace. One thread, and any
+trace without the key, renders with no thread heading.
 """
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
@@ -24,6 +30,8 @@ from sensorium.query.caps import none_status, print_elisions, print_incomplete
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,
                                  parse_fref, unread_marker)
 from sensorium.query.help import DEPTH_HELP, LIMIT_HELP, RUN_HELP
+from sensorium.query.tree_threads import (split_extra_threads, thread_heading,
+                                          thread_note)
 from sensorium.query.vocab import terms
 from sensorium.store.reader import Trace
 
@@ -303,6 +311,38 @@ def _grouped(trace, roots, parentless):
     return [(t, sorted(groups[t], key=lambda i: i[0])) for t in order]
 
 
+def _print_roots(trace, items, indent, args, by_parent, printed, cut_frames):
+    """Print one group's roots. Returns (printed, shown_unframed).
+
+    `indent` is 0 when nothing labels the group and 1 under a task or
+    thread heading. A root whose CALL names a frameless caller is indented
+    one more, as it always was, so that `<-` tag does not sit in the
+    heading's column.
+    """
+    shown_unframed = 0
+    for _eid, kind, obj in items:
+        budget = args.limit - printed
+        if kind == "u":
+            if budget <= 0:
+                continue
+            print("  " * indent + unframed_line(trace, obj))
+            printed += 1
+            shown_unframed += 1
+            continue
+        if budget <= 0:
+            cut_frames.append(obj)
+            continue
+        base = indent + (1 if _has_caller_code(trace, obj) else 0)
+        lines, cut, _cut_u, shown_u = render_tree(
+            trace, [obj], args.depth, budget, by_parent)
+        cut_frames += cut
+        shown_unframed += len(shown_u)
+        for ln in lines:
+            print("  " * base + ln)
+        printed += len(lines)
+    return printed, shown_unframed
+
+
 def _has_caller_code(trace, frame) -> bool:
     call = trace.event(frame.call_event_id)
     return bool(call and (call.payload or {}).get("caller_code") is not None)
@@ -374,6 +414,11 @@ def run(args) -> int:
         while chain[-1].parent_id is not None:
             chain.append(trace.frame(chain[-1].parent_id))
         ancestors = list(reversed(chain[1:]))
+        # One line, and only when this frame is off the main thread. Not a
+        # list of every thread: the slice does not contain them.
+        note = thread_note(trace, f)
+        if note:
+            print(note)
         for depth, fr in enumerate(ancestors):
             print("  " * depth + frame_line(trace, fr))
         lines, cut_frames, cut_u, _shown = render_tree(
@@ -400,6 +445,9 @@ def run(args) -> int:
         if root is None:
             print(f"no such frame: {args.root} does not exist")
             return NEGATIVE
+        note = thread_note(trace, root)
+        if note:
+            print(note)
         lines, cut_frames, cut_u, _shown = render_tree(
             trace, [root], args.depth, args.limit, by_parent)
         for ln in lines:
@@ -411,38 +459,35 @@ def run(args) -> int:
         for ln in _basis_footer(trace):
             print(ln)
         return ANSWERED
-    # One path for every trace. A synchronous trace has no tasks, so it is
+    # One path for every trace that has a single OS thread, or that never
+    # recorded `thread_starts`. A synchronous trace has no tasks, so it is
     # one unlabelled group whose roots render at indent 0 in event order --
     # byte-identical to v1 -- and --limit is one budget across the whole
-    # output, as it was.
+    # output, as it was. Additional OS threads, when the key is present,
+    # follow under their own heading; the main thread's task groups stay
+    # in the order they have always had.
     show_headers = bool(trace.tasks())
     cut_frames_all: list = []
     shown_unframed = 0
     printed = 0
-    for tid, items in _grouped(trace, trace.roots(), parentless):
+    groups = _grouped(trace, trace.roots(), parentless)
+    split = split_extra_threads(trace, groups)
+    indent = 1 if show_headers else 0
+    if split is None:
+        main_groups, extras = groups, []
+    else:
+        main_groups, extras = split
+    for tid, items in main_groups:
         if show_headers:
             print(task_label(trace, tid))
-        for _eid, kind, obj in items:
-            budget = args.limit - printed
-            if kind == "u":
-                if budget <= 0:
-                    continue
-                print(("  " if show_headers else "") + unframed_line(trace, obj))
-                printed += 1
-                shown_unframed += 1
-                continue
-            if budget <= 0:
-                cut_frames_all.append(obj)
-                continue
-            base = ((1 if show_headers else 0)
-                    + (1 if _has_caller_code(trace, obj) else 0))
-            lines, cut, _cut_u, shown_u = render_tree(
-                trace, [obj], args.depth, budget, by_parent)
-            cut_frames_all += cut
-            shown_unframed += len(shown_u)
-            for ln in lines:
-                print("  " * base + ln)
-            printed += len(lines)
+        printed, n_u = _print_roots(
+            trace, items, indent, args, by_parent, printed, cut_frames_all)
+        shown_unframed += n_u
+    for thread_id, items in extras:
+        print(thread_heading(trace, thread_id))
+        printed, n_u = _print_roots(
+            trace, items, 1, args, by_parent, printed, cut_frames_all)
+        shown_unframed += n_u
     # This view walks the WHOLE trace, so every unframed call it did not
     # print was withheld by --depth or --limit: subtracting is exact, where
     # counting the ones the walk happened to touch is not (a cut frame's

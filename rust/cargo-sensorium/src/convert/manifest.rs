@@ -41,14 +41,17 @@ pub enum SiteKind {
     /// and carrying the ENCLOSING function's qualname. Only a LINE record may
     /// name one, and it opens no frame.
     Line,
+    /// An `async { }` block. A frame. An `async fn` is [`SiteKind::Fn`].
+    Async,
 }
 
 impl SiteKind {
-    /// `fn` and `closure` sites carry a guard, so a CALL/RETURN may name one
-    /// and a RAISE/HANDLED may not. The three err-flow kinds are the mirror.
+    /// `fn`, `closure` and `async` block sites open a frame, so a CALL/RETURN
+    /// may name one and a RAISE/HANDLED may not. The three err-flow kinds are
+    /// the mirror.
     #[must_use]
     pub fn is_frame(self) -> bool {
-        matches!(self, SiteKind::Fn | SiteKind::Closure)
+        matches!(self, SiteKind::Fn | SiteKind::Closure | SiteKind::Async)
     }
 
     #[must_use]
@@ -60,6 +63,7 @@ impl SiteKind {
             SiteKind::Sink => "sink",
             SiteKind::Arm => "arm",
             SiteKind::Line => "line",
+            SiteKind::Async => "async",
         }
     }
 }
@@ -521,6 +525,7 @@ mod tests {
         for (kind, noun) in [
             (SiteKind::Fn, "`fn` frame site"),
             (SiteKind::Closure, "`closure` frame site"),
+            (SiteKind::Async, "`async` frame site"),
             (SiteKind::Line, "`line` site"),
         ] {
             let err = site_of(kind, None)
@@ -638,6 +643,7 @@ mod tests {
         for kind in [
             SiteKind::Fn,
             SiteKind::Closure,
+            SiteKind::Async,
             SiteKind::Try,
             SiteKind::Sink,
             SiteKind::Arm,

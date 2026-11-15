@@ -4,11 +4,14 @@
 // strip, a file outside the root is not touched at all, and `register.mjs`
 // refuses rather than installing a hook with no scope.
 //
-// The temporary root lives under `probes/`, because the hook resolves the
-// consumer's own `typescript` from it and that is where a copy exists.
+// The temporary root lives in the system temp directory. The hook resolves the
+// consumer's own `typescript` from that root, so `node_modules/typescript`
+// there is a symlink to this package's copy (the one `npm ci --prefix
+// typescript` installs). The probe project is not part of that install.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -16,7 +19,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { VERSION } from '../src/index.mjs';
 
 const PKG = fileURLToPath(new URL('../', import.meta.url));
-const PROBES = path.join(PKG, 'probes');
 const REGISTER = path.join(PKG, 'src', 'register.mjs');
 
 /**
@@ -33,7 +35,7 @@ const REGISTER = path.join(PKG, 'src', 'register.mjs');
  * this file does not expect. A test that wants one passes it in `env`.
  */
 function run(files, entry, env = {}, { hook = true } = {}) {
-  const root = fs.mkdtempSync(path.join(PROBES, 'hooktmp-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-hook-'));
   const spool = path.join(root, 'spool');
   const manifests = path.join(root, 'manifests');
   try {
@@ -41,6 +43,9 @@ function run(files, entry, env = {}, { hook = true } = {}) {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), source);
     }
+    fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
+    fs.symlinkSync(path.join(PKG, 'node_modules', 'typescript'),
+      path.join(root, 'node_modules', 'typescript'), 'dir');
     const target = path.join(root, entry);
     const argv = hook ? ['--import', REGISTER, target] : [target];
     const inherited = { ...process.env };

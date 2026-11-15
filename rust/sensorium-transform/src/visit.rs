@@ -23,7 +23,10 @@ use crate::census::Mode;
 use crate::exits::{self, Operand};
 use crate::focus::Focus;
 use crate::names::line_of;
-use crate::splice::{guard_fragment, ret_open_fragment, Kind, Splice, RET_CLOSE};
+use crate::splice::{
+    async_block_open, async_fn_open, guard_fragment, ret_open_fragment, Kind, Splice,
+    ASYNC_BLOCK_CLOSE, ASYNC_FN_CLOSE, RET_CLOSE,
+};
 use crate::{lines, marks};
 use crate::{Partial, RetKind, Site, SiteKind, Skipped, SpawnSite, MAX_SITE_INDEX};
 
@@ -137,6 +140,9 @@ pub(crate) struct Ctx<'a> {
     /// the `#k` of a closure's `{{closure}}#k` name (design R5). Keyed by the
     /// item, never by an enclosing closure, so the names stay flat.
     pub(crate) closure_ordinals: HashMap<String, u32>,
+    /// How many `async { }` blocks each enclosing item has framed, the `#k`
+    /// of `{{async}}#k`. Keyed by the item, like [`Self::closure_ordinals`].
+    async_ordinals: HashMap<String, u32>,
     /// Byte offset (for source order) and the site.
     pub(crate) spawns: Vec<(usize, SpawnSite)>,
     splices: Vec<Splice>,
@@ -195,6 +201,7 @@ impl<'a> Ctx<'a> {
             is_bin_root: false,
             closure_frames: Vec::new(),
             closure_ordinals: HashMap::new(),
+            async_ordinals: HashMap::new(),
             spawns: Vec::new(),
             splices: Vec::new(),
             fn_items: 0,
@@ -392,27 +399,116 @@ impl<'a> Ctx<'a> {
         let site = self.next_site;
         self.next_site += 1;
         let names = lines::signature_arg_names(sig);
-        self.push(offset, offset, Kind::Guard, guard_fragment(site, &names));
-
         let ret = exits::ret_kind(sig);
-        if ret == RetKind::Value {
-            for operand in exits::operands(block) {
-                self.wrap_operand(site, operand, sig.fn_token.span);
+        let is_async = sig.asyncness.is_some();
+        if is_async {
+            // Not a sync guard: that Drop is not the return of a future, and
+            // a frame left open across polls would parent later tasks. LINE
+            // probes are not placed either. A suspension has no statement
+            // boundary the walker can close, so a focused async fn is still
+            // call-tier only.
+            self.push(
+                offset,
+                offset,
+                Kind::Guard,
+                async_fn_open(site, &names, ret == RetKind::Value),
+            );
+            let Some(end) = self.block_close(block) else {
+                return;
+            };
+            self.push(end, end, Kind::Close, ASYNC_FN_CLOSE.to_owned());
+        } else {
+            self.push(offset, offset, Kind::Guard, guard_fragment(site, &names));
+            if ret == RetKind::Value {
+                for operand in exits::operands(block) {
+                    self.wrap_operand(site, operand, sig.fn_token.span);
+                }
             }
         }
 
         let row = self.fn_row(site, qualname.clone(), line, ret, attrs, name);
         self.sites.push(row);
 
-        // The focus is read AFTER `classify`, so an `async`/`const`/`extern` fn
-        // is never focused (design §2.2), and the LINE sites are minted after
-        // this fn's own so that `sites` stays in site-index order. `offset` is
-        // the guard's byte: the parameters LINE goes there too and sorts behind
-        // it (amendment A6).
-        if self.focus.matches(&qualname) {
+        // LINE sites are minted after this fn's own so that `sites` stays in
+        // site-index order. `offset` is the guard's byte: the parameters LINE
+        // goes there too and sorts behind it (amendment A6). Async fns are
+        // not focused: see the branch above.
+        if !is_async && self.focus.matches(&qualname) {
             lines::walk_body(self, sig, block, &qualname, offset);
             self.focused.push(qualname);
         }
+    }
+
+    /// The byte of the body's closing `}`, checked the same way as the `{`.
+    fn block_close(&mut self, block: &Block) -> Option<usize> {
+        let close = block.brace_token.span.close();
+        let at = self.start_of(close);
+        if self.source.as_bytes().get(at) != Some(&b'}') {
+            self.fail(
+                close,
+                "byte offset does not land on the body's closing brace",
+            );
+            return None;
+        }
+        Some(at)
+    }
+
+    /// Frame one `async { }` block. The expression stays a future: the wrap
+    /// does not await it. A `?` inside is still declared `async-block`. The
+    /// block may be polled on another thread, which is why the drive future
+    /// suspends its frame instead of leaving a guard across the poll.
+    pub(crate) fn frame_async_block(&mut self, node: &syn::ExprAsync) {
+        if self.next_site > MAX_SITE_INDEX {
+            self.fail(
+                node.async_token.span,
+                "site index past 24 bits: the runtime's site word cannot carry it",
+            );
+            return;
+        }
+        let start = self.start_of(node.async_token.span);
+        if !self.source[start..].starts_with("async") {
+            self.fail(
+                node.async_token.span,
+                "byte offset does not land on the `async` keyword",
+            );
+            return;
+        }
+        let Some(end) = self.block_close(&node.block) else {
+            return;
+        };
+        // The close splice sits on the `}` so it is inside the block. The
+        // open sits on the keyword, outside it. The drive call's `)` has to
+        // follow the block, so it uses the byte after `}`.
+        let after = self.end_of(node.block.brace_token.span.close());
+        let site = self.next_site;
+        self.next_site += 1;
+        let owner = self
+            .enclosing_qualname()
+            .unwrap_or_else(|| self.scope_path());
+        let n = {
+            let slot = self.async_ordinals.entry(owner.clone()).or_insert(0);
+            *slot += 1;
+            *slot
+        };
+        let qualname = format!("{owner}::{{{{async}}}}#{n}");
+        let line = line_of(node.async_token.span);
+        self.sites.push(Site {
+            site,
+            file: self.file.to_owned(),
+            qualname,
+            firstlineno: line,
+            ret: Some(RetKind::Value),
+            kind: SiteKind::Async,
+            how: None,
+            test: false,
+            main: false,
+        });
+        // Kind::Open / Kind::Close, same as an exit wrap. Pushed after the
+        // enclosing fn's exit wrap, so at a shared byte the exit wrap is
+        // outside this one (lower seq opens first, higher seq closes first).
+        self.push(start, start, Kind::Open, async_block_open(site));
+        self.push(after, after, Kind::Close, ASYNC_BLOCK_CLOSE.to_owned());
+        let _ = end;
     }
 
     /// The `Fn` row for one eligible fn item.

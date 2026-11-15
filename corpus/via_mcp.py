@@ -154,6 +154,15 @@ def ask(server: CaseServer, cmd: list[str]) -> Asked:
         # to "is this a tool", and its refusal is the honest report.
         arguments = ({} if tool is None
                      else schema.from_argv(tool.schema, list(cmd[1:])))
+        if word == "refocus" and "compact" not in arguments:
+            # The question's argv is the CLI's. An absent `--compact`
+            # is the long report that question pins, and the report the
+            # CLI seam prints. `from_argv` drops a false store_true, and
+            # the server then reads a missing `compact` as its own
+            # default (the short report). Saying false here is the
+            # question, not that default. A question that typed
+            # `--compact` still arrives as true.
+            arguments = {**arguments, "compact": False}
     except schema.Rejection as refused:
         return Asked("", f"error: {refused.message}", 2, "mcp")
     try:

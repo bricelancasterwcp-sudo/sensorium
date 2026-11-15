@@ -195,6 +195,11 @@ def add_parser(sub) -> None:
     p.add_argument(
         "--window", default=None,
         help="qualname gate for LINE capture; defaults to the original's")
+    p.add_argument(
+        "--compact", action="store_true",
+        help="print the verdict and the concrete finding only, not the "
+             "licence catalogue, blind spots, or observer-effect note. "
+             "Off here; the MCP tool defaults it on.")
     p.set_defaults(func=run)
 
 
@@ -553,7 +558,8 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     new_id, status = boot.run_target(
         argv, focus=focus, include=meta.get("include") or (),
         exclude=meta.get("exclude") or (), window=window,
-        refocus_of=meta.get("run_id", orig_name))
+        refocus_of=meta.get("run_id", orig_name),
+        record_children=bool(meta.get("record_children", True)))
 
     new_path = (paths.traces_dir() / f"{new_id}.db").resolve()
     new = Trace.open(new_path)
@@ -583,7 +589,8 @@ def _rerun_and_verify(args, orig: Trace, orig_name: str, meta: dict,
     # own unrun checks, printed where the other two branches print them so
     # that a reader of a Python re-run is told what a reader of a Rust one
     # is told (R19). Stamped as well as printed, above.
-    code = report(orig, new, res, orig_name, new_id, a)
+    code = report(orig, new, res, orig_name, new_id, a,
+                  compact=bool(getattr(args, "compact", False)))
     print_unverifiable(checks)
     return code
 

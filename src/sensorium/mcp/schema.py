@@ -173,6 +173,16 @@ def _field(action) -> Field:
         required = bool(action.required)                       # P2
     if positional and action.dest == "run":                    # D5
         required, default = False, RUN_DEFAULT
+    # MCP's default, not the CLI's. `--compact` is store_true, so a
+    # person who types the command gets the long report the CLI tests
+    # snapshot. A tool caller gets the short one unless it passes false.
+    # The flag is applied in `tools.command_argv`, not in `to_argv`:
+    # `to_argv` rebuilds corpus questions that never passed the flag,
+    # and inventing it there would make those parses disagree.
+    if (not positional and action.dest == "compact"
+            and action.option_strings == ["--compact"]
+            and isinstance(action, argparse._StoreTrueAction)):
+        default = True
     return Field(name=action.dest, kind=_kind(action), required=required,
                  description=action.help, default=default,
                  enum=tuple(action.choices) if action.choices else (),

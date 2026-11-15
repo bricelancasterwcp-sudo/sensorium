@@ -130,7 +130,8 @@ pub struct FnItem {
     /// The file-local `::` path -- exactly the spelling a focus value takes.
     pub qualname: String,
     /// `None` for a fn a focus CAN select; the transform's own skip reason
-    /// (`"const"`, `"extern"`, `"async"`, `"macro"`) for one it cannot.
+    /// (`"const"`, `"extern"`, `"macro"`) for one it cannot. An `async fn` is
+    /// selectable: it is instrumented. A focus still places no LINE probes in it.
     pub skipped: Option<&'static str>,
 }
 
@@ -302,12 +303,12 @@ mod tests {
             .filter(|i| i.skipped.is_none())
             .map(|i| i.qualname.as_str())
             .collect();
-        assert_eq!(eligible, ["m::f", "h", "S::k"]);
+        assert_eq!(eligible, ["m::f", "m::g", "h", "S::k"]);
         let skipped: Vec<(&str, &str)> = items
             .iter()
             .filter_map(|i| i.skipped.map(|r| (i.qualname.as_str(), r)))
             .collect();
-        assert_eq!(skipped, [("m::g", "async"), ("m::c", "const")]);
+        assert_eq!(skipped, [("m::c", "const")]);
     }
 
     #[test]
@@ -426,11 +427,15 @@ impl S {
             .filter(|s| s.test)
             .map(|s| s.qualname.as_str())
             .collect();
-        assert_eq!(marked, ["a_test", "a_bench"], "the test marks survive");
+        assert_eq!(
+            marked,
+            ["a_test", "an_async_test", "a_bench"],
+            "the test marks survive, including an async test"
+        );
         let mut reasons: Vec<&str> = walked.skipped.iter().map(|s| s.reason).collect();
         reasons.sort_unstable();
         reasons.dedup();
-        assert_eq!(reasons, ["async", "const", "extern", "macro"]);
+        assert_eq!(reasons, ["const", "extern", "macro"]);
         assert!(
             walked.sites.iter().all(|s| s.file == file),
             "a census row names the file it was asked about"

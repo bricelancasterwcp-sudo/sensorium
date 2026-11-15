@@ -135,8 +135,14 @@ fn generic_fn() {
 #[test]
 fn unsafe_fn() {
     let t = run("unsafe_fn", 7);
-    assert_eq!(sites(&t), [(7, "raw", 1, RetKind::Value)]);
-    assert_eq!(skips(&t), [("later", 5, "async"), ("frozen", 9, "const")]);
+    assert_eq!(
+        sites(&t),
+        [
+            (7, "raw", 1, RetKind::Value),
+            (8, "later", 5, RetKind::Value),
+        ]
+    );
+    assert_eq!(skips(&t), [("frozen", 9, "const")]);
 }
 
 #[test]
@@ -193,21 +199,21 @@ fn extern_fn_is_skipped() {
 }
 
 #[test]
-fn async_fn_is_skipped() {
-    // A guard inside a future is dropped WITH the future -- possibly on another
-    // thread, and never at the `.await` a reader would call a return. Spec §3.2
-    // says the guard's Drop is the sole emitter of RETURN, so at this tier an
-    // `async fn` is declared and left alone (plan decision D6).
+fn async_fn_is_instrumented_at_call_tier() {
+    // A sync guard's Drop is not the return of a future. The body is a drive
+    // future: CALL on the first poll, RETURN when it is ready. No LINE probes.
     let t = run("async_fn", 7);
-    assert_eq!(sites(&t), [(7, "sync_fn", 17, RetKind::Value)]);
     assert_eq!(
-        skips(&t),
+        sites(&t),
         [
-            ("plain", 1, "async"),
-            ("public", 5, "async"),
-            ("S::method", 12, "async"),
+            (7, "plain", 1, RetKind::Value),
+            (8, "public", 5, RetKind::Value),
+            (9, "S::method", 12, RetKind::Value),
+            (10, "sync_fn", 17, RetKind::Value),
         ]
     );
+    assert!(t.skipped.is_empty(), "{:?}", t.skipped);
+    assert!(t.focused.is_empty());
 }
 
 #[test]

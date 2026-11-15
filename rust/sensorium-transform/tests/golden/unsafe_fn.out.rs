@@ -2,9 +2,9 @@
     @R(7)*p@E
 }
 
-pub async fn later() -> u8 {
+pub async fn later() -> u8 {@D(8)
     1
-}
+@DE}
 
 pub const unsafe fn frozen() -> u8 {
     2

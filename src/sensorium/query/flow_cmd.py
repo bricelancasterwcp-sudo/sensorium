@@ -112,7 +112,10 @@ container was mutated in between, so it is not used as evidence.
 WHAT IS SEARCHED
 ----------------
 CALL args, RETURN values and LINE local deltas -- every place a value is
-captured. The ``unbound`` names on a LINE event are deliberately NOT searched:
+captured. The command searches whichever of those this trace recorded.
+``capabilities.line: false`` is the statement tier, not a reason to ignore
+a RETURN value or a CALL argument an unfocused Rust or TypeScript run still
+wrote. The ``unbound`` names on a LINE event are deliberately NOT searched:
 they name locals that went out of scope at that step, and listing one as a
 sighting would assert a binding that had just ended.
 
@@ -663,7 +666,48 @@ def _header(trace, idx: Index, args) -> tuple:
     return target, None, [
         f"flow of {target!r} ({type(target).__name__}) in {trace.path.stem}",
         "  captured-value equality, not true dataflow analysis: the trace "
-        "records values, not the edges between them"], None
+        "records values, not the edges between them",
+        "  searched over recorded captures (CALL arguments, RETURN values, "
+        "and LINE local deltas where this trace recorded them)"], None
+
+
+def _is_capture(v) -> bool:
+    """A value `scan` can compare, as opposed to one the trace does not hold.
+
+    `None` is a missing payload key. `{"k": "unread"}` is the recorder
+    saying it did not capture the value, so it is not a sighting waiting
+    to be found. A truncated capture, a `dbg` rendering and a `none` were
+    recorded: a miss over them is an answer about this trace.
+    """
+    return isinstance(v, dict) and v.get("k") != "unread"
+
+
+def _value_searchable(trace) -> bool:
+    """Whether `--value` has anything recorded to compare.
+
+    `capabilities.line` is the statement tier. An unfocused Rust or
+    TypeScript run leaves it false and still writes RETURN values and
+    CALL arguments, which `roles` already reads. Refusing through `line`
+    alone would refuse a question those captures answer. Search when any
+    of the three was recorded. Refuse only when line is declared absent
+    and no CALL argument, RETURN value, or LINE row is in the trace.
+
+    `declares("line")` is None on a pre-format-4 Python trace. Those are
+    searched, the same way `require` lets them through.
+    """
+    if trace.declares("line") is not False:
+        return True
+    for e in trace.events(kind=("CALL", "RETURN", "LINE")):
+        p = e.payload or {}
+        if e.kind == "LINE":
+            return True
+        if e.kind == "RETURN" and _is_capture(p.get("value")):
+            return True
+        args = p.get("args")
+        if (e.kind == "CALL" and isinstance(args, dict)
+                and any(_is_capture(v) for v in args.values())):
+            return True
+    return False
 
 
 def run(args) -> int:
@@ -677,17 +721,20 @@ def run(args) -> int:
     # An identity rides on every capture a recorder that mints one writes
     # -- a RETURN value at the call tier, an argument and a statement's
     # delta under a focus -- so refusing through `line` would refuse a
-    # question this recording answers. A value flow keeps its `line` gate:
-    # a value that only lived in a local between call and return is not in
-    # a trace that recorded no statement.
-    refusal = (require(trace, "object_identity", "flow --object")
-               if args.object is not None
-               else require(trace, "line", "flow"))
+    # question this recording answers. A value flow refuses only when
+    # nothing it can compare was recorded. The sentence is still
+    # `require`'s for `line`: the capability that is false, and nothing
+    # was checked, because there was nothing to check.
+    if args.object is not None:
+        refusal = require(trace, "object_identity", "flow --object")
+    elif not _value_searchable(trace):
+        refusal = require(trace, "line", "flow")
+    else:
+        refusal = None
     if refusal:
         print(f"REFUSED: {refusal}")
-        # The command is well formed and the trace is readable; the
-        # recorder declared it does not produce what this search reads.
-        # Re-recording is the only thing that changes the answer.
+        # Well formed command, readable trace, and what this search
+        # compares was not recorded. Re-recording is what changes it.
         return UNSETTLED
     idx = Index(trace)
     target, ref, head, err = _header(trace, idx, args)

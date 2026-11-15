@@ -1,9 +1,8 @@
-//! An `async` block is never framed and the `?` inside it is DECLARED rather
-//! than wrapped (design R5/R6): the future may be polled on a thread other
-//! than the one that built it, so a probe inside would record against
-//! whichever thread happened to poll it. A plain closure created inside an
-//! async block is a different thing -- its body runs when it is CALLED -- so
-//! it is framed like any other.
+//! An `async` block is a frame. The drive future parks that frame on the
+//! thread that polls it. A `?` inside the block is still DECLARED rather than
+//! wrapped (design R5/R6). A plain closure created inside an async block is a
+//! different thing -- its body runs when it is CALLED -- so it is framed like
+//! any other.
 
 use std::future::Future;
 

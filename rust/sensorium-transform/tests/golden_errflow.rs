@@ -262,33 +262,46 @@ fn a_question_mark_in_an_async_block_is_declared_and_the_closure_beside_it_is_no
     assert_eq!(
         sites(&t),
         [
-            (7, "one", 10, RetKind::Value),
-            (8, "later", 14, RetKind::Value),
-            (9, "closure_inside", 21, RetKind::Value),
-            (12, "async_closure", 31, RetKind::Value),
+            (7, "one", 9, RetKind::Value),
+            (8, "later", 13, RetKind::Value),
+            (10, "closure_inside", 20, RetKind::Value),
+            (14, "async_closure", 30, RetKind::Value),
         ]
     );
-    // Neither the async BLOCK nor the async CLOSURE is a frame, and the `?` in
+    let blocks: Vec<(u32, &str)> = t
+        .sites
+        .iter()
+        .filter(|s| s.kind == SiteKind::Async)
+        .map(|s| (s.site, s.qualname.as_str()))
+        .collect();
+    assert_eq!(
+        blocks,
+        [
+            (9, "later::{{async}}#1"),
+            (11, "closure_inside::{{async}}#1"),
+        ]
+    );
+    // The async BLOCK is a frame. The async CLOSURE is not, and the `?` in
     // each is declared rather than wrapped.
     assert_eq!(
         partials(&t),
         [
-            (16, "later", SiteKind::Try, "async-block"),
-            (32, "async_closure", SiteKind::Try, "async-block"),
+            (15, "later", SiteKind::Try, "async-block"),
+            (31, "async_closure", SiteKind::Try, "async-block"),
         ]
     );
     // The closure INSIDE the second async block is framed anyway: its body runs
     // when it is called, on the caller's thread.
     assert_eq!(
         closure_sites(&t),
-        [(10, "closure_inside::{{closure}}#1", 23)]
+        [(12, "closure_inside::{{closure}}#1", 22)]
     );
     assert_eq!(
         err_sites(&t),
         [(
-            11,
+            13,
             "closure_inside::{{closure}}#1",
-            23,
+            22,
             SiteKind::Try,
             "try"
         )]

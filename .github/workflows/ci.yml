@@ -254,6 +254,30 @@ jobs:
       # produce.
       - name: Install typescript/
         run: npm ci --prefix typescript
+      # R4: `npm --prefix typescript run check`, never
+      # `npx tsc -p typescript/tsconfig.json` run from the repo root. The
+      # repo root has no node_modules of its own, so a bare `npx tsc` there
+      # does not resolve the pinned 5.9.3 sitting in typescript/node_modules
+      # -- it resolves (or fetches) some OTHER `typescript` package instead,
+      # a decoy that would type-check this project with a compiler nobody
+      # develops against. `npm --prefix typescript run check` runs the
+      # `check` script FROM INSIDE typescript/, where `tsc` resolves the
+      # pinned local install the way `npm test` and every contributor's own
+      # `npm run check` already do. This is the documented install
+      # (`typescript/README.md`), so it runs before probes/ or
+      # corpus/typescript/ exist.
+      - name: Type-check (npm --prefix typescript run check)
+        run: npm --prefix typescript run check
+      # Documented install only: `npm ci --prefix typescript`, then
+      # `npm test` (`node --test "test/**/*.test.mjs"`: rt.mjs,
+      # transform.mjs, register.mjs and friends, nothing driven and no
+      # vitest). This step is BEFORE `npm ci` of typescript/probes and
+      # corpus/typescript, so a unit test that again needs one of those
+      # installs fails here instead of passing only because a later step
+      # installed it. The probe run, the live tests and the corpus below
+      # still install those projects; this step does not.
+      - name: Unit tests after the documented install (npm --prefix typescript test)
+        run: npm --prefix typescript test
       - name: Install typescript/probes/
         run: npm ci --prefix typescript/probes
       # corpus/typescript/ is the vitest project the thirteen corpus cases
@@ -264,24 +288,6 @@ jobs:
       # before the corpus step below ever runs.
       - name: Install corpus/typescript/
         run: npm ci --prefix corpus/typescript
-      # R4: `npm --prefix typescript run check`, never
-      # `npx tsc -p typescript/tsconfig.json` run from the repo root. The
-      # repo root has no node_modules of its own, so a bare `npx tsc` there
-      # does not resolve the pinned 5.9.3 sitting in typescript/node_modules
-      # -- it resolves (or fetches) some OTHER `typescript` package instead,
-      # a decoy that would type-check this project with a compiler nobody
-      # develops against. `npm --prefix typescript run check` runs the
-      # `check` script FROM INSIDE typescript/, where `tsc` resolves the
-      # pinned local install the way `npm test` and every contributor's own
-      # `npm run check` already do.
-      - name: Type-check (npm --prefix typescript run check)
-        run: npm --prefix typescript run check
-      # `node --test "test/**/*.test.mjs"`, the recorder's own unit tests --
-      # rt.mjs, transform.mjs, register.mjs and friends -- with nothing
-      # driven and no vitest involved. A failure here means the library
-      # itself is broken before either probe project ever runs it.
-      - name: Unit tests (npm --prefix typescript test)
-        run: npm --prefix typescript test
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"

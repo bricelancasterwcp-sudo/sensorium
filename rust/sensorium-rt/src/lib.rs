@@ -79,6 +79,7 @@ compile_error!(
      MAP_SHARED mapping grown with ftruncate (spec §4). Portability is designed, not patched in."
 );
 
+mod async_drive;
 mod cap;
 mod errflow;
 mod exit;
@@ -107,6 +108,7 @@ mod thread;
 // The seven `how` bytes an instrumented program can write. `HOW_EXIT` is
 // deliberately absent: it is the converter's own synthesised how (errflow.rs),
 // no runtime path can write it, and the writer refuses it.
+pub use async_drive::{capture_args, drive_async, drive_value};
 pub use cap::{DEFAULT_MAX_BYTES, DEFAULT_MAX_CALLS, DEFAULT_MAX_EVENTS};
 pub use errflow::{
     err_site, err_site_unbound, err_site_value, ErrCapture, HOW_ARM_AMBIGUOUS, HOW_ARM_HANDLED,

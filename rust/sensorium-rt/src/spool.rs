@@ -111,6 +111,12 @@ pub(crate) const KIND_HANDLED: u8 = 5;
 /// any unit of the run actually carries a LINE site (design 2026-09-06 §2.4).
 /// Do not look for it in `write_proc_header`.
 pub(crate) const KIND_LINE: u8 = 6;
+/// An async poll returned `Pending`. The converter parks the open frame and
+/// writes a YIELD. The frame is not closed and the record is not fingerprinted.
+pub(crate) const KIND_SUSPEND: u8 = 7;
+/// A later poll of that same future. The converter pushes the parked frame
+/// back onto this thread and writes a RESUME. Not fingerprinted.
+pub(crate) const KIND_RESUME: u8 = 8;
 pub(crate) const KIND_THREAD_END: u8 = 255;
 
 pub(crate) const OUTCOME_NONE: u8 = 0;
@@ -126,7 +132,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.7.2";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.7.3";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK

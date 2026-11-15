@@ -23,9 +23,9 @@
 //!
 //! * A closure with no `?`. It would cost a CALL/RETURN pair per call for
 //!   nothing, and `tests/golden/closure_no_try` is the fence.
-//! * An `async` closure. Its body is a future, which runs on whichever thread
-//!   polls it -- the same reason `async fn` gets no guard -- so it is never
-//!   framed and the `?` inside it is declared (`Ctx::in_async`). A PLAIN closure
+//! * An `async` closure. Its body is a future. An `async fn` and an `async`
+//!   block are call-tier frames; an `async` closure is not, and the `?`
+//!   inside it is declared (`Ctx::in_async`). A PLAIN closure
 //!   written INSIDE an async block is framed like any other: where it was
 //!   written says nothing about when it runs, and its body runs synchronously on
 //!   whichever thread calls it. `tests/golden/async_block_try` is that pair.

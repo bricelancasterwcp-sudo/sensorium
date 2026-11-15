@@ -20,7 +20,8 @@
 //!               u64 truncated  name_bytes   (28 bytes fixed, then name_bytes)
 //! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len  [payload]
 //! kind:         0 unwritten tail (STOP here), 1 CALL, 2 RETURN, 3 PANIC, 4 RAISE, 5 HANDLED,
-//!               6 LINE, 255 THREAD_END
+//!               6 LINE, 7 SUSPEND (async poll pending; payload u64 async id),
+//!               8 RESUME (same async id), 255 THREAD_END
 //! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic
 //! how:          RAISE/HANDLED only, the same byte: 1 try, 2 sink_ok, 3 sink_unwrap_or,
 //!               4 sink_let_underscore, 5 arm_propagate, 6 arm_handled, 7 arm_ambiguous.
@@ -63,6 +64,12 @@ pub const KIND_HANDLED: u8 = 5;
 /// here as a NUMBER, like every other kind: this reader agrees with the writer
 /// on the wire, not on a shared constant.
 pub const KIND_LINE: u8 = 6;
+/// Async poll returned `Pending`. Payload is the `u64` async id, little-endian.
+/// The converter parks the frame and writes YIELD. Not a fingerprint event.
+pub const KIND_SUSPEND: u8 = 7;
+/// A later poll of the same async id. Payload is that same `u64`. The converter
+/// pushes the parked frame onto this thread and writes RESUME.
+pub const KIND_RESUME: u8 = 8;
 pub const KIND_THREAD_END: u8 = 255;
 
 /// The wire versions this converter reads. v2 is rung 2's, v3 is rung 3's
