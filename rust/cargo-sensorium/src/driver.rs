@@ -59,6 +59,14 @@ pub fn run(args: &[String]) -> i32 {
 
 fn go(args: &[String]) -> Result<i32, String> {
     let parsed = parse_args(args)?;
+    // Before the build: a config that is not an object, or a size that
+    // cannot be read, is a usage error and must not start cargo.
+    let caps = crate::limits::resolve(&crate::limits::CapFlags {
+        max_events: parsed.max_events.as_deref(),
+        max_bytes: parsed.max_bytes.as_deref(),
+        max_calls: parsed.max_calls.as_deref(),
+        no_cap: parsed.no_cap,
+    })?;
     // Before the focus resolution below, and so before the runtime, the shim,
     // the spool and cargo: a link to a trace the store does not hold is worth
     // no build at all (design 2026-09-07 §2.1).
@@ -189,6 +197,9 @@ fn go(args: &[String]) -> Result<i32, String> {
         tool_hash: &tool_hash,
         invocation: &invocation,
         redaction_key: key_hex.as_deref(),
+        max_events: caps.max_events,
+        max_bytes: caps.max_bytes,
+        max_calls: caps.max_calls,
     })?;
 
     // `exec` would be cheaper, but then nothing could run after cargo: the
@@ -210,6 +221,10 @@ fn go(args: &[String]) -> Result<i32, String> {
             exit_code = 2;
         }
     }
+    // Store gc stays in Python. It runs when a retention rule is set in the
+    // environment or the config file, including after a non-zero cargo exit,
+    // because that run still wrote a trace. Its status does not change ours.
+    crate::limits::maybe_gc();
     eprintln!("spool: {}", spool.display());
     eprintln!("cargo exit: {code}");
     Ok(exit_code)

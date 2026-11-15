@@ -12,14 +12,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { isMainThread, threadId } from 'node:worker_threads';
 
+import { budget } from './cap.mjs';
 import { capabilities } from './capabilities.mjs';
-import { cap, dbg, exc } from './dbg.mjs';
+import { cap, captures, dbg, exc } from './dbg.mjs';
 import { VERSION } from './index.mjs';
 import { nameFor, setProvider, titleOf } from './naming.mjs';
-import { bootEnv, redactCaptures, redactReturn } from './redact.mjs';
+import { bootEnv, redactReturn } from './redact.mjs';
 
 /** @typedef {{id: number, name: string, stack: Frame[]}} Task */
-/** @typedef {{id: number, task: Task|null, q: string, open: boolean, mark: Record<string, unknown>|null, pending?: Captured}} Frame */
+/** @typedef {{id: number, task: Task|null, q: string, open: boolean, mark: Record<string, unknown>|null, pending?: Captured, elided?: boolean, reason?: string|null, file?: number, c?: number}} Frame */
 /** @typedef {Record<string, unknown>} Record_ */
 /** @typedef {import('./dbg.mjs').Captured} Captured */
 
@@ -130,6 +131,7 @@ function ready() {
 function emit(rec) {
   if (!ready()) return;
   buf.push(JSON.stringify(rec));
+  budget.note(String(rec.e), buf[buf.length - 1].length + 1);
   if (buf.length >= BUFFERED) flush();
 }
 
@@ -178,7 +180,16 @@ function boot() {
     startTs: Date.now() / 1000,
     ts: now(),
   }));
+  budget.note('BOOT', buf[buf.length - 1].length + 1);
   install();
+}
+
+let closed = false;
+/** @param {Record_} rec One ELISION, if calls were dropped, then this record. */
+function closeOut(rec) {
+  if (!closed) { closed = true; const extra = budget.report(); if (extra) emit(extra); }
+  emitTs(rec);
+  flush();
 }
 
 /**
@@ -189,8 +200,7 @@ function boot() {
 function install() {
   setInterval(flush, FLUSH_MS).unref();
   process.on('exit', (code) => {
-    emitTs({ e: 'EXIT', code: process.exitCode ?? code, endTs: Date.now() / 1000 });
-    flush();
+    closeOut({ e: 'EXIT', code: process.exitCode ?? code, endTs: Date.now() / 1000 });
   });
   process.on('beforeExit', () => flush());
   for (const sig of SIGNALS) {
@@ -200,8 +210,7 @@ function install() {
       // A signalled container still says how it ended (R13): EXIT is the last
       // line, `code` null because none was chosen and `signal` naming what
       // ended it. Only an uncatchable SIGKILL leaves a spool without one.
-      emitTs({ e: 'EXIT', code: null, signal: sig, endTs: Date.now() / 1000 });
-      flush();
+      closeOut({ e: 'EXIT', code: null, signal: sig, endTs: Date.now() / 1000 });
       // Then put the default disposition back and die of the signal we were
       // sent: the recorder does not decide whether the process survives one.
       process.removeListener(sig, handler);
@@ -392,30 +401,15 @@ function drop(f) {
   if (i >= 0) stack.splice(i, 1);
 }
 
-/**
- * A `[name, value, name, value, …]` list, read two at a time, as the map the
- * wire carries. The transform builds the list at the site, so the names are
- * its own and the values are the program's — which is why every value goes
- * through `dbg` and no name does.
- *
- * An ODD list THROWS: the transform is the only caller and emits both halves
- * at the site, so one is a defect in the splice. Dropping the trailing name,
- * which the loop bound used to do, sends the row out one delta short in
- * silence — and a reader is then told that name was not in scope there.
- * @param {unknown[]} pairs
- * @returns {Record<string, Captured>}
- */
-function captures(pairs) {
-  if (pairs.length % 2 !== 0) throw new TypeError('captures: an odd pairs list — ' + pairs.length + ' entries');
-  /** @type {Record<string, Captured>} */
-  const out = {};
-  for (let i = 0; i + 1 < pairs.length; i += 2) {
-    out[/** @type {string} */ (pairs[i])] = dbg(pairs[i + 1]);
-  }
-  // Rule v1's NAME half, at the writer: a value whose name says it is a
-  // secret is taken here, before the record is built, so there is never a
-  // moment at which the plaintext could reach the disk (§5.1).
-  return redactCaptures(out);
+/** @param {Frame|null} frame Skeleton CALL, outermost ancestor first. Arguments are not read. */
+function materialize(frame) {
+  if (!frame) return;
+  budget.materialize(frame, stackOf(frame), (cur, parent) => {
+    emitTs({
+      e: 'CALL', f: cur.id, p: parent ? parent.id : null,
+      file: cur.file, c: cur.c, t: taskId(/** @type {Frame} */ (cur)),
+    });
+  });
 }
 
 /**
@@ -439,6 +433,7 @@ export function call(fileId, c, args) {
   const t = als.getStore() ?? null;
   const stack = t ? t.stack : rootStack;
   const parent = stack.length > 0 ? stack[stack.length - 1] : null;
+  const reason = budget.hiding(parent, fileId, c);
   /** @type {Frame} */
   const f = {
     id: nextFrame++,
@@ -449,12 +444,19 @@ export function call(fileId, c, args) {
     q: fileCodes.get(fileId)?.[c]?.[0] ?? '',
     open: true,
     mark: null,
+    elided: reason !== null,
+    reason,
+    file: fileId,
+    c,
   };
   stack.push(f);
+  // An elided activation is counted, not stored, and its arguments are not read.
+  if (reason !== null) return f;
   /** @type {Record_} */
   const rec = { e: 'CALL', f: f.id, p: parent ? parent.id : null, file: fileId, c, t: t ? t.id : null };
   if (args !== undefined) rec.a = captures(args);
   emitTs(rec);
+  budget.kept(fileId, c);
   return f;
 }
 
@@ -478,7 +480,7 @@ export function call(fileId, c, args) {
  * @returns {void}
  */
 export function line(f, l, pairs, unbound) {
-  if (!on || !f || !f.open) return;
+  if (!on || !f || !f.open || f.elided) return;
   /** @type {Record_} */
   const rec = { e: 'LINE', f: f.id, t: taskId(f), l, d: captures(pairs) };
   if (unbound !== undefined && unbound.length > 0) rec.u = unbound;
@@ -497,7 +499,7 @@ export function ret(f, v) {
   if (!on || !f || !f.open) return v;
   f.open = false;
   drop(f);
-  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: redactReturn(f.q, dbg(v)) });
+  if (!f.elided) emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: redactReturn(f.q, dbg(v)) });
   return v;
 }
 
@@ -515,7 +517,7 @@ export function ret(f, v) {
  * @returns {T} the value the source returns, untouched
  */
 export function pend(f, v) {
-  if (!on || !f || !f.open) return v;
+  if (!on || !f || !f.open || f.elided) return v;
   // The rule runs HERE and not at the seal: the seal has no value of its own
   // to judge, and the last `pend` is the one it writes.
   f.pending = redactReturn(f.q, dbg(v));
@@ -545,7 +547,7 @@ export function seal(f) {
   if (!on || !f || !f.open) return;
   f.open = false;
   drop(f);
-  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: f.pending ?? { k: 'unread' } });
+  if (!f.elided) emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: f.pending ?? { k: 'unread' } });
 }
 
 /**
@@ -569,7 +571,7 @@ export function gclose(f) {
   if (!on || !f || !f.open) return;
   f.open = false;
   drop(f);
-  emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: { k: 'unread' } });
+  if (!f.elided) emitTs({ e: 'RETURN', f: f.id, t: taskId(f), v: { k: 'unread' } });
 }
 
 /**
@@ -580,9 +582,10 @@ export function gclose(f) {
  */
 export function thr(f, e) {
   if (!on || !f || !f.open) return;
+  materialize(f);
   f.open = false;
   drop(f);
-  emitTs({ e: 'UNWIND', f: f.id, t: taskId(f), x: exc(e, 'throw') });
+  if (!f.elided) emitTs({ e: 'UNWIND', f: f.id, t: taskId(f), x: exc(e, 'throw') });
 }
 
 /**
@@ -597,7 +600,7 @@ export function thr(f, e) {
  */
 export function y(f, x, kind) {
   if (!on || !f || !f.open) return x;
-  emitTs({ e: 'YIELD', f: f.id, t: taskId(f), k: kind === 1 ? 'yield' : 'await' });
+  if (!f.elided) emitTs({ e: 'YIELD', f: f.id, t: taskId(f), k: kind === 1 ? 'yield' : 'await' });
   drop(f);
   return x;
 }
@@ -614,7 +617,7 @@ export function y(f, x, kind) {
 export function r(f, v) {
   if (!on || !f || !f.open) return v;
   stackOf(f).push(f);
-  emitTs({ e: 'RESUME', f: f.id, t: taskId(f) });
+  if (!f.elided) emitTs({ e: 'RESUME', f: f.id, t: taskId(f) });
   return v;
 }
 
@@ -630,6 +633,8 @@ export function r(f, v) {
  */
 export function raise(f, e, line) {
   if (!on) return e;
+  materialize(f);
+  if (f && f.elided) return e;
   const x = exc(e, 'throw');
   emitTs({ e: 'RAISE', f: f ? f.id : null, t: taskOf(f), x, l: line, how: 'throw' });
   // The throw is now in flight through this frame: a `finally` beneath it that
@@ -683,6 +688,8 @@ export function mark(f, e) {
  */
 export function handledFinally(f, line) {
   if (!on || !f || !f.open || f.mark === null) return;
+  materialize(f);
+  if (f.elided) return;
   emitTs({
     e: 'HANDLED',
     f: f.id,
@@ -734,6 +741,8 @@ export function catchCb(f, line, how, fn) {
  * @param {'throw'|'rejection'} kind
  */
 function record(f, e, line, how, kind) {
+  if (f && f.elided) materialize(f);
+  if (f && f.elided) return;
   emitTs({ e: 'HANDLED', f: f ? f.id : null, t: taskOf(f), x: exc(e, kind), l: line, how });
 }
 

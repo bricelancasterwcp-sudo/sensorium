@@ -153,7 +153,7 @@ from pathlib import Path
 
 from sensorium import paths, redact
 from sensorium.exit import BAD_CALL
-from sensorium.query.caps import require
+from sensorium.query.caps import print_truncated, require
 from sensorium.query.help import RUN_HELP
 from sensorium.query.refocus_env import is_env_rule_note
 from sensorium.query.vocab import terms
@@ -592,6 +592,7 @@ def run(args) -> int:
     orig_path = paths.find_trace(args.run).resolve()
     orig_name = orig_path.stem
     orig = Trace.open(orig_path)
+    print_truncated(orig)
     meta = orig.meta
 
     # The capability gate and `incomplete` come FIRST and are shared: a

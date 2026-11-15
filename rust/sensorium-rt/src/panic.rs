@@ -22,18 +22,16 @@
 //! program's voice. `rust/HONESTY.md` §2 is what the trace says instead:
 //! `<unread>`, with no reason given.
 //!
-//! **This code cannot panic, by construction.** A panic raised inside a panic
-//! hook, while the thread is already panicking, aborts the process -- no
+//! **The PANIC payload writer does not allocate.** A panic raised inside a panic
+//! hook, while the thread is already panicking, aborts the process. No
 //! `catch_unwind` can intercept it, because the panic count is already 1 and
-//! std aborts before unwinding. So the writer here allocates nothing (a
-//! `PAYLOAD_MAX`-byte stack buffer and two `cap_utf8` slices), opens nothing (it
-//! appends only to a spool this thread already has, so there is no file to
-//! create and no error to report), indexes nothing it has not just bounded, and
-//! calls nothing that can fail: the record lands in a mapping that already
-//! exists, or the thread counts a drop. The one thing it does not do is record a
-//! panic on a thread that never recorded an event -- such a thread has no frame
-//! for the panic to close, and buying that record would cost the guarantee
-//! above.
+//! std aborts before unwinding. The payload is a stack buffer and two
+//! `cap_utf8` slices, and it appends only to a spool this thread already has.
+//! Materializing an elided frame and writing the elision sidecar are
+//! best-effort and may allocate; a failure there drops the skeleton rather
+//! than panicking the hook. The one thing it does not do is record a panic on
+//! a thread that never recorded an event: such a thread has no frame for the
+//! panic to close, and the hook does not open a spool to buy one.
 //!
 //! **Truncation.** `loc` is capped at [`LOC_CAP`] and the message at
 //! [`MSG_CAP`], both on a char boundary, so `2 + loc + msg` always fits the wire
@@ -112,6 +110,9 @@ fn install_cold() {
 }
 
 fn record(info: &PanicHookInfo<'_>) {
+    // Skeleton CALLs first, outermost elided frame first, so PANIC attaches
+    // to the elided function. An empty payload means the args were not read.
+    crate::cap::materialize_for_panic();
     let mut buf = [0u8; PAYLOAD_MAX];
     let (len, cut) = write_payload(&mut buf, info);
     // The count follows the record, and only a record that was written: the
@@ -123,6 +124,7 @@ fn record(info: &PanicHookInfo<'_>) {
     if thread::emit_if_open(NO_SITE, KIND_PANIC, OUTCOME_NONE, &buf[..len]) && cut {
         thread::note_truncated();
     }
+    crate::cap::write_sidecar();
 }
 
 /// `u16 loc_len, loc, msg` into `buf`: how much of it was used, and whether

@@ -557,6 +557,9 @@ def test_the_harness_is_told_the_eight_things_it_cannot_work_out(
         "SENSORIUM_INVOCATION": "INV",
         "SENSORIUM_MANIFEST_DIR": str(tmp_path / "spool" / "manifests"),
         "SENSORIUM_FOCUS": f"src/fog.ts:Fog.compute{SEP}load",
+        "SENSORIUM_MAX_EVENTS": "100000",
+        "SENSORIUM_MAX_BYTES": "8388608",
+        "SENSORIUM_MAX_CALLS": "1024",
         redact.KEY_VAR: redact.Key.load(tmp_path / "sdir").material.hex()}
     assert env["PATH"] == os.environ["PATH"]
 

@@ -41,7 +41,8 @@ export function run(body, opts = {}) {
   delete inherited.SENSORIUM_MANIFEST_DIR;
   delete inherited.SENSORIUM_FOCUS;
   for (const name of ['SENSORIUM_REDACT_KEY', 'SENSORIUM_NO_REDACT',
-    'SENSORIUM_REDACT_NAMES', 'SENSORIUM_REDACT_ALLOW']) {
+    'SENSORIUM_REDACT_NAMES', 'SENSORIUM_REDACT_ALLOW',
+    'SENSORIUM_MAX_EVENTS', 'SENSORIUM_MAX_BYTES', 'SENSORIUM_MAX_CALLS']) {
     delete inherited[name];
   }
   if (opts.focus) inherited.SENSORIUM_FOCUS = opts.focus;

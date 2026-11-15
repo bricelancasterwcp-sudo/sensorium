@@ -39,7 +39,10 @@ pub(crate) const RETURN_PAYLOAD_MAX: usize = 2 + 3 + probe::TYPE_CAP + probe::CA
 /// this function is a move and a compare, and a `Debug` impl that would have
 /// been invoked is not invoked.
 pub fn ret<T>(unit: &'static Unit, site: u32, cap: impl FnOnce(&T) -> (Capture, Exit), v: T) -> T {
-    if STATE.load(Ordering::Acquire) == STATE_CALL {
+    // An elided frame has no CALL. Formatting its return would be work the
+    // record does not keep, and stashing it would attach the value to the
+    // recorded parent (this frame never called `open_frame`).
+    if STATE.load(Ordering::Acquire) == STATE_CALL && !crate::cap::inside_elided() {
         stash_return(unit, site, cap, &v);
     }
     v

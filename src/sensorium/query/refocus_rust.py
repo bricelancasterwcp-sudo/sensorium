@@ -341,7 +341,7 @@ def _refused_after_rerun(orig: Trace, reason: str) -> int:
 
 #: Every `SENSORIUM_` name `cargo-sensorium` itself puts into the recorded
 #: process's environment, and no other. Read off the SET sites --
-#: `launch.rs`'s eight `.env("SENSORIUM_…", …)` calls, plus the ninth it sets
+#: `launch.rs`'s eleven `.env("SENSORIUM_…", …)` calls, plus the one it sets
 #: through a constant, `.env(sensorium_rt::redact::KEY_VAR, hex)`.
 #: `tests/test_refocus_rust_recorder_keys.py` greps `launch.rs`, `runner.rs`
 #: and `driver.rs` for that call shape and holds this set equal to what it
@@ -359,6 +359,9 @@ def _refused_after_rerun(orig: Trace, reason: str) -> int:
 RECORDER_KEYS = frozenset({
     "SENSORIUM_FOCUS",
     "SENSORIUM_INVOCATION",
+    "SENSORIUM_MAX_BYTES",
+    "SENSORIUM_MAX_CALLS",
+    "SENSORIUM_MAX_EVENTS",
     "SENSORIUM_RT_DIR",
     "SENSORIUM_SPOOL",
     "SENSORIUM_TARGET",

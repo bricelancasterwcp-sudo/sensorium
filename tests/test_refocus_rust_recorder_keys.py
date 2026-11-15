@@ -58,11 +58,11 @@ def set_by_the_rust_sources() -> set[str]:
 
 def test_the_sources_this_test_greps_are_where_it_expects_them():
     """A grep over three files that are not there would find nothing and
-    compare an empty set against an empty set. The floor is the eight
+    compare an empty set against an empty set. The floor is the eleven
     `launch.rs` alone sets, so a moved module is a failure and not a pass."""
     for source in SOURCES:
         assert (SRC / source).is_file(), SRC / source
-    assert len(set_by_the_rust_sources()) >= 8
+    assert len(set_by_the_rust_sources()) >= 11
 
 
 def test_the_recorder_key_set_is_exactly_what_the_rust_sources_name():
@@ -123,6 +123,7 @@ def test_the_three_redaction_knobs_are_the_users_and_are_compared(name):
 
 @pytest.mark.parametrize("name", sorted({
     "SENSORIUM_FOCUS", "SENSORIUM_INVOCATION",
+    "SENSORIUM_MAX_BYTES", "SENSORIUM_MAX_CALLS", "SENSORIUM_MAX_EVENTS",
     "SENSORIUM_RT_DIR", "SENSORIUM_SPOOL", "SENSORIUM_TARGET",
     "SENSORIUM_TIER", "SENSORIUM_TOOL_HASH", "SENSORIUM_WS",
     "SENSORIUM_REDACT_KEY", "RUSTC_WORKSPACE_WRAPPER",

@@ -105,6 +105,7 @@ from sensorium.record.tracer_exc import (  # noqa: F401
     _CONTROL_RETAIN_MAX, _RETAIN_MAX, _ExcRefs, _TLS, _is_control_flow)
 # The frame-classification layer, split out at the same ceiling, re-exported
 # for the same reason.
+from sensorium.record.elide import materialize_elided
 from sensorium.record.tracer_frames import (  # noqa: F401
     FocusSpec, WindowSpec, _FrameDecisions, detect_silent_generator_close,
     module_name_for)
@@ -170,7 +171,8 @@ def locals_snapshot(frame) -> dict | None:
 
 class Tracer(_FrameDecisions):
     def __init__(self, writer, root: Path, focus: FocusSpec,
-                 include=(), exclude=(), window: str | None = None) -> None:
+                 include=(), exclude=(), window: str | None = None,
+                 limits=None) -> None:
         self.writer = writer
         self.root = Path(root).resolve()
         self.focus = focus
@@ -222,6 +224,18 @@ class Tracer(_FrameDecisions):
         # is the first serial (1). `run_target` runs the target on this same
         # thread, which is why this is the run's main-thread identity.
         self.main_thread_serial: int = self._tls.thread_serial
+        if limits is None:
+            from sensorium.limits import resolve
+            limits = resolve()
+        self.limits = limits
+        self._budget = None
+        if limits.engaged:
+            from sensorium.record.budget import Budget
+            self._budget = Budget(limits, writer)
+
+    def _parked_has(self, key: int) -> bool:
+        with self._parked_lock:
+            return key in self._parked
 
     def _assign_thread_serial(self) -> int:
         with self._serial_lock:
@@ -241,9 +255,18 @@ class Tracer(_FrameDecisions):
         tls = self._tls
         if tls.in_hook:
             return None
+        budget = self._budget
+        if budget is not None:
+            slot = budget.slot(id(code))
+            if slot is not None:
+                budget.bump(slot)
+                return None
         traced, fp_file, qual, focused, kind, win_key = self._decide(code)
         if not traced:
             return M.DISABLE
+        if budget is not None and budget.should_elide(
+                id(code), code.co_filename, qual, code.co_firstlineno):
+            return None
         tls.in_hook = True
         try:
             frame = sys._getframe(1)
@@ -289,6 +312,9 @@ class Tracer(_FrameDecisions):
             tls.live[id(frame)] = [fid, code, cid, {}, depth, in_window,
                                    False]
             self._fp_for(tid, task).update(fp_file, qual, "CALL")
+            if budget is not None:
+                budget.note_kept(id(code), code.co_filename, qual,
+                                 code.co_firstlineno)
         finally:
             tls.in_hook = False
         return None
@@ -297,6 +323,12 @@ class Tracer(_FrameDecisions):
         tls = self._tls
         if tls.in_hook:
             return None
+        budget = self._budget
+        if budget is not None and budget.slot(id(code)) is not None:
+            frame = sys._getframe(1)
+            key = id(frame)
+            if key not in tls.live and not self._parked_has(key):
+                return None
         traced, fp_file, qual, focused, _kind, _win_key = self._decide(code)
         if not traced:
             return M.DISABLE
@@ -335,6 +367,7 @@ class Tracer(_FrameDecisions):
         tls.in_hook = True
         try:
             frame = sys._getframe(1)
+            materialize_elided(self, tls, frame)
             entry = self._live_entry(tls, frame, code)
             if entry is not None:
                 del tls.live[id(frame)]
@@ -368,6 +401,11 @@ class Tracer(_FrameDecisions):
         tls = self._tls
         if tls.in_hook:
             return None
+        budget = self._budget
+        if budget is not None and budget.slot(id(code)) is not None:
+            key = id(frame)
+            if key not in tls.live and not self._parked_has(key):
+                return None
         traced, _fp_file, _qual, _focused, _kind, _win = self._decide(code)
         if not traced:
             # PY_YIELD/PY_RESUME may be disabled per code object like any
@@ -526,6 +564,8 @@ class Tracer(_FrameDecisions):
             tls.origin_recorded = True
         tls.in_hook = True
         try:
+            if kind == "RAISE":
+                materialize_elided(self, tls, frame)
             tid = tls.thread_serial
             entry = tls.live.get(id(frame))
             fid = entry[0] if (entry is not None and entry[1] is code) else None
@@ -730,3 +770,8 @@ class Tracer(_FrameDecisions):
         # `TraceWriter.write_task_fingerprints`).
         self.writer.write_task_fingerprints(
             [(task, fp.hexdigest(), fp.count) for task, fp in tfps])
+        if self._budget is not None:
+            report = self._budget.report()
+            if report:
+                for key, value in report.items():
+                    self.writer.set_meta(key, value)

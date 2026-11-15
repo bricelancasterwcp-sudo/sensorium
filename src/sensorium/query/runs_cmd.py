@@ -57,6 +57,8 @@ def _row(stem: str, trace: Trace) -> str:
     flags = []
     if m.get("incomplete"):
         flags.append("INCOMPLETE")
+    if m.get("trace_truncated"):
+        flags.append("TRUNCATED")
     if m.get("refocus_of"):
         # The verdict rides with the label, and the licence rides with
         # the verdict. A bare "refocus-of" reads as a pedigree; a bare

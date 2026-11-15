@@ -51,6 +51,10 @@ pub(crate) struct Ground<'a> {
     /// `cargo sensorium` and are inherited through cargo untouched; a driver
     /// that re-set them could only get them wrong.
     pub(crate) redaction_key: Option<&'a str>,
+    /// Resolved caps, already decimal. Always exported, including 0.
+    pub(crate) max_events: u64,
+    pub(crate) max_bytes: u64,
+    pub(crate) max_calls: u64,
 }
 
 /// Run cargo with the argv the user typed, and wait for it.
@@ -73,6 +77,9 @@ pub(crate) fn run_cargo(ground: &Ground<'_>) -> Result<ExitStatus, String> {
         tool_hash,
         invocation,
         redaction_key,
+        max_events,
+        max_bytes,
+        max_calls,
     } = *ground;
     let mut cargo = Command::new(cargo_path());
     cargo
@@ -87,6 +94,9 @@ pub(crate) fn run_cargo(ground: &Ground<'_>) -> Result<ExitStatus, String> {
         .env(runner_env_var(host), format!("{} --runner", shim.display()))
         .env("SENSORIUM_SPOOL", spool)
         .env("SENSORIUM_TIER", tier)
+        .env("SENSORIUM_MAX_EVENTS", max_events.to_string())
+        .env("SENSORIUM_MAX_BYTES", max_bytes.to_string())
+        .env("SENSORIUM_MAX_CALLS", max_calls.to_string())
         // Design §2.3: the values as given, comma-joined; qualnames cannot
         // contain a comma. Always set, so an outer run's focus can never leak
         // into this one -- empty is exactly "no focus" to the wrapper.

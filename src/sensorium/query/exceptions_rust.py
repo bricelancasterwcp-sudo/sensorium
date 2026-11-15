@@ -642,7 +642,9 @@ def run(trace, args, after: int) -> int:
         # `caps.none_status`: "none" only where the recording is whole. An
         # empty answer on a run that stopped mid-flight reports where the
         # RECORDING ended, not what the program did.
-        print("no exceptions recorded")
+        note = (" (see TRUNCATED above)"
+                if trace.meta.get("trace_truncated") else "")
+        print(f"no exceptions recorded{note}")
         return caps.none_status(trace)
 
     scope = [c for c in idx.chains if c.origin.id > after]

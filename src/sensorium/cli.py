@@ -17,6 +17,7 @@ from sensorium.query import (diff_cmd, exceptions_cmd, failures_cmd, flow_cmd,
                              fmt, frame_cmd, grep_cmd, info_cmd, redact_cmd,
                              refocus_cmd, runs_cmd, tree_cmd, watch_cmd)
 from sensorium.store import db
+from sensorium.store.gc import add_parsers as add_gc_parsers
 from sensorium.ts import cli as ts_cli
 
 _QUERY_MODULES = [runs_cmd, info_cmd, tree_cmd, frame_cmd, grep_cmd,
@@ -47,6 +48,17 @@ def _add_run_parser(sub):
                         "function's activations; MODULE:QUALNAME scopes to one "
                         "function, a bare QUALNAME matches that name in any "
                         "module")
+    p.add_argument("--max-events", default=None,
+                   help="stop storing events after this many (0 is unlimited)")
+    p.add_argument("--max-bytes", default=None,
+                   help="stop storing events after the trace reaches this "
+                        "size, for example 8M (0 is unlimited)")
+    p.add_argument("--max-calls", default=None,
+                   help="store at most this many calls of each function; "
+                        "later calls are counted and marked elided "
+                        "(0 is unlimited)")
+    p.add_argument("--no-cap", action="store_true",
+                   help="record without an event, size, or per-function cap")
     p.add_argument("--run-id", default=None, help=argparse.SUPPRESS)
     p.add_argument("--refocus-of", default=None, help=argparse.SUPPRESS)
     p.add_argument("target", nargs=argparse.REMAINDER)
@@ -62,11 +74,18 @@ def _run(args) -> int:
         print("usage: sensorium run [options] -- <command> [args...]",
               file=sys.stderr)
         return 2
+    from sensorium.limits import LimitsError, resolve
+    try:
+        limits = resolve(max_events=args.max_events, max_bytes=args.max_bytes,
+                         max_calls=args.max_calls, no_cap=args.no_cap)
+    except LimitsError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     try:
         run_id, exit_status = boot.run_target(
             target, focus=args.focus, include=args.include,
             exclude=args.exclude, window=args.window,
-            run_id=args.run_id, refocus_of=args.refocus_of)
+            run_id=args.run_id, refocus_of=args.refocus_of, limits=limits)
     except boot.TargetError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
@@ -95,6 +114,7 @@ def main(argv=None) -> int:
     _add_run_parser(sub)
     ts_cli.add_parser(sub)
     mcp_cmd.add_parser(sub)
+    add_gc_parsers(sub)
     for mod in _QUERY_MODULES:
         mod.add_parser(sub)
     args = parser.parse_args(argv)

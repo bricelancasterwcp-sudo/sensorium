@@ -100,6 +100,27 @@ A `Debug` impl of a standard collection still walks every element before
 the cap is applied (`rust/sensorium-rt`'s `probe.rs`); the bound is on what
 is stored, not on that walk. No new multiplier was measured for this change.
 
+**Caps, measured 2026-11-14** on this host (Linux 6.12.113+, 8 vCPU Intel
+Xeon, CPython 3.13.5). The program is a loop that calls `leaf` 200,000
+times; `leaf` returns `(n * 3) % 97`. Wall clock is best of three after one
+untimed warmup, each rep in a fresh `SENSORIUM_DIR`. The before column is
+the tree before this change. The after column is the default cap
+(100,000 events, 8 MiB, 1,024 calls of one function).
+
+    column     baseline   recorded      x    events        bytes  elided
+    before       0.0179     6.4187  358.6    400004    52482048       0
+    after        0.0178     0.4348   24.4      2052      315392  198976
+    --no-cap     0.0178     6.4521  362.5    400004    52482048       0
+
+The capped trace is marked truncated (`hit: ["max_calls"]`). `--no-cap` on
+the same tree writes the same 400,004 events and the same 52,482,048 bytes
+the uncapped recorder wrote before. Each `leaf(i)` payload differs, so
+string interning does not shrink this file. A separate run of 5,000 calls
+that all return the same 200-character string, recorded with `--no-cap`,
+stores the first payload inline and 4,999 later copies as `#<id>`: the
+trace is 1,167,360 bytes where storing every copy inline would be
+2,296,906 (1,129,546 bytes kept out of the file).
+
 Reading a trace back is a separate cost from recording one, and it is
 reported here rather than gated, same as everything else in this section:
 `info` on a 93k-event/44k-frame trace (`20260901-210520-7f8854`) took 54.4 s

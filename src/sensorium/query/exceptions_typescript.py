@@ -628,8 +628,12 @@ def run(trace, args, after: int) -> int:
     if not idx.units:
         # Silence on a recording that stopped mid-run is a gap, not a
         # "none" -- `caps.none_status` is the shared rule for which.
-        print("no RAISE events recorded (see INCOMPLETE above)"
-              if idx.incomplete else "no exceptions recorded")
+        if idx.incomplete:
+            print("no RAISE events recorded (see INCOMPLETE above)")
+        elif trace.meta.get("trace_truncated"):
+            print("no exceptions recorded (see TRUNCATED above)")
+        else:
+            print("no exceptions recorded")
         return caps.none_status(trace)
 
     scope = [u for u in idx.units if u.origin.id > after]

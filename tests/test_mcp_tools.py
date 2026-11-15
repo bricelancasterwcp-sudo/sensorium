@@ -103,7 +103,9 @@ def test_record_schema_carries_every_non_suppressed_run_option():
                if a.option_strings
                and not isinstance(a, argparse._HelpAction)
                and a.help is not argparse.SUPPRESS}
-    assert set(actions) == {"focus", "include", "exclude", "window"}
+    assert set(actions) == {"focus", "include", "exclude", "window",
+                            "max_events", "max_bytes", "max_calls",
+                            "no_cap"}
 
     by_name = {f.name: f for f in tools.RECORD.fields}
     assert set(actions) <= set(by_name)
@@ -120,7 +122,12 @@ def test_record_schema_carries_every_non_suppressed_run_option():
 
     js = schema.json_schema(tools.RECORD)
     assert list(js["properties"]) == ["command", "focus", "include",
-                                      "exclude", "window", "cwd", "python"]
+                                      "exclude", "window", "max_events",
+                                      "max_bytes", "max_calls", "no_cap",
+                                      "cwd", "python"]
+    assert js["properties"]["no_cap"]["type"] == "boolean"
+    for name in ("max_events", "max_bytes", "max_calls"):
+        assert js["properties"][name]["type"] == "string"
     assert js["required"] == ["command"]
     assert js["properties"]["command"]["type"] == "array"
     assert js["properties"]["command"]["minItems"] == 1
@@ -301,6 +308,15 @@ def test_command_argv_for_record_survives_an_option_value_that_looks_like_a_flag
                                           "window": "--limit"})
     assert argv == ["run", "--focus=-x", "--window=--limit",
                     "--", "main.py"]
+    capped, _ = tools.command_argv(record, {"command": ["main.py"],
+                                            "max_calls": "3",
+                                            "max_bytes": "8M",
+                                            "no_cap": False})
+    assert capped == ["run", "--max-bytes=8M", "--max-calls=3",
+                      "--", "main.py"]
+    bare, _ = tools.command_argv(record, {"command": ["main.py"],
+                                          "no_cap": True})
+    assert bare == ["run", "--no-cap", "--", "main.py"]
 
 
 def test_command_argv_for_record_refuses_by_the_same_rules():
@@ -313,7 +329,8 @@ def test_command_argv_for_record_refuses_by_the_same_rules():
         tools.command_argv(record, {"command": ["main.py"], "cwdd": "/w"})
     assert unknown.value.reason == "unknown_fields"
     assert unknown.value.fields == ("cwdd",)
-    assert "command, focus, include, exclude, window, cwd, python" in (
+    assert ("command, focus, include, exclude, window, max_events, "
+            "max_bytes, max_calls, no_cap, cwd, python") in (
         unknown.value.message)
 
     with pytest.raises(schema.Rejection) as missing:

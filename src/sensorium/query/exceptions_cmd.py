@@ -119,6 +119,7 @@ from dataclasses import dataclass
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
+from sensorium.query.caps import print_truncated
 from sensorium.query.fmt import fmt_event, fmt_exc, more_note, parse_eref
 from sensorium.query.help import LIMIT_HELP
 from sensorium.query.vocab import terms
@@ -614,6 +615,7 @@ def classify(trace, r, idx: Index) -> Disposition:
 
 
 def _header(trace, idx) -> None:
+    print_truncated(trace)
     if idx.all_raises and not idx.exact:
         print("LEGACY TRACE: recorded before exceptions carried a serial, so "
               "identity here falls back to (type, message, address)")
@@ -729,7 +731,11 @@ def run(args) -> int:
     _header(trace, idx)
     if not idx.all_raises:
         if idx.uncaught is None and not idx.incomplete:
-            # A finalized trace with no raise: the trace answered "none".
+            # A finalized trace with no raise: the trace answered "none",
+            # unless a cap dropped calls and the raise may be one of them.
+            if trace.meta.get("trace_truncated"):
+                print("no RAISE events recorded (see TRUNCATED above)")
+                return UNSETTLED
             print("no exceptions recorded")
             return NEGATIVE
         if idx.uncaught is None:

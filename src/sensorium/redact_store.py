@@ -51,7 +51,7 @@ from pathlib import Path
 from sensorium import redact
 from sensorium import redact_values as rv
 from sensorium.redact_key import Key, _pid_alive
-from sensorium.store import db
+from sensorium.store import db, payloads
 from sensorium.ts.invocation import env_hash as _kv_env_hash
 
 #: The rewrite's tmp is `.<run>.db.redact.<pid>.tmp` beside the trace: a
@@ -273,18 +273,19 @@ def _rows(conn: sqlite3.Connection) -> tuple[dict, dict, dict, int]:
     """Every row the writers reach (C2) -- payloads, `unwind_exc`, output --
     as three id -> text maps, and what they now withhold. `task_id` is not
     named: the store's 18 oldest traces are format 1 and have no column."""
-    payloads: dict[int, str] = {}
+    payloads_out: dict[int, str] = {}
     unwinds: dict[int, str] = {}
     outputs: dict[int, str] = {}
     values = 0
+    strings = payloads.load_strings(conn)
     for eid, kind, text, qualname in conn.execute(
             "SELECT e.id, e.kind, e.payload, c.qualname FROM events e "
             "LEFT JOIN code_objects c ON c.id = e.code_id "
             "WHERE e.payload IS NOT NULL ORDER BY e.id").fetchall():
-        obj = json.loads(text)
+        obj = json.loads(payloads.expand(text, strings))
         new = _transform_payload(kind, obj, qualname)
         if new != obj:
-            payloads[eid] = json.dumps(new, separators=_SEP)
+            payloads_out[eid] = json.dumps(new, separators=_SEP)
             values += rv.count(new) - rv.count(obj)
     for fid, text in conn.execute(
             "SELECT id, unwind_exc FROM frames "
@@ -300,7 +301,7 @@ def _rows(conn: sqlite3.Connection) -> tuple[dict, dict, dict, int]:
         if hit:
             outputs[oid] = after
             values += 1
-    return payloads, unwinds, outputs, values
+    return payloads_out, unwinds, outputs, values
 
 
 def _transform_payload(kind: str, obj: dict, qualname: str | None) -> dict:
@@ -477,6 +478,7 @@ def _copy_and_rewrite(p: Plan, tmp: Path) -> None:
                         [(t, i) for i, t in p.outputs.items()])
         for name, value in p.meta.items():
             db.set_meta(dst, name, value)
+        payloads.drop_unreferenced(dst)
         dst.commit()
         busy, log, done = dst.execute(
             "PRAGMA wal_checkpoint(TRUNCATE)").fetchone()

@@ -107,7 +107,8 @@ def test_the_three_redaction_knobs_are_the_users_and_are_compared(name):
 @pytest.mark.parametrize("name", sorted({
     "SENSORIUM_SPOOL", "SENSORIUM_TIER", "SENSORIUM_TS_ROOT",
     "SENSORIUM_TS_PKG", "SENSORIUM_INVOCATION", "SENSORIUM_MANIFEST_DIR",
-    "SENSORIUM_FOCUS", "SENSORIUM_REDACT_KEY"}))
+    "SENSORIUM_FOCUS", "SENSORIUM_REDACT_KEY",
+    "SENSORIUM_MAX_EVENTS", "SENSORIUM_MAX_BYTES", "SENSORIUM_MAX_CALLS"}))
 def test_every_variable_the_driver_itself_sets_is_still_its_own(name):
     """The exclusion that has to survive the narrowing: three of these
     differ on every refocus by construction and a fourth whenever the call

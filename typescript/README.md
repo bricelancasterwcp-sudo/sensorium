@@ -8,15 +8,16 @@ process, the same SQLite format 4 the Python and Rust recorders write, read by
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.6.1`**: ESM `.mjs` with JSDoc
+One private npm package, **`sensorium-ts 0.6.2`**: ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
-Nineteen modules and a version:
+Twenty modules and a version:
 
 | Module | What it is |
 |---|---|
 | `src/transform.mjs` | The rewriter. Pure: source text + path + root in, edited text + a source map + a per-file manifest out. No I/O. Positions come from the consumer's own `typescript`; edits are `magic-string` splices, and **no edit contains a newline**. |
 | `src/rt.mjs` | The runtime every instrumented module boots. Imports only `node:` builtins. Tasks on `AsyncLocalStorage`, a frame stack per task, the exception `WeakMap`, the object-identity `WeakMap`, the JSONL spool. |
+| `src/cap.mjs` | The per-run cap. Reads the three integers the driver resolved (`SENSORIUM_MAX_EVENTS`, `SENSORIUM_MAX_BYTES`, `SENSORIUM_MAX_CALLS`). The first calls of each function are stored; further calls, and every call once the event or byte estimate is hit, are counted. A throw writes the elided frames back as skeleton calls. |
 | `src/naming.mjs` | What a task is CALLED: the provider the harness registers, the lexical chain the transform read, which of the two wins and whether they disagreed, the four branches of spec §4's naming rule. Cut out of `rt.mjs`; `rt.nameProvider` is still the only way in, because the tier gate is the runtime's. |
 | `src/redact.mjs` | Rule v1, this recorder's third implementation of it, in both halves: which NAMES hold a secret (an environment variable's, an argument's, a delta's, a callee's own for its RETURN) and which secret-shaped SPANS a text holds, with the HMAC-SHA256 the driver's key takes of a value before `<redacted>` replaces it. `redactCaptures` and `redactReturn` are what `rt.mjs` puts between every capture and the wire; `bootEnv` is the environment's, called once at boot. Imports `node:crypto` and nothing else of ours. The cases are `docs/trace-format/redaction-v1.json`, the same file the Python and Rust suites read. |
 | `src/dbg.mjs` | The capture formatter: `util.inspect` under fixed options (`depth: 2`, `maxArrayLength: 8`, `maxStringLength: 100`) inside a 200-byte cap, and the `oid`/`type` pair an object or function capture carries. `exc` also runs rule v1's content rule over the message it writes, because a thrown message has no name for the rule above to be asked about. |
@@ -34,7 +35,7 @@ Nineteen modules and a version:
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
 | `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing: Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
 | `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`, `deferredExit(ts, fn)`. The first three decide which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and are what `sensorium exceptions` ends up reading; the fourth decides which functions get the deferred exit (§11's seal). |
-| `src/index.mjs` | `VERSION`, stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.6.1`. |
+| `src/index.mjs` | `VERSION`, stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.6.2`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: twelve probe files whose expected rows were pinned before this

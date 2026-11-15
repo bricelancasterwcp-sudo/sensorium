@@ -33,7 +33,7 @@ questions:
     # and writes the two keys that say so. The rows this case asks about are
     # untouched by that; only the recorder's name in the sentence moved.
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-ts 0.6.1
+      - "REFUSED: watch needs line, which recorder sensorium-ts 0.6.2
          declares it does not produce (capabilities.line: false); nothing
          was checked"
   - id: is-the-fault-reachable-another-way

@@ -96,7 +96,9 @@ def _record_schema() -> ToolSchema:
     flag = {a.dest: a.option_strings[0] for a in p._actions
             if a.option_strings}
     spec = (("focus", "array"), ("include", "array"),
-            ("exclude", "array"), ("window", "string"))
+            ("exclude", "array"), ("window", "string"),
+            ("max_events", "string"), ("max_bytes", "string"),
+            ("max_calls", "string"), ("no_cap", "boolean"))
     if not p.description:
         raise schema.SchemaError("run: the command has no description; "
                                  "the server refuses to boot")
@@ -213,8 +215,11 @@ def command_argv(tool: Tool, arguments: dict) -> tuple[list[str], dict]:
         # `--name=value`, as `schema.to_argv` emits (I2): a `--focus`
         # whose value began with `-` was read as the next flag, and the
         # `--` below cannot help -- it separates the TARGET's argv and
-        # everything here is before it.
-        if f.kind == "array":
+        # everything here is before it. A boolean is a bare flag.
+        if f.kind == "boolean":
+            if value:
+                argv.append(f.option)
+        elif f.kind == "array":
             argv.extend(f"{f.option}={item}" for item in value)
         else:
             argv.append(f"{f.option}={value}")

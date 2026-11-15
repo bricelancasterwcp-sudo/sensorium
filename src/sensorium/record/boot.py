@@ -161,6 +161,10 @@ class _LateWriteGuard:
     def last_event_id(self) -> int:
         return self._w.last_event_id
 
+    @property
+    def bytes_estimate(self) -> int:
+        return self._w.bytes_estimate
+
     def _call(self, name, *args, **kwargs):
         with self._lock:
             if self._sealed:
@@ -626,7 +630,7 @@ def _recording_gaps(live: list[str], dropped: int) -> str | None:
 
 
 def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
-               run_id=None, refocus_of=None):
+               run_id=None, refocus_of=None, limits=None):
     """Record one execution of `argv`. Returns (run_id, exit_status)."""
     run_id = run_id or paths.new_run_id()
     if not paths.is_valid_run_id(run_id):
@@ -659,8 +663,12 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                                 window, refocus_of, key=key, knobs=knobs)
     truncated_before = capture.capture_stats["truncated"]
     values_before = rv.stats["values"]
+    if limits is None:
+        from sensorium.limits import resolve
+        limits = resolve()
     tracer = Tracer(w, root=Path.cwd(), focus=FocusSpec(list(focus)),
-                    include=include, exclude=exclude, window=window)
+                    include=include, exclude=exclude, window=window,
+                    limits=limits)
     # The thread constructing the Tracer -- this one, which runs `target()`
     # below synchronously -- is its first thread serial, and that serial is the
     # identity all of this thread's events carry. It names the thread that
@@ -723,4 +731,17 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
             gaps = _recording_gaps(live, w.late_writes)
             if gaps:
                 print(gaps, file=sys.stderr)
+    _auto_gc()
     return run_id, exit_status
+
+
+def _auto_gc() -> None:
+    """The store's own budget. A failure here does not change the exit."""
+    try:
+        from sensorium.store.gc import maybe_auto
+        note = maybe_auto()
+    except Exception as e:
+        print(f"sensorium: gc failed: {e}", file=sys.stderr)
+        return
+    if note:
+        print(note, file=sys.stderr)

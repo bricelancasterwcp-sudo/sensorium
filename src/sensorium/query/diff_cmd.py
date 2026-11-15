@@ -85,6 +85,7 @@ from collections import Counter
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, NEGATIVE, UNSETTLED
+from sensorium.query.caps import print_truncated
 from sensorium.query.help import RUN_A_HELP, RUN_B_HELP
 from sensorium.query.moves import (Moves, desc, detect_moves, for_b,
                                    modulo_location, print_key_line,
@@ -724,6 +725,8 @@ def add_parser(sub) -> None:
 def run(args) -> int:
     pa, pb = paths.find_trace(args.run_a), paths.find_trace(args.run_b)
     ta, tb = Trace.open(pa), Trace.open(pb)
+    print_truncated(ta)
+    print_truncated(tb)
     moves = detect_moves(ta, tb) if args.ignore_moves else None
     if args.task:
         res = compare_task_streams(ta, tb, args.task, moves)

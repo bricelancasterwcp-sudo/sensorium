@@ -91,7 +91,39 @@ def none_status(trace) -> int:
     (`query/exceptions_rust`, rung 3) IS a caller: it has one empty answer
     and no uncaught record to split it on, so it takes the shared rule.
     """
-    return UNSETTLED if trace.meta.get("incomplete") else NEGATIVE
+    if trace.meta.get("incomplete") or trace.meta.get("trace_truncated"):
+        # A cap that dropped calls leaves the same kind of gap: an empty
+        # answer is where the recording stopped storing, not a fact about
+        # the program. A non-empty answer keeps its own status; the banner
+        # is what says the trace is partial.
+        return UNSETTLED
+    return NEGATIVE
+
+
+def print_truncated(trace) -> None:
+    """One line when a cap dropped calls. No-op on a whole trace."""
+    if not trace.meta.get("trace_truncated"):
+        return
+    limits = trace.meta.get("trace_limits") or {}
+    hit = limits.get("hit") or []
+    which = ", ".join(str(item) for item in hit) if hit else "a cap"
+    n = limits.get("calls_elided", 0)
+    print(f"TRUNCATED: recording hit its cap ({which}); elided {n} calls. "
+          "What was kept is the call-tree skeleton and the frames around "
+          "failures.")
+
+
+def print_elisions(trace, limit: int = 8) -> None:
+    """Per-function elision lines, capped so a hot store stays one screen."""
+    rows = list(trace.meta.get("elisions") or [])
+    if not rows:
+        return
+    for row in rows[:limit]:
+        print(f"  elided {row.get('elided', 0)} calls of "
+              f"{row.get('qualname')}")
+    extra = len(rows) - limit
+    if extra > 0:
+        print(f"  and {extra} more")
 
 
 def print_incomplete(trace, consequence: str) -> None:
@@ -107,8 +139,10 @@ def print_incomplete(trace, consequence: str) -> None:
     `consequence` is the one clause that differs per command: what
     specifically is missing from THIS command's output. The first line is
     shared, so a trace that stopped mid-run says so in the same words
-    wherever the reader meets it.
+    wherever the reader meets it. A truncated trace prints its own banner
+    first, including when the recording did finalize.
     """
+    print_truncated(trace)
     if not trace.meta.get("incomplete"):
         return
     print("INCOMPLETE: this recording never finalized, so it may stop "
