@@ -16,7 +16,7 @@ pub fn literal() {@G(10)
 }
 
 /// Places: a path, a field and a deref. None is wrapped, and none is declared.
-pub fn places(r: Result<u8, String>, h: &Holder, p: &u8) {@G(12)
+pub fn places(r: Result<u8, String>, h: &Holder, p: &u8) {@G(12,r,h,p)
     let _ = r;
     let _ = h.n;
     let _ = *p;

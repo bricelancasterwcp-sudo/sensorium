@@ -31,11 +31,11 @@ pub fn never_probed() -> bool {@G(16)
 pub struct Mine;
 
 impl Mine {
-    pub fn ok(&self, n: u8) -> u8 {@G(17)
+    pub fn ok(&self, n: u8) -> u8 {@G(17,self,n)
         @R(17)n@E
     }
 
-    pub fn unwrap_or_default(&self, n: u8) -> u8 {@G(18)
+    pub fn unwrap_or_default(&self, n: u8) -> u8 {@G(18,self,n)
         @R(18)n@E
     }
 }

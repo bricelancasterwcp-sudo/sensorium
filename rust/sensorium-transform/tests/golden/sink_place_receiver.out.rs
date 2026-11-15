@@ -19,22 +19,22 @@ fn returns_ref_result() -> &'static Result<u8, u8> {@G(7)
 impl Holder {
     /// A field behind a shared borrow. `Result<u8, u8>` is `Copy`, so the
     /// original copies the receiver and so does the wrap.
-    pub fn defaulted(&self) -> u8 {@G(8)
+    pub fn defaulted(&self) -> u8 {@G(8,self)
         @R(8)@S(9,HOW_SINK_UNWRAP_OR)self.last@SE.unwrap_or(0)@E
     }
 }
 
-pub fn indexed(v: &[Result<u8, u8>]) -> u8 {@G(10)
+pub fn indexed(v: &[Result<u8, u8>]) -> u8 {@G(10,v)
     @R(10)@S(11,HOW_SINK_UNWRAP_OR)v[0]@SE.unwrap_or(0)@E
 }
 
 /// The parentheses are the SOURCE's own, and the wrap goes INSIDE them:
 /// `match (*p) { .. }` is `unused_parens`.
-pub fn dereferenced(p: &Result<u8, u8>) -> u8 {@G(12)
+pub fn dereferenced(p: &Result<u8, u8>) -> u8 {@G(12,p)
     @R(12)(@S(13,HOW_SINK_UNWRAP_OR)*p@SE).unwrap_or(0)@E
 }
 
-pub fn a_local(r: Result<u8, u8>) -> u8 {@G(14)
+pub fn a_local(r: Result<u8, u8>) -> u8 {@G(14,r)
     @R(14)@S(15,HOW_SINK_UNWRAP_OR)r@SE.unwrap_or(0)@E
 }
 
@@ -46,6 +46,6 @@ pub fn ref_result() {@G(16)
 }
 
 /// `let _ = <place>` is left alone entirely, and is not declared either.
-pub fn place_let(r: Result<u8, u8>) {@G(18)
+pub fn place_let(r: Result<u8, u8>) {@G(18,r)
     let _ = r;
 }@U

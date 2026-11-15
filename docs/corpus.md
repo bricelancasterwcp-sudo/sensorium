@@ -162,7 +162,7 @@ sights the dropped reading nowhere while printing the scope it searched),
 whose Rust twin cannot exist), `focus_destructure` (three names on one row,
 one of them a silent default; `let x;` binds `undefined`), `focus_args` (a
 focused CALL printing a destructured, defaulted parameter as what BOUND,
-beside an unfocused `helper() <unread: locals>` in the same tree),
+beside an unfocused `helper(tier='bronze')` in the same tree),
 `focus_async` (rows on both sides of an `await` with `~ YIELD` and
 `~ RESUME` between them, and the reader that took the placeholder sitting in
 the gap), `focus_catch_binding` (SWALLOWED, the clause's entry row carrying

@@ -91,16 +91,20 @@ def test_a_redacted_container_whose_length_was_never_read_prints_a_question():
     assert fmt_value(v) == f"dict[?]={STORED}"
 
 
-def test_a_redacted_object_renders_exactly_as_it_did_before():
+def test_a_redacted_object_renders_its_identity_and_not_its_repr():
     """An object's identity is not its value. The rule takes the `repr` and
-    leaves `type`/`oid`, which is all this rendering ever read -- so
-    `Cfg#7` here is the same bytes as `Cfg#7` from an untouched capture, and
-    `flow --object` can still follow it."""
+    any fields and leaves `type`/`oid`. An object the rule left alone prints
+    the repr; a taken one must not print the marker in its place, and
+    `flow --object` can still follow the identity."""
     v = {"k": "obj", "type": "Cfg", "oid": 7, "repr": STORED,
          "redacted": by_name()}
     assert fmt_value(v) == "Cfg#7"
     assert fmt_value({"k": "obj", "type": "Cfg", "oid": 7,
-                      "repr": "Cfg(...)"}) == "Cfg#7"
+                      "repr": "Cfg(...)"}) == "Cfg#7 <Cfg(...)>"
+    taken_fields = {"k": "obj", "type": "Cfg", "oid": 7, "repr": STORED,
+                    "fields": {"api_key": {"k": "str", "v": "secret"}},
+                    "redacted": by_name()}
+    assert fmt_value(taken_fields) == "Cfg#7"
 
 
 def test_a_content_hit_prints_the_text_the_trace_actually_holds():

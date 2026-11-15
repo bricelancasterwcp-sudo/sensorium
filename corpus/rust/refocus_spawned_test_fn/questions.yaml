@@ -74,7 +74,7 @@ questions:
       distinction is structural, and only the recording holds it.
     command: ["tree", "$RUN"]
     expect_contains:
-      - "task t4: tests::spawns_a_marked_fn :: spawn@tests::spawns_a_marked_fn#1\n  f4 e6 tests::helper_test() <unread: locals> -> ()\n"
+      - "task t4: tests::spawns_a_marked_fn :: spawn@tests::spawns_a_marked_fn#1\n  f4 e6 tests::helper_test() -> ()\n"
     expect_line:
       - ["f4 e6 tests::helper_test()", "-> ()"]
     expect_count: {"tests::helper_test()": 2}

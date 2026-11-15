@@ -4,7 +4,7 @@ export function watched(a: number): number {const __sf=__srt.call(__sfile,0,["a"
   return __srt.ret(__sf,(b));
 ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}
 
-export function ignored(a: number): number {const __sf=__srt.call(__sfile,1);try{
+export function ignored(a: number): number {const __sf=__srt.call(__sfile,1,["a",a]);try{
   const b = a + 1;
   return __srt.ret(__sf,(b));
 ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}

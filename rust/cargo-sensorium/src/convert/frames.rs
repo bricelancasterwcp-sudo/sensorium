@@ -1,10 +1,7 @@
-//! Walking one process's merged record stream: frame stacks, the pending-panic
-//! state machine, and the fingerprint accumulation that falls out of writing
-//! the same causal events to SQLite.
-//!
-//! `rust/HONESTY.md` §1 is this module's contract for what an outcome means
-//! and how a panic is attached to the frame it unwound; TRACE-FORMAT.md §3
-//! and §6 are the schema it writes to.
+//! Walking one process's merged record stream into SQLite: frame stacks, the
+//! pending-panic state machine, and fingerprint accumulation. `rust/HONESTY.md`
+//! §1 is the outcome contract, including how a panic attaches to its frame;
+//! TRACE-FORMAT.md §3 and §6 are the schema written here.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -195,7 +192,14 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                     }
                 };
                 let task_id = (thread_id != MAIN_SERIAL).then_some(thread_id);
-                let payload = json!({"args": {}, "unread": ["locals"]});
+                let version = versions.get(&thread_id).copied().unwrap_or(3);
+                let payload = crate::convert::call_args::payload(
+                    &label,
+                    &r.payload,
+                    version,
+                    value_rule,
+                    &mut values_redacted,
+                )?;
                 let event_id = writer.insert_event(
                     r.ts_ns,
                     thread_id,
@@ -414,10 +418,8 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
             KIND_LINE => {
                 let label = format!("pid {pid} thread {thread_id} seq {}", r.seq);
                 let site = resolve_site(&unit_by_id, &site_lookup, pid, &label, "LINE", r.site)?;
-                // `LINE record` and not the bare label: the confusion this
-                // catches is between a LINE RECORD and a `line` SITE, and a
-                // sentence that named only the record's position would leave
-                // a reader to work out which of the two it meant.
+                // Name the record, not the site: a LINE record and a `line`
+                // site are different things, and the error has to say which.
                 site.require_line(&format!("{label}: LINE record"))?;
                 let version = versions.get(&thread_id).copied().unwrap_or(3);
                 let parsed = spool::line::parse_line_payload(&label, &r.payload, version)?;

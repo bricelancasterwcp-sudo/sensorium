@@ -49,9 +49,9 @@ questions:
       exactly the one an unawaited promise suppresses.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["refresh() <unread: locals>", "[async]", "!! Error('stale token')"]
-      - ["startRefresh() <unread: locals> -> undefined"]
-      - ["cacheAge() <unread: locals> -> 0"]
+      - ["refresh()", "[async]", "!! Error('stale token')"]
+      - ["startRefresh() -> undefined"]
+      - ["cacheAge() -> 0"]
     expect_contains: ["task t1: a background refresh is started"]
   - id: what-does-the-verdict-say-about-the-rejection
     ask: >

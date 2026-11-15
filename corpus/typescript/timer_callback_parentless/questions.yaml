@@ -24,10 +24,10 @@ questions:
       nothing of the test.
     command: ["tree", "$RUN"]
     expect_contains: ["task t1: a sweep is scheduled and not awaited"]
-    expect_count: {"sweep() <unread: locals> -> 1": 1}
+    expect_count: {"sweep() -> 1": 1}
     expect_line:
       - ["<anonymous>()", "[async]", "!! AssertionError("]
-      - ["pending() <unread: locals> -> 0"]
+      - ["pending() -> 0"]
   - id: who-called-the-sweep
     ask: Which frame of the program called `sweep`?
     truth: >
@@ -72,7 +72,7 @@ questions:
     expect_line:
       - ["timer_callback_parentless.test.ts:<anonymous>", "depth 0",
          "closed: unwind"]
-      - ["enqueue() <unread: locals> -> 1"]
+      - ["enqueue(n=1) -> 1"]
     # Not the bare word: the TASK is named after the sweep, and the claim
     # here is about a child ROW -- which is spelled `sweep()`.
     expect_absent: ["sweep()", "sweeper.ts:sweep"]

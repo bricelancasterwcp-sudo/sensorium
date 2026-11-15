@@ -115,7 +115,7 @@ test('a LINE in a frame that parked and resumed carries that frame', () => {
 
 // --- the focused CALL's arguments -------------------------------------------
 
-test("a focused CALL carries its arguments and an unfocused one says nothing", () => {
+test('a CALL with an argument list carries it, and one that omits the list says unread', () => {
   const out = run(`
     const fid = __srt.file('t.ts', '/w/t.ts', [], 'sha');
     const focused = __srt.call(fid, 0, ['a', 1]);
@@ -131,9 +131,9 @@ test("a focused CALL carries its arguments and an unfocused one says nothing", (
     key: { k: 'dbg', v: "'rate'", trunc: false },
     rows: { k: 'dbg', v: '[ 1, 2 ]', trunc: false, oid: 1, type: 'Array' },
   });
-  // A focused function that takes no arguments says so with an empty map; an
-  // unfocused one has no key at all, which is what tells a reader its
-  // arguments were not read rather than that there were none.
+  // An empty list says the parameters were read and there were none. Omitting
+  // the list leaves no `a` key, which is what tells a reader the arguments
+  // were not read rather than that there were none.
   assert.deepEqual(none.a, {});
   assert.equal(Object.hasOwn(unfocused, 'a'), false);
 });
@@ -250,7 +250,7 @@ test('a statement in a finally after the return mints its row, and the RETURN fo
   assert.deepEqual(linesOf(threw).map((r) => [r.l, r.d.cleanup.v]), [[7, '2']]);
 });
 
-// --- what a 0.6.0 recorder declares -----------------------------------------
+// --- what a 0.6.1 recorder declares -----------------------------------------
 
 test('the declaration says object identity always and line only under a focus', () => {
   // The child's `SENSORIUM_FOCUS` is the helper's to decide, never the shell's:
@@ -287,8 +287,8 @@ test('an odd pairs list is a transform bug and throws rather than dropping a nam
   assert.match(out.res.stderr, /captures: an odd pairs list — 3 entries/);
 });
 
-test("the recorder's version is 0.6.0", () => {
-  // The number the focus tier ships under. `rt.test.mjs` holds the other two
+test("the recorder's version is 0.6.1", () => {
+  // The number this recorder ships under. `rt.test.mjs` holds the other two
   // ends of the chain: BOOT's `version`, and the package's own.
-  assert.equal(VERSION, '0.6.0');
+  assert.equal(VERSION, '0.6.1');
 });

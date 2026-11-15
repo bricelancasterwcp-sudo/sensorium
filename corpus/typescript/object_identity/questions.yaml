@@ -9,7 +9,8 @@ questions:
       They are -- `loadSettings` returns the shared `DEFAULTS` -- and this
       recorder says so exactly. Since 0.3.0 every captured object carries a
       serial minted once from a `WeakMap` and never reused, so the two
-      returns and the object `tune` handed back are three sightings of ONE
+      returns, `tune`'s argument, `tune`'s return and `retriesOf`'s argument
+      are five sightings of ONE
       identity, and the continuity line reads `exact (serial identity)`
       rather than the hedge an address-based identity earns. Nothing was
       focused here and nothing needed to be: an identity rides on every
@@ -30,7 +31,7 @@ questions:
     expect_contains:
       - "identity is a per-object serial minted once and never reused:
          every sighting is the same object"
-      - "sightings: 3 event(s), 3 capture(s)"
+      - "sightings: 5 event(s), 5 capture(s)"
       - "continuity: exact (serial identity)"
     expect_count:
       "loadSettings -> { retries: 3 }   [return]": 2
@@ -56,10 +57,10 @@ questions:
       trace to read -- and a stack trace names frames, never the objects
       they hold.
     command: ["tree", "$RUN"]
-    expect_count: {"loadSettings() <unread: locals> -> { retries: 3 }": 2}
+    expect_count: {"loadSettings() -> { retries: 3 }": 2}
     expect_line:
-      - ["tune() <unread: locals> -> { retries: 9 }"]
-      - ["retriesOf() <unread: locals> -> 9"]
+      - ["tune(settings={ retries: 3 }) -> { retries: 9 }"]
+      - ["retriesOf(settings={ retries: 9 }) -> 9"]
   - id: can-the-value-be-followed-instead
     ask: >
       Then can I at least follow the value 9 through the run and see where
@@ -95,6 +96,6 @@ questions:
     # and writes the two keys that say so. The rows this case asks about are
     # untouched by that; only the recorder's name in the sentence moved.
     expect_contains:
-      - "REFUSED: flow needs line, which recorder sensorium-ts 0.6.0
+      - "REFUSED: flow needs line, which recorder sensorium-ts 0.6.1
          declares it does not produce (capabilities.line: false); nothing
          was checked"

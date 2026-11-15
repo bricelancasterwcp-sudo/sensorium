@@ -4,7 +4,7 @@
 //! nothing breaks out of really does diverge and takes no LINE, and neither
 //! does the statement rustc would call unreachable after it.
 @W
-pub fn wait_then(a: i32) -> i32 {@G(7)@N(8,a)
+pub fn wait_then(a: i32) -> i32 {@G(7,a)@N(8,a)
     let mut n = a;@N(9,n)
     loop {
         if n > 0 {
@@ -31,7 +31,7 @@ pub fn spins() {@G(14)@N(15)
 
 /// A LABELLED `break` leaves the outer loop from inside the inner one, so the
 /// outer loop DOES complete: it takes its LINE, and the statement after it runs.
-pub fn labelled(mut n: i32) -> i32 {@G(16)@N(17,n)
+pub fn labelled(mut n: i32) -> i32 {@G(16,n)@N(17,n)
     'o: loop {
         loop {
             n += 1;@N(18,n)

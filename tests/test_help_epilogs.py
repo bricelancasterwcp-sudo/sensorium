@@ -27,6 +27,7 @@ CASES = [
     ("frame", QUERY_EPILOG),
     ("grep", QUERY_EPILOG),
     ("exceptions", QUERY_EPILOG),
+    ("failures", QUERY_EPILOG),
     ("flow", QUERY_EPILOG),
     ("watch", QUERY_EPILOG),
     ("diff", QUERY_EPILOG),

@@ -432,7 +432,8 @@ test("an unfocused function's output is byte-identical to the same file with no 
   const tail = (/** @type {string} */ code) => code.slice(code.indexOf('export function g'));
   assert.equal(tail(focused), tail(plain));
   assert.equal(plain.includes('__srt.line('), false, 'no focus, no statement probes at all');
-  assert.equal(plain.includes('__srt.call(__sfile,0);'), true, 'and no arguments either');
+  assert.equal(plain.includes('__srt.call(__sfile,0,["a",a]);'), true,
+    'arguments are passed whether or not the function is focused');
 });
 
 test('a nested function is focused by naming its container, and is its own frame', () => {
@@ -461,7 +462,7 @@ test('a statement of a NESTED unfocused function is not probed', () => {
     '}',
   ], ['f.inner']);
   assert.ok(code.includes('    const m = n * 2;__srt.line(__sf,3,["m",m]);'), code);
-  assert.ok(code.includes('export function f(): number {const __sf=__srt.call(__sfile,0);try{'), code);
+  assert.ok(code.includes('export function f(): number {const __sf=__srt.call(__sfile,0,[]);try{'), code);
   assert.equal(rows(code), 1, "only the inner arrow's statement");
 });
 
@@ -484,7 +485,7 @@ test('a focused CALL reads every name its parameters bind, `this` excluded', () 
 test('a spec naming another file focuses nothing here', () => {
   const code = run(['export function f(): number {', '  return 1;', '}'], ['other.ts:f']);
   assert.equal(code.includes('__srt.line('), false);
-  assert.ok(code.includes('__srt.call(__sfile,0);'), code);
+  assert.ok(code.includes('__srt.call(__sfile,0,[]);'), code);
 });
 
 // --- the manifest -----------------------------------------------------------

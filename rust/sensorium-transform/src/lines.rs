@@ -132,6 +132,33 @@ use facts::{
     statement_span, stmt_diverges, unbound_of,
 };
 
+/// Argument names a CALL records: a receiver is `self`, then every binding a
+/// parameter pattern names, in source order, once each. The exact name `_`
+/// is omitted. It is not a value the probe can borrow (`probe_cap!(&_)`
+/// does not compile), and a name the program cannot read is not one the
+/// record claims to have read.
+pub(crate) fn signature_arg_names(sig: &Signature) -> Vec<String> {
+    let mut names = Vec::new();
+    for arg in &sig.inputs {
+        match arg {
+            FnArg::Receiver(_) => names.push("self".to_owned()),
+            FnArg::Typed(t) => names.extend(binding_names(&t.pat)),
+        }
+    }
+    names.retain(|name| name != "_");
+    names
+}
+
+/// The same reading for a closure's input patterns.
+pub(crate) fn closure_arg_names<'a>(pats: impl IntoIterator<Item = &'a syn::Pat>) -> Vec<String> {
+    let mut names = Vec::new();
+    for pat in pats {
+        names.extend(binding_names(pat));
+    }
+    names.retain(|name| name != "_");
+    names
+}
+
 /// The LINE probe, as amendment A7 spells it. The ONLY place its text is
 /// written -- `tests/common/mod.rs` writes it a second time, so a golden diff
 /// fails the moment the two disagree.

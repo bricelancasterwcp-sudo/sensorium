@@ -3,7 +3,8 @@
 //! pins every injected fragment IN THE TESTS rather than reading it back out of
 //! the implementation under test.
 //!
-//! * `@G(<site>)`  -- the entry guard for that site.
+//! * `@G(<site>[,<name>]*)`  -- the entry guard for that site. With no names
+//!   it is the `|| []` form; each name adds one `probe_cap` argument.
 //! * `@R(<site>)`  -- the opening half of an exit wrap.
 //! * `@E`          -- its closing `)`.
 //! * `@U`          -- the crate root's `__SENSORIUM_UNIT` static.
@@ -22,8 +23,9 @@
 //!   without one it is the unbound form. The braces an expression body is
 //!   wrapped in are spelled out in the golden itself, so an `.out.rs` shows
 //!   exactly the block that was added.
-//! * `@K(<site>)` -- the guard of a CLOSURE frame. The same bytes `@G` expands
-//!   to, under a name that says which kind of frame a golden is pinning.
+//! * `@K(<site>[,<name>]*)` -- the guard of a CLOSURE frame. The same bytes
+//!   `@G` expands to, under a name that says which kind of frame a golden is
+//!   pinning. Names are the closure's parameters, as `@G` takes a fn's.
 //! * `@N(<site>[,<name>]*)` -- one focus tier LINE probe. With no names it is
 //!   the `|| []` form a statement that wrote nothing mints; each name adds one
 //!   `("<name>", ::sensorium_rt::probe_cap!(&<name>))` delta, in order.
@@ -46,8 +48,23 @@ use sensorium_transform::{transform_file, FileRole, Focus, RetKind, SiteKind, Tr
 pub const META: &str = "d41d8cd98f00b204";
 pub const FILE: &str = "src/lib.rs";
 
-pub fn guard(site: u32) -> String {
-    format!("let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, {site});")
+pub fn guard(site: u32, names: &[&str]) -> String {
+    let deltas: Vec<String> = names
+        .iter()
+        .map(|n| format!("(\"{n}\", ::sensorium_rt::probe_cap!(&{n}))"))
+        .collect();
+    format!(
+        "let _sens_guard = ::sensorium_rt::enter_args(&crate::__SENSORIUM_UNIT, {site}, || [{}]);",
+        deltas.join(", ")
+    )
+}
+
+/// `@G` and `@K` share one argument list: a site, then the parameter names.
+fn guard_from_arg(arg: &str, what: &str) -> String {
+    let mut parts = arg.split(',');
+    let site = parse_site(parts.next().expect("a guard needs a site"), what);
+    let names: Vec<&str> = parts.filter(|name| !name.is_empty()).collect();
+    guard(site, &names)
 }
 
 /// One LINE probe, exactly as design amendment A7 spells it. Written here a
@@ -158,7 +175,7 @@ pub fn expand(template: &str) -> String {
         let tail = &rest[at..];
         if let Some(after) = tail.strip_prefix("@G(") {
             let (arg, next) = split_arg(after, "@G(");
-            out.push_str(&guard(arg.parse().expect("@G( non-numeric site )")));
+            out.push_str(&guard_from_arg(arg, "@G("));
             rest = next;
         } else if let Some(after) = tail.strip_prefix("@R(") {
             let (arg, next) = split_arg(after, "@R(");
@@ -230,7 +247,7 @@ pub fn expand(template: &str) -> String {
             rest = next;
         } else if let Some(after) = tail.strip_prefix("@K(") {
             let (arg, next) = split_arg(after, "@K(");
-            out.push_str(&guard(parse_site(arg, "@K(")));
+            out.push_str(&guard_from_arg(arg, "@K("));
             rest = next;
         } else if let Some((marker, after)) = close_marker(tail) {
             let (opened, site, how) = open_wraps

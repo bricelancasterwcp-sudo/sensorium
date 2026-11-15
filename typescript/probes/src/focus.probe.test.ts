@@ -15,9 +15,11 @@
 //
 // `probes/vitest.config.ts` names these eleven functions in `SENSORIUM_FOCUS`
 // under `SENSORIUM_PROBE_DIRECT=1`; driven with no focus, this file records no
-// such row at all, and `check.mjs` asserts THAT instead. Both readings are the
-// contract, and a checker that skipped one would be a hole. (No comment here
-// may begin with the marker word itself: the reader would take it for one.)
+// statement row at all, and `check.mjs` asserts that absence instead. Arguments
+// are recorded on every call either way, including these test callbacks. Both
+// readings are the contract, and a checker that skipped one would be a hole.
+// (No comment here may begin with the marker word itself: the reader would
+// take it for one.)
 import { expect, test } from 'vitest';
 
 // ARGS letChain n=2

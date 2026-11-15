@@ -291,6 +291,50 @@ def test_a_secret_local_in_a_loop_is_counted_once_not_once_per_line(tmp_path):
     assert trace.meta["redaction"]["values"] == _withheld_by_the_trace(trace)
 
 
+def test_a_secret_field_is_taken_and_a_taken_object_drops_its_fields(tmp_path):
+    """A default repr names no field, so the secret lives only in `fields`.
+
+    `show`'s argument is not a firing name, and the field `api_key` is.
+    `hide`'s argument IS a firing name, so the whole object is taken and
+    the field must not remain beside the marker.
+    """
+    secret = "hunter2-value"
+    source = (
+        "class Cfg:\n"
+        "    def __init__(self, api_key, label):\n"
+        "        self.api_key = api_key\n"
+        "        self.label = label\n"
+        "\n"
+        "def show(cfg):\n"
+        "    return cfg.label\n"
+        "\n"
+        "def hide(api_key):\n"
+        "    return api_key.label\n"
+        "\n"
+        f"show(Cfg({secret!r}, 'plain'))\n"
+        f"hide(Cfg({secret!r}, 'plain'))\n")
+    trace, _, _ = _record(tmp_path, source, None, extra=())
+    codes = _codes(trace)
+    show = trace.events(kind="CALL", code_id=codes["show"])
+    assert len(show) == 1
+    cfg = show[0].payload["args"]["cfg"]
+    assert cfg["fields"]["label"] == {"k": "str", "v": "plain"}
+    assert cfg["fields"]["api_key"]["v"] == redact.REDACTED
+    assert cfg["fields"]["api_key"]["redacted"]["by"] == "name"
+    assert "redacted" not in cfg
+
+    hide = trace.events(kind="CALL", code_id=codes["hide"])
+    assert len(hide) == 1
+    taken = hide[0].payload["args"]["api_key"]
+    assert taken["redacted"]["by"] == "name"
+    assert taken["repr"] == redact.REDACTED
+    assert "fields" not in taken
+
+    for e in trace.events():
+        assert secret not in json.dumps(e.payload or {})
+    assert trace.meta["redaction"]["values"] == _withheld_by_the_trace(trace)
+
+
 def test_a_repr_that_prints_is_counted_though_its_local_never_changes(
         tmp_path):
     """R10's case: `values` is a function of what the trace HOLDS.

@@ -55,7 +55,7 @@ questions:
       RUST_BACKTRACE never fires here.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["run()", '-> Err("work 7 failed")']
-      - ["cleanup()", '-> Err("cleanup scratch.tmp failed")']
-      - ["work()", '-> Err("work 7 failed")']
+      - ["run(n=7)", '-> Err("work 7 failed")']
+      - ["cleanup(path=\"scratch.tmp\")", '-> Err("cleanup scratch.tmp failed")']
+      - ["work(n=7)", '-> Err("work 7 failed")']
     expect_count: {'-> Err("work 7 failed")': 2}

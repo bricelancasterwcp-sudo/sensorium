@@ -172,10 +172,11 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    *Declared by* `capabilities.line` and `capabilities.locals`, which are
    `true` for `lang = rust` **only under a `--focus`**; by `meta.focus` (the
    invocation's own list) and `meta.focus_matched` (what this build matched),
-   both printed by `info`; by the `"unread": ["locals"]` marker every CALL
-   payload carries, which `tree` renders as `name() <unread: locals>` and
-   `frame` as `args: <unread: locals>` (never `(none)`, which would read as
-   "called with no arguments") and which a LINE row carries too when a delta
+   both printed by `info`; by the `"unread": ["locals"]` marker a CALL carries
+   when its arguments were not read (an empty payload, or a dropped tail;
+   `tree` renders `name() <unread: locals>` and `frame` `args: <unread:
+   locals>`, never `(none)`, which would read as "called with no arguments")
+   and which a LINE row carries too when a delta
    was dropped; by the driver's exit-2 refusals, which name a `--focus` value
    that matches nothing (`REFUSED: --focus <v> matches no function in the
    workspace; nothing was built.` with up to three `Closest:` suggestions) or

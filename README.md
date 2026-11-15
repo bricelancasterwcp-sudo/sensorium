@@ -121,6 +121,7 @@ record](#install-and-record), under Rust.
     sensorium frame last --fn compute             # one activation, in full
     sensorium grep last compute --kind RETURN     # every event that mentions it
     sensorium exceptions last                     # what blew up, what got caught
+    sensorium failures last                       # failed tests, and the frame they failed in
     sensorium flow last --value 1800              # where did that number come from
     sensorium flow last --object build_key:record # what happened to that object
     sensorium diff RUN_A RUN_B                    # where two runs part
@@ -510,10 +511,10 @@ and a workload, not a pass/fail property of the tool.
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
 crates the same way `sensorium run` records a Python program: one sensorium
 trace per process, trace format 4, read by the same `sensorium` command line.
-`rust/` ships `sensorium-rt 0.7.0` (zero dependencies, the runtime linked into
+`rust/` ships `sensorium-rt 0.7.1` (zero dependencies, the runtime linked into
 every instrumented unit, and the owner of the one sha256 the other two hash
-with), `sensorium-transform 0.5.0` (the `syn` rewriter), and `cargo-sensorium
-0.8.2` (driver, workspace wrapper, target runner, converter, one binary, four
+with), `sensorium-transform 0.5.1` (the `syn` rewriter), and `cargo-sensorium
+0.8.3` (driver, workspace wrapper, target runner, converter, one binary, four
 roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
 with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
 [`rust/README.md`](rust/README.md) is the full build/install/record reference.
@@ -683,7 +684,7 @@ states one as a translation of the other. The driver's own fixed cost is
 `sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite the
 way `cargo sensorium test` records a Rust workspace: one trace per test-file
 process, trace format 4, read by the same `sensorium` command line. `typescript/`
-ships **`sensorium-ts 0.6.0`** (a transform whose edits never contain a newline,
+ships **`sensorium-ts 0.6.1`** (a transform whose edits never contain a newline,
 a runtime on `AsyncLocalStorage`, a vitest plugin, a `node --test` hook) with
 driver and converter in Python, so reading a trace needs no Node. What it sees and
 does not is [`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot
@@ -729,8 +730,8 @@ transform splices a probe into, **one LINE event per completed statement**,
 its `deltas` the bindings that statement wrote, a guarded body's head names as
 a synthetic first row at each entry, and the block-scoped names a block-like
 statement declared listed `unbound` on its own row, which is the key `watch`'s
-fold pops. The focused function's CALL carries its **arguments**; an unfocused
-one in the same recording still reads `helper() <unread: locals>`. So `watch`
+fold pops. Every function's CALL carries its **arguments** (bounded; an empty
+list was read and held nothing). `--focus` is still what records LINE rows. So `watch`
 and `flow --value` answer on a focused run and refuse at exit 3 on an unfocused
 one, naming the recorder the trace itself carries; `frame` answers either way,
 saying `timeline: not captured (record again with …)` at exit 0.

@@ -33,7 +33,7 @@ questions:
     # and writes the two keys that say so. The rows this case asks about are
     # untouched by that; only the recorder's name in the sentence moved.
     expect_contains:
-      - "REFUSED: watch needs line, which recorder sensorium-ts 0.6.0
+      - "REFUSED: watch needs line, which recorder sensorium-ts 0.6.1
          declares it does not produce (capabilities.line: false); nothing
          was checked"
   - id: is-the-fault-reachable-another-way
@@ -57,7 +57,7 @@ questions:
       what they computed.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["refresh() <unread: locals> -> 100"]
-      - ["compute() <unread: locals> -> 200"]
-      - ["lookup() <unread: locals> -> 100"]
+      - ["refresh(slot='rate') -> 100"]
+      - ["compute(slot='rate') -> 200"]
+      - ["lookup(slot='rate') -> 100"]
     expect_count: {"-> 100": 2}

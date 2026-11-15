@@ -424,13 +424,14 @@ function captures(pairs) {
  * task's stack is empty — a timer callback — opens a parentless frame, and the
  * converter writes `caller: "untraced"` for it.
  *
- * `args` is passed only from a FOCUSED site, and only then does the record
- * carry an `a`. A focused function that takes no parameters writes an empty
- * map: "no arguments" and "the arguments were not read" are two different
- * facts, and the absent key is the second of them.
+ * `args`, when passed, is the `[name, value, …]` list the transform writes
+ * at every site. An empty list is a read that found no parameters. Omitting
+ * the argument leaves `a` off the record: a spool written before arguments
+ * were read, or a caller that did not pass them. The absent key is "not
+ * read", and an empty map is not that fact.
  * @param {number} fileId
  * @param {number} c index into the file's `codes`
- * @param {unknown[]} [args] `[name, value, …]`, from a focused site only
+ * @param {unknown[]} [args] `[name, value, …]`; omit it to record nothing
  * @returns {Frame|null}
  */
 export function call(fileId, c, args) {

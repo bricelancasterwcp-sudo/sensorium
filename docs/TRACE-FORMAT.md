@@ -515,7 +515,7 @@ it was handed.
 
 | Kind | Keys |
 |---|---|
-| `CALL` | `args`, `{name: value}`, values in the shape below. Optional: `unread: ["locals"]` when the frame's locals could not be read. **Every view that renders a call must carry that marker**: `grep`, `tree` (`name() <unread: locals>`) and `frame` (`args: <unread: locals>`). `(none)` there reads as "called with no arguments", a claim about the program the trace never made; a Rust trace is entirely locals-free, so every one of its CALLs carries it (vector `v12-call-unread-marker-in-tree-and-frame`); `caller_code` (code id) / `caller: "untraced"` naming a caller that had no open frame. **For `lang = typescript`, a CALL carries `args` only where the callee is under a `--focus`** (design 2026-09-11 §3.3): an unfocused call carries the `unread: ["locals"]` marker instead, so the two shapes are the recorder's own statement about which of them this recording holds. Two further keys, `parent_frame` and `unframed`, belong to formats ≤ 2, where coroutine and generator bodies opened no frame; from format 3 every traced body is framed and no recorder writes them, but the readers still render them for the older files. |
+| `CALL` | `args`, `{name: value}`, values in the shape below. Optional: `unread: ["locals"]` when the frame's locals could not be read. **Every view that renders a call must carry that marker**: `grep`, `tree` (`name() <unread: locals>`) and `frame` (`args: <unread: locals>`). `(none)` beside that marker reads as "called with no arguments", a claim the trace did not make. An empty `args` with no `unread` key is that claim, and the recorder made it: the list was read and nothing was there. `unread: ["locals"]` means the arguments were not read (an older trace, an empty Rust CALL payload from `enter` or from before `sensorium-rt` 0.7.1, a TypeScript CALL that omitted `a`, a capture that could not be read, or a payload whose tail was dropped, in which case the arguments that fit are kept beside the marker). Vector `v12-call-unread-marker-in-tree-and-frame` pins the unread shape. `caller_code` (code id) / `caller: "untraced"` naming a caller that had no open frame. **For `lang = typescript` and `lang = rust`, a CALL carries `args` by default** (bounded `util.inspect` or `Debug` text, the same 200-byte cap as a return). `--focus` is the LINE tier and does not decide whether arguments were read. Two further keys, `parent_frame` and `unframed`, belong to formats ≤ 2, where coroutine and generator bodies opened no frame; from format 3 every traced body is framed and no recorder writes them, but the readers still render them for the older files. |
 | `RETURN` | Optional `value`, one value, **absent** where nothing was captured (never a null tag standing in for one). Optional `outcome`. `"none"` (the site was never probed), `"ok"`, `"err"`, `"panic"`: what the frame ended WITH, which `err` distinguishes from `ok` without the reader having to parse the value. A frame that panicked carries `outcome: "panic"` and no `value`. An `outcome: "err"` RETURN carries **no error-type key of its own**: the Rust wire hands the converter the `E` type at that exit, and the converter spends it on the synthesised origin RAISE described below (`exc.type` there), which is where a reader looks for it. Vector: `v08-return-outcome-dbg-value`. |
 | `RAISE`, `HANDLED` | `exc`, `{type, msg, serial}`, plus `oid` in Python and a `kind` on every Rust `exc` (below). Optional `loc`, and **where it sits differs by what raised**: on a Rust err-flow event it is INSIDE `exc`, `"<file>:<line>"` of the SITE, and it is inside `unwind_exc` too; on a Rust panic RAISE it is a payload-level SIBLING of `exc`, `"<file>:<line>:<col>"` where the panic fired. Either way it is not necessarily the frame's own line, and `frame` prints it after the exception. **`type` and `msg` are required**: `query/fmt.fmt_exc` indexes them (`e['type']`, `e['msg']`), and the one way to omit `msg` is to say so, `unread: ["msg"]` inside the `exc` object. What that renders as is keyed on `exc.kind`, because the two recorders leave a message unread for different reasons: an `exc` with no `kind` is Python's and renders `<message unreadable: __str__ raised>`; a Rust `exc` renders `<value not read: the arm binds no name>`, since the ONE Rust site that leaves `msg` unread is an `Err(_) =>` arm binding no name (a panic always carries text, even where that text says the panic was not recorded) and "`__str__` raised" would be a false explanation of it. `serial` is a per-thread exception identity, used to tell "the same exception, still travelling" from a new one. A Rust ERR-FLOW event adds `how` and `chain` beside `exc`; **a Rust panic RAISE carries neither** (no `how`, no `chain`) because a panic is not a chain the err-flow machine minted. See below. Vector: `v16-raise-handled-chain-serial-kind`. |
 | `LINE` | `deltas` (`{name: value}` for the locals that changed; optional `unbound`) names that went out of scope this step; optional `unread: ["locals"]`. **For `lang = rust`, `deltas` are the bindings the statement WROTE** (design 2026-09-06 §3.2), not every local in scope, one row per completed statement of a focused function, with the parameters as the first row and an arm or loop pattern's bindings as a synthetic row at each entry; a statement that wrote nothing carries empty `deltas`, which says the line ran and nothing more. The values are `dbg` captures, read under that design's §4.2 and amendment A11: Debug TEXT, which `watch --expr` and `flow --value` parse back into a literal, so `x == 5` compared text and a truncated capture never matches. `unread: ["locals"]` on a Rust LINE row means a delta was dropped for payload size, not that the frame's locals were unreadable. And, from `sensorium-rt 0.5.0` with `cargo-sensorium 0.6.0` to read it (design 2026-09-12 §5.4), `unbound` on a block-like statement's own row (the names its inner blocks and its own head pattern bound, in source order) the same rule as TypeScript's; a shadowed outer name is popped too and reads `not in scope` until its next write (§5.5), which is absence and never a stale value. Vector: `v40-rust-line-unbound`. **For `lang = typescript`** the rows are the same grain (one per completed statement of a focused function, `deltas` the bindings it wrote) and three of the rules differ: there is no parameters row (the arguments are on the CALL), `unbound` sits on a block-like statement's own row, and the capture text is node's `util.inspect` dialect rather than Rust's `Debug`, and a RETURN row follows the rows of any `finally` the return passed through, which is Python's order; [`trace-format/TYPESCRIPT-KEYS.md`](trace-format/TYPESCRIPT-KEYS.md) § *Under a focus* is the reading. |
@@ -525,13 +525,24 @@ it was handed.
 A captured **value** is a tagged object read by `query/fmt.fmt_value`:
 `{"k": "none"}`, `{"k": "num"|"bool", "v": …}`, `{"k": "str", "v": …,
 "trunc": bool}`, `{"k": "seq"|"map", "type": …, "len": n|null, "sample":
-[…], "trunc": bool}`, `{"k": "obj", "type": …, "oid": n}`,
+[…], "trunc": bool}`, `{"k": "obj", "type": …, "oid": n}` with optional
+`repr`, `trunc`, `fields` and `fields_trunc` (below),
 `{"k": "dbg", "v": "<text>", "trunc": bool}`, or
 `{"k": "unread"}` (with `type` and `oid` where the recorder has them).
 `len: null` prints `?`; an `unread` list names the reads the observed object
 refused. A payload key a recorder cannot fill is **omitted**, never filled
 with a zero or an empty string. A capture may carry an optional **`redacted`**
 object, `{by, digest}`: rule v1's two operations, in [`redaction.md`](redaction.md).
+
+An **`obj`** may also carry `repr` (clipped to the `repr` cap; `trunc` when
+clipped) and, when that repr is `object.__repr__`, `fields`: up to eight
+`__dict__` keys in insertion order then `__slots__` names, each a
+60-character clip with no nested summary (`fields_trunc` when more names
+existed). `fmt_value` prints a custom repr as `Type#oid <repr>` and fields
+as `Type#oid {name: value, ...}`, not the default `<Name object at 0x...>`
+text. `grep` searches that line; `flow --value` matches a non-truncated
+`repr` exactly and walks `fields`. A name-taken object keeps `type` and
+`oid` only ([`redaction.md`](redaction.md)).
 
 Two of those tags are what a recorder that does not decompose values writes,
 and both render as themselves rather than as `?`:
@@ -775,25 +786,13 @@ with `kind` one of `CALL`, `RETURN`, `RAISE`, `HANDLED`. `n_events` is the
 number of updates. Values, timing and `LINE` events are excluded by
 construction, so capture depth can never alter a fingerprint.
 
-Two things a converter must know about `file` here:
-
-- **The Python recorder hashes a ROOT-RELATIVE file** (`prog.py`), while
-  `code_objects.file` holds the absolute path. The two are deliberately
-  different strings, and a hash computed over one basis cannot be looked up
-  against the other.
-- **`diff --ignore-moves` re-hashes both sides at query time over
-  `code_objects.file`** (`query/moves.hash_stream`), never one side from the
-  stored row and the other from a fresh computation. That is why the flag can
-  pair a function that moved between files: the pairing is applied to the
-  stream, and the stream is hashed again with the same function the recorder
-  uses.
-
-Under `fingerprint_basis = "per-task"` a thread's row covers the causal
-events that ran in **no** unit of work, and each unit owns a row of its own.
-Under `"per-thread"` (every trace recorded before the marker) a thread's row
-covers every causal event on the thread, task events included. The two are
-not comparable, and `diff` refuses to compare traces recorded under
-different bases when either ran a task. Format 5 adds `"per-generation"` (MODEL-TRACES §6); `diff` never compares that basis with either program basis (exit 2, not 3).
+The Python recorder hashes a **root-relative** file (`prog.py`) while
+`code_objects.file` is absolute. `diff --ignore-moves` re-hashes both sides
+over `code_objects.file` (`query/moves.hash_stream`), so a moved function
+still pairs. `"per-task"` covers events in no unit of work (each unit has
+its own row); `"per-thread"` covers every causal event on the thread.
+`diff` refuses to compare those bases when either side ran a task. Format
+5's `"per-generation"` is never compared with either (exit 2; MODEL-TRACES §6).
 
 ## 8. Conformance vectors
 

@@ -50,7 +50,7 @@ questions:
       it was produced. RUST_BACKTRACE has nothing to print: nothing panicked.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["cleanup()", "-> ()"]
-      - ["finish()", '-> "clean"']
+      - ["cleanup(path=\"scratch/never-created.tmp\")", "-> ()"]
+      - ["finish(path=\"scratch/never-created.tmp\")", '-> "clean"']
       - ["main()", "-> ()"]
     expect_absent: ["NotFound", "Err(", "closed: unwind"]

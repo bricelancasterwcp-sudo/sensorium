@@ -25,7 +25,24 @@ def test_fmt_containers_and_objects():
     v["trunc"] = True
     assert fmt.fmt_value(v).endswith(", ...]")
     o = {"k": "obj", "type": "Grid", "oid": 99, "repr": "<Grid>"}
-    assert fmt.fmt_value(o) == "Grid#99"
+    assert fmt.fmt_value(o) == "Grid#99 <Grid>"
+
+
+def test_fmt_value_shows_a_field_summary_and_hides_a_default_address():
+    """A custom repr is the text. A default `<Name object at 0x...>` is not:
+    the address changes every run. Fields, when the capture has them, are
+    the summary a reader gets instead."""
+    fields = {"k": "obj", "type": "Item", "oid": 7,
+              "repr": "<Item object at 0xabc>",
+              "fields": {"sku": {"k": "str", "v": "widget"},
+                         "qty": {"k": "num", "v": 2}}}
+    assert fmt.fmt_value(fields) == "Item#7 {sku: 'widget', qty: 2}"
+    bare = {"k": "obj", "type": "Item", "oid": 7,
+            "repr": "<Item object at 0xabc>"}
+    assert fmt.fmt_value(bare) == "Item#7"
+    clipped = {"k": "obj", "type": "Grid", "oid": 1, "repr": "Grid(n=",
+               "trunc": True}
+    assert fmt.fmt_value(clipped) == "Grid#1 <Grid(n=>~"
 
 
 def test_fmt_value_names_the_reads_a_hostile_object_refused():

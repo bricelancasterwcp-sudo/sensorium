@@ -51,8 +51,8 @@ questions:
     command: ["tree", "$RUN"]
     expect_contains: ["no test"]
     expect_count:
-      "reset() <unread: locals> -> 0": 3
-      "square() <unread: locals>": 3
+      "reset() -> 0": 3
+      "square(n=": 3
     expect_line:
       - ["task", ": squares 2"]
       - ["task", ": squares 3"]

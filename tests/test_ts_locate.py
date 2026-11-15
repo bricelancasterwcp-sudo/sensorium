@@ -8,6 +8,7 @@ empty value is not a location.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import venv
 from pathlib import Path
@@ -79,7 +80,13 @@ else:
 assert "npm ci" in text, text
 assert str(loc) in text, text
 """
-    proc = subprocess.run([str(py), "-c", script], cwd=tmp_path, capture_output=True, text=True)
+    # A parent PYTHONPATH that points at a checkout would make this venv
+    # import that tree instead of the wheel it just installed.
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    proc = subprocess.run(
+        [str(py), "-c", script], cwd=tmp_path, capture_output=True, text=True, env=env,
+    )
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 

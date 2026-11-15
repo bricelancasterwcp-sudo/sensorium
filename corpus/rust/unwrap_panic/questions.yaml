@@ -55,7 +55,7 @@ questions:
       reporting code runs.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["charge()", "!! panic('called `Result::unwrap()` on an `Err` value: Refused(7)')"]
+      - ["charge(account=7)", "!! panic('called `Result::unwrap()` on an `Err` value: Refused(7)')"]
       - ["main()", "!! panic('called `Result::unwrap()` on an `Err` value: Refused(7)')"]
-      - ["quota()", "-> Err(Refused(7))"]
+      - ["quota(account=7)", "-> Err(Refused(7))"]
     expect_count: {"!! panic(": 2}

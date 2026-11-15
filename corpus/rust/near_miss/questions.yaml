@@ -20,11 +20,11 @@ questions:
       is the edit you make only after suspecting fill; RUST_BACKTRACE prints
       frames only at a panic, and this run never panics.
     command: ["tree", "$RUN"]
-    expect_count: {"fill()": 5}
+    expect_count: {"fill(": 5}
     expect_line:
-      - ["fill()", "-> 99"]
-      - ["fill()", "-> 40"]
-      - ["drain()", "-> 0"]
+      - ["fill(", "-> 99"]
+      - ["fill(", "-> 40"]
+      - ["drain(", "-> 0"]
     expect_absent: ["alert"]
   - id: is-the-answer-built-on-anything
     ask: >

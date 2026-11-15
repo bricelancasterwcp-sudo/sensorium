@@ -11,7 +11,7 @@
 //! rather than a row invented: the frame's RETURN is what says the whole
 //! scope ended.
 @W
-pub fn plain(v: &[i32]) -> usize {@G(7)@N(8,v)
+pub fn plain(v: &[i32]) -> usize {@G(7,v)@N(8,v)
     let mut acc = v.len();@N(9,acc)
     {
         acc += 1;@N(10,acc)
@@ -19,7 +19,7 @@ pub fn plain(v: &[i32]) -> usize {@G(7)@N(8,v)
     @R(7)acc@E
 }
 
-pub fn tailing(v: &[i32]) -> usize {@G(12)@N(13,v)
+pub fn tailing(v: &[i32]) -> usize {@G(12,v)@N(13,v)
     @R(12)match v.first() {
         Some(n) => { @N(14,n) *n as usize },
         None => 0,

@@ -265,11 +265,11 @@ class Builder:
     def _on_call(self, rec: dict) -> None:
         code_id, rel, qualname, line, kind = self._code(rec)
         if "a" in rec:
-            # A focused site read its own arguments, so the trace HOLDS
-            # them and the unread marker would be a lie about a read that
-            # happened. An `a` that is an empty map is still a read --
-            # `catchBinding()` takes nothing, and "read, found none" is a
-            # different fact from "nobody looked" (the marker's whole job).
+            # The transform passes `a` at every site. A present key, even
+            # an empty map, is a read: `catchBinding()` takes nothing, and
+            # "read, found none" is a different fact from "nobody looked".
+            # A record with no `a` is that second fact (a spool from before
+            # arguments were read, or a caller that omitted the list).
             args = self._values(rec["a"])
             payload = {"args": args}
             for v in args.values():

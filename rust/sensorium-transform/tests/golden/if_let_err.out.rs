@@ -5,7 +5,7 @@ fn one() -> Result<u8, String> {@G(7)
     @R(7)Ok(1)@E
 }
 
-fn note(_e: &String) {@G(8)}
+fn note(_e: &String) {@G(8,_e)}
 
 /// A bound pattern, HANDLED: the name is only borrowed.
 pub fn bound() {@G(9)

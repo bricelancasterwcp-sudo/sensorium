@@ -269,6 +269,8 @@ test('with no focus the hook declares none, records no statement and counts none
   const boot = out.recs.find((r) => r.e === 'BOOT');
   assert.equal(Object.hasOwn(boot.capabilities, 'line'), false);
   assert.deepEqual(out.recs.filter((r) => r.e === 'LINE'), []);
-  assert.equal(out.recs.filter((r) => r.e === 'CALL').every((r) => !Object.hasOwn(r, 'a')), true);
+  const calls = out.recs.filter((r) => r.e === 'CALL');
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].a, { a: { k: 'dbg', v: '1', trunc: false } });
   assert.deepEqual(out.tally, { files_transformed: 2, functions_focused: 0, excluded: {} });
 });

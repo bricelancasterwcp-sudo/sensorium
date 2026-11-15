@@ -29,7 +29,7 @@ pub fn nested_try() -> Result<u8, String> {@G(13)
 
 /// A `?` inside a `return` operand: the exit wrap and the err wrap meet there
 /// exactly as they do on a tail.
-pub fn returned(c: bool) -> Result<u8, String> {@G(16)
+pub fn returned(c: bool) -> Result<u8, String> {@G(16,c)
     if c {
         return @R(16)Ok(@T(17)one()@TE?)@E;
     }

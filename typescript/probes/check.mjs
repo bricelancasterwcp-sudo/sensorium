@@ -562,11 +562,15 @@ function checkFocus(k, s, manifestDir) {
   k.check('focus:agree', selected.length > 0 === declared, { focused: selected, line: declared });
   if (!declared) {
     // Driven with no `--focus`: nothing was instrumented for statements, and
-    // the absence is the assertion.
+    // the absence is the assertion. Arguments are the call tier, so every
+    // CALL still carries `a` (an empty map when the function has no
+    // parameters). `--focus` decides the LINE rows, not the argument map.
     k.check('focus:mode', true, 'unfocused');
     k.check('focus:unfocused:no_lines', lines.length === 0, lines.length);
-    const carrying = calls.filter((r) => Object.hasOwn(r, 'a')).length;
-    k.check('focus:unfocused:no_args', carrying === 0, carrying);
+    const missing = calls
+      .filter((r) => !Object.hasOwn(r, 'a'))
+      .map((r) => s.frames.get(r.f)?.name ?? '<unknown>');
+    k.check('focus:unfocused:args', missing.length === 0, missing);
     return;
   }
   k.check('focus:mode', true, 'focused');
@@ -592,10 +596,11 @@ function checkFocus(k, s, manifestDir) {
     k.equal(`focus:${key}`, got.get(key) ?? [], marked.get(key) ?? []);
   }
 
-  // The CALL's own map (spec §3.3): read at entry, and written for a focused
-  // site only -- the test callbacks in the same file are frames too, and
-  // theirs must stay absent.
-  const focusedNames = new Set(selected.map((q) => last(q)));
+  // The CALL's argument map is read at entry on every site. The marker
+  // below names one focused call's values. A test callback in this file is
+  // a frame too, and it carries `a` the same way (empty when it has no
+  // parameters). `--focus` adds the LINE rows above; it does not decide
+  // whether `a` is present.
   const argsMark = markers(source, 'ARGS');
   k.check('focus:args:marked', argsMark.length === 1, argsMark.length);
   for (const m of argsMark) {
@@ -609,10 +614,10 @@ function checkFocus(k, s, manifestDir) {
     k.equal(`focus:args`, spelled,
       Object.fromEntries(pairs.map((p) => [p.slice(0, p.indexOf('=')), p.slice(p.indexOf('=') + 1)])));
   }
-  const wrong = calls
-    .map((r) => ({ name: s.frames.get(r.f)?.name ?? '<unknown>', a: Object.hasOwn(r, 'a') }))
-    .filter((c) => c.a !== focusedNames.has(c.name));
-  k.equal('focus:args:by_site', wrong, []);
+  const missingArgs = calls
+    .filter((r) => !Object.hasOwn(r, 'a'))
+    .map((r) => s.frames.get(r.f)?.name ?? '<unknown>');
+  k.equal('focus:args:every_call', missingArgs, []);
 }
 
 // --- the runs --------------------------------------------------------------

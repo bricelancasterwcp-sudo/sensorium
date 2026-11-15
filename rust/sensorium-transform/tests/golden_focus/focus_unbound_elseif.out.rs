@@ -9,7 +9,7 @@
 //! each once. Under the withdrawn reading the row said `p` alone and `q`, `r`
 //! and `s` were bound by rows that nothing ever balanced.
 @W
-pub fn chained(c: bool, o: Option<i32>) -> i32 {@G(7)@N(8,c,o)
+pub fn chained(c: bool, o: Option<i32>) -> i32 {@G(7,c,o)@N(8,c,o)
     let mut acc = 0;@N(9,acc)
     if c {
         let p = 1;@N(10,p)

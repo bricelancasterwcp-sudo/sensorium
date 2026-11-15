@@ -358,7 +358,7 @@ class Server:
                 "_meta": {META_SERVER: self._info()}}
 
     def _listing(self, structured: bool, modern: bool) -> dict:
-        """`cursor` is ignored: eleven tools is one page."""
+        """`cursor` is ignored: the tool list is one page."""
         listed = {"tools": [tools.to_wire(tool, structured)
                             for tool in self.table.values()]}
         if not modern:

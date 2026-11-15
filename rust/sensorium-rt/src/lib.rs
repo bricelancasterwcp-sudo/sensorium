@@ -11,8 +11,13 @@
 //! The transformer injects, as the first statement of every eligible fn body:
 //!
 //! ```ignore
-//! let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, <site>);
+//! let _sens_guard = ::sensorium_rt::enter_args(&crate::__SENSORIUM_UNIT, <site>, || [
+//!     ("x", ::sensorium_rt::probe_cap!(&x)),
+//! ]);
 //! ```
+//!
+//! `enter` (no arguments) remains for a hand-written site. Its CALL payload is
+//! empty, which a reader treats as "the arguments were not read".
 //!
 //! wraps every exit operand of a value-returning fn (the tail expression, and
 //! each `return <e>` at closure depth 0) as:
@@ -481,7 +486,90 @@ fn enter_recording(unit: &'static Unit, site: u32) -> Guard {
         "site index {site} does not fit the wire format's 24 bits and would alias"
     );
     let packed = pack_site(id, site);
-    if !thread::emit(dir, packed, KIND_CALL, OUTCOME_NONE, &[]) {
+    emit_call(dir, packed, &[])
+}
+
+/// Record a CALL that carries its arguments, and return the guard whose drop
+/// records the RETURN.
+///
+/// `args` is the closure the transformer writes, `|| [("x", probe_cap!(&x))]`
+/// or `|| []` for a function with no parameters. It is called only when this
+/// thread is about to write the record: at tier `off`, and on every path that
+/// returns an inert guard before that, the closure does not run, so no
+/// `Debug` impl runs either.
+///
+/// The payload is the LINE record's shape (flags, count, name/value blocks)
+/// with no unbound names. An empty list is three header bytes and `n = 0`:
+/// the arguments were read and there were none. A list that does not fit
+/// keeps the prefix and sets the short-record flag.
+///
+/// Inert under the same conditions as [`enter`].
+#[inline]
+pub fn enter_args<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    args: impl FnOnce() -> [(&'static str, probe::Capture); N],
+) -> Guard {
+    match STATE.load(Ordering::Acquire) {
+        STATE_OFF => Guard::inert(),
+        STATE_CALL => enter_args_recording(unit, site, args),
+        other => enter_args_cold(unit, site, args, other),
+    }
+}
+
+#[cold]
+fn enter_args_cold<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    args: impl FnOnce() -> [(&'static str, probe::Capture); N],
+    state: u8,
+) -> Guard {
+    if state != STATE_UNINIT {
+        return Guard::inert();
+    }
+    init();
+    if STATE.load(Ordering::Acquire) == STATE_CALL {
+        enter_args_recording(unit, site, args)
+    } else {
+        Guard::inert()
+    }
+}
+
+#[inline(never)]
+fn enter_args_recording<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    args: impl FnOnce() -> [(&'static str, probe::Capture); N],
+) -> Guard {
+    // The closure stays uncalled until the CALL is actually about to be
+    // written. Reentrancy, a missing spool and a failed unit are inert, and
+    // formatting an argument on any of those paths would be work the record
+    // does not keep.
+    let Some(_scope) = thread::try_enter_runtime() else {
+        return Guard::inert();
+    };
+    panic::install();
+    let Some(dir) = ensure_dir() else {
+        return Guard::inert();
+    };
+    let Some(id) = unit_id(unit, dir) else {
+        return Guard::inert();
+    };
+    debug_assert!(
+        site <= SITE_INDEX_MASK,
+        "site index {site} does not fit the wire format's 24 bits and would alias"
+    );
+    let captured = args();
+    let mut buf = [0u8; line::LINE_PAYLOAD_MAX];
+    let (len, _dropped) =
+        line::write_line_payload(&mut buf, &captured, &[], redact::key(), redact::knobs());
+    emit_call(dir, pack_site(id, site), &buf[..len as usize])
+}
+
+/// Write the CALL and open the frame. `payload` is empty for [`enter`] and
+/// the argument block for [`enter_args`].
+fn emit_call(dir: &Path, packed: u32, payload: &[u8]) -> Guard {
+    if !thread::emit(dir, packed, KIND_CALL, OUTCOME_NONE, payload) {
         return Guard::inert();
     }
     // Only now, with the CALL on the wire: an inert guard must not consume a

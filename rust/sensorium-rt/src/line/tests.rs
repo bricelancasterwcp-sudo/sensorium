@@ -742,3 +742,49 @@ fn line_is_inert_while_the_runtime_is_already_running() {
     assert_eq!(rec.records_at(14).len(), 0);
     assert_eq!(probes.get(), 0, "an inert line() calls no probe");
 }
+
+/// Arguments ride the CALL. The closure runs once when the record is
+/// written and not at all at tier `off`. An empty list is a read.
+#[test]
+fn enter_args_writes_the_call_payload_and_formats_nothing_when_off() {
+    let rec = Recording::start();
+    let probes = Cell::new(0u32);
+    {
+        let _guard = crate::enter_args(rec.unit, 40, || {
+            probes.set(probes.get() + 1);
+            [("n", crate::probe_cap!(&5u8))]
+        });
+    }
+    {
+        let _guard = crate::enter_args(rec.unit, 42, || []);
+    }
+    assert_eq!(
+        probes.get(),
+        1,
+        "the probe ran once, for the record written"
+    );
+    let call = rec
+        .records_at(40)
+        .into_iter()
+        .find(|(kind, _)| *kind == 1)
+        .expect("a CALL");
+    let (flags, parsed) = parse(&call.1);
+    assert_eq!(flags, 0);
+    assert_eq!(parsed.len(), 1);
+    assert_eq!(parsed[0].name, "n");
+    assert_eq!(parsed[0].text.as_deref(), Some("5"));
+    let empty = rec
+        .records_at(42)
+        .into_iter()
+        .find(|(kind, _)| *kind == 1)
+        .expect("a CALL");
+    assert_eq!(empty.1, vec![0, 0, 0], "n = 0 is a read that found nothing");
+
+    STATE.store(STATE_OFF, Ordering::Release);
+    let _guard = crate::enter_args(rec.unit, 41, || {
+        probes.set(probes.get() + 1);
+        [("n", crate::probe_cap!(&5u8))]
+    });
+    assert_eq!(probes.get(), 1, "tier off does not call the closure");
+    assert!(rec.records_at(41).is_empty(), "tier off writes no CALL");
+}

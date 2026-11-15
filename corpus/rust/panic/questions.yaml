@@ -20,11 +20,11 @@ questions:
       the value the frame above them returned; `dbg!` in the Err arm is the
       edit you make only once you already suspect that arm.
     command: ["tree", "$RUN"]
-    expect_count: {"attempt()": 2}
+    expect_count: {"attempt(n=": 2}
     expect_line:
-      - ["attempt()", "-> Ok(20)"]
-      - ["attempt()", "-> Ok(0)"]
-      - ["risky()", "!! panic('quota divisor was zero')"]
+      - ["attempt(n=", "-> Ok(20)"]
+      - ["attempt(n=", "-> Ok(0)"]
+      - ["risky(n=0)", "!! panic('quota divisor was zero')"]
   - id: which-frame-turned-the-panic-into-an-ok
     ask: >
       Which frame converted the failure into a success, and what exactly did
@@ -45,7 +45,7 @@ questions:
     expect_line:
       - ["main.rs:attempt", "closed: return"]
       - ["return:", "Ok(0)"]
-      - ["risky()", "!! panic('quota divisor was zero')"]
+      - ["risky(n=0)", "!! panic('quota divisor was zero')"]
   - id: where-did-the-panic-actually-happen
     ask: Where did the panic happen, and did that frame return anything?
     truth: >

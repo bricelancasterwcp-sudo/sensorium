@@ -215,6 +215,12 @@ def _taken(capture: dict, kind: str) -> dict:
     elif kind in _MARKER_FIELD:
         out = dict(capture)
         out.pop("trunc", None)          # nothing was clipped: it was taken
+        if kind == "obj":
+            # The repr is the text the digest covers. Fields are more of
+            # the same value: a name hit takes the object, so a secret that
+            # lived only in a field must not survive beside the marker.
+            out.pop("fields", None)
+            out.pop("fields_trunc", None)
         out[_MARKER_FIELD[kind]] = redact.REDACTED
         if kind == "dbg":
             # Always present on a `dbg` capture, so it is written FALSE
@@ -246,6 +252,8 @@ def value(capture: dict) -> dict:
     if _state.knobs.off or "redacted" in capture:
         return capture
     kind = capture.get("k")
+    if kind == "obj":
+        return _object(capture)
     field = _SCAN_FIELD.get(kind)
     if field is not None:
         return _scanned(capture, field)
@@ -258,6 +266,38 @@ def value(capture: dict) -> dict:
     # rule replaces a span it FOUND, and it found nothing; the name rule was
     # told the whole value is a secret.
     return capture
+
+
+def _object(capture: dict) -> dict:
+    """An object's repr, then each field under that field's own name.
+
+    A field is a value held under a name, the same way a map entry is: a
+    field called `api_key` is taken whole, and every other field is offered
+    to the content rule. The object's own repr is still scanned. A name hit
+    on the object itself never reaches here (`named` takes it first and
+    drops `fields`).
+    """
+    scanned = _scanned(capture, "repr")
+    fields = scanned.get("fields")
+    if not isinstance(fields, dict):
+        return scanned
+    after = {}
+    changed = False
+    for name, child in fields.items():
+        if isinstance(name, str) and isinstance(child, dict):
+            new = named(name, child)
+        elif isinstance(child, dict):
+            new = value(child)
+        else:
+            new = child
+        after[name] = new
+        if new is not child:
+            changed = True
+    if not changed:
+        return scanned
+    out = dict(scanned)
+    out["fields"] = after
+    return out
 
 
 def _scanned(capture: dict, field: str) -> dict:
@@ -350,23 +390,28 @@ def text(chunk: str) -> tuple[str, bool]:
 
 def count_capture(capture) -> int:
     """How many values one capture withholds: itself if it carries a
-    `redacted` object, else however many its sample's captures do.
+    `redacted` object, plus however many nested captures do.
 
-    A capture taken by NAME has no sample left, and a container is never a
-    content hit (it stores no text of its own), so the early return cannot
-    hide a nested count. A `map` pair is a two-element list and both halves
-    are asked: a key can be a content hit while its value is a name hit, and
-    that is two values withheld, not one.
+    A capture taken by NAME has no sample and no fields left, so that arm
+    returns 1 and stops. A content hit on an object's repr still has
+    `fields` beside it, and those are counted too: the repr and a secret
+    field are two values withheld, not one. A `map` pair is a two-element
+    list and both halves are asked.
     """
     if not isinstance(capture, dict):
         return 0
-    if "redacted" in capture:
+    red = capture.get("redacted")
+    if isinstance(red, dict) and red.get("by") == "name":
         return 1
+    n = 1 if "redacted" in capture else 0
     sample = capture.get("sample")
-    if not isinstance(sample, list):
-        return 0
-    return sum(count_capture(x) for entry in sample
-               for x in (entry if isinstance(entry, list) else (entry,)))
+    if isinstance(sample, list):
+        n += sum(count_capture(x) for entry in sample
+                 for x in (entry if isinstance(entry, list) else (entry,)))
+    fields = capture.get("fields")
+    if isinstance(fields, dict):
+        n += sum(count_capture(c) for c in fields.values())
+    return n
 
 
 def count(payload) -> int:

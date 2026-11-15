@@ -1,4 +1,5 @@
 """Shared plain-text formatting: dense, stable, one fact per line."""
+import re
 
 
 def _size(v: dict) -> str:
@@ -44,10 +45,11 @@ def _redacted_marker(v: dict) -> str | None:
       * A container keeps its type, its length and its address on purpose:
         a size is a fact about the program, not about the value. It renders
         as its own head with the marker where the members were.
-      * An object renders exactly as it did before. The rule takes its
-        `repr`; `type` and `oid` are its identity, which is all this
-        rendering ever read -- so no byte of an object line moves, and
-        `flow --object` can still follow it.
+      * An object taken by name renders its identity only (`Type#oid`).
+        The rule takes `repr` and any `fields`; this rendering does not
+        print them. `flow --object` can still follow the identity. An
+        object the rule left alone prints its repr, or a field summary,
+        in `fmt_value` below.
 
     `digest: null` is not a missing digest but a value that was never hashed
     (a container has no one text to hash, and a withheld unknown kind has no
@@ -64,6 +66,13 @@ def _redacted_marker(v: dict) -> str | None:
         return f"{v['type']}[{_size(v)}]=<redacted>"
     digest = r.get("digest")
     return f"<redacted #{digest[:_DIGEST_HEAD]}>" if digest else "<redacted>"
+
+
+#: `object.__repr__`: `<Name object at 0xaddress>`. Addresses are recycled
+#: and differ every run, so printing one would make a trace's text
+#: nondeterministic and still say nothing about the value. A field summary
+#: is what a reader gets instead; an instance with no fields stays `Type#oid`.
+_DEFAULT_OBJ_REPR = re.compile(r"^<.+ object at 0x[0-9a-fA-F]+>$")
 
 
 def fmt_value(v: dict | None) -> str:
@@ -93,7 +102,28 @@ def fmt_value(v: dict | None) -> str:
         more = ", ..." if v.get("trunc") else ""
         return f"{v['type']}[{_size(v)}]={{{pairs}{more}}}{unread_marker(v)}"
     if k == "obj":
-        return f"{v['type']}#{v['oid']}{unread_marker(v)}"
+        ident = f"{v['type']}#{v['oid']}{unread_marker(v)}"
+        # A name-taken object keeps `repr == <redacted>` (and used to keep
+        # fields). Printing either would show the marker as the program's
+        # own text, or a summary the rule was asked to withhold.
+        if (v.get("redacted") or {}).get("by") == "name":
+            return ident
+        fields = v.get("fields")
+        if isinstance(fields, dict) and fields:
+            parts = [f"{n}: {fmt_value(c) if isinstance(c, dict) else '?'}"
+                     for n, c in fields.items()]
+            more = ", ..." if v.get("fields_trunc") else ""
+            return f"{ident} {{{', '.join(parts)}{more}}}"
+        text = v.get("repr")
+        if (isinstance(text, str) and "repr" not in (v.get("unread") or ())
+                and not _DEFAULT_OBJ_REPR.fullmatch(text)):
+            # A repr the program already wrapped in `<>` is printed as it
+            # is. Anything else is wrapped so the repr stays one token
+            # after the identity (`Cfg#7 <Cfg(a=1)>`).
+            shown = (text if text.startswith("<") and text.endswith(">")
+                     else f"<{text}>")
+            return f"{ident} {shown}" + ("~" if v.get("trunc") else "")
+        return ident
     if k == "dbg":
         # A value the recorder rendered with the language's own formatter
         # (Rust's `Debug`) rather than decomposing it. The text IS the

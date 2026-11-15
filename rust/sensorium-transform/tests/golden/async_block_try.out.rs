@@ -20,7 +20,7 @@ pub fn later() -> impl Future<Output = Result<u8, String>> {@G(8)
 
 pub fn closure_inside() -> impl Future<Output = Result<u8, String>> {@G(9)
     @R(9)async {
-        let f = |n: u8| -> Result<u8, String> {@K(10) @R(10)Ok(@T(11)one()@TE? + n)@E };
+        let f = |n: u8| -> Result<u8, String> {@K(10,n) @R(10)Ok(@T(11)one()@TE? + n)@E };
         f(1)
     }@E
 }

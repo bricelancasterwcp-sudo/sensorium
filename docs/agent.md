@@ -23,9 +23,12 @@ venv's `sensorium`, never a stale binary on `PATH`.
        SENSORIUM_DIR=$PWD/.sensorium .venv/bin/sensorium run -- corpus/silent_swallow/main.py
 
 4. Query the newest trace (`last`). Event ids `eN` and frame ids `fN` in
-   one answer are arguments to the next:
+   one answer are arguments to the next. `failures` lists each failed test
+   and the frame it failed in. A vitest `expect` and a Rust panic show up
+   there; `exceptions` still judges throw and Err flow.
 
        SENSORIUM_DIR=$PWD/.sensorium .venv/bin/sensorium exceptions last
+       SENSORIUM_DIR=$PWD/.sensorium .venv/bin/sensorium failures last
        SENSORIUM_DIR=$PWD/.sensorium .venv/bin/sensorium tree last --depth 2
        SENSORIUM_DIR=$PWD/.sensorium .venv/bin/sensorium frame last --fn load_all
 

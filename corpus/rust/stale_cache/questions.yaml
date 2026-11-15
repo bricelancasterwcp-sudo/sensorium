@@ -51,7 +51,7 @@ questions:
     # local corpus run that called PR A green recorded through a STALE
     # driver on PATH, which embeds the runtime it was built with; CI builds
     # the driver fresh and read 0.6.0 (run 34840430230).
-      - "REFUSED: watch needs line, which recorder sensorium-rt 0.7.0 declares it does not produce (capabilities.line: false); nothing was checked"
+      - "REFUSED: watch needs line, which recorder sensorium-rt 0.7.1 declares it does not produce (capabilities.line: false); nothing was checked"
     expect_absent: ["hits:", "near-miss", "verdict:"]
   - id: did-the-key-move-with-the-record
     ask: >

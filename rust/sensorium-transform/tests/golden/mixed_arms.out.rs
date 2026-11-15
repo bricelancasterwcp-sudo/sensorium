@@ -2,14 +2,14 @@
 //! is wrapped. `ret(.., match x { A => panic!(), B => 1 })` is legal and
 //! warning-free -- the oracle compiles this file's output to say so.
 @W
-pub fn one_arm_panics(c: u8) -> u8 {@G(7)
+pub fn one_arm_panics(c: u8) -> u8 {@G(7,c)
     @R(7)match c {
         0 => panic!("zero"),
         _ => 1,
     }@E
 }
 
-pub fn one_branch_exits(c: bool) -> u8 {@G(8)
+pub fn one_branch_exits(c: bool) -> u8 {@G(8,c)
     @R(8)if c {
         std::process::exit(1)
     } else {
@@ -17,7 +17,7 @@ pub fn one_branch_exits(c: bool) -> u8 {@G(8)
     }@E
 }
 
-pub fn an_if_without_else_is_not_the_tail(c: bool) -> u8 {@G(9)
+pub fn an_if_without_else_is_not_the_tail(c: bool) -> u8 {@G(9,c)
     if c {
         panic!("then");
     }

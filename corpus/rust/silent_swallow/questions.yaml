@@ -55,9 +55,9 @@ questions:
       can show what is not in it.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["load()", "-> Config { port: 8080, retries: 3 }"]
-      - ["read_port()", '-> Err(BadSetting("http"))']
-      - ["read_port()", '-> Err(BadSetting("many"))']
-      - ["parse_port()", '-> Err(BadSetting("http"))']
-      - ["parse_port()", '-> Err(BadSetting("many"))']
+      - ["load(port_text=", "-> Config { port: 8080, retries: 3 }"]
+      - ["read_port(text=", '-> Err(BadSetting("http"))']
+      - ["read_port(text=", '-> Err(BadSetting("many"))']
+      - ["parse_port(text=", '-> Err(BadSetting("http"))']
+      - ["parse_port(text=", '-> Err(BadSetting("many"))']
     expect_absent: ["closed: unwind", "panic("]

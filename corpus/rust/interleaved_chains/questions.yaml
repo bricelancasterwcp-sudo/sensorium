@@ -53,6 +53,6 @@ questions:
       parse.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["survey()", "-> 0"]
-      - ["probe()", '-> Err("probe db-3 unreachable")']
+      - ["survey(host=\"db-3\", raw=\"many\")", "-> 0"]
+      - ["probe(host=\"db-3\")", '-> Err("probe db-3 unreachable")']
     expect_absent: ["ParseIntError", "closed: unwind"]

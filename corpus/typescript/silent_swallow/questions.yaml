@@ -69,7 +69,7 @@ questions:
     expect_line:
       - ["recorded: CALL 3", "RETURN 2", "RAISE 1", "HANDLED 1"]
       - ["capabilities:", "err_flow=yes"]
-      - ["recorder: sensorium-ts 0.6.0", "lang: typescript"]
+      - ["recorder: sensorium-ts 0.6.1", "lang: typescript"]
   - id: what-does-the-trace-show-happened
     ask: >
       Without a verdict, what does the recording show about that call?
@@ -89,6 +89,6 @@ questions:
       produced, because the error never escaped the `catch`.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["parse() <unread: locals> !! Error('not a number: nine')"]
-      - ["loadConfig() <unread: locals> -> { retries: 3 }"]
+      - ["parse(text='nine') !! Error('not a number: nine')"]
+      - ["loadConfig(text='nine') -> { retries: 3 }"]
     expect_contains: ["task t1: a config file is loaded"]

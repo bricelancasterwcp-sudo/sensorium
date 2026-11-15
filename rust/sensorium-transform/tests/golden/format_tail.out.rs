@@ -7,7 +7,7 @@ macro_rules! pick {
     };
 }
 
-pub fn formatted(n: u8) -> String {@G(7)
+pub fn formatted(n: u8) -> String {@G(7,n)
     @R(7)format!("n = {n}")@E
 }
 

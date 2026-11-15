@@ -62,7 +62,7 @@ questions:
     command: ["tree", "$RUN"]
     expect_exit: 0
     expect_line:
-      - ["f2 e2", "build()",
+      - ["f2 e2", "build(path=\"settings.toml\")",
          "-> Settings { retries: 0, disabled_reason: Some(\"settings unreadable: cannot read settings.toml\") }"]
-      - ["f3 e3", "load()", "-> Err(Unreadable(\"settings.toml\"))"]
+      - ["f3 e3", "load(path=\"settings.toml\")", "-> Err(Unreadable(\"settings.toml\"))"]
     expect_absent: ["!! ", "(open)"]

@@ -5,18 +5,18 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-fn try_from_another_thread(m: &Arc<Mutex<u32>>) -> bool {@G(7)
+fn try_from_another_thread(m: &Arc<Mutex<u32>>) -> bool {@G(7,m)
     let mine = Arc::clone(m);
     @R(7)@C(@I(thread::spawn;try_from_another_thread#1)move || mine.try_lock().is_ok()).join().unwrap()@E
 }
 
-fn held_across_tail(m: &Arc<Mutex<u32>>, log: &mut Vec<String>) -> u32 {@G(8)
+fn held_across_tail(m: &Arc<Mutex<u32>>, log: &mut Vec<String>) -> u32 {@G(8,m,log)
     let guard = m.lock().expect("not poisoned");
     log.push(format!("inside, free: {}", try_from_another_thread(m)));
     @R(8)*guard + 1@E
 }
 
-fn temporary_in_tail(m: &Arc<Mutex<u32>>) -> u32 {@G(9)
+fn temporary_in_tail(m: &Arc<Mutex<u32>>) -> u32 {@G(9,m)
     @R(9)*m.lock().expect("not poisoned") + 2@E
 }
 

@@ -49,7 +49,7 @@ questions:
       Did anything actually read the cache during the suspension, and what did
       it get?
     truth: >
-      `peek` did, and it got the placeholder: `peek() <unread: locals> -> 0`,
+      `peek` did, and it got the placeholder: `peek(key='rate') -> 0`,
       sitting in the same task between the YIELD and the RESUME by event
       order. It is a sibling of `load` in the tree and not a child of it,
       which is the shape of the fault -- an unrelated reader served a value
@@ -67,5 +67,5 @@ questions:
     expect_exit: 0
     expect_line:
       - ["load(key='rate')", "[async] -> 400"]
-      - ["peek() <unread: locals> -> 0"]
-      - ["fetchRate() <unread: locals>", "[async] -> 400"]
+      - ["peek(key='rate') -> 0"]
+      - ["fetchRate(key='rate')", "[async] -> 400"]

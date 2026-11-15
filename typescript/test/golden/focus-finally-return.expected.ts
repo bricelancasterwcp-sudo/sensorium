@@ -10,6 +10,6 @@ export function settle(flag: boolean): number {const __sf=__srt.call(__sfile,0,[
   };__srt.line(__sf,4,[]);
 ;__srt.pend(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}finally{__srt.seal(__sf)}}
 
-export function note(n: number): number {const __sf=__srt.call(__sfile,1);try{
+export function note(n: number): number {const __sf=__srt.call(__sfile,1,["n",n]);try{
   return __srt.ret(__sf,(n));
 ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}

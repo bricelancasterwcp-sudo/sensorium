@@ -56,8 +56,8 @@ from tests.mcp_programs import SLEEPER                       # noqa: E402
 SUPPORTED = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"]
 
 #: The tools offered without `--allow-run`, in the order they are shown.
-NINE = ["runs", "info", "tree", "frame", "grep", "exceptions", "flow",
-        "watch", "diff"]
+NINE = ["runs", "info", "tree", "frame", "grep", "exceptions", "failures",
+        "flow", "watch", "diff"]
 
 #: ...and the two the flag adds, in the order the gate appends them.
 ELEVEN = [*NINE, "refocus", "record"]

@@ -60,6 +60,6 @@ questions:
     expect_line:
       - ["task", "tests::the_default_layout_fits"]
       - ["task", "tests::the_width_setting_is_readable"]
-      - ["layout()", "-> Ok(82)"]
-      - ["setting()", '-> Err(Missing("height"))']
-    expect_count: {"setting()": 3}
+      - ["layout(name=", "-> Ok(82)"]
+      - ["setting(name=", '-> Err(Missing("height"))']
+    expect_count: {"setting(name=": 3}

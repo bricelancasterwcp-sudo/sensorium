@@ -53,13 +53,13 @@ there is no client yet to send JSON-RPC to:
     sensorium mcp: --timeout 0 is not a positive number of seconds
 
 Diagnostics go to stderr and nothing else does: stdout is JSON-RPC. One line
-names the surface at boot (`serving 11 tools (allow_run=True) store=...`), one
+names the surface at boot (`serving 12 tools (allow_run=True) store=...`), one
 per handshake, one per spawned child (`child <pid> pgid <pid> tool <name>`),
 one for the exit reason (`exit 0 (eof)`, `(sigterm)`, `(pipe)`).
 
 ## The tools
 
-Eleven with `--allow-run`, nine without, listed in this order. Each
+Twelve with `--allow-run`, ten without, listed in this order. Each
 description is the command's own `help=` and `description=` -- the two
 sentences `sensorium <cmd> --help` prints -- and each tool's fields are read
 off that command's parser, so neither a sentence nor a flag can disagree with
@@ -73,6 +73,7 @@ the CLI.
 | `frame` | always | one activation in full. Arguments, return or raise, and the per-line locals timeline when the run was recorded with `--focus`; frame ids fN come from `exceptions`, `tree` and `grep`. |
 | `grep` | always | search events by name or value. Every CALL, RETURN, RAISE, HANDLED or LINE event whose name or rendered value contains the pattern; `--after` resumes from an event id a previous answer showed. |
 | `exceptions` | always | raises, handles, swallows. Every raise classified swallowed, uncaught, re-raised, propagated or ambiguous, with the reason; SWALLOWED is claimed only when the recording proves it. |
+| `failures` | always | failed tests and the frame they failed in. Each failed test mapped to the frame and the assertion, panic or exception recorded there. A vitest expect and a Rust panic are listed here; exceptions still judges throw and Err flow and does not list them. |
 | `flow` | always | provenance of a value or an object. `--value` follows a literal by equality through captured arguments, locals and returns; `--object` follows one identity from the event that captured it; one of the two is required, and each refuses by name what the recording did not capture. |
 | `watch` | always | predicate over captured state. A gdb-style watchpoint evaluated after the fact at every recorded site of one function; needs a `--focus` recording, and NOTHING WAS CHECKED is a refusal, never a pass. |
 | `diff` | always | first causal divergence between two runs. Aligns the two causal streams and names the first event where they part, with drill-in commands; MATCH or DIVERGED, or REFUSED when no verdict exists. |
@@ -154,7 +155,8 @@ own line, which is not itself counted against the limit:
 
 `narrow with:` lists the fields THIS tool narrows by: `depth, limit, around`
 on `tree`, `limit, after, fn, kind` on `grep`, `fn` on `frame`,
-`limit, after` on `exceptions` and `flow`, `limit, after, misses` on `watch`,
+`limit, after` on `exceptions` and `flow`, `limit` on `failures`,
+`limit, after, misses` on `watch`,
 `context` on `diff`. A tool with none -- `runs`, `info`, `record`, `refocus`
 -- says `narrow with: nothing on this tool`. Both kept halves are cut back to
 a line boundary when the kept window holds a newline; a window without one is
@@ -162,7 +164,7 @@ a raw byte cut and may begin or end in U+FFFD.
 
 ## `--allow-run`
 
-Without the flag the table has nine tools: `record` and `refocus` are absent
+Without the flag the table has ten tools: `record` and `refocus` are absent
 from `tools/list`, and a call to either comes back `Unknown tool: record` --
 the wire shows no trace of the flag, because a tool the server will not offer
 is a tool it does not have. With the flag:

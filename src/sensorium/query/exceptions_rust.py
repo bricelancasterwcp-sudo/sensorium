@@ -592,7 +592,8 @@ def _print_panics(panics: int) -> None:
     # one word. The `panics: ` prefix is kept: two acceptance readers key
     # their line on it.
     print(f"panics: {panics} event(s) recorded -- this command judges Err "
-          "flow; a panic is a frame's unwind, printed by `tree` and `frame`")
+          "flow; a panic is a frame's unwind, printed by `tree` and `frame`, "
+          "and a failed test that panicked is listed by `failures`")
 
 
 def _print_partial(rows, wheres=None, hint="sensorium info") -> None:

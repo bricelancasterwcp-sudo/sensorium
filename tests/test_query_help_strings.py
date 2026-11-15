@@ -52,11 +52,11 @@ def _ids(modules):
     return [_parser(m)[0] for m in modules]
 
 
-def test_the_module_list_is_the_ten_tools_and_not_redact():
+def test_the_module_list_is_the_query_tools_and_not_redact():
     """A guard on the guard: every test below iterates `TOOL_MODULES`, so
     a list that silently emptied -- or that swept `redact` back in --
     would leave them passing while checking nothing."""
-    assert len(TOOL_MODULES) == 10, _ids(TOOL_MODULES)
+    assert len(TOOL_MODULES) == 11, _ids(TOOL_MODULES)
     assert redact_cmd not in TOOL_MODULES
     assert redact_cmd in cli._QUERY_MODULES
 

@@ -74,10 +74,10 @@ questions:
     truth: >
       `settle`'s. The frame is still open when the finally runs, so `note`
       opens beneath it and the tree renders it one level deeper:
-      `settle(flag=true)` at the focused function's own depth and `note()`
-      indented two spaces further under it. `note` is not itself focused, so
-      the tree prints its arguments as `<unread: locals>` rather than
-      `n=1` -- the parentage is the fact being pinned, and it is a fact
+      `settle(flag=true)` at the focused function's own depth and
+      `note(n=1)` indented two spaces further under it. `note` is not
+      focused, and its CALL still carries `n=1`. The parentage is the fact
+      being pinned, and it is a fact
       about frames, not about captures. Under a recorder that
       closes the frame at the `return`, the same call opens under whatever
       frame is on top -- the test body -- and `note` renders as `settle`'s
@@ -92,4 +92,4 @@ questions:
     expect_exit: 0
     expect_line:
       - ["    f", "settle(flag=true)"]
-      - ["      f", "note()", "-> 1"]
+      - ["      f", "note(n=1)", "-> 1"]

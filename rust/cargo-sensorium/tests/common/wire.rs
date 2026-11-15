@@ -77,10 +77,51 @@ impl SpoolBuilder {
     }
 
     /// unit_id in bits 31..24, site index in bits 23..0.
+    ///
+    /// An empty payload: the arguments were not read. [`Self::call_args`] is
+    /// the record that says they were.
     #[must_use]
     pub fn call(self, seq: u64, ts_ns: u64, unit_id: u8, site_index: u32) -> SpoolBuilder {
         let site = (u32::from(unit_id) << 24) | (site_index & 0x00ff_ffff);
         self.raw(seq, ts_ns, site, 1, 0, &[])
+    }
+
+    /// A CALL carrying the LINE argument block. An empty `deltas` with
+    /// `dropped == false` is three header bytes: read, and there were none.
+    #[must_use]
+    pub fn call_args(
+        self,
+        seq: u64,
+        ts_ns: u64,
+        unit_id: u8,
+        site_index: u32,
+        dropped: bool,
+        deltas: &[(&str, LineDelta)],
+    ) -> SpoolBuilder {
+        let site = (u32::from(unit_id) << 24) | (site_index & 0x00ff_ffff);
+        let mut payload = vec![u8::from(dropped)];
+        payload.extend_from_slice(&(deltas.len() as u16).to_le_bytes());
+        for (name, delta) in deltas {
+            payload.extend_from_slice(&(name.len() as u16).to_le_bytes());
+            payload.extend_from_slice(name.as_bytes());
+            match delta {
+                LineDelta::Dbg(text, truncated) => {
+                    payload.push(1);
+                    payload.push(u8::from(*truncated));
+                    payload.extend_from_slice(&(text.len() as u16).to_le_bytes());
+                    payload.extend_from_slice(text.as_bytes());
+                }
+                LineDelta::Unread => {
+                    payload.push(2);
+                    payload.push(0);
+                }
+                LineDelta::Unbound => {
+                    payload.push(3);
+                    payload.push(0);
+                }
+            }
+        }
+        self.raw(seq, ts_ns, site, 1, 0, &payload)
     }
 
     fn ret(
