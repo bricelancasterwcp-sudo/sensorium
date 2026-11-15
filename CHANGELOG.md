@@ -26,7 +26,9 @@ this slice ships. `TRACE_FORMAT` stays **4**.
   arguments that fit and sets `unread: ["locals"]`. An empty list means the
   call was read and had no arguments. An empty Rust payload, or a TypeScript
   CALL that omitted `a`, still means the arguments were not read: older
-  traces, and a hand-written `enter`, say that. `--focus` remains the LINE
+  traces, and a hand-written `enter`, say that. The probes checker requires
+  `a` on every CALL it sees, including an unfocused run and an anonymous
+  callback. `--focus` remains the LINE
   and locals tier, so `watch` and `flow --value` still need it. At `--tier
   off` the Rust closure that formats arguments is not called.
   `sensorium-rt` **0.7.1**, `sensorium-transform` **0.5.1**,
