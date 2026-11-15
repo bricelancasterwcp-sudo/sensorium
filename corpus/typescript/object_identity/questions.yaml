@@ -96,6 +96,6 @@ questions:
     # and writes the two keys that say so. The rows this case asks about are
     # untouched by that; only the recorder's name in the sentence moved.
     expect_contains:
-      - "REFUSED: flow needs line, which recorder sensorium-ts 0.6.1
+      - "REFUSED: flow needs line, which recorder sensorium-ts 0.6.2
          declares it does not produce (capabilities.line: false); nothing
          was checked"

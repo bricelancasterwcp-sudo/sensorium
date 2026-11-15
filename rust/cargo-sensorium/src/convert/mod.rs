@@ -13,6 +13,7 @@
 mod call_args;
 mod chains;
 mod discover;
+mod elision;
 mod errflow;
 mod fingerprint;
 mod focus;
@@ -422,6 +423,17 @@ fn convert_one(c: ConvertOne<'_>) -> Result<TraceSummary, String> {
     };
     for (key, value) in meta::build(&meta_input) {
         writer.set_meta(key, &value)?;
+    }
+    if let Some(extra) = elision::meta(
+        spool_dir,
+        c.pid,
+        &c.proc.units,
+        c.all_manifests,
+        &c.invocation.workspace_root,
+    )? {
+        for (key, value) in extra {
+            writer.set_meta(key, &value)?;
+        }
     }
     writer.set_meta("incomplete", &false)?;
 

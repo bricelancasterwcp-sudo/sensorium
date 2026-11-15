@@ -20,7 +20,7 @@ those traces support and is kept exactly as arc 1 wrote it.
 """
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
-from sensorium.query.caps import none_status, print_incomplete
+from sensorium.query.caps import none_status, print_elisions, print_incomplete
 from sensorium.query.fmt import (fmt_args, fmt_exc, fmt_value, parse_eref,
                                  parse_fref, unread_marker)
 from sensorium.query.help import DEPTH_HELP, LIMIT_HELP, RUN_HELP
@@ -352,6 +352,7 @@ def run(args) -> int:
     # act on.
     print_incomplete(trace, "the frames below are not all the frames this "
                             "run had")
+    print_elisions(trace)
     by_parent, parentless = index_unframed(trace)
     n_unframed = sum(len(v) for v in by_parent.values()) + len(parentless)
     if args.around:

@@ -1,6 +1,7 @@
 """One activation completely: args, local timeline, return, children."""
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE
+from sensorium.query.caps import print_truncated
 from sensorium.query.fmt import (fmt_args, fmt_event, fmt_exc, fmt_value,
                                  parse_fref, unread_marker)
 from sensorium.query.help import RUN_HELP
@@ -109,6 +110,7 @@ def _resolve(trace, args):
 
 def run(args) -> int:
     trace = Trace.open(paths.find_trace(args.run))
+    print_truncated(trace)
     # `status` is carried past the refusal branch and returned at the end:
     # `_resolve` is the one place that decides this command's answer, and a
     # second ANSWERED written down here would be a second place to change.

@@ -12,8 +12,9 @@ before it can fail in a way that would otherwise leave something behind:
     the root's typescript refused once the plan names the root, and still
                           before anything is minted
     --focus               resolved against the root by the recorder's own
-                          resolver, and refused there: the last thing that
-                          can be settled before a recording exists
+                          resolver, and refused there
+    the caps              resolved before anything is minted: a bad size is
+                          a bad call, and the harness then sees only integers
     mint, invocation.json the record of what is about to be spawned
     the wrapper           two files, in a `finally` from here on
     spawn, wait           the harness's stdio is the user's; the driver
@@ -113,6 +114,11 @@ def run(args) -> int:
         bad = focus_mod.refusals(resolution, plan.root)
         if bad:
             return _refuse(*bad)
+    from sensorium.limits import LimitsError
+    try:
+        _caps(args)
+    except LimitsError as e:
+        return _refuse(str(e))
     try:
         return _record(plan, package, node, cwd, args, focus, resolution,
                        link)
@@ -196,7 +202,7 @@ def _record(plan, package: Path, node: str, cwd: Path, args,
         try:
             ending = _spawn(argv,
                             _env(spool, inv_id, plan, package, args.tier,
-                                 focus),
+                                 focus, args=args),
                             cwd)
         except OSError as e:
             # Nothing ran, so there is nothing to convert and nothing to
@@ -310,7 +316,7 @@ def _vitest_version(plan) -> str | None:
 
 
 def _env(spool: Path, inv_id: str, plan, package: Path, tier: str,
-         focus: Sequence[str]) -> dict:
+         focus: Sequence[str], args=None) -> dict:
     """The harness's environment: the driver's own, plus what the recorder
     inside the harness cannot work out for itself.
 
@@ -337,9 +343,11 @@ def _env(spool: Path, inv_id: str, plan, package: Path, tier: str,
     launching shell was carrying, because a key from some other store would
     have the recorder write digests nothing here can verify.
 
-    The three knob variables are the USER's and are passed on untouched: what
-    a recording was made under is the user's statement, and the BOOT records
-    it.
+    The three cap variables are resolved here, once, from the command, the
+    environment and the store config, and written as integers. The runtime
+    reads the numbers and does not open the config. ``0`` is unlimited. A
+    value already in the environment is overwritten: the command wins, then
+    the environment, then the config, then the default.
     """
     env = dict(os.environ,
                SENSORIUM_SPOOL=str(spool),
@@ -357,7 +365,23 @@ def _env(spool: Path, inv_id: str, plan, package: Path, tier: str,
         env.pop(redact.KEY_VAR, None)
     else:
         env[redact.KEY_VAR] = key.material.hex()
+    limits = _caps(args)
+    env["SENSORIUM_MAX_EVENTS"] = str(limits.max_events)
+    env["SENSORIUM_MAX_BYTES"] = str(limits.max_bytes)
+    env["SENSORIUM_MAX_CALLS"] = str(limits.max_calls)
     return env
+
+
+def _caps(args):
+    """The cap for this run. ``args`` may be None when a caller of `_env`
+    has no command object; the environment and the config still apply."""
+    from sensorium.limits import resolve
+    return resolve(
+        max_events=getattr(args, "max_events", None),
+        max_bytes=getattr(args, "max_bytes", None),
+        max_calls=getattr(args, "max_calls", None),
+        no_cap=bool(getattr(args, "no_cap", False)),
+    )
 
 
 # -- the run -----------------------------------------------------------------
@@ -417,7 +441,7 @@ def _convert(spool: Path, inv_id: str, ending, jobs: int | None,
     from sensorium.ts import cli as ts_cli
     if tier == "off":
         ts_cli._report([], inv_id, harness=_ending(ending))
-        return _status(ending)
+        return _after(_status(ending))
     try:
         summaries = ingest.ingest_dir(spool, paths.trace_root(), jobs=jobs)
     except (ingest.IngestError, invocation.InvocationError) as e:
@@ -427,4 +451,22 @@ def _convert(spool: Path, inv_id: str, ending, jobs: int | None,
         # refused knows both, and left the sentence behind.
         return _refuse(wrapper.refusal(spool) or str(e))
     ts_cli._report(summaries, inv_id, harness=_ending(ending))
-    return _status(ending)
+    return _after(_status(ending))
+
+
+def _after(status: int) -> int:
+    """The harness status, after the store applies its retention rule.
+
+    ``maybe_auto`` is a no-op when no rule is configured. A failure is
+    printed and does not replace the status: the status belongs to the
+    harness.
+    """
+    try:
+        from sensorium.store.gc import maybe_auto
+        note = maybe_auto()
+    except Exception as e:
+        print(f"sensorium: gc failed: {e}", file=sys.stderr)
+        return status
+    if note:
+        print(note, file=sys.stderr)
+    return status

@@ -36,6 +36,30 @@ this slice ships. `TRACE_FORMAT` stays **4**.
   stays **4**. No new multiplier was measured; what the cap does and does
   not bound is in `docs/overhead.md`.
 
+- **A run has a cap, and the store can shrink.** Defaults are 100,000
+  events, 8 MiB, and 1,024 calls of one function (`--max-events`,
+  `--max-bytes`, `--max-calls`, `--no-cap`; the same names as
+  `SENSORIUM_MAX_EVENTS`, `SENSORIUM_MAX_BYTES`, `SENSORIUM_MAX_CALLS`,
+  or `max_events`, `max_bytes`, `max_calls` in the store config). `0` is
+  unlimited. The first calls of each function stay. Further calls are
+  counted, and a failure still keeps the frames around it. The trace is
+  marked `trace_truncated` when a call was dropped, and queries say so.
+  `sensorium gc` deletes traces by age (`--older-than`), count (`--keep`)
+  or total size (`--max-bytes`), with `--dry-run`. A pinned trace
+  (`sensorium pin` / `sensorium unpin`) and the most recent trace are
+  kept. A store budget in the environment or the config runs that
+  cleanup after a recording. A repeated payload of at least 120
+  characters keeps its first copy inline; later copies are `#<id>` in an
+  optional `strings` table. `TRACE_FORMAT` stays **4**. On the same
+  200,000-call Python loop (Linux 6.12.113+, 8 vCPU, CPython 3.13.5,
+  best of three): before, 6.4187 s and 52,482,048 bytes (400,004 events,
+  358.6 times a 0.0179 s baseline); after the default cap, 0.4348 s and
+  315,392 bytes (2,052 events, 198,976 calls elided, 24.4 times a 0.0178 s
+  baseline). `--no-cap` writes the same 400,004 events and 52,482,048
+  bytes (6.4521 s). Numbers are in `docs/overhead.md`.
+  `sensorium-rt` **0.7.2**, `cargo-sensorium` **0.8.4**,
+  `sensorium-ts` **0.6.2**.
+
 ## 0.18.2 — 2026-11-14
 
 **Review round 1.** Python **0.18.2**. `TRACE_FORMAT` stays **4**.

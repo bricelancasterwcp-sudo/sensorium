@@ -8,8 +8,8 @@ process. The same SQLite format 4 the Python recorder writes, read by the same
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.7.1`**,
-**`sensorium-transform 0.5.1`** and **`cargo-sensorium 0.8.3`**. On 2026-09-13
+Three crates, all `publish = false`: **`sensorium-rt 0.7.2`**,
+**`sensorium-transform 0.5.1`** and **`cargo-sensorium 0.8.4`**. On 2026-09-13
 secrets redaction part A moved `sensorium-rt` to `0.6.0` and `cargo-sensorium`
 to `0.7.0` (rule v1 over the environment at the runtime's own writer, the
 driver's key, and 0600/0700 on everything either creates under the store and
@@ -163,6 +163,13 @@ name and a `Debug` capture, the same 200-byte cap as a return, and the
 payload stops at 2048 bytes. An empty list means the function had no
 parameters. `--focus` is still what records LINE rows. A hand-written
 `enter` (no argument list) still reads as arguments not read.
+
+A run stops storing once it reaches 100,000 events, 8 MiB, or 1,024 calls
+of one function. Later calls of a hot function are counted, and the trace
+is marked truncated. `--max-events`, `--max-bytes`, `--max-calls` and
+`--no-cap` override that, and only before the bare `--`. `0` is unlimited.
+The same names in the environment or `$SENSORIUM_DIR/config.json` apply
+when the flag is absent.
 
 ### `--focus`: per-line answers, for the functions you name
 

@@ -35,6 +35,15 @@ pub struct DriverArgs {
     /// `None` is an ordinary run. At most one: a re-run answers to exactly
     /// one original, and a second value would silently pick a winner.
     pub refocus_of: Option<String>,
+    /// `--max-events`, as typed. `None` means the flag was not passed.
+    /// The driver resolves suffixes and precedence; this stays the raw text.
+    pub max_events: Option<String>,
+    /// `--max-bytes`, as typed.
+    pub max_bytes: Option<String>,
+    /// `--max-calls`, as typed.
+    pub max_calls: Option<String>,
+    /// `--no-cap`: unlimited for every knob this command did not set.
+    pub no_cap: bool,
     /// The argv handed to cargo, starting with the subcommand.
     pub cargo_args: Vec<String>,
 }
@@ -48,9 +57,10 @@ impl DriverArgs {
 
 /// Split the driver's own flags out of cargo's.
 ///
-/// `--tier`, `--focus` and `--refocus-of` are recognised only BEFORE the first
-/// bare `--`, so a test binary's own `--tier`/`--focus`/`--refocus-of`
-/// argument (after `cargo test -- …`) is never stolen.
+/// `--tier`, `--focus`, `--refocus-of`, `--max-events`, `--max-bytes`,
+/// `--max-calls` and `--no-cap` are recognised only BEFORE the first bare
+/// `--`, so a test binary's own copy of those flags (after `cargo test -- …`)
+/// is never stolen.
 ///
 /// # Errors
 /// A usage message when the subcommand is missing or unknown, when `--tier`
@@ -60,6 +70,10 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
     let mut tier = Tier::Call;
     let mut focus: Vec<String> = Vec::new();
     let mut refocus_of: Option<String> = None;
+    let mut max_events: Option<String> = None;
+    let mut max_bytes: Option<String> = None;
+    let mut max_calls: Option<String> = None;
+    let mut no_cap = false;
     let mut cargo_args: Vec<String> = Vec::new();
     let mut past_separator = false;
     let mut i = 0;
@@ -103,6 +117,50 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
                 i += 2;
                 continue;
             }
+            if let Some(v) = a.strip_prefix("--max-events=") {
+                max_events = Some(parse_cap_value("--max-events", Some(v))?);
+                i += 1;
+                continue;
+            }
+            if a == "--max-events" {
+                max_events = Some(parse_cap_value(
+                    "--max-events",
+                    args.get(i + 1).map(String::as_str),
+                )?);
+                i += 2;
+                continue;
+            }
+            if let Some(v) = a.strip_prefix("--max-bytes=") {
+                max_bytes = Some(parse_cap_value("--max-bytes", Some(v))?);
+                i += 1;
+                continue;
+            }
+            if a == "--max-bytes" {
+                max_bytes = Some(parse_cap_value(
+                    "--max-bytes",
+                    args.get(i + 1).map(String::as_str),
+                )?);
+                i += 2;
+                continue;
+            }
+            if let Some(v) = a.strip_prefix("--max-calls=") {
+                max_calls = Some(parse_cap_value("--max-calls", Some(v))?);
+                i += 1;
+                continue;
+            }
+            if a == "--max-calls" {
+                max_calls = Some(parse_cap_value(
+                    "--max-calls",
+                    args.get(i + 1).map(String::as_str),
+                )?);
+                i += 2;
+                continue;
+            }
+            if a == "--no-cap" {
+                no_cap = true;
+                i += 1;
+                continue;
+            }
         }
         cargo_args.push(a.clone());
         i += 1;
@@ -112,6 +170,10 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
             tier,
             focus,
             refocus_of,
+            max_events,
+            max_bytes,
+            max_calls,
+            no_cap,
             cargo_args,
         }),
         Some(other) => Err(format!(
@@ -123,7 +185,9 @@ pub fn parse_args(args: &[String]) -> Result<DriverArgs, String> {
 }
 
 pub const USAGE: &str = "usage: cargo sensorium test|run [--tier off|call] \
-                         [--focus <qualname>]... [--refocus-of <run id>] [cargo args]";
+                         [--focus <qualname>]... [--refocus-of <run id>] \
+                         [--max-events N] [--max-bytes SIZE] [--max-calls N] \
+                         [--no-cap] [cargo args]";
 
 /// One `--focus` value: a qualname that survives [`Focus::parse`].
 ///
@@ -159,6 +223,15 @@ fn parse_refocus_of(already: Option<&str>, v: Option<&str>) -> Result<String, St
     match v.map(str::trim) {
         Some(value) if !value.is_empty() => Ok(value.to_owned()),
         _ => Err("--refocus-of needs a run id".to_owned()),
+    }
+}
+
+/// One cap flag's text. Empty is a missing value. The number itself,
+/// including a size suffix, is checked when the driver resolves the caps.
+fn parse_cap_value(flag: &str, v: Option<&str>) -> Result<String, String> {
+    match v.map(str::trim) {
+        Some(value) if !value.is_empty() => Ok(value.to_owned()),
+        _ => Err(format!("{flag} needs a value (0 is unlimited)")),
     }
 }
 
@@ -352,5 +425,73 @@ mod tests {
         assert_eq!(p.focus, v(&["a::b", "c"]));
         assert_eq!(p.refocus_of.as_deref(), Some(ORIGINAL));
         assert_eq!(p.cargo_args, v(&["test", "--lib"]));
+    }
+
+    #[test]
+    fn cap_flags_are_taken_out_of_cargos_argv_and_the_last_value_wins() {
+        let p = parse_args(&v(&[
+            "--max-events",
+            "10",
+            "--max-bytes=8M",
+            "--max-calls",
+            "3",
+            "--max-calls=4",
+            "--no-cap",
+            "test",
+            "--lib",
+        ]))
+        .unwrap();
+        assert_eq!(p.max_events.as_deref(), Some("10"));
+        assert_eq!(p.max_bytes.as_deref(), Some("8M"));
+        assert_eq!(p.max_calls.as_deref(), Some("4"));
+        assert!(p.no_cap);
+        assert_eq!(p.cargo_args, v(&["test", "--lib"]));
+    }
+
+    #[test]
+    fn cap_flags_after_the_separator_belong_to_the_test_binary() {
+        let p = parse_args(&v(&[
+            "test",
+            "--",
+            "--max-events",
+            "1",
+            "--max-calls=2",
+            "--no-cap",
+        ]))
+        .unwrap();
+        assert!(p.max_events.is_none());
+        assert!(p.max_bytes.is_none());
+        assert!(p.max_calls.is_none());
+        assert!(!p.no_cap);
+        assert_eq!(
+            p.cargo_args,
+            v(&[
+                "test",
+                "--",
+                "--max-events",
+                "1",
+                "--max-calls=2",
+                "--no-cap"
+            ])
+        );
+    }
+
+    #[test]
+    fn a_cap_flag_with_no_value_is_refused() {
+        for form in [
+            v(&["--max-events"]),
+            v(&["--max-bytes="]),
+            v(&["--max-calls", "  ", "test"]),
+            v(&["--no-cap=1", "test"]),
+        ] {
+            let err = parse_args(&form);
+            if form[0] == "--no-cap=1" {
+                // A bare flag only. The `=1` form is cargo's argv, so the
+                // subcommand is not one this driver implements.
+                assert!(err.is_err(), "{form:?}");
+            } else {
+                assert!(err.unwrap_err().contains("needs a value"), "{form:?}");
+            }
+        }
     }
 }

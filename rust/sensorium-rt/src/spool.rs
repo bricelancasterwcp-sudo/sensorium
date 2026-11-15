@@ -126,7 +126,7 @@ pub(crate) const UNIT_ID_SHIFT: u32 = 24;
 /// crate with a bare `rustc` invocation (D1), where cargo's environment does
 /// not exist and `env!` would not compile. A unit test below holds it to the
 /// manifest.
-pub(crate) const RT_VERSION: &str = "sensorium-rt 0.7.1";
+pub(crate) const RT_VERSION: &str = "sensorium-rt 0.7.2";
 
 fn round_up_to_chunk(n: usize) -> usize {
     n.div_ceil(CHUNK) * CHUNK
@@ -256,6 +256,9 @@ impl Spool {
         self.put(self.pos + RECORD_FIXED, payload);
         self.publish_kind(self.pos + OFF_KIND, kind);
         self.pos = end;
+        // On-wire record size, header excluded. The cap compares against
+        // records that landed, not against a JSON rendering of them.
+        crate::cap::note_written(RECORD_FIXED + payload_len);
         true
     }
 

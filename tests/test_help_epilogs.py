@@ -32,6 +32,9 @@ CASES = [
     ("watch", QUERY_EPILOG),
     ("diff", QUERY_EPILOG),
     ("refocus", QUERY_EPILOG),
+    ("gc", "exit: 0 done, 2 fix the call"),
+    ("pin", "exit: 0 pinned, 2 fix the call"),
+    ("unpin", "exit: 0 unpinned, 2 fix the call"),
 ]
 
 

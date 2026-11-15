@@ -8,7 +8,7 @@
 //! search path safe: the directory holds exactly one rlib and offers rustc
 //! nothing to choose between, whereas a `libc` crate in the graph would have
 //! to be resolved, versioned and picked -- exactly the single-candidate hazard
-//! D1 removes. Seven `extern "C"` lines cost less.
+//! D1 removes. A handful of `extern "C"` lines cost less.
 //!
 //! Every constant below names the header it is transcribed from. v1 is
 //! Linux-only (spec §4: thread serials come from `gettid()`/`getpid()`), and
@@ -72,6 +72,9 @@ extern "C" {
     pub fn munmap(addr: *mut c_void, length: usize) -> i32;
     /// `<unistd.h>`.
     pub fn ftruncate(fd: i32, length: off_t) -> i32;
+    /// `<stdlib.h>`. Runs at process exit, including after an unwinding panic
+    /// that leaves with status 101. `abort` does not run it.
+    pub fn atexit(func: extern "C" fn()) -> i32;
 }
 
 /// `CLOCK_MONOTONIC` nanoseconds: every record's `ts_ns`.

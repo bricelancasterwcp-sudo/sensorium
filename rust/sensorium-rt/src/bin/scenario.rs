@@ -102,6 +102,8 @@ macro_rules! serr_unbound {
 // `src/bin/scenario/` instead. The dispatch itself stays in a file NAMED
 // `scenario.rs` because `file!()` is part of the `SITE_*` constants below and
 // `tests/spawn.rs` pins that file name as the shape of a baked spawn site.
+#[path = "scenario/cap.rs"]
+mod cap;
 #[path = "scenario/errflow.rs"]
 mod errflow;
 #[path = "scenario/line.rs"]
@@ -121,6 +123,7 @@ mod values;
 
 use sensorium_rt::Unit;
 
+use cap::cap_loop;
 use errflow::{
     arm_unbound, arm_value_debug, arm_value_nodebug, err_big, err_nodebug, errflow_lazy,
     let_underscore_err, sink_ok_err, sink_ok_ok, try_err, try_ok, try_option, typed_err_return,
@@ -238,6 +241,8 @@ fn main() {
 
         "line-redact" => line_redact(),
         "line-redact-long" => line_redact_long(),
+
+        "cap-loop" => cap_loop(),
 
         other => {
             eprintln!("scenario: unknown scenario {other:?}");

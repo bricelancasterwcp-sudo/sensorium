@@ -271,6 +271,7 @@ recorder, lang, capabilities
 | `lang` | `"python"`, `"rust"`, `"typescript"`. `db.KNOWN_LANGS`, the languages this sensorium has a vocabulary column for. Any other value is **refused at open** (exit 2), naming the recorder, the language and the columns that exist: until 2026-09-09 an unknown `lang` silently borrowed Python's words, which told a reader of such a trace about `asyncio tasks` and `python ?`. An **absent** `lang` is not an unknown one, the reader defaults it to `"python"`, because nothing else existed before the key. Vector: `v24-unknown-lang-refused`. Format 5's `lang: "model"` is [MODEL-TRACES §1](trace-format/MODEL-TRACES.md#1-subject-and-vocabulary); this sensorium refuses format 5 at open. |
 | `capabilities` | The declaration; see below. |
 
+Optional keys, written only when a cap dropped calls: `trace_truncated`, `trace_limits` (`max_events`, `max_bytes`, `max_calls`, `hit`, `events_recorded`, `calls_elided`), `elisions` (`file`, `qualname`, `firstlineno`, `elided`, `kept`). A repeated payload of at least 120 characters keeps its first copy inline; later copies are `#<id>` in an optional `strings` table (`id`, `body`), created only when a duplicate exists. `truncated_count` is the capture-clip count, not this flag.
 ### `exit_status` may be null, and `exit_status_basis` says why
 
 A recorder cannot observe its own process's exit; a parent can. The Rust

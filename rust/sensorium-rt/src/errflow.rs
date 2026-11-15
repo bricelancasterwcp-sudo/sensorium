@@ -215,7 +215,7 @@ pub(crate) fn write_err_payload(
 #[inline]
 pub fn err_site(unit: &'static Unit, site: u32, how: u8, cap: impl FnOnce() -> ErrCapture) {
     debug_check_how(how);
-    if !recording_now() {
+    if !recording_now() || crate::cap::inside_elided() {
         return;
     }
     write_capture(unit, site, how, cap());
@@ -230,7 +230,7 @@ pub fn err_site(unit: &'static Unit, site: u32, how: u8, cap: impl FnOnce() -> E
 #[inline]
 pub fn err_site_value(unit: &'static Unit, site: u32, how: u8, cap: impl FnOnce() -> ErrCapture) {
     debug_check_how(how);
-    if !recording_now() {
+    if !recording_now() || crate::cap::inside_elided() {
         return;
     }
     write_capture(unit, site, how, cap());
@@ -244,7 +244,7 @@ pub fn err_site_value(unit: &'static Unit, site: u32, how: u8, cap: impl FnOnce(
 #[inline]
 pub fn err_site_unbound(unit: &'static Unit, site: u32, how: u8) {
     debug_check_how(how);
-    if !recording_now() {
+    if !recording_now() || crate::cap::inside_elided() {
         return;
     }
     record(unit, site, how, None, None, false);

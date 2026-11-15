@@ -511,10 +511,10 @@ and a workload, not a pass/fail property of the tool.
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
 crates the same way `sensorium run` records a Python program: one sensorium
 trace per process, trace format 4, read by the same `sensorium` command line.
-`rust/` ships `sensorium-rt 0.7.1` (zero dependencies, the runtime linked into
+`rust/` ships `sensorium-rt 0.7.2` (zero dependencies, the runtime linked into
 every instrumented unit, and the owner of the one sha256 the other two hash
 with), `sensorium-transform 0.5.1` (the `syn` rewriter), and `cargo-sensorium
-0.8.3` (driver, workspace wrapper, target runner, converter, one binary, four
+0.8.4` (driver, workspace wrapper, target runner, converter, one binary, four
 roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
 with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
 [`rust/README.md`](rust/README.md) is the full build/install/record reference.
@@ -684,7 +684,7 @@ states one as a translation of the other. The driver's own fixed cost is
 `sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite the
 way `cargo sensorium test` records a Rust workspace: one trace per test-file
 process, trace format 4, read by the same `sensorium` command line. `typescript/`
-ships **`sensorium-ts 0.6.1`** (a transform whose edits never contain a newline,
+ships **`sensorium-ts 0.6.2`** (a transform whose edits never contain a newline,
 a runtime on `AsyncLocalStorage`, a vitest plugin, a `node --test` hook) with
 driver and converter in Python, so reading a trace needs no Node. What it sees and
 does not is [`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot

@@ -182,7 +182,7 @@ pub fn line<const N: usize>(
     site: u32,
     deltas: impl FnOnce() -> [(&'static str, Capture); N],
 ) {
-    if STATE.load(Ordering::Acquire) == STATE_CALL {
+    if STATE.load(Ordering::Acquire) == STATE_CALL && !crate::cap::inside_elided() {
         emit_line(unit, site, deltas);
     }
 }
@@ -206,7 +206,7 @@ pub fn line_unbinding<const N: usize>(
     deltas: impl FnOnce() -> [(&'static str, Capture); N],
     unbound: &'static [&'static str],
 ) {
-    if STATE.load(Ordering::Acquire) == STATE_CALL {
+    if STATE.load(Ordering::Acquire) == STATE_CALL && !crate::cap::inside_elided() {
         emit_line_unbinding(unit, site, deltas, unbound);
     }
 }

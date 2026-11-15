@@ -79,6 +79,7 @@ compile_error!(
      MAP_SHARED mapping grown with ftruncate (spec §4). Portability is designed, not patched in."
 );
 
+mod cap;
 mod errflow;
 mod exit;
 mod ffi;
@@ -106,6 +107,7 @@ mod thread;
 // The seven `how` bytes an instrumented program can write. `HOW_EXIT` is
 // deliberately absent: it is the converter's own synthesised how (errflow.rs),
 // no runtime path can write it, and the writer refuses it.
+pub use cap::{DEFAULT_MAX_BYTES, DEFAULT_MAX_CALLS, DEFAULT_MAX_EVENTS};
 pub use errflow::{
     err_site, err_site_unbound, err_site_value, ErrCapture, HOW_ARM_AMBIGUOUS, HOW_ARM_HANDLED,
     HOW_ARM_PROPAGATE, HOW_SINK_LET_UNDERSCORE, HOW_SINK_OK, HOW_SINK_UNWRAP_OR, HOW_TRY,
@@ -148,7 +150,7 @@ const STATE_FAILED: u8 = 4;
 /// `Acquire`, so a thread that sees `STATE_CALL` also sees `SPOOL_DIR`.
 pub(crate) static STATE: AtomicU8 = AtomicU8::new(STATE_UNINIT);
 static INIT: Once = Once::new();
-static SPOOL_DIR: OnceLock<PathBuf> = OnceLock::new();
+pub(crate) static SPOOL_DIR: OnceLock<PathBuf> = OnceLock::new();
 static START_NS: AtomicU64 = AtomicU64::new(0);
 static START_REALTIME_NS: AtomicU64 = AtomicU64::new(0);
 
@@ -211,6 +213,9 @@ fn init() {
         };
         if tier == STATE_CALL {
             let _ = SPOOL_DIR.set(dir);
+            // After the directory is published and before STATE_CALL is: a
+            // thread that observes the recording state also observes the caps.
+            cap::install();
         }
         STATE.store(tier, Ordering::Release);
     });
@@ -420,17 +425,62 @@ impl Drop for Guard {
     }
 }
 
+/// What `enter` and `enter_args` return.
+///
+/// A stored call is a [`Guard`]: its drop writes RETURN and it consumed one
+/// `open_frame` depth. An elided call is [`cap::ElidedGuard`]: depth stays 0,
+/// so a depth-0 `Guard` cannot stand in for it (that drop returns immediately
+/// and a panic would then have a RETURN with no CALL). The two are one type
+/// here because the transformer names neither; it writes `let _sens_guard`.
+#[must_use]
+pub struct Entry {
+    // Never read by name. Drop of the inner guard is the use: a stored call
+    // writes RETURN, an elided call writes nothing unless it is panicking.
+    #[allow(dead_code)]
+    kind: EntryKind,
+}
+
+#[allow(dead_code)]
+enum EntryKind {
+    Frame(Guard),
+    Elided(cap::ElidedGuard),
+}
+
+impl Entry {
+    #[inline]
+    fn inert() -> Entry {
+        Entry {
+            kind: EntryKind::Frame(Guard::inert()),
+        }
+    }
+
+    fn recorded(guard: Guard) -> Entry {
+        cap::push_recorded();
+        Entry {
+            kind: EntryKind::Frame(guard),
+        }
+    }
+
+    fn elided(site: u32) -> Entry {
+        let entered_unwinding = std::thread::panicking();
+        let id = cap::push_elided(site, entered_unwinding);
+        Entry {
+            kind: EntryKind::Elided(cap::ElidedGuard::new(site, id, entered_unwinding)),
+        }
+    }
+}
+
 /// Record a CALL and return the guard whose drop records the RETURN.
 ///
 /// Inert -- no record, no file, no allocation beyond the returned value -- when
 /// the recorder is off, refused, failed, or already running on this thread.
 #[inline]
-pub fn enter(unit: &'static Unit, site: u32) -> Guard {
+pub fn enter(unit: &'static Unit, site: u32) -> Entry {
     // One acquire load, one compare, one guard value. `STATE_OFF` is tested
     // first because that is the path a production build that is not recording
     // takes on every call, and it is what endpoint E1 measures.
     match STATE.load(Ordering::Acquire) {
-        STATE_OFF => Guard::inert(),
+        STATE_OFF => Entry::inert(),
         STATE_CALL => enter_recording(unit, site),
         other => enter_cold(unit, site, other),
     }
@@ -454,39 +504,42 @@ pub(crate) fn recording() -> bool {
 }
 
 #[cold]
-fn enter_cold(unit: &'static Unit, site: u32, state: u8) -> Guard {
+fn enter_cold(unit: &'static Unit, site: u32, state: u8) -> Entry {
     if state != STATE_UNINIT {
-        return Guard::inert();
+        return Entry::inert();
     }
     init();
     if STATE.load(Ordering::Acquire) == STATE_CALL {
         enter_recording(unit, site)
     } else {
-        Guard::inert()
+        Entry::inert()
     }
 }
 
 #[inline(never)]
-fn enter_recording(unit: &'static Unit, site: u32) -> Guard {
+fn enter_recording(unit: &'static Unit, site: u32) -> Entry {
     // Reentrancy: inert while the runtime is already running on this thread.
     let Some(_scope) = thread::try_enter_runtime() else {
-        return Guard::inert();
+        return Entry::inert();
     };
     // Before the CALL: from here on, a panic that crosses this frame has a hook
     // to write its PANIC record. One `Once::is_completed` load once it is in.
     panic::install();
     let Some(dir) = ensure_dir() else {
-        return Guard::inert();
+        return Entry::inert();
     };
     let Some(id) = unit_id(unit, dir) else {
-        return Guard::inert();
+        return Entry::inert();
     };
     debug_assert!(
         site <= SITE_INDEX_MASK,
         "site index {site} does not fit the wire format's 24 bits and would alias"
     );
     let packed = pack_site(id, site);
-    emit_call(dir, packed, &[])
+    if cap::admit(packed) == cap::Admit::Elide {
+        return Entry::elided(packed);
+    }
+    emit_kept(dir, packed, &[])
 }
 
 /// Record a CALL that carries its arguments, and return the guard whose drop
@@ -509,9 +562,9 @@ pub fn enter_args<const N: usize>(
     unit: &'static Unit,
     site: u32,
     args: impl FnOnce() -> [(&'static str, probe::Capture); N],
-) -> Guard {
+) -> Entry {
     match STATE.load(Ordering::Acquire) {
-        STATE_OFF => Guard::inert(),
+        STATE_OFF => Entry::inert(),
         STATE_CALL => enter_args_recording(unit, site, args),
         other => enter_args_cold(unit, site, args, other),
     }
@@ -523,15 +576,15 @@ fn enter_args_cold<const N: usize>(
     site: u32,
     args: impl FnOnce() -> [(&'static str, probe::Capture); N],
     state: u8,
-) -> Guard {
+) -> Entry {
     if state != STATE_UNINIT {
-        return Guard::inert();
+        return Entry::inert();
     }
     init();
     if STATE.load(Ordering::Acquire) == STATE_CALL {
         enter_args_recording(unit, site, args)
     } else {
-        Guard::inert()
+        Entry::inert()
     }
 }
 
@@ -540,45 +593,50 @@ fn enter_args_recording<const N: usize>(
     unit: &'static Unit,
     site: u32,
     args: impl FnOnce() -> [(&'static str, probe::Capture); N],
-) -> Guard {
+) -> Entry {
     // The closure stays uncalled until the CALL is actually about to be
-    // written. Reentrancy, a missing spool and a failed unit are inert, and
-    // formatting an argument on any of those paths would be work the record
-    // does not keep.
+    // written. Reentrancy, a missing spool, a failed unit and an elided call
+    // are all paths that must not format an argument.
     let Some(_scope) = thread::try_enter_runtime() else {
-        return Guard::inert();
+        return Entry::inert();
     };
     panic::install();
     let Some(dir) = ensure_dir() else {
-        return Guard::inert();
+        return Entry::inert();
     };
     let Some(id) = unit_id(unit, dir) else {
-        return Guard::inert();
+        return Entry::inert();
     };
     debug_assert!(
         site <= SITE_INDEX_MASK,
         "site index {site} does not fit the wire format's 24 bits and would alias"
     );
+    let packed = pack_site(id, site);
+    if cap::admit(packed) == cap::Admit::Elide {
+        return Entry::elided(packed);
+    }
     let captured = args();
     let mut buf = [0u8; line::LINE_PAYLOAD_MAX];
     let (len, _dropped) =
         line::write_line_payload(&mut buf, &captured, &[], redact::key(), redact::knobs());
-    emit_call(dir, pack_site(id, site), &buf[..len as usize])
+    emit_kept(dir, packed, &buf[..len as usize])
 }
 
 /// Write the CALL and open the frame. `payload` is empty for [`enter`] and
-/// the argument block for [`enter_args`].
-fn emit_call(dir: &Path, packed: u32, payload: &[u8]) -> Guard {
+/// the argument block for [`enter_args`]. The caller has already decided this
+/// activation is kept; a failed write is inert and is not counted as kept.
+fn emit_kept(dir: &Path, packed: u32, payload: &[u8]) -> Entry {
     if !thread::emit(dir, packed, KIND_CALL, OUTCOME_NONE, payload) {
-        return Guard::inert();
+        return Entry::inert();
     }
+    cap::note_kept(packed);
     // Only now, with the CALL on the wire: an inert guard must not consume a
     // depth, or the frames that nest inside it would be mis-keyed.
-    Guard {
+    Entry::recorded(Guard {
         site: packed,
         depth: thread::open_frame(),
         entered_unwinding: std::thread::panicking(),
-    }
+    })
 }
 
 pub(crate) fn pack_site(unit_id: u8, site: u32) -> u32 {
@@ -629,6 +687,7 @@ fn emit_return(site: u32, depth: u32, entered_unwinding: bool) {
         thread::emit(dir, site, KIND_RETURN, outcome as u8, &buf[..len]);
     }
     thread::close_frame(depth);
+    cap::pop_recorded();
 }
 
 // ---------------------------------------------------------------------------

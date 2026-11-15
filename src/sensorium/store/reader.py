@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sensorium.record.fingerprint import CAUSAL_KINDS
-from sensorium.store import db
+from sensorium.store import db, payloads
 
 
 @dataclass(frozen=True)
@@ -77,9 +77,10 @@ def _frame(row) -> Frame:
     return Frame(*row[:8], _loads(row[8]), *row[9:])
 
 
-def _event(row) -> Event:
+def _event(row, strings=None) -> Event:
     # 8 columns on a format-1 trace, 9 on format 2; task_id defaults to None.
-    return Event(*row[:7], _loads(row[7]), *row[8:])
+    text = payloads.expand(row[7], strings) if strings else row[7]
+    return Event(*row[:7], _loads(text), *row[8:])
 
 
 class Trace:
@@ -99,6 +100,7 @@ class Trace:
         self._has_task_fps = bool(conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' "
             "AND name='task_fingerprints'").fetchone())
+        self._strings = payloads.load_strings(conn)
 
     @classmethod
     def open(cls, path: Path) -> "Trace":
@@ -136,12 +138,12 @@ class Trace:
         if limit is not None:
             q += " LIMIT ?"
             params.append(limit)
-        return [_event(r) for r in self._c.execute(q, params)]
+        return [_event(r, self._strings) for r in self._c.execute(q, params)]
 
     def event(self, eid: int) -> Event | None:
         row = self._c.execute(
             f"SELECT {self._ecols} FROM events WHERE id = ?", (eid,)).fetchone()
-        return None if row is None else _event(row)
+        return None if row is None else _event(row, self._strings)
 
     def frames(self, code_id=None) -> list[Frame]:
         q = f"SELECT {self._fcols} FROM frames"
@@ -226,8 +228,8 @@ class Trace:
         payload key: the key is format 2, the table answers for every format,
         and 'recorded but not framed' must be the same fact on both."""
         params: tuple = () if code_id is None else (code_id,)
-        return [_event(r) for r in self._c.execute(self._unframed_sql(code_id),
-                                                   params)]
+        return [_event(r, self._strings) for r in self._c.execute(
+            self._unframed_sql(code_id), params)]
 
     def call_counts(self) -> dict[int, int]:
         """code_id -> CALL events. Counts activations, framed or not."""
@@ -418,7 +420,7 @@ class Trace:
             "AND kind IN ('YIELD', 'RESUME') ORDER BY id DESC LIMIT 1",
             (f.id,)).fetchone()
         lkind, lline, lpayload = (None, None, None) if last is None else (
-            last[0], last[1], _loads(last[2]))
+            last[0], last[1], payloads.decode(last[2], self._strings))
         if f.closed_by == "return":
             return FrameState("returned", None, None)
         if f.closed_by == "unwind":

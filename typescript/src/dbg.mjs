@@ -1,6 +1,6 @@
 // Reading values out of the program under test, without trusting them. Both
 // exports take a value the consumer produced — a return value, a thrown thing —
-// and hand back a small JSON object the wire can carry. Neither may ever throw:
+// and hand back a small JSON object the wire can carry. `dbg` and `exc` do not throw:
 // a recorder that dies on a hostile object has changed the program it was
 // supposed to observe. What cannot be read is SAID to be unread; nothing here
 // invents a value it did not obtain.
@@ -13,7 +13,7 @@
 // itself, here, before the text is written.
 import util from 'node:util';
 
-import { content, current } from './redact.mjs';
+import { content, current, redactCaptures } from './redact.mjs';
 
 /** The byte budget one captured value gets on the wire (design §4). */
 const CAP = 200;
@@ -210,4 +210,25 @@ function serialOf(e) {
     serials.set(e, serial);
   }
   return serial;
+}
+
+/**
+ * A `[name, value, name, value, ...]` list, as the map the wire carries.
+ * Names are the transform's; values are the program's, so every value goes
+ * through `dbg` and no name does. An odd list throws: the transform emits
+ * both halves, and dropping the trailing name would hide a splice defect.
+ * The runtime calls this only for a call it is going to store.
+ * @param {unknown[]} pairs
+ * @returns {Record<string, Captured>}
+ */
+export function captures(pairs) {
+  if (pairs.length % 2 !== 0) throw new TypeError('captures: an odd pairs list — ' + pairs.length + ' entries');
+  /** @type {Record<string, Captured>} */
+  const out = {};
+  for (let i = 0; i + 1 < pairs.length; i += 2) {
+    out[/** @type {string} */ (pairs[i])] = dbg(pairs[i + 1]);
+  }
+  // Rule v1's NAME half, before the record exists, so the plaintext of a
+  // secret-shaped name never reaches the disk.
+  return redactCaptures(out);
 }

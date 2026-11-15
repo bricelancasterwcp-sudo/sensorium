@@ -6,6 +6,8 @@
 //! no separator configuration needed to match the Python writer's
 //! `separators=(",", ":")`.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
@@ -81,9 +83,21 @@ CREATE INDEX idx_frames_code ON frames(code_id);
 /// One trace under construction. `create` writes to a `.tmp` path; `finish`
 /// closes the connection and renames it into place, so a converter killed
 /// mid-write never leaves a half-written file at the name a reader would open.
+/// Payloads shorter than this stay inline forever. The first copy of a longer
+/// payload stays inline JSON; a later identical copy is the text `#<id>`.
+const INTERN_MIN: usize = 120;
+
+struct InternState {
+    /// `0` means the text was stored inline once and has no strings-row id yet.
+    seen: HashMap<String, i64>,
+    next_id: i64,
+    table: bool,
+}
+
 pub struct TraceWriter {
     conn: Connection,
     tmp_path: PathBuf,
+    intern: RefCell<InternState>,
 }
 
 impl TraceWriter {
@@ -136,6 +150,11 @@ impl TraceWriter {
         Ok(TraceWriter {
             conn,
             tmp_path: tmp_path.to_path_buf(),
+            intern: RefCell::new(InternState {
+                seen: HashMap::new(),
+                next_id: 1,
+                table: false,
+            }),
         })
     }
 
@@ -190,6 +209,10 @@ impl TraceWriter {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|e| format!("event payload: {e}"))?;
+        let payload_json = match payload_json {
+            Some(text) => Some(self.intern_payload(&text)?),
+            None => None,
+        };
         self.conn
             .execute(
                 "INSERT INTO events (ts_ns, thread_id, kind, frame_id, code_id, line, payload, \
@@ -207,6 +230,57 @@ impl TraceWriter {
             )
             .map_err(|e| format!("cannot write events: {e}"))?;
         Ok(self.conn.last_insert_rowid())
+    }
+
+    /// First long copy stays inline. The second assigns an id, creates
+    /// `strings` if this is the first duplicate in the trace, and stores `#id`.
+    /// Short payloads are never interned. `strings` is not part of [`SCHEMA`].
+    fn intern_payload(&self, text: &str) -> Result<String, String> {
+        enum Act {
+            Keep(String),
+            Assign { id: i64, create: bool },
+        }
+        let act = {
+            let mut st = self.intern.borrow_mut();
+            if text.len() < INTERN_MIN {
+                Act::Keep(text.to_owned())
+            } else if let Some(id) = st.seen.get(text).copied() {
+                if id == 0 {
+                    let id = st.next_id;
+                    st.next_id += 1;
+                    if let Some(slot) = st.seen.get_mut(text) {
+                        *slot = id;
+                    }
+                    let create = !st.table;
+                    st.table = true;
+                    Act::Assign { id, create }
+                } else {
+                    Act::Keep(format!("#{id}"))
+                }
+            } else {
+                st.seen.insert(text.to_owned(), 0);
+                Act::Keep(text.to_owned())
+            }
+        };
+        match act {
+            Act::Keep(text) => Ok(text),
+            Act::Assign { id, create } => {
+                if create {
+                    self.conn
+                        .execute_batch(
+                            "CREATE TABLE IF NOT EXISTS strings (id INTEGER PRIMARY KEY, body TEXT NOT NULL)",
+                        )
+                        .map_err(|e| format!("cannot create strings: {e}"))?;
+                }
+                self.conn
+                    .execute(
+                        "INSERT INTO strings (id, body) VALUES (?1, ?2)",
+                        params![id, text],
+                    )
+                    .map_err(|e| format!("cannot write strings: {e}"))?;
+                Ok(format!("#{id}"))
+            }
+        }
     }
 
     /// Opens a frame with `closed_by`/`return_event_id`/`unwind_exc` all NULL;
@@ -473,5 +547,57 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM events", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n_events, 2);
+    }
+
+    #[test]
+    fn a_long_payload_is_inlined_once_and_then_stored_as_an_id() {
+        let dir = scratch("intern");
+        let w = TraceWriter::create(&dir.join("x.db.tmp")).unwrap();
+        let body = "n".repeat(200);
+        let long = serde_json::json!({"body": body});
+        let short = serde_json::json!({"a": 1});
+        w.insert_event(1, 1, "CALL", None, None, None, Some(&long), None)
+            .unwrap();
+        let tables: i64 = w
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'strings'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(tables, 0, "the strings table waits for a duplicate");
+        w.insert_event(2, 1, "CALL", None, None, None, Some(&long), None)
+            .unwrap();
+        w.insert_event(3, 1, "CALL", None, None, None, Some(&long), None)
+            .unwrap();
+        w.insert_event(4, 1, "CALL", None, None, None, Some(&short), None)
+            .unwrap();
+        w.insert_event(5, 1, "CALL", None, None, None, Some(&short), None)
+            .unwrap();
+        let mut stmt = w
+            .conn
+            .prepare("SELECT payload FROM events ORDER BY ts_ns")
+            .unwrap();
+        let rows: Vec<String> = stmt
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        drop(stmt);
+        assert!(
+            rows[0].starts_with('{'),
+            "first long copy stays inline: {}",
+            rows[0]
+        );
+        assert_eq!(rows[1], "#1");
+        assert_eq!(rows[2], "#1");
+        assert!(rows[3].starts_with('{'));
+        assert_eq!(rows[3], rows[4], "a short payload is never interned");
+        let stored: String = w
+            .conn
+            .query_row("SELECT body FROM strings WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(stored, rows[0]);
     }
 }

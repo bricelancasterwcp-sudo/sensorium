@@ -52,6 +52,17 @@ def _add_run_parser(sub) -> None:
                    help="the run this recording re-runs one flag deeper; "
                         "stamps refocus_of into every trace of the "
                         "invocation (set by `sensorium refocus`)")
+    p.add_argument("--max-events", default=None,
+                   help="stop storing events after this many (0 is unlimited)")
+    p.add_argument("--max-bytes", default=None,
+                   help="stop storing events after the trace reaches this "
+                        "size, for example 8M (0 is unlimited)")
+    p.add_argument("--max-calls", default=None,
+                   help="store at most this many calls of each function; "
+                        "later calls are counted and marked elided "
+                        "(0 is unlimited)")
+    p.add_argument("--no-cap", action="store_true",
+                   help="record without an event, size, or per-function cap")
     p.add_argument("command", nargs=argparse.REMAINDER,
                    help="-- followed by the harness command: vitest run …, "
                         "npx vitest run …, node --test …")

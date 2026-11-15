@@ -103,6 +103,11 @@ impl<'a> Spec<'a> {
         cmd.env_remove("SENSORIUM_NO_REDACT");
         cmd.env_remove("SENSORIUM_REDACT_NAMES");
         cmd.env_remove("SENSORIUM_REDACT_ALLOW");
+        // A shell that exported a cap must not truncate a scenario that did
+        // not ask for one. Spec::env is applied after these removes.
+        cmd.env_remove("SENSORIUM_MAX_EVENTS");
+        cmd.env_remove("SENSORIUM_MAX_BYTES");
+        cmd.env_remove("SENSORIUM_MAX_CALLS");
         if let Some(d) = self.dir {
             cmd.env("SENSORIUM_SPOOL", d);
         }

@@ -24,6 +24,7 @@ from sensorium.query.info_typescript import (interp_suffix,
 # a second answer to how much of an environment `info` shows.
 from sensorium.query.refocus_world import (_capped, harness_exclusion,
                                            unverifiable_line)
+from sensorium.query.caps import print_elisions, print_truncated
 from sensorium.query.vocab import exit_phrase, terms
 from sensorium.store.reader import Trace
 
@@ -267,6 +268,8 @@ def run(args) -> int:
         print("INCOMPLETE: recording ended without a finalize pass "
               "(process died mid-record); exit/uncaught/children/"
               "truncated-count fields below are UNKNOWN, not zero")
+    print_truncated(t)
+    print_elisions(t)
 
     dur = ""
     if m.get("end_ts") and m.get("start_ts"):

@@ -24,6 +24,7 @@ mod driver_args;
 mod fallback;
 mod invocation;
 mod launch;
+mod limits;
 mod mirror;
 mod modtree;
 mod perms;

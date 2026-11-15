@@ -35,6 +35,7 @@ from sensorium.store.writer import TraceWriter
 from sensorium.ts.invocation import env_hash
 from sensorium.ts.redaction import ran_the_value_rule, rule_runs
 from sensorium.ts.spool import Spool, SpoolError
+from sensorium.ts.truncation import truncation_meta
 
 #: What this recorder produces, and what it does not (design section 5.2).
 #: A FLOOR, not the last word: `err_flow` is the one key the BOOT record's
@@ -139,6 +140,8 @@ class Builder:
         self.conflicts = 0
         self.events = 0
         self.last_ts: int | None = None
+        # Cap meta, filled in when an ELISION record says calls were dropped.
+        self._truncation: dict = {}
         # The contract's literal rule (TRACE-FORMAT section 4): `incomplete`
         # is written TRUE at the start of a run and false only after the
         # finalize pass. Written here, before a single record is read, so a
@@ -259,6 +262,11 @@ class Builder:
         the other failure -- so it is kept, named `exit_self_reported`, and
         `exit_status` stays null with basis `unwitnessed`.
         """
+
+    def _on_elision(self, rec: dict) -> None:
+        """Calls a cap dropped. Applied in `_meta` only when the count is
+        above zero, so a record that kept every call adds no truncation key."""
+        self._truncation = truncation_meta(rec, self._files, str(self.spool.path))
 
     # -- frames -------------------------------------------------------------
 
@@ -561,6 +569,8 @@ class Builder:
             }
         meta.update(self._container_meta())
         meta.update(self._invocation_meta())
+        if self._truncation:
+            meta.update(self._truncation)
         return meta
 
     def _redaction(self) -> tuple[dict, str, dict]:

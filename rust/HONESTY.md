@@ -1,6 +1,6 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.7.1`, `sensorium-transform 0.5.1`, `cargo-sensorium 0.8.3`,
+`sensorium-rt 0.7.2`, `sensorium-transform 0.5.1`, `cargo-sensorium 0.8.4`,
 v1, the call tier, with err flow and the focus tier.
 (~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.2`~~,
 before them ~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.0`~~,

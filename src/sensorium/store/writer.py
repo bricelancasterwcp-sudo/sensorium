@@ -14,7 +14,7 @@ import json
 import threading
 from pathlib import Path
 
-from sensorium.store import db
+from sensorium.store import db, payloads
 
 
 class TraceWriter:
@@ -40,6 +40,38 @@ class TraceWriter:
         self._new_codes: list[tuple] = []
         self._next_event = 1
         self._next_frame = 1
+        self._bytes_estimate = 0
+        # body -> 0 while only the inline copy exists, else the strings id.
+        self._interned: dict[str, int] = {}
+        self._string_rows: list[tuple[int, str]] = []
+        self._next_string = 1
+        self._strings_ready = False
+
+    @property
+    def bytes_estimate(self) -> int:
+        """Payload bytes accepted so far, including the intern table."""
+        return self._bytes_estimate
+
+    def _intern_locked(self, text: str | None) -> str | None:
+        """First copy of a long payload stays JSON. Later copies are ``#id``."""
+        if text is None:
+            return None
+        stored = text
+        if len(text) >= payloads.INTERN_MIN:
+            sid = self._interned.get(text)
+            if sid is None:
+                self._interned[text] = 0
+            elif sid == 0:
+                sid = self._next_string
+                self._next_string += 1
+                self._interned[text] = sid
+                self._string_rows.append((sid, text))
+                stored = f"#{sid}"
+                self._bytes_estimate += len(text)
+            else:
+                stored = f"#{sid}"
+        self._bytes_estimate += len(stored)
+        return stored
 
     def _commit(self) -> None:
         """Every commit in this class goes through here. Durable: each batch
@@ -69,6 +101,7 @@ class TraceWriter:
         with self._lock:
             eid = self._next_event
             self._next_event += 1
+            p = self._intern_locked(p)
             self._events.append(
                 (eid, ts_ns, thread_id, kind, frame_id, code_id, line, p,
                  task_id))
@@ -174,6 +207,15 @@ class TraceWriter:
 
     def _flush_locked(self, commit: bool = True) -> None:
         c = self._conn
+        if self._string_rows:
+            if not self._strings_ready:
+                c.execute(
+                    "CREATE TABLE IF NOT EXISTS strings ("
+                    "id INTEGER PRIMARY KEY, body TEXT NOT NULL)")
+                self._strings_ready = True
+            c.executemany("INSERT INTO strings (id, body) VALUES (?, ?)",
+                          self._string_rows)
+            self._string_rows.clear()
         if self._new_codes:
             c.executemany("INSERT INTO code_objects VALUES (?, ?, ?, ?)",
                           self._new_codes)
