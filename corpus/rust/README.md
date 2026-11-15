@@ -157,11 +157,12 @@ refocuses once and reads the re-run's trace never.
 ## The redaction case
 
 Added by the secrets-redaction slice, this recorder's twin of the Python and
-TypeScript `secret_in_env` cases: under a focus, `token`'s own parameter
-delta, `api_key`'s delta and `auth_headers`'s delta are three names rule v1
-fires on, and `secret`'s RETURN is a fourth, `info` counts
-`values redacted: 4`. Not a seeded bug. The planted truth is that the
-token never reaches the trace at all. Its fourth question is the one place
+TypeScript `secret_in_env` cases: under a focus, `token` is taken on the
+CALL and again as the parameter LINE delta, `api_key` and `auth_headers`
+are two more names rule v1 fires on, and `secret`'s RETURN is a fifth.
+`info` counts `values redacted: 5`. Not a seeded bug. The planted truth is
+that the token never reaches the trace at all. Its fourth question is the
+one place
 this case's Rust nature shows through: `flow --object` refuses on every
 Rust trace regardless of redaction (`capabilities.object_identity: false`,
 the same refusal `rust/aliasing` and `rust/stale_cache` hit), so it does not
@@ -170,16 +171,17 @@ do, only that the recording is not silently different underneath it.
 
 | Case | Planted truth | Commands |
 |---|---|---|
-| `secret_in_env` | a token read from the environment and threaded through two more bindings: `info` names it among the redacted env vars and counts four values taken; `frame` renders `token=<redacted #…>`; `watch "token == 'x'"` ends NOTHING WAS CHECKED, exit 3; `flow --object handle:token` refuses at exit 3, but through `object_identity: false` rather than the name rule | `info`, `frame`, `watch`, `flow --object` |
+| `secret_in_env` | a token read from the environment and threaded through two more bindings: `info` names it among the redacted env vars and counts five values taken; `frame` renders `token=<redacted #…>`; `watch "token == 'x'"` ends NOTHING WAS CHECKED, exit 3; `flow --object handle:token` refuses at exit 3, but through `object_identity: false` rather than the name rule | `info`, `frame`, `watch`, `flow --object` |
 
 ## Two things a case here must know
 
-**Arguments are not recorded.** At tier `call` the recorder captures return
-values and outcomes, never locals or arguments, `tree` prints
-`price() <unread: locals> -> 95.0`. So a port of a Python case that
-identified an activation by its arguments identifies it here by its position
-(`frame --nth 2`) or by what it returned. The planted bug is the same class
-of bug; the question that finds it is not the same question.
+**Arguments are on every CALL.** Each parameter is `Debug` text, the same
+cap as a return, so `tree` prints `price(points=1000, total=100.0)` rather
+than a bare name. An empty list means the function had no parameters.
+`capabilities.line` stays false without a `--focus`, so `watch` and
+`flow --value` still refuse, and a focused function's parameters LINE
+records the same values a second time. A hand-written `enter`, and a spool
+from before 0.7.1, still read `name() <unread: locals>`.
 
 **`info`'s `units:` line is partly a fact about the build tree.** The
 `N instrumented` count is this process's own registered units, but the

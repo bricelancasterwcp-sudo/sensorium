@@ -34,7 +34,7 @@ pub fn a_labelled_block_is_wrapped_whole() -> u8 {@G(10)
     }@E
 }
 
-pub fn a_labelled_bare_block_is_wrapped_whole(c: bool) -> u8 {@G(11)
+pub fn a_labelled_bare_block_is_wrapped_whole(c: bool) -> u8 {@G(11,c)
     @R(11)'value: {
         if c { break 'value 6 } else { 7 }
     }@E

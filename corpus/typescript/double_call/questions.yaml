@@ -7,10 +7,9 @@ questions:
       Twice. `charge` was entered exactly two times inside the one test, and
       the two activations are two frames with two different return values --
       1 and 2, the ledger's length after each push. The ledger total of 80
-      is one order of 40 billed twice, not two orders. Arguments are NOT
-      recorded by this recorder, so every CALL row says `<unread: locals>`
-      and the order's id is nowhere in the trace: the count and the returns
-      are what carry the fact here.
+      is one order of 40 billed twice, not two orders. Both CALL rows name
+      that order, `order={ id: 'A-1', amount: 40, slow: true }`, so the id
+      is in the trace beside the count and the two returns.
     why_logs_fail: >
       A `console.log` inside `charge` would answer it, and there is no such
       line: `charge` is a one-liner that pushes and returns. Everything the
@@ -21,7 +20,7 @@ questions:
       needs a throw, and nothing throws.
     command: ["grep", "$RUN", "charge", "--kind", "CALL"]
     expect_contains: ["matches: 2"]
-    expect_count: {"CALL    charge() <unread: locals>": 2}
+    expect_count: {"CALL    charge(order=": 2}
   - id: which-call-site-repeated
     ask: >
       Both charges came from inside one `submit`. What did that single
@@ -36,8 +35,8 @@ questions:
       execution order, so `f3 e3 charge` before `f4 e5 confirm` is the
       sequence and not merely the set; the return values alone would not
       say it, since a run that confirmed before charging would print the
-      same four values. The frame's own arguments are a stated absence --
-      `args: <unread: locals>` -- not an empty list.
+      same four values. The frame's own arguments name the order:
+      `args: order={ id: 'A-1', amount: 40, slow: true }`.
     why_logs_fail: >
       Counting alone does not localise anything: two charges could equally
       have come from two call sites, or from a retry loop in the test. What
@@ -47,16 +46,16 @@ questions:
       program's code does not already lack, and a stack trace would show the
       call stack at one instant, never the sequence of siblings.
     command: ["frame", "$RUN", "--fn", "submit"]
-    expect_contains: ["children (4):", "args: <unread: locals>"]
-    expect_count: {"charge() <unread: locals>": 2}
+    expect_contains: ["children (4):", "args: order={ id: 'A-1', amount: 40, slow: true }"]
+    expect_count: {"charge(order=": 2}
     # Id-anchored, so the SEQUENCE is asserted and not merely the four rows:
     # frame and event ids are minted in execution order, so a `charge` and a
     # `confirm` that swapped would carry each other's ids and every one of
     # these groups would miss.
     expect_line:
       - ["orders.ts:submit", "closed: return"]
-      - ["f3 e3 charge() <unread: locals> -> 1"]
-      - ["f4 e5 confirm() <unread: locals> -> false"]
-      - ["f5 e7 charge() <unread: locals> -> 2"]
-      - ["f6 e9 total() <unread: locals> -> 80"]
+      - ["f3 e3 charge(order={ id: 'A-1', amount: 40, slow: true }) -> 1"]
+      - ["f4 e5 confirm(order={ id: 'A-1', amount: 40, slow: true }) -> false"]
+      - ["f5 e7 charge(order={ id: 'A-1', amount: 40, slow: true }) -> 2"]
+      - ["f6 e9 total() -> 80"]
       - ["return: 80"]

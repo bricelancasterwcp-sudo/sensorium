@@ -8,7 +8,7 @@ process, the same SQLite format 4 the Python and Rust recorders write, read by
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.6.0`**: ESM `.mjs` with JSDoc
+One private npm package, **`sensorium-ts 0.6.1`**: ESM `.mjs` with JSDoc
 types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
 this was measured on; the driver refuses below it before spawning anything).
 Nineteen modules and a version:
@@ -34,7 +34,7 @@ Nineteen modules and a version:
 | `src/register.mjs` | What `node --import` runs for `node --test`: it checks the two variables the hook cannot invent and registers `src/hook.mjs`. |
 | `src/hook.mjs` | The loader hook itself, on Node's loader thread: it instruments a file under the root and hands it back in **Node's own reported format**, erasing nothing: Node strips the types (`.ts`, `.mts`), and a file Node's strip-only mode refuses fails identically hooked and plain. |
 | `src/escape.mjs` | The escape rule, as pure functions over AST nodes: `catchHow(ts, clause)`, `callbackHow(ts, arg)`, `finallyCompletes(ts, block)`, `deferredExit(ts, fn)`. The first three decide which of the nine `how` words a catch clause, a rejection handler or a `finally` block gets, and are what `sensorium exceptions` ends up reading; the fourth decides which functions get the deferred exit (§11's seal). |
-| `src/index.mjs` | `VERSION`, stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.6.0`. |
+| `src/index.mjs` | `VERSION`, stamped into every spool's BOOT record, which is how a trace says `recorder: sensorium-ts 0.6.1`. |
 
 Beside them, `probes/` is a self-contained vitest project the recorder records
 ITSELF with: twelve probe files whose expected rows were pinned before this
@@ -258,24 +258,25 @@ these exit statuses mean.
 | Command | Exit | Why |
 |---|---|---|
 | `exceptions` on a trace a **0.1.x** runtime wrote | 3 | That recorder declared `capabilities.err_flow: false` and its HANDLED rows carry no `how` word for the rules to read. The refusal names the capability and the recorder; what such a trace lacks is a record, not a rule, so **re-recording** is the fix. A 0.2.0 or later recording is answered, not refused. |
-| `watch`, `flow --value`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false`. The tier is decided at transform time, so an unfocused run produces no LINE event and no argument to check. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run both answer. |
+| `watch`, `flow --value`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false`. The tier is decided at transform time, so an unfocused run produces no LINE event. Arguments are still on the CALL. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run both answer. |
 | `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false`, that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A recording from **0.3.0** on declares `true` unconditionally, focused or not, and is answered exactly. |
 | `refocus` on a trace a **0.13.0 or earlier** driver converted | 2 | `capabilities.refocus: false`, that converter declared it, and nothing was re-run. A trace THIS driver converts answers (*`refocus`* under **Ask**, above); the seven refusals it can still meet are about the RUN, not the recorder. |
 
 `frame` is **not** in that table. On an unfocused run it prints the frame it
-was asked for (the call, its arguments' stated absence, how it closed) and
+was asked for (the call, the arguments it recorded, how it closed) and
 where the statements would be it prints `timeline: not captured (…)`, naming
 `sensorium ts run --focus <file>:<qualname> -- <harness command>` as what
 would record them, at **exit 0**. A frame is a fact the call tier holds; only
 the per-statement half is missing, and the line that replaces it says so and
 names the command that fills it.
 
-Arguments are **unread on an unfocused run**: `capabilities.locals: false`,
-every CALL carries `unread: ["locals"]`, and `tree` prints
-`compute() <unread: locals>`. That is a stated absence, not an empty argument
-list, and in a focused recording the same tree prints
-`total(items=[ 1, 2 ], member=true)` for a focused callee beside
-`helper() <unread: locals>` for one no spec reached.
+Arguments are recorded on every CALL, focused or not. An empty list means
+the function was called with none, so `tree` prints `reset()`. A parameter
+prints as its capture, `compute(slot='a')`. `capabilities.locals` stays
+`false` without a `--focus`, because that key is the LINE tier: `watch` and
+`flow --value` still refuse until a spec names the function. A CALL that
+omitted its argument list (a spool from before 0.6.1) still reads
+`helper() <unread: locals>`.
 
 The **driver** refuses before it mints anything, and each refusal names the
 thing to do instead:

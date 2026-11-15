@@ -252,7 +252,7 @@ fn a_closure_without_a_question_mark_is_left_exactly_as_it_was() {
     assert!(err_sites(&t).is_empty(), "{:?}", err_sites(&t));
     // Three closures in the file, none of them framed: exactly the two fn
     // guards were emitted.
-    assert_eq!(t.source.matches("::sensorium_rt::enter(").count(), 2);
+    assert_eq!(t.source.matches("::sensorium_rt::enter_args(").count(), 2);
     assert_eq!(census(&read("closure_no_try", "in")).closures_framed, 0);
 }
 

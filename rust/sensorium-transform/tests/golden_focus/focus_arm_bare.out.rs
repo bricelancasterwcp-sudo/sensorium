@@ -3,7 +3,7 @@
 //! the arm still evaluates to exactly what it did. The exit wrap goes around the
 //! whole `match`, so the two never share a byte.
 @W
-pub fn pick(o: Option<i32>) -> i32 {@G(7)@N(8,o)
+pub fn pick(o: Option<i32>) -> i32 {@G(7,o)@N(8,o)
     @R(7)match o {
         Some(n) => { @N(9,n) n * 2 },
         None => 0,

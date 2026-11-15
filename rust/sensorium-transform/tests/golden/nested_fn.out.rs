@@ -6,7 +6,7 @@
     struct Local;
 
     impl Local {
-        fn method(&self) -> u8 {@G(9)
+        fn method(&self) -> u8 {@G(9,self)
             @R(9)2@E
         }
     }

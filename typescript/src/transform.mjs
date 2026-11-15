@@ -343,17 +343,18 @@ function isFocusedFrame(ctx, node) {
 }
 
 /**
- * The frame's entry, and — on a focused site only — the arguments it was
- * entered with, read at body entry so a default is the value the body saw
- * (spec §3.3). An unfocused site passes no third argument at all, which is why
- * an unfocused file's output is byte-identical to 0.2.0's.
+ * The frame's entry and the arguments it was entered with, read at body
+ * entry so a default is the value the body saw (spec §3.3). Every site
+ * passes the list, including an empty one: "no parameters" and "not read"
+ * stay different facts, and the runtime's omitted third argument is the
+ * second of them. `--focus` still decides the per-statement rows.
  * @param {Splicer} ctx
  * @param {FunctionLike} node a recorded function-like
  */
 function spliceFunction(ctx, node) {
   const { ts, sf, s } = ctx;
   const index = ctx.indexOf.get(node);
-  const args = ctx.focused.has(node) ? `,[${pairsOf(paramNames(ts, node))}]` : '';
+  const args = `,[${pairsOf(paramNames(ts, node))}]`;
   const body = /** @type {import('typescript').Block|import('typescript').Expression} */ (
     node.body
   );
@@ -707,8 +708,8 @@ export function sitesOf(code, filePath, opts) {
  * @param {string} filePath absolute path to the file
  * @param {{root: string, ts: TS, rtPath: string, focus?: string[]}} opts the
  *   invocation root, the consumer's own TypeScript, the import specifier of the
- *   runtime module, and the focus specs (none by default — and with none, this
- *   emits exactly what it emitted before the focus tier existed)
+ *   runtime module, and the focus specs (none by default; with none, no
+ *   statement row is emitted, and every call still passes its arguments)
  * @returns {{code: string|null, map: import('magic-string').SourceMap|null, manifest: Manifest}|null}
  *   null for a path this recorder does not transform — outside the root, under
  *   any `node_modules`, a declaration file, CommonJS, or an ineligible

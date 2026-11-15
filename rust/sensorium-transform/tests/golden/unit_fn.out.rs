@@ -8,7 +8,7 @@ pub fn explicit_unit() -> () {@G(9)
     let _ = @L(10)2@LE;
 }
 
-pub fn early_return_unit(c: bool) {@G(11)
+pub fn early_return_unit(c: bool) {@G(11,c)
     if c {
         return;
     }

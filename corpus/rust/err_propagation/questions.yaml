@@ -60,10 +60,10 @@ questions:
       logger here and RUST_BACKTRACE never fires on a returned `Err`.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["plan()", "-> Ok(41)"]
-      - ["budget()", "-> Ok(40)"]
-      - ["field()", "-> Ok(4)"]
-      - ["field()", '-> Err(BadRow("4o"))']
-      - ["threshold()", '-> Err(BadRow("4o"))']
-      - ["plan()", '-> Err(BadRow("4o"))']
+      - ["plan(row=", "-> Ok(41)"]
+      - ["budget(row=", "-> Ok(40)"]
+      - ["field(raw=", "-> Ok(4)"]
+      - ["field(raw=", '-> Err(BadRow("4o"))']
+      - ["threshold(row=", '-> Err(BadRow("4o"))']
+      - ["plan(row=", '-> Err(BadRow("4o"))']
     expect_count: {'-> Err(BadRow("4o"))': 5}

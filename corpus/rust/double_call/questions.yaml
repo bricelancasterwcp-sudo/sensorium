@@ -17,7 +17,7 @@ questions:
       prints only at a panic, and nothing panics.
     command: ["grep", "$RUN", "charge", "--kind", "CALL"]
     expect_contains: ["matches: 2"]
-    expect_count: {"CALL    charge()": 2}
+    expect_count: {"CALL    charge(": 2}
   - id: which-call-site-repeated
     ask: >
       Both charges came from inside one submit. What did that single submit
@@ -37,8 +37,8 @@ questions:
       amount, and RUST_BACKTRACE gives frames only when something panics.
     command: ["frame", "$RUN", "--fn", "submit"]
     expect_contains: ["children (3):"]
-    expect_count: {"charge()": 2}
+    expect_count: {"charge(": 2}
     expect_line:
       - ["main.rs:submit", "closed: return"]
-      - ["confirm()", "-> false"]
+      - ["confirm(", "-> false"]
       - ["return:", "Receipt { amount: 40.0 }"]

@@ -10,7 +10,7 @@ pub struct C {
 }
 
 impl C {
-    pub fn go(self) -> Result<u8, u8> {@G(7)
+    pub fn go(self) -> Result<u8, u8> {@G(7,self)
         @R(7)Ok(self.v)@E
     }
 }

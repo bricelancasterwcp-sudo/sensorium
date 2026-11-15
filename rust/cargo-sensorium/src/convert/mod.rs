@@ -10,6 +10,7 @@
 //! `<pid>.runner.json` is read against that set -- a spool file whose pid has
 //! no proc header is an orphan and a hard error, never silently skipped.
 
+mod call_args;
 mod chains;
 mod discover;
 mod errflow;

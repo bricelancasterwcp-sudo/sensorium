@@ -1,7 +1,7 @@
 //! Closure frames are rung 3. A closure gets no guard, and a `return` inside one
 //! leaves the CLOSURE, not this function, so it is never wrapped as an exit.
 @W
-pub fn with_closure(v: &[u8]) -> usize {@G(7)
+pub fn with_closure(v: &[u8]) -> usize {@G(7,v)
     let pick = |b: &u8| -> bool {
         if *b == 0 {
             return false;

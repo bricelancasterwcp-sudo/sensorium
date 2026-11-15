@@ -27,8 +27,8 @@ questions:
     expect_contains:
       - "task t3: tests::a_worker_holds_the_ledger :: spawn@tests::a_worker_holds_the_ledger#1"
     expect_line:
-      - ["drain()", "-> 7"]
-      - ["apply()", "-> 7"]
+      - ["drain(delta=7", "-> 7"]
+      - ["apply(balance=0, delta=7)", "-> 7"]
       - ["task t2: tests::a_worker_holds_the_ledger"]
   - id: is-the-spawn-a-recorded-fact
     ask: >

@@ -28,7 +28,7 @@ questions:
     command: ["tree", "$RUN"]
     expect_contains:
       - "order between tasks is wall-clock"
-    expect_count: {"update() <unread: locals>": 4}
+    expect_count: {"update(slot='last_seen'": 4}
     expect_line:
       - ["task", ": writer A writes twice"]
       - ["task", ": writer B writes twice"]

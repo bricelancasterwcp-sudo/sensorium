@@ -19,7 +19,9 @@
 //! Injected as the first statement of every eligible fn body:
 //!
 //! ```ignore
-//! let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, <site>);
+//! let _sens_guard = ::sensorium_rt::enter_args(&crate::__SENSORIUM_UNIT, <site>, || [
+//!     ("x", ::sensorium_rt::probe_cap!(&x)),
+//! ]);
 //! ```
 //!
 //! around the tail expression and every `return <e>` at closure depth 0 of a
@@ -88,8 +90,8 @@
 //! ::sensorium_rt::line(&crate::__SENSORIUM_UNIT, <site>, || [("x", ::sensorium_rt::probe_cap!(&x))]);
 //! ```
 //!
-//! An EMPTY focus is the whole of the recorder before this existed: not one
-//! byte of any file changes, which `tests/focus.rs` measures per case.
+//! An EMPTY focus adds no LINE probe. The file is the same bytes the
+//! unfocused transform emits, which `tests/focus.rs` measures per case.
 //!
 //! **What this crate promises**, and where each promise is falsified:
 //! `rust/HONESTY.md` §1 (what an outcome means), §3 (spawn shapes that are

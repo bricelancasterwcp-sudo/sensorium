@@ -5,7 +5,7 @@ extern "C" {
     fn abs(v: i32) -> i32;
 }
 
-pub fn both_branches_diverge(c: bool) -> u8 {@G(7)
+pub fn both_branches_diverge(c: bool) -> u8 {@G(7,c)
     if c {
         panic!("then")
     } else {
@@ -13,7 +13,7 @@ pub fn both_branches_diverge(c: bool) -> u8 {@G(7)
     }
 }
 
-pub fn every_arm_diverges(c: u8) -> u8 {@G(8)
+pub fn every_arm_diverges(c: u8) -> u8 {@G(8,c)
     match c {
         0 => panic!("zero"),
         1 => todo!(),
@@ -35,7 +35,7 @@ pub fn an_unsafe_block_whose_tail_diverges() -> u8 {@G(10)
     }
 }
 
-pub fn nested_composites_diverge(c: bool, d: u8) -> u8 {@G(12)
+pub fn nested_composites_diverge(c: bool, d: u8) -> u8 {@G(12,c,d)
     if c {
         match d {
             0 => panic!("zero"),

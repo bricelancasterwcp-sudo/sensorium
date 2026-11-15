@@ -45,7 +45,7 @@ pub fn c() -> u8 {@G(11)
 }
 
 impl Drop for X {
-    fn drop(&mut self) {@G(12)
+    fn drop(&mut self) {@G(12,self)
         let h = @C(@A(X::drop#1)|| 64u8);
         assert_eq!(h.join().unwrap(), 64u8);
     }
@@ -55,14 +55,14 @@ impl Drop for X {
 // TYPE and never the trait, so the twins share it and their ordinals continue
 // across them in source order (plan decision N6-iv).
 impl fmt::Display for T {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {@G(13)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {@G(13,self,f)
         @C(@A(T::fmt#1)|| ()).join().unwrap();
         @R(13)write!(f, "T")@E
     }
 }
 
 impl fmt::Debug for T {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {@G(14)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {@G(14,self,f)
         @C(@A(T::fmt#2)|| ()).join().unwrap();
         @R(14)write!(f, "T!")@E
     }

@@ -49,7 +49,7 @@ pub fn wrapped() -> i32 {@G(7)@N(8)
     @R(7)pick! { 1 }@E
 }
 
-pub fn spoken(a: i32) {@G(9)@N(10,a)
+pub fn spoken(a: i32) {@G(9,a)@N(10,a)
     shout! { a }
 }
 

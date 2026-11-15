@@ -11,8 +11,8 @@ questions:
       functions run during this program, so it is the position of an order
       in the sequence paired with the branch it took that carries the
       answer, not the mere presence of "gold" or "silver" in the output.
-      This recorder captures no arguments at the call tier, so the tree's
-      order is what identifies the boundary order -- the second of three.
+      The second activation's CALL is `price(points=1000, total=100.0)`,
+      so the boundary order is named on the call as well as by its position.
     why_logs_fail: >
       price returns a number and prints nothing; only the summed total is
       printed, and 270.0 is an ordinary-looking total. `dbg!(points)` inside
@@ -21,11 +21,11 @@ questions:
       crate has no logger and no log statements), and RUST_BACKTRACE prints
       only when something panics, which nothing does.
     command: ["tree", "$RUN"]
-    expect_count: {"silver()": 2}
+    expect_count: {"silver(total=100.0)": 2}
     expect_line:
       - ["f1", "main()", "-> ()"]
-      - ["f3", "silver()", "-> 95.0"]
-      - ["f7", "gold()", "-> 80.0"]
+      - ["f3", "silver(total=100.0)", "-> 95.0"]
+      - ["f7", "gold(total=100.0)", "-> 80.0"]
   - id: the-boundary-order-alone
     ask: >
       Take just the second order, the one worth exactly 1000 points. What
@@ -45,6 +45,6 @@ questions:
     expect_contains: ["children (1):"]
     expect_line:
       - ["main.rs:price", "closed: return"]
-      - ["silver()", "-> 95.0"]
+      - ["silver(total=100.0)", "-> 95.0"]
       - ["return:", "95.0"]
     expect_absent: ["gold"]

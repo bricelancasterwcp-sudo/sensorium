@@ -7,14 +7,14 @@ thread_local! {
     static LOG: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
-fn note(what: &str) {@G(7)
+fn note(what: &str) {@G(7,what)
     LOG.with(|log| log.borrow_mut().push(what.to_owned()));
 }
 
 struct Noisy(&'static str);
 
 impl Drop for Noisy {
-    fn drop(&mut self) {@G(8)
+    fn drop(&mut self) {@G(8,self)
         note(self.0);
     }
 }
@@ -26,7 +26,7 @@ fn through_tail() -> usize {@G(9)
     @R(9)Noisy("tail temporary").0.len()@E
 }
 
-fn through_return(c: bool) -> usize {@G(10)
+fn through_return(c: bool) -> usize {@G(10,c)
     let _held = Noisy("drop held");
     if c {
         note("return evaluated");

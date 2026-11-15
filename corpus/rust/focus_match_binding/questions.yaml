@@ -57,8 +57,8 @@ questions:
     truth: >
       Six rows, derived from the rules before measuring. L10, the parameters
       LINE, carries `o=Some(21)` -- design §3.2's parameters row, captured
-      through the Debug ladder, so the argument is readable here even though
-      Rust CALL rows carry none. L11 carries `k=21`: the `if let` binds, so
+      through the Debug ladder, and the CALL records the same `o`. L11
+      carries `k=21`: the `if let` binds, so
       it mints an entry row. L12 is the `println!`, an expression statement
       with no write, empty deltas -- "the row still says the line ran". L11
       appears a SECOND time with nothing: the `if let` is itself a statement
@@ -72,9 +72,8 @@ questions:
       Three of the four pinned facts here are absences -- no row at L14,
       L17 or L19 -- and `dbg!` can state a presence and nothing else. The one
       fact a `dbg!(&o)` at the top of `pick` could reach is `o` itself, and
-      that is the one Rust CALL rows do not record at all (`tree` prints
-      `pick() <unread: locals>`), so under a focus the parameters LINE is the
-      only place the argument exists.
+      that is on the CALL as `pick(o=Some(21))` and, under a focus, on the
+      parameters LINE a second time.
     command: ["frame", "$RUN", "f2"]
     expect_count: {"LINE": 6, "pick L11": 2}
     expect_line:

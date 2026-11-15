@@ -17,7 +17,7 @@ pub fn boom() -> u8 {@G(10)
     panic!("boom")
 }
 
-pub fn leave(code: i32) -> u8 {@G(11)
+pub fn leave(code: i32) -> u8 {@G(11,code)
     std::process::exit(code)
 }
 
@@ -25,7 +25,7 @@ pub fn stop_now() -> u8 {@G(12)
     std::process::abort()
 }
 
-pub fn tail_return(c: bool) -> u8 {@G(13)
+pub fn tail_return(c: bool) -> u8 {@G(13,c)
     if c {
         return @R(13)1@E;
     }

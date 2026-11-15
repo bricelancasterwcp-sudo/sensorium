@@ -8,7 +8,7 @@
 //! The second arm binds nothing and contributes nothing -- the same silence
 //! amendment A3 gives it at entry.
 @W
-pub fn sized(v: &[i32]) -> i32 {@G(7)@N(8,v)
+pub fn sized(v: &[i32]) -> i32 {@G(7,v)@N(8,v)
     let mut acc = 0;@N(9,acc)
     match v.len() {
         n if n > 1 => {@N(10,n)

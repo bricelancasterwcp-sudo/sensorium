@@ -391,7 +391,8 @@ impl<'a> Ctx<'a> {
         };
         let site = self.next_site;
         self.next_site += 1;
-        self.push(offset, offset, Kind::Guard, guard_fragment(site));
+        let names = lines::signature_arg_names(sig);
+        self.push(offset, offset, Kind::Guard, guard_fragment(site, &names));
 
         let ret = exits::ret_kind(sig);
         if ret == RetKind::Value {

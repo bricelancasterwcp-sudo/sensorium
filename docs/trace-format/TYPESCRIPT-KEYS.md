@@ -216,16 +216,17 @@ Rust debt named in `docs/CARRIED-DEBT.md` and not closed here.
 
 ### Arguments are on the CALL, not on a LINE
 
-A focused function's CALL carries `args: {name: capture}` in the Python
+Every function's CALL carries `args: {name: capture}` in the Python
 shape, captured at body entry, after defaults are applied, so a default is
 the value the body saw, and a destructured parameter yields the names it
-binds. An unfocused function's CALL in the very same recording still carries
+binds. An empty list is a read that found no arguments. A CALL that omitted
+its argument list (a spool from before 0.6.1) still carries
 `{"args": {}, "unread": ["locals"]}`, so `tree` prints
-`helper() <unread: locals>` beside `total(items=[ 1, 2 ], member=true)`.
-There is therefore **no parameters row**, and N for a focused activation is
-the statement count: Rust mints a parameters row because its CALL cannot
-carry args, and this is the difference `docs/TRACE-FORMAT.md`'s LINE row
-points here for.
+`helper() <unread: locals>`. There is therefore **no parameters row**, and N
+for a focused activation is the statement count. Rust carries arguments on
+the CALL as well and still mints a parameters LINE under `--focus`, so a
+focused Rust run can sight a parameter twice; this recorder does not.
+`docs/TRACE-FORMAT.md`'s LINE row points here for that difference.
 
 ### The capture dialect: `util.inspect`, read one way and written one way
 

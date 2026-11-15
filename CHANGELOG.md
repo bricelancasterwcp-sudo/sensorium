@@ -20,6 +20,20 @@ this slice ships. `TRACE_FORMAT` stays **4**.
   which is how a vitest `expect` (no RAISE) becomes visible. `exceptions` is
   unchanged.
 
+- **TypeScript and Rust record call arguments by default.** A CALL carries
+  each parameter's name and a bounded capture (the same 200-byte cap as a
+  return). Rust stops the payload at 2048 bytes; a dropped tail keeps the
+  arguments that fit and sets `unread: ["locals"]`. An empty list means the
+  call was read and had no arguments. An empty Rust payload, or a TypeScript
+  CALL that omitted `a`, still means the arguments were not read: older
+  traces, and a hand-written `enter`, say that. `--focus` remains the LINE
+  and locals tier, so `watch` and `flow --value` still need it. At `--tier
+  off` the Rust closure that formats arguments is not called.
+  `sensorium-rt` **0.7.1**, `sensorium-transform` **0.5.1**,
+  `cargo-sensorium` **0.8.3**, `sensorium-ts` **0.6.1**. `TRACE_FORMAT`
+  stays **4**. No new multiplier was measured; what the cap does and does
+  not bound is in `docs/overhead.md`.
+
 ## 0.18.2 — 2026-11-14
 
 **Review round 1.** Python **0.18.2**. `TRACE_FORMAT` stays **4**.

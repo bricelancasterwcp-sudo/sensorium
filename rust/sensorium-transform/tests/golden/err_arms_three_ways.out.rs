@@ -46,11 +46,11 @@ pub fn handles() -> u8 {@G(14)
     }@E
 }
 
-fn note(_e: &String) {@G(16)}
+fn note(_e: &String) {@G(16,_e)}
 
 /// An `assert!` is NOT one of the four diverging macros (the ruling of
 /// 2026-09-04): this arm is HANDLED and the assert may well pass.
-pub fn asserted(flag: bool) -> u8 {@G(17)
+pub fn asserted(flag: bool) -> u8 {@G(17,flag)
     @R(17)match one() {
         Ok(v) => v,
         Err(..) => {@P(18,HOW_ARM_HANDLED)

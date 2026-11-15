@@ -7,7 +7,7 @@ impl Counter {
         @R(7)Counter { n: 0 }@E
     }
 
-    pub fn bump(&mut self) -> u32 {@G(8)
+    pub fn bump(&mut self) -> u32 {@G(8,self)
         self.n += 1;
         @R(8)self.n@E
     }
@@ -18,7 +18,7 @@ pub struct Holder<T> {
 }
 
 impl<T> Holder<T> {
-    pub fn push(&mut self, item: T) {@G(9)
+    pub fn push(&mut self, item: T) {@G(9,self,item)
         self.items.push(item);
     }
 }
@@ -28,5 +28,5 @@ pub mod deep {
 }
 
 impl self::deep::Nested {
-    pub fn pathed(&self) {@G(10)}
+    pub fn pathed(&self) {@G(10,self)}
 }@U

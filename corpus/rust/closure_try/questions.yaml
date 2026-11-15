@@ -51,8 +51,8 @@ questions:
       panics; RUST_LOG reaches no logger in this crate.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["total()", "-> 6"]
-      - ["total::{{closure}}#1()", "-> Ok(6)"]
-      - ["total::{{closure}}#1()", '-> Err("row \"x\" is not a number")']
-      - ["parse_one()", '-> Err("row \"x\" is not a number")']
-    expect_count: {"total::{{closure}}#1()": 2}
+      - ["total(rows=", "-> 6"]
+      - ["total::{{closure}}#1(", "-> Ok(6)"]
+      - ["total::{{closure}}#1(", '-> Err("row \"x\" is not a number")']
+      - ["parse_one(text=", '-> Err("row \"x\" is not a number")']
+    expect_count: {"total::{{closure}}#1(": 2}

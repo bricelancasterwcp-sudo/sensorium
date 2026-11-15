@@ -1,8 +1,9 @@
 # The Rust recorder's honesty ledger
 
-`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.2`,
+`sensorium-rt 0.7.1`, `sensorium-transform 0.5.1`, `cargo-sensorium 0.8.3`,
 v1, the call tier, with err flow and the focus tier.
-(~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.0`~~,
+(~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.2`~~,
+before them ~~`sensorium-rt 0.7.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.8.0`~~,
 before them ~~`sensorium-rt 0.6.0`, `sensorium-transform 0.5.0`, `cargo-sensorium 0.7.0`~~,
 before them ~~`sensorium-rt 0.5.0`, `sensorium-transform 0.5.0`,
 `cargo-sensorium 0.6.0`~~, before them
@@ -158,6 +159,13 @@ deliberately rather than discovered at the ceiling.
   measurement, not at a placeholder.
 - **Truncation is counted, not just marked**: per thread in the spool header,
   summed into the meta key `truncated_count`, which `info` prints.
+- **A CALL carries its arguments** (0.7.1). Each parameter is the same `Debug`
+  capture a return is, 200 bytes, written into the CALL payload, which stops
+  at 2048 bytes. A tail that does not fit is dropped and the row says
+  `unread: ["locals"]` beside what fit. An empty list was read and held no
+  parameters. An empty payload was not read (a hand-written `enter`, or a
+  spool from before this version). `--focus` still decides LINE rows; a
+  focused function's parameters LINE records those values again.
 
 **Falsified by** `rust/sensorium-rt/tests/values.rs` (the `!Debug` arm, the
 panicking-`Debug` arm, the cap arm (a 10³- and a 10⁶-element `Vec` read back as
@@ -678,8 +686,9 @@ block, would falsify it.
 by `LINE_PAYLOAD_MAX`, 2048 bytes, room for nine fully capped
 eight-character-named deltas (A5). When the next delta would not fit, it and
 every later one are dropped and `flags.bit0` is set, which reaches the row as
-`unread: ["locals"]`: the same marker every Rust CALL carries, meaning the
-same thing, that a reader was not shown something and is being told so. Each
+`unread: ["locals"]`. A CALL carries that marker when its payload was empty
+or its tail was dropped (the arguments that fit stay); a LINE carries it
+for a drop. Each
 value is `Debug` text capped at 200 bytes exactly as a return value is (§2),
 so a binding whose type has no `Debug` reads `{"k": "unread"}` and a clipped
 one carries `trunc`. **The drop rule is untriggered in measurement**, said

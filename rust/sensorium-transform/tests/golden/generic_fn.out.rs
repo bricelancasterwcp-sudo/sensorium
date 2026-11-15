@@ -1,12 +1,12 @@
 @Wuse std::fmt::Debug;
 
-pub fn show<T: Debug>(v: &T) -> String {@G(7)
+pub fn show<T: Debug>(v: &T) -> String {@G(7,v)
     @R(7)format!("{:?}", v)@E
 }
 
 pub fn where_clause<T>(v: T) -> T
 where
     T: Clone,
-{@G(8)
+{@G(8,v)
     @R(8)v.clone()@E
 }@U

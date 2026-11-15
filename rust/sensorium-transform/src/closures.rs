@@ -7,7 +7,8 @@
 //! whose body holds a `?` at its own depth is instrumented exactly as a fn is:
 //!
 //! ```ignore
-//! |n| { let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, <site>);
+//! |n| { let _sens_guard = ::sensorium_rt::enter_args(
+//!         &crate::__SENSORIUM_UNIT, <site>, || [("n", ::sensorium_rt::probe_cap!(&n))]);
 //!       ::sensorium_rt::ret(.., Ok(match one() { __t => { .. } }? + n)) }
 //! ```
 //!
@@ -106,16 +107,17 @@ impl Ctx<'_> {
             .or_insert(1);
         let qualname = format!("{owner}::{{{{closure}}}}#{ordinal}");
 
+        let names = crate::lines::closure_arg_names(node.inputs.iter());
         match placement {
             Placement::Statement(offset) => {
-                self.push(offset, offset, Kind::Guard, guard_fragment(site));
+                self.push(offset, offset, Kind::Guard, guard_fragment(site, &names));
             }
             Placement::Wrapped { start, end } => {
                 self.push(
                     start,
                     start,
                     Kind::ScopeOpen,
-                    scope_open_fragment(&guard_fragment(site)),
+                    scope_open_fragment(&guard_fragment(site, &names)),
                 );
                 self.push(end, end, Kind::ScopeClose, SCOPE_CLOSE.to_owned());
             }

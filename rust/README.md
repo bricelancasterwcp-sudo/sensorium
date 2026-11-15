@@ -8,8 +8,8 @@ process. The same SQLite format 4 the Python recorder writes, read by the same
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.7.0`**,
-**`sensorium-transform 0.5.0`** and **`cargo-sensorium 0.8.2`**. On 2026-09-13
+Three crates, all `publish = false`: **`sensorium-rt 0.7.1`**,
+**`sensorium-transform 0.5.1`** and **`cargo-sensorium 0.8.3`**. On 2026-09-13
 secrets redaction part A moved `sensorium-rt` to `0.6.0` and `cargo-sensorium`
 to `0.7.0` (rule v1 over the environment at the runtime's own writer, the
 driver's key, and 0600/0700 on everything either creates under the store and
@@ -155,7 +155,14 @@ stays the runner and the builder; sensorium only changes what gets compiled and
 watches what comes out.
 
 `--tier off` compiles exactly the same artifacts and gates emission at runtime,
-so switching tiers rebuilds nothing.
+so switching tiers rebuilds nothing. At that tier the closure that would
+format a call's arguments is not called.
+
+Every instrumented function's CALL carries its arguments: each parameter's
+name and a `Debug` capture, the same 200-byte cap as a return, and the
+payload stops at 2048 bytes. An empty list means the function had no
+parameters. `--focus` is still what records LINE rows. A hand-written
+`enter` (no argument list) still reads as arguments not read.
 
 ### `--focus`: per-line answers, for the functions you name
 
@@ -379,7 +386,7 @@ The unfocused refusal, in full, the sentence
 `refocus --window` is refused by name at exit 2); a refocus of a multi-process
 invocation, which is refused rather than compared; program output under
 libtest; probes in closure and `async` bodies; place writes (`*p = e`,
-`a.b = e`) and `&mut` mutation as deltas; arguments on a CALL row;
+`a.b = e`) and `&mut` mutation as deltas;
 `flow --object`, since object identity is not a thing Rust has an equivalent
 of. `?` sites, sinks and `Err`-arm classification **shipped in rung 3**
 (0.3.0), what they still cannot see is `HONESTY-ERR-FLOW.md` §11 and

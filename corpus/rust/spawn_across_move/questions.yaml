@@ -14,7 +14,7 @@ questions:
       because it is the first wrapped spawn site in that item. No file and
       no line is in the name; the recording carries the location in its
       manifest, one lookup away, so that moving the code cannot rename the
-      work. Under that name the worker holds one frame, apply() -> 5, and
+      work. Under that name the worker holds one frame, `apply(balance=0, delta=5) -> 5`, and
       the test's own task t2 holds the test and the start() it called.
     why_logs_fail: >
       A `dbg!` inside the spawned closure prints 5 with nothing saying which
@@ -27,7 +27,7 @@ questions:
       - "spawn@start#1"
     expect_line:
       - ["task t3: tests::the_worker_is_named_across_a_move :: spawn@start#1"]
-      - ["apply()", "-> 5"]
+      - ["apply(balance=0, delta=5)", "-> 5"]
   - id: is-the-worker-the-same-work-after-the-move
     ask: >
       The spawning function moved to another file between the two runs and

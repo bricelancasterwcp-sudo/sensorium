@@ -8,7 +8,7 @@ pub struct Counter {
 }
 
 impl Counter {
-    pub fn bump(&mut self, (lo, hi): (i32, i32)) -> i32 {@G(7)@N(8,self,lo,hi)
+    pub fn bump(&mut self, (lo, hi): (i32, i32)) -> i32 {@G(7,self,lo,hi)@N(8,self,lo,hi)
         self.n += lo + hi;@N(9)
         @R(7)self.n@E
     }

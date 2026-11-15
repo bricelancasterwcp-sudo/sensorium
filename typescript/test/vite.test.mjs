@@ -192,13 +192,13 @@ test('the plugin reads SENSORIUM_FOCUS where it is BUILT, and counts what it sel
     console.log(JSON.stringify({
       focused: back.code.includes('__srt.call(__sfile,0,["a",a]);'),
       rows: (back.code.match(/__srt\\.line\\(/g) || []).length,
-      sibling: back.code.includes('export function ignored(a){const __sf=__srt.call(__sfile,1);'),
+      sibling: back.code.includes('export function ignored(a){const __sf=__srt.call(__sfile,1,["a",a]);'),
     }));
   `, { focus: 'mod.ts:watched' });
   ok(out);
   assert.equal(out.out.focused, true);
   assert.equal(out.out.rows, 1, 'one statement of the one focused function');
-  assert.equal(out.out.sibling, true, 'and the sibling is spliced as it always was');
+  assert.equal(out.out.sibling, true, 'the sibling carries its arguments and no statement rows');
   assert.deepEqual(out.tally, { files_transformed: 1, functions_focused: 1, excluded: {} });
 });
 

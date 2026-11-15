@@ -67,5 +67,5 @@ questions:
     expect_line:
       - ["task", "spawn@collect#1"]
       - ["collect()", "-> 0"]
-      - ["worker()", '-> Err("ingest refused 9 rows")']
-      - ["ingest()", '-> Err("ingest refused 9 rows")']
+      - ["worker(rows=9)", '-> Err("ingest refused 9 rows")']
+      - ["ingest(rows=9)", '-> Err("ingest refused 9 rows")']

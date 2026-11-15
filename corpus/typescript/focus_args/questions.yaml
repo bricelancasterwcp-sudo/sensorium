@@ -12,10 +12,9 @@ questions:
       `member` is a DESTRUCTURED parameter with a DEFAULT (`{ member = false
       }: Opts = {}`), so `member=true` is the value that actually bound, not
       the shape of the call. The fault is upstream of this function. Beside
-      it in the same tree is what a focus does not buy: `helper`, the fee
-      table, is not focused, so its line reads `helper() <unread: locals> ->
-      1` -- it returned the fee, and which tier it was asked about is not in
-      this recording at all.
+      it in the same tree is the unfocused fee table, and its CALL still
+      carries the argument: `helper(tier='bronze') -> 1`. A focus adds the
+      LINE rows; it is not what records arguments.
     why_logs_fail: >
       A `console.log(member)` at the top of `total` is the edit this line
       replaces, and it answers only for the runs you thought to instrument
@@ -28,9 +27,8 @@ questions:
     expect_exit: 0
     expect_line:
       - ["total(items=[ 1, 2 ], member=true) -> 3"]
-      - ["helper() <unread: locals> -> 1"]
-    expect_count:
-      "<unread: locals>": 2
+      - ["helper(tier='bronze') -> 1"]
+    expect_absent: ["<unread: locals>"]
   - id: what-does-the-focused-frame-say-it-was-handed
     ask: >
       Read as a frame rather than a tree: what did `total` receive, and what
@@ -40,8 +38,8 @@ questions:
       built to 3 over two iterations, `fee=1` came back from `helper`, and
       the `if (!member)` row at L18 completed without writing anything --
       the guard was false, so the fee was never added. The frame's one child
-      is the unfocused `helper() <unread: locals> -> 1`: this recording knows
-      what the fee WAS and not what it was a fee FOR.
+      is the unfocused `helper(tier='bronze') -> 1`: the CALL names the tier
+      even though `helper` itself has no LINE rows.
     why_logs_fail: >
       The two candidate explanations -- a call site that asked, and a
       function that ignored what it was asked -- print identically under
@@ -58,6 +56,6 @@ questions:
     expect_line:
       - ["LINE", "total L17", "fee=1"]
       - ["LINE", "total L14", "unbound:price"]
-      - ["helper() <unread: locals> -> 1"]
+      - ["helper(tier='bronze') -> 1"]
     expect_count:
       "total L18\n": 1

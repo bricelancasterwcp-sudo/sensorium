@@ -111,7 +111,7 @@ fn crlf_line_endings_keep_their_offsets() {
         t.source,
         format!(
             "fn f() -> u8 {{{}\r\n    {}1)\r\n}}\r\n",
-            common::guard(3),
+            common::guard(3, &[]),
             common::ret_open(3)
         )
     );
@@ -126,7 +126,7 @@ fn a_byte_order_mark_shifts_every_offset() {
         t.source,
         format!(
             "\u{feff}fn f() -> u8 {{{} {}1) }}\n",
-            common::guard(3),
+            common::guard(3, &[]),
             common::ret_open(3)
         )
     );

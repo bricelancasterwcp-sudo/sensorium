@@ -60,8 +60,8 @@ questions:
     expect_count: {"(open)": 3}
     expect_line:
       - ["main()", "(open)"]
-      - ["compact()", "(open)"]
-      - ["checkpoint()", "-> 2"]
+      - ["compact(step=1)", "(open)"]
+      - ["checkpoint(step=1)", "-> 2"]
   - id: did-the-dying-child-drop-an-error
     ask: >
       The worker died mid-frame. Did it swallow an error on the way, and how

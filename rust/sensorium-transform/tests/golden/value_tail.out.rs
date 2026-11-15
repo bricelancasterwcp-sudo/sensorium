@@ -5,15 +5,15 @@ pub fn literal() -> u8 {@G(7)
     @R(7)7@E
 }
 
-pub fn call(a: u8) -> u8 {@G(8)
+pub fn call(a: u8) -> u8 {@G(8,a)
     @R(8)literal() + a@E
 }
 
-pub fn chain(v: &[u8]) -> usize {@G(9)
+pub fn chain(v: &[u8]) -> usize {@G(9,v)
     @R(9)v.iter().filter(|b| **b > 0).count()@E
 }
 
-pub fn deref_coercion(s: &String) -> &str {@G(10)
+pub fn deref_coercion(s: &String) -> &str {@G(10,s)
     @R(10)s@E
 }
 
@@ -21,7 +21,7 @@ pub fn boxed() -> Box<dyn std::fmt::Debug> {@G(11)
     @R(11)Box::new(1u8)@E
 }
 
-pub fn generic<T: Clone>(t: &T) -> T {@G(12)
+pub fn generic<T: Clone>(t: &T) -> T {@G(12,t)
     @R(12)t.clone()@E
 }
 

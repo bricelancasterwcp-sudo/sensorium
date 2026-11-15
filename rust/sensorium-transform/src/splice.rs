@@ -54,8 +54,24 @@
 use crate::errflow::How;
 
 /// The entry guard. Newline-free, and the ONLY place its text is written.
-pub(crate) fn guard_fragment(site: u32) -> String {
-    format!("let _sens_guard = ::sensorium_rt::enter(&crate::__SENSORIUM_UNIT, {site});")
+///
+/// `names` are the parameters, already filtered of the exact name `_` (it is
+/// not a value a probe can borrow). An empty list is `|| []`: the arguments
+/// were read and there were none, which is a different record from `enter`'s
+/// empty payload.
+pub(crate) fn guard_fragment(site: u32, names: &[String]) -> String {
+    let mut deltas = String::new();
+    for (i, name) in names.iter().enumerate() {
+        if i > 0 {
+            deltas.push_str(", ");
+        }
+        deltas.push_str(&format!(
+            "(\"{name}\", ::sensorium_rt::probe_cap!(&{name}))"
+        ));
+    }
+    format!(
+        "let _sens_guard = ::sensorium_rt::enter_args(&crate::__SENSORIUM_UNIT, {site}, || [{deltas}]);"
+    )
 }
 
 /// The opening half of an exit wrap; the closing half is [`RET_CLOSE`].

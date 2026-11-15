@@ -1,11 +1,11 @@
 # The TypeScript recorder's honesty ledger
 
-`sensorium-ts 0.6.0`, the call tier, and a per-statement tier under `--focus`,
+`sensorium-ts 0.6.1`, the call tier, and a per-statement tier under `--focus`,
 under vitest and `node --test`. Read by `sensorium` 0.9.0 and above, by
 **0.10.0** and above for the throw-flow verdicts of §4, and by **0.12.0** and
 above for the focus tier of §11; a trace names its own writer, because the
 runtime stamps the package's `VERSION` into every spool's BOOT record and the
-converter spends it on `recorder: "sensorium-ts 0.6.0"` in meta.
+converter spends it on `recorder: "sensorium-ts 0.6.1"` in meta.
 
 Sensorium's founding rule is that **the instrument never answers from data it
 does not have**. The Python recorder keeps its half of that rule in the
@@ -541,13 +541,13 @@ capabilities in it is not a list a reader can use; what each key said before is
 in this file's git history and in `CHANGELOG.md`'s 0.9.0 and 0.10.0 entries.)*
 
 **`locals` and `line` are the focus tier's, and say what this RUN decided.**
-On a run that named no `--focus` both are `false`: arguments are unread, every
-CALL carries `unread: ["locals"]` so `tree` prints `name() <unread: locals>`,
-no LINE record exists, and `watch` and `flow --value` refuse at exit 3 naming
-the capability and the recorder the TRACE carries. On a focused run both are
-`true` and the same commands answer. §11. The pair is a statement about what
-this recorder PRODUCED for this recording, never about what the program did:
-absence of the record, reported as the recorder's own declaration.
+On a run that named no `--focus` both are `false`: no LINE record exists, and
+`watch` and `flow --value` refuse at exit 3 naming the capability and the
+recorder the TRACE carries. Arguments are still read on every CALL (an empty
+list means none; a CALL that omitted `a` still says `unread: ["locals"]`).
+On a focused run both are `true` and the same commands answer. §11. The pair
+is a statement about what this recorder PRODUCED for this recording, never
+about what the program did: absence of the LINE record, reported as its own.
 
 **`object_identity` is `true` on every recording from 0.3.0 on**, focused or
 not: an `oid` and a `type` ride on every object capture the recorder writes, so
@@ -572,7 +572,7 @@ refusal)*.
 `test.workspace` config makes vitest resolve a config PER PROJECT, and this
 wrapper merges onto one: the plugin never reaches the projects' pipelines, so
 the suite runs and nothing is recorded. The wrapper config refuses it at load
-time, `vitest projects/workspaces are not supported by sensorium-ts 0.6.0`,
+time, `vitest projects/workspaces are not supported by sensorium-ts 0.6.1`,
 and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
 the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
 a run came back as the CONVERTER's sentence, "nothing was recorded, or the
@@ -671,8 +671,8 @@ completed statement** of a focused function: its `deltas` are the bindings that
 statement wrote and nothing else, a guarded body's head names arrive as a
 synthetic first row at each entry, the block-scoped names a block-like
 statement declared are listed `unbound` on that statement's own row, and the
-CALL of a focused function carries its arguments. Without a focus none of it
-exists, the recorder declares that, and every command that would read it
+CALL of every function carries its arguments. Without a focus the LINE rows
+do not exist, the recorder declares that, and every command that would read them
 refuses instead of answering. A `return` that passes through a `finally` closes
 its frame AFTER the finally's rows, so the RETURN row follows them and a call
 the finally makes is the frame's child (0.4.0; blind spot 38 closed).

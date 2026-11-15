@@ -134,7 +134,7 @@ same table, twice, rather than left to the absence of a case.
 | `focus_loop_counter` | a `for…of` over `xs.slice(1)`: the head mints a row PER ENTRY (`v=2`, `v=3`), the body one per write, and the pass that ends the loop is the head's row again with `unbound:v`. `flow --value 3` sights the reading the loop saw, once; `flow --value 1` sights the dropped one nowhere, exit 1, with the searched scope printed beside the emptiness | `frame`, `flow` ×2 |
 | `focus_block_scope` | a `const` inside an `if`, read after it: the `if` statement's own row carries `unbound:discount`, so `watch` hits at the two sites inside the block and reports the nine outside it as out of scope rather than as misses, the case whose Rust twin cannot exist | `watch`, `frame` |
 | `focus_destructure` | `const { id, size: [first] = [0], ...rest }`: one statement, three names on one row, and `first=0` is the DEFAULT binding beside the `sizes` the payload actually carried, sitting unread in `rest`. `let note;` binds `undefined`, which is a value | `frame`, `watch` |
-| `focus_args` | one run, two functions: the focused `total(items=[ 1, 2 ], member=true) -> 3` (a destructured, defaulted parameter printed as what BOUND) beside the unfocused `helper() <unread: locals> -> 1`, whose argument is not in this recording at all. What a focus buys and what it does not, in two lines of one tree | `tree`, `frame` |
+| `focus_args` | one run, two functions: `total(items=[ 1, 2 ], member=true) -> 3` (a destructured, defaulted parameter printed as what BOUND) beside `helper(tier='bronze') -> 1`. Both calls carry their arguments; the focus is what adds LINE rows | `tree`, `frame` |
 | `focus_async` | a cache published before the value exists: rows on both sides of the `await` with `~ YIELD` and `~ RESUME` between them, the pre-await write immediately followed by the YIELD, and the reader that got the placeholder (`peek() … -> 0`) sitting between the two | `frame`, `tree` |
 | `focus_catch_binding` | `catch (e) { count += 1 }`: a HANDLED row, then the catch clause's own entry row carrying `e=Error: bad key: oops`, then the `try` statement's row with `unbound:e`, twice, once per iteration, including the pass that threw nothing | `frame`, `grep` |
 | `focus_place_write` | `state.x = 5`: a row at the line with NO delta after the site, and `flow --value 5` sighting nothing across the four captures searched. The blind spot as a present row and an absent value, said from both sides | `frame`, `flow` |
@@ -157,17 +157,13 @@ planted truth is that the token never reaches the trace at all, which
 
 ## Three things a case here must know
 
-**Arguments are recorded only under a focus.** Thirty-five of these cases
-record no `--focus` at all, so `capabilities.locals: false` holds for them:
-every CALL row reads `name() <unread: locals>` and `frame` prints `args:
-<unread: locals>`, a stated absence, not an empty argument list. A port of a
-Python case that identified an activation by its arguments identifies it here
-by its position (`frame --nth 2`) or by what it returned. The planted bug is
-the same class of bug; the question that finds it is not the same question.
-The twelve focus cases are the other side of that: a FOCUSED function's CALL
-prints its arguments (`total(items=[ 1, 2 ], member=true)`), and an unfocused
-one in the very same recording still reads `<unread: locals>`, which is what
-`focus_args` exists to pin.
+**Arguments are on every CALL.** An empty list means none were found.
+`capabilities.locals` is still false without a `--focus`, and that key is
+the LINE tier: `watch` and `flow --value` refuse, and `frame` says the
+timeline was not captured. A function's parameters print on its CALL
+(`helper(tier='bronze')`, `total(items=[ 1, 2 ], member=true)`), focused or
+not. `focus_args` pins both in one tree. A spool from before 0.6.1 still
+reads `name() <unread: locals>`.
 
 **One invocation records one trace per test FILE**, and the `run:` lines come
 in spool-name order, which is not the order vitest ran them in and is not

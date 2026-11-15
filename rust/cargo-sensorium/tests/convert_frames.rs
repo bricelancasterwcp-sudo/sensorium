@@ -432,3 +432,52 @@ fn a_line_record_with_unbound_names_writes_them_on_the_row() {
         "no `unbound` key when the statement unbound nothing"
     );
 }
+
+/// An empty CALL payload was not read. A parsed payload was: `n = 0` is
+/// "found no arguments", a short record keeps what fit and says so.
+#[test]
+fn a_call_records_the_arguments_it_was_given() {
+    let f = line_fixture("frames-call-args", 1303);
+    wire::SpoolBuilder::new(1303, 1, "main")
+        .call(0, 1000, 0, 0)
+        .ret_none(1, 1100, 0, 0)
+        .call_args(2, 1200, 0, 0, false, &[])
+        .ret_none(3, 1300, 0, 0)
+        .call_args(
+            4,
+            1400,
+            0,
+            0,
+            true,
+            &[("n", wire::LineDelta::Dbg("5", false))],
+        )
+        .ret_none(5, 1500, 0, 0)
+        .call_args(
+            6,
+            1600,
+            0,
+            0,
+            false,
+            &[("n", wire::LineDelta::Dbg("5", false))],
+        )
+        .ret_none(7, 1700, 0, 0)
+        .write(&f.spool_dir);
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let rows = event_rows(&f.only_trace());
+    let calls: Vec<&serde_json::Value> = rows
+        .iter()
+        .filter(|r| r.kind == "CALL")
+        .map(|r| &r.payload)
+        .collect();
+    assert_eq!(
+        calls,
+        [
+            &serde_json::json!({"args": {}, "unread": ["locals"]}),
+            &serde_json::json!({"args": {}}),
+            &serde_json::json!({"args": {"n": {"k": "dbg", "v": "5", "trunc": false}},
+                                "unread": ["locals"]}),
+            &serde_json::json!({"args": {"n": {"k": "dbg", "v": "5", "trunc": false}}}),
+        ]
+    );
+}

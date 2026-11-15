@@ -8,13 +8,13 @@ fn one() -> Result<u8, String> {@G(7)
     @R(7)Ok(1)@E
 }
 
-fn take(_e: String) {@G(8)}
+fn take(_e: String) {@G(8,_e)}
 
-fn note(_e: &String) {@G(9)}
+fn note(_e: &String) {@G(9,_e)}
 
 /// Stored in a `Vec`: the retry-loop shape a "swallowed" verdict would be a
 /// false accusation on.
-pub fn stored(errors: &mut Vec<String>) -> u8 {@G(10)
+pub fn stored(errors: &mut Vec<String>) -> u8 {@G(10,errors)
     @R(10)match one() {
         Ok(v) => v,
         Err(e) => {@P(11,HOW_ARM_AMBIGUOUS,e)
@@ -36,7 +36,7 @@ pub fn handed_over() -> u8 {@G(12)
 }
 
 /// Assigned into an `Option` the caller reads later.
-pub fn remembered(last: &mut Option<String>) -> u8 {@G(14)
+pub fn remembered(last: &mut Option<String>) -> u8 {@G(14,last)
     @R(14)match one() {
         Ok(v) => v,
         Err(e) => {@P(15,HOW_ARM_AMBIGUOUS,e)

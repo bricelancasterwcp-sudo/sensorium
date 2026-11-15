@@ -10,19 +10,19 @@
 struct Noisy(&'static str);
 
 impl Drop for Noisy {
-    fn drop(&mut self) {@G(7)
+    fn drop(&mut self) {@G(7,self)
         println!("drop {}", self.0);
     }
 }
 
 impl Noisy {
-    fn value(&self) -> Result<u8, String> {@G(8)
+    fn value(&self) -> Result<u8, String> {@G(8,self)
         println!("value {}", self.0);
         @R(8)Ok(1)@E
     }
 }
 
-fn side(x: u8) -> u8 {@G(9)
+fn side(x: u8) -> u8 {@G(9,x)
     println!("side {x}");
     @R(9)x@E
 }

@@ -88,6 +88,18 @@ its price depends on what you point it at: at the hot recursive function
 above it adds a third again, and pointed at a function whose body is a hot
 inner loop it would cost far more.
 
+TypeScript and Rust pay for call arguments on the default tier from
+`sensorium-ts` 0.6.1 and `sensorium-rt` 0.7.1. Each argument is the same
+capture a return already was: 200 bytes of `util.inspect` or `Debug` text.
+Rust writes them into the CALL payload, which stops at 2048 bytes; a tail
+that does not fit is dropped and the row says `unread: ["locals"]` beside
+the arguments it kept. The closure that formats them is not called at
+`--tier off`. `--focus` is unchanged: it is still one LINE event per
+executed statement, and `watch` and `flow --value` still need that tier.
+A `Debug` impl of a standard collection still walks every element before
+the cap is applied (`rust/sensorium-rt`'s `probe.rs`); the bound is on what
+is stored, not on that walk. No new multiplier was measured for this change.
+
 Reading a trace back is a separate cost from recording one, and it is
 reported here rather than gated, same as everything else in this section:
 `info` on a 93k-event/44k-frame trace (`20260901-210520-7f8854`) took 54.4 s

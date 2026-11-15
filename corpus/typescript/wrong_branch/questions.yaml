@@ -22,20 +22,18 @@ questions:
     command: ["tree", "$RUN"]
     expect_contains: ["task t1: three loyalty tiers are priced"]
     expect_count:
-      "price() <unread: locals>": 3
-      "silver() <unread: locals> -> 95": 2
-      "gold() <unread: locals> -> 80": 1
+      "price(points=": 3
+      "silver(total=100) -> 95": 2
+      "gold(total=100) -> 80": 1
   - id: what-did-the-boundary-order-do
     ask: >
       Take the 1000-point order specifically -- the second of the three.
       What did that one activation of `price` call, and what did it return?
     truth: >
-      It called `silver` and nothing else, and returned 95. Arguments are
-      not recorded by this recorder, so the 1000-point activation is
-      identified by its POSITION -- the test prices 500, then 1000, then
-      1500, and the trace preserves that order -- and `args:
-      <unread: locals>` says so rather than printing an empty argument
-      list. `gold` appears nowhere in this frame, which is the
+      It called `silver` and nothing else, and returned 95. The frame
+      prints `args: points=1000, total=100`, so this activation is the
+      boundary order by its arguments as well as by its position. `gold`
+      appears nowhere in this frame, which is the
       counterfactual: the discount the spec promised was never applied.
     why_logs_fail: >
       A `console.log` of the returned price gives 95, which is what a
@@ -45,9 +43,9 @@ questions:
       that matters -- and `DEBUG=*` and a stack trace answer neither
       question, since nothing is logged and nothing throws.
     command: ["frame", "$RUN", "--fn", "price", "--nth", "2"]
-    expect_contains: ["children (1):", "args: <unread: locals>", "return: 95"]
+    expect_contains: ["children (1):", "args: points=1000, total=100", "return: 95"]
     expect_line:
       - ["pricing.ts:price", "task t1 (three loyalty tiers are priced)",
          "closed: return"]
-      - ["silver() <unread: locals> -> 95"]
+      - ["silver(total=100) -> 95"]
     expect_absent: ["gold"]

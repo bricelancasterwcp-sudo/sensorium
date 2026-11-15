@@ -8,6 +8,6 @@ const seed = vi.hoisted(() => {
   return 7;
 });
 
-export function useSeed(): number {const __sf=__srt.call(__sfile,0);try{
+export function useSeed(): number {const __sf=__srt.call(__sfile,0,[]);try{
   return __srt.ret(__sf,(seed));
 ;__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}}

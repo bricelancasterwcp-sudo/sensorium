@@ -52,7 +52,7 @@ questions:
     command: ["tree", "$RUN"]
     expect_exit: 0
     expect_line:
-      - ["f2 e2", "charge()", "-> Ok(20)"]
-      - ["f3 e3", "attempt()", "-> Err(Refused(1))"]
-      - ["f4 e7", "attempt()", "-> Ok(20)"]
+      - ["f2 e2", "charge(times=2)", "-> Ok(20)"]
+      - ["f3 e3", "attempt(n=", "-> Err(Refused(1))"]
+      - ["f4 e7", "attempt(n=", "-> Ok(20)"]
     expect_absent: ["!! ", "(open)"]

@@ -7,17 +7,16 @@ questions:
       handle reads an API token out of the environment and threads it
       through two more bindings. What does info say became of it?
     truth: >
-      Redacted at every one of the four places rule v1 can reach it: the
+      Redacted at every one of the five places rule v1 can reach it: the
       env line names SENSORIUM_CORPUS_TOKEN among the redacted variables,
-      and the redaction line counts values redacted: 4 -- secret's RETURN
-      (taken by the callee's own name, B7), the token parameter (Rust
-      captures a parameter as its first LINE delta rather than as a CALL
-      argument, and the name rule reaches it there just the same), the
-      api_key delta and the auth_headers delta (the whole Headers value is
-      taken, because its Debug rendering would otherwise print
-      authorization's contents). handle fires on nothing itself, so its own
-      name is not what is redacted -- the four values that passed through
-      it are.
+      and the redaction line counts values redacted: 5 -- secret's RETURN
+      (taken by the callee's own name, B7), the CALL argument `token`, the
+      token parameter (a focused run also records it as the first LINE
+      delta, and the name rule reaches both), the api_key delta and the
+      auth_headers delta (the whole Headers value is taken, because its
+      Debug rendering would otherwise print authorization's contents).
+      handle fires on nothing itself, so its own name is not what is
+      redacted -- the five values that passed through it are.
     why_logs_fail: >
       A dbg!(token) at any of those bindings is exactly what this rule
       exists to stop -- it would put a live token in this trace's own
@@ -28,7 +27,7 @@ questions:
     command: ["info", "$RUN"]
     expect_contains:
       - "SENSORIUM_CORPUS_TOKEN"
-      - "values redacted: 4"
+      - "values redacted: 5"
     expect_absent: ["tok_corpus_avndqWkv1AvWvvoS02hrMipSDXuyK"]
 
   - id: frame-renders-the-marker-not-the-token

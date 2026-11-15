@@ -1,4 +1,4 @@
-@Wpub unsafe fn raw(p: *const u8) -> u8 {@G(7)
+@Wpub unsafe fn raw(p: *const u8) -> u8 {@G(7,p)
     @R(7)*p@E
 }
 

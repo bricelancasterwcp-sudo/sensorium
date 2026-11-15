@@ -39,8 +39,8 @@ questions:
       frames only at a panic, and this run never panics.
     command: ["frame", "$RUN", "--fn", "order_total"]
     expect_contains: ["children (4):"]
-    expect_count: {"item_weight()": 2}
+    expect_count: {"item_weight(item=<unread>)": 2}
     expect_line:
-      - ["item_weight()", "-> 1800.0"]
-      - ["shipping_cost()", "-> 4504.0"]
+      - ["item_weight(item=<unread>)", "-> 1800.0"]
+      - ["shipping_cost(weight_kg=1800.0)", "-> 4504.0"]
       - ["return:", "5569.0"]

@@ -13,7 +13,7 @@ questions:
       expression, so design §3.2's arm row mints its synthetic entry LINE
       here exactly as it does for a block arm. `watch` reads SATISFIED
       (amendment A4) at 1 of the 1 evaluable site and says so beside the 2 it
-      could not evaluate: the CALL, which in Rust carries no arguments, and
+      could not evaluate: the CALL, whose argument is `o` and not `n`, and
       the parameters LINE at line 14, which precedes the arm. Both are
       reported as "not in scope" rather than folded into the hit count.
     why_logs_fail: >
@@ -38,8 +38,8 @@ questions:
     truth: >
       Two, and the count is derived from the rules before it is measured.
       Amendment A2: the parameters LINE is minted for every focused
-      activation, so line 14 carries `o=Some(21)` -- the only place a Rust
-      argument exists, since CALL rows carry none. Amendment A3: `Some(n)`
+      activation, so line 14 carries `o=Some(21)`, the same value the CALL
+      records as `o=Some(21)`. Amendment A3: `Some(n)`
       binds, so the arm mints its entry LINE at line 16 with `n=21`. 1 + 1 =
       2, and the rest of the function is absences. There is no row at line
       15, because a `match` in tail position is not a statement (§3.1); no
@@ -52,9 +52,9 @@ questions:
       Three of the four pinned facts here are absences -- no row at 15, no
       second row at 16, no row at 17 -- and a `dbg!` can state a presence and
       nothing else. The one it could reach, the argument `o`, is the one
-      thing a Rust CALL row does not record at all (`tree` prints
-      `pick() <unread: locals>`), so under a focus the parameters LINE is the
-      only place it exists. Nothing panics, so RUST_BACKTRACE never prints.
+      thing the CALL also records (`tree` prints `pick(o=Some(21))`), and
+      under a focus the parameters LINE records it a second time. Nothing
+      panics, so RUST_BACKTRACE never prints.
     command: ["frame", "$RUN", "f2"]
     expect_count: {"LINE": 2, "pick L16": 1}
     expect_line:

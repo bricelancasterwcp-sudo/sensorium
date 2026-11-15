@@ -5,7 +5,7 @@
 //! `focus_loop` is this shape's twin WITHOUT the unbind rule -- it predates
 //! this slice; its plain LINE row became an unbinding one when this landed.
 @W
-pub fn total(v: &[i32]) -> i32 {@G(7)@N(8,v)
+pub fn total(v: &[i32]) -> i32 {@G(7,v)@N(8,v)
     let mut acc = 0;@N(9,acc)
     for item in v {@N(10,item)
         acc += item;@N(11,acc)

@@ -56,7 +56,7 @@ questions:
       above it, and RUST_LOG reaches no logger in this crate.
     command: ["tree", "$RUN"]
     expect_line:
-      - ["handling()", "-> 0"]
-      - ["step()", "-> Err(Refused(1))"]
-      - ["propagating()", "-> Err(Refused(3))"]
-      - ["panicking()", "!! panic('step 2 refused')"]
+      - ["handling(n=1)", "-> 0"]
+      - ["step(n=1)", "-> Err(Refused(1))"]
+      - ["propagating(n=3)", "-> Err(Refused(3))"]
+      - ["panicking(n=2)", "!! panic('step 2 refused')"]

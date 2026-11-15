@@ -26,7 +26,7 @@ questions:
     command: ["tree", "$RUN"]
     expect_line:
       - ["<anonymous>()", "[async]", "~ suspended at end of recording"]
-      - ["awaitPayload() <unread: locals> -> Promise { <pending> }"]
+      - ["awaitPayload() -> Promise { <pending> }"]
     expect_contains: ["task t1: a payload is fetched"]
     # `LNone` is the counterfactual: a reader that filled the absent site in
     # from a null would print it here and nowhere else in this output.
