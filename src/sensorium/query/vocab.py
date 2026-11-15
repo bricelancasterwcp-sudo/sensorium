@@ -29,7 +29,10 @@ actually holds (`rust/HONESTY.md` sections 3 and 5).
 A THIRD LANGUAGE, AND THE REFUSAL OF A FOURTH (amended 2026-09-09, S5)
 ----------------------------------------------------------------------
 `TYPESCRIPT` is the third column, and it says only what a `sensorium-ts`
-trace actually holds (`typescript/HONESTY.md` sections 1 to 6).
+trace actually holds (`typescript/HONESTY.md` sections 1 to 6). `C` is
+the fourth: OS threads, signal crashes, and functions compiled with
+`-finstrument-functions`. The lookup stays strict for any `lang` this
+table does not name.
 
 Until S5 `terms()` FELL BACK to `PYTHON` for a `lang` no table knew. That
 was defensible only while no trace could carry an unknown value; it is a
@@ -514,7 +517,70 @@ TYPESCRIPT = Terms(
                      "unbound where the block that declared it ends"),
 )
 
-_TABLES = {PYTHON.lang: PYTHON, RUST.lang: RUST, TYPESCRIPT.lang: TYPESCRIPT}
+C = Terms(
+    lang="c",
+    task_noun="thread",
+    task_noun_plural="thread(s)",
+    stream_scope="threads",
+    task_article="a",
+    thread_origin="as OS threads (pthreads the program started)",
+    # The driver spawns the recorded process. It does not start a thread
+    # inside that process, so no thread is the recorder's own to exclude.
+    harness_thread=None,
+    unnamed_task="(unnamed thread)",
+    numbered_task_note="thread(s) with no name",
+    # A C thread has the name the program set, or none. Nothing in the
+    # runtime mints a numbered stand-in to be read as "no name".
+    default_name_note=None,
+    no_rerun_note="no rerun was attempted; the C recorder has no refocus",
+    refocus_blind_spots=(
+        "output captured only for the process the driver spawned",
+        "no line events",
+    ),
+    blind_spot_scope=(
+        "what sensorium sees at all: C functions compiled with "
+        "-finstrument-functions. Nothing else. No verdict here -- "
+        "MATCH, DIVERGED or REFUSED -- says anything about:"),
+    blind_spot_threads=(
+        "  - any thread whose body ran no function compiled with "
+        "-finstrument-functions: it leaves no fingerprint, so it is not "
+        "among the compared"),
+    blind_spot_outside=(
+        "  - any code compiled without -finstrument-functions: libraries "
+        "and every translation unit the build left uninstrumented"),
+    blind_spot_footprint=(
+        "  - the recorder's own footprint: the enter and exit hooks "
+        "-finstrument-functions inserts, so an instrument that changes "
+        "the program leaves no mark on the fingerprint"),
+    blind_spot_tasks="threads",
+    # This recorder writes no LINE events. The hint must not send a reader
+    # to `sensorium run --focus` or `cargo sensorium --focus`, which do
+    # not record a C trace.
+    timeline_hint="the C recorder writes no LINE events",
+    # Struct text is `dbg`. The `c` dialect treats that text as opaque, so
+    # a literal inside it is not read as Rust Debug or as JavaScript.
+    dbg_dialect="c",
+    site_spelling="module",
+    # No capture carries an object identity. `flow --object` is refused
+    # rather than answered on an address this recorder never wrote.
+    identity_basis="none",
+    rerun_command="sensorium c run -- {command}",
+    command_key="driver_command",
+    interp_key="compiler",
+    interp_fmt="compiler: {}",
+    # `function` is already the word a C frame uses.
+    kind_labels=MappingProxyType({}),
+    # Dispatched to `exceptions_c` before `_language_refusal` is read.
+    exceptions_refusal=None,
+    # A name leaves scope where the block that bound it ends. C has no
+    # `del` and no handler binding to unbind.
+    scope_exit_note=("at those sites it was not bound yet, or had gone out of "
+                     "scope again: a name leaves scope",
+                     "where the block that bound it ends"),
+)
+
+_TABLES = {PYTHON.lang: PYTHON, RUST.lang: RUST, TYPESCRIPT.lang: TYPESCRIPT,
+           C.lang: C}
 
 
 def terms(trace) -> Terms:
@@ -601,14 +667,18 @@ def print_blind_spots(trace) -> None:
 
 def exit_phrase(meta: dict) -> str:
     """How the recorded process ended, with the basis on which that is
-    known -- `0`, `0 (waited)`, `signal 9 (waited)`, `unwitnessed`.
+    known -- `0`, `0 (waited)`, `0 (on_exit)`, `signal 9 (waited)`,
+    `signal 11 (on_exit)`, `unwitnessed`.
 
     `exit_status` may be NULL, and a null is not a status: rendered as
     `None` (which is what `.get` + f-string did) it reads as an exit code
     the program actually ended with. `exit_status_basis` is the key that
     tells the two apart (spec D4): "waited" means a parent -- the cargo
-    runner shim -- called `wait` and read the status; "unwitnessed" means
-    nobody did, which is the state of every process a test spawned itself.
+    runner shim -- called `wait` and read the status; "on_exit" means the
+    status or the signal was read as the process ended, and the
+    parenthetical names that basis; "unwitnessed" means nobody did, which
+    is the state of every process a test spawned itself. Any other
+    non-null basis is unwitnessed too.
 
     A trace with no basis key at all predates the distinction and is the
     Python recorder's, whose parent always waited; it renders exactly as it
@@ -620,7 +690,9 @@ def exit_phrase(meta: dict) -> str:
     # The basis is worth a word only where it says something the status does
     # not: `unwitnessed` already IS the basis, and a trace with no basis key
     # predates the distinction and must read exactly as it always did.
-    return f"{core} ({basis})" if basis == "waited" else core
+    # `on_exit` prints like `waited` (the status, or `signal N`) and names
+    # its own basis.
+    return f"{core} ({basis})" if basis in ("waited", "on_exit") else core
 
 
 def exit_brief(meta: dict) -> str:
@@ -635,10 +707,12 @@ def exit_brief(meta: dict) -> str:
     basis = meta.get("exit_status_basis")
     if basis is None:
         return f"{meta.get('exit_status', '?')}"
-    if basis != "waited":
-        # Nobody waited, so nothing about the ending is known -- not the
-        # code, not the signal. Printing a signal here would name a witness
-        # that does not exist.
+    if basis not in ("waited", "on_exit"):
+        # Nobody waited and this is not an on_exit witness, so nothing
+        # about the ending is known -- not the code, not the signal.
+        # Printing a signal here would name a witness that does not exist.
+        # `on_exit` is a witness: the status or `signal N`, same as
+        # `waited`, without the parenthetical.
         return "unwitnessed"
     status = meta.get("exit_status")
     if status is not None:

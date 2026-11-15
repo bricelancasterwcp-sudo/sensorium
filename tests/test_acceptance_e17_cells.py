@@ -150,7 +150,7 @@ def test_expected_version_is_the_one_section_one_pins():
     assert f"Python **{EXPECTED_VERSION}**" in SECTION_ONE
     assert NINE == tuple(n for n in tools.table(False))
     assert ELEVEN == NINE + ("refocus", "record")
-    assert set(ELEVEN) == set(tools.table(True))
+    assert set(ELEVEN) | {"record_c"} == set(tools.table(True))
 
 
 # -- helpers for the hand-built inputs -------------------------------------

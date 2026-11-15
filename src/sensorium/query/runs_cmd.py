@@ -137,6 +137,13 @@ def _header(m: dict, lang: str) -> str:
     if lang == "typescript":
         return (f"invocation {m['invocation']}: {_harness_cmd(m)}"
                 + _harness_exit(m))
+    if lang == "c":
+        # The command the driver was given. Never `cargo`: that word is
+        # the Rust header's, and a C invocation does not run it. The
+        # harness exit is the same witness the TypeScript header prints.
+        command = " ".join(str(a) for a in (m.get("driver_command") or []))
+        return (f"invocation {m['invocation']}: {command}".rstrip()
+                + _harness_exit(m))
     args = " ".join(m.get("cargo_args") or [])
     return (f"invocation {m['invocation']}: cargo"
             + (f" {args}" if args else ""))

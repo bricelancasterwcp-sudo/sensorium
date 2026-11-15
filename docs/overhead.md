@@ -126,3 +126,13 @@ reported here rather than gated, same as everything else in this section:
 `info` on a 93k-event/44k-frame trace (`20260901-210520-7f8854`) took 54.4 s
 before the reader fix (an unindexed `LEFT JOIN` scanning `frames` once per
 `CALL` row) and takes 0.08 s after it, on this box.
+
+**C recorder, measured 2026-11-15** on this host (Linux 6.12.113+, 8 vCPU,
+gcc 14.2.0, CPython 3.13.5). `c/sample/fib.c` `fib(27)` is 635,622 calls
+and prints 196418. Plain `-O0 -g` with a frame pointer and no inlining,
+best of three: 0.0018 s. The same binary linked with the C runtime,
+recording on, convert not included, best of three: 0.432 s. The spool
+was 116,954,747 bytes. One `sensorium c run` of that binary took 31.5 s
+wall. A separate convert of one spool took 84.7 s and wrote a
+176,218,112 byte trace (1,271,244 events). Convert time moved between
+those two samples. The converter is Python. Not a gate.

@@ -85,12 +85,13 @@ def test_table_without_flag_is_the_nine_in_order():
 
 
 def test_table_with_flag_adds_refocus_then_record():
-    """The gate adds exactly two, at the end, and `record` is the CLI's
-    `run` under the name D2 gave it."""
+    """The gate adds refocus, record and record_c, at the end, and
+    `record` is the CLI's `run` under the name D2 gave it."""
     table = tools.table(allow_run=True)
-    assert list(table) == THE_NINE + ["refocus", "record"]
+    assert list(table) == THE_NINE + ["refocus", "record", "record_c"]
     assert table["record"].schema.command == "run"
     assert table["record"].executes and table["refocus"].executes
+    assert table["record_c"].executes
 
 
 # -- `record`, the one hand-written schema ----------------------------------
@@ -228,7 +229,7 @@ def test_annotations_by_kind():
     table = tools.table(allow_run=True)
     for name in THE_NINE:
         assert table[name].annotations == tools.ANNOTATIONS_QUERY, name
-    for name in ("refocus", "record"):
+    for name in ("refocus", "record", "record_c"):
         assert table[name].annotations == tools.ANNOTATIONS_EXECUTE, name
 
 
@@ -337,6 +338,20 @@ def test_command_argv_for_record_refuses_by_the_same_rules():
         tools.command_argv(record, {"focus": ["a"]})
     assert missing.value.reason == "missing_fields"
     assert missing.value.fields == ("command",)
+
+
+def test_record_c_argv_is_c_run():
+    """`command` is the build argv after `--`. `strict` is `--strict`
+    before that separator, and `cwd` stays out of argv."""
+    tool = tools.table(allow_run=True)["record_c"]
+    argv, extras = tools.command_argv(
+        tool, {"command": ["make", "test"], "cwd": "/tmp/src",
+               "strict": True})
+    assert argv == ["c", "run", "--strict", "--", "make", "test"]
+    assert extras == {"cwd": "/tmp/src"}
+    argv, extras = tools.command_argv(tool, {"command": ["./a.out"]})
+    assert argv == ["c", "run", "--", "./a.out"]
+    assert extras == {"cwd": None}
 
 
 def test_command_argv_for_a_query_has_no_extras():

@@ -76,8 +76,8 @@ from pathlib import Path
 
 from sensorium import paths
 from sensorium.exit import ANSWERED, BAD_CALL, NEGATIVE, UNSETTLED
-from sensorium.query import (caps, exceptions_group, exceptions_rust,
-                             exceptions_typescript, runs_cmd)
+from sensorium.query import (caps, exceptions_c, exceptions_group,
+                             exceptions_rust, exceptions_typescript, runs_cmd)
 from sensorium.query.exceptions_group import (Shape, collisions, group_units,
                                               print_shape)
 from sensorium.query.fmt import more_note
@@ -116,6 +116,9 @@ LANGUAGES = {
                            exceptions_typescript.classify,
                            exceptions_group.TYPESCRIPT,
                            ("raise", "raises"), "throws"),
+    "c": Language(exceptions_c.Index, lambda idx: idx.units,
+                  exceptions_c.classify, exceptions_group.C,
+                  ("raise", "raises"), "signal raises"),
 }
 
 
@@ -240,6 +243,11 @@ def _member_refusal(run_id: str, trace, head) -> str | None:
         # reading one language's records by another language's rules.
         return (f"REFUSED: an invocation is one driver's; member {run_id} "
                 f"is {trace.lang} and {head[0]} is {head[1].lang}")
+    if trace.lang == "c":
+        # `err_flow` is the Err and throw record Rust and TypeScript gate
+        # on. A C crash is a signal RAISE, judged whether or not that
+        # capability was declared.
+        return None
     refusal = caps.require(trace, "err_flow", "exceptions")
     return f"REFUSED: {refusal} (member {run_id})" if refusal else None
 
@@ -364,6 +372,10 @@ def _ambient(members, lang: Language) -> None:
         exceptions_rust._print_panics(
             sum(idx.panics for _r, _t, idx in members))
         return
+    if lang is LANGUAGES["c"]:
+        # No `?` sites and no unhandled rejections. The TypeScript count
+        # below reads `idx.rejections`, which a C index does not carry.
+        return
     rejections = sum(len(idx.rejections) for _r, _t, idx in members)
     if rejections:
         print(f"unhandled rejections: {rejections}")
@@ -428,8 +440,14 @@ def run(args, invocation_id: str, members: list) -> int:
     merged, tally, reasons = _merge(indexed, lang)
     chains = sum(m.n for m in merged)
     shapes = sum(1 for m in merged if m.shape.tag == "swallowed")
-    print(f"raised ({_units(chains, lang.raised)} over "
-          f"{_processes(with_chains)}, {_shapes(shapes)}):")
+    # C has no swallow. The clause stays on Rust and TypeScript, byte for
+    # byte; printing it for a signal would claim a disposition that does
+    # not exist.
+    body = (f"raised ({_units(chains, lang.raised)} over "
+            f"{_processes(with_chains)}")
+    if lang is not LANGUAGES["c"]:
+        body += f", {_shapes(shapes)}"
+    print(body + "):")
     # Over the whole ANSWER, never per member: the collision this mode
     # exists to have caught is between processes -- `sandbox L42` in two
     # test files, one process each -- so a set computed inside a member

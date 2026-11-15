@@ -361,3 +361,31 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev,conformance]"
       - name: The official SDK against `sensorium mcp`
         run: python -m pytest -q tests/test_mcp_conformance.py -rA
+
+  # Linux x86-64 C recorder: gcc and clang, debug builds, and the make /
+  # cmake / meson paths `sensorium c run` wraps. The other jobs do not
+  # install a C toolchain, so this is the only place these tests run.
+  # SENSORIUM_C_REQUIRE_CLANG=1 turns a missing clang into a failure
+  # rather than a skip. A missing runtime Makefile is not a failure:
+  # the driver compiles c/rt/sensorium_c_rt.c itself when it is linked.
+  c:
+    runs-on: ubuntu-latest
+    name: c
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compilers and build systems
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc clang make cmake ninja-build
+          sudo apt-get install -y meson || python -m pip install meson ninja
+      - name: Install (dev extras; pyelftools is how the C converter reads ELF)
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Build the C runtime when its Makefile is present
+        run: if [ -f c/rt/Makefile ]; then make -C c/rt; fi
+      - name: C recorder tests
+        env:
+          SENSORIUM_C_REQUIRE_CLANG: "1"
+        run: python -m pytest -q tests/test_c_format.py tests/test_c_convert.py tests/test_c_driver.py tests/test_c_queries.py tests/test_c_samples.py

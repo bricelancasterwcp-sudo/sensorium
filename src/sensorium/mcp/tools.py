@@ -11,7 +11,7 @@ the one query that runs a program, so it appears only under
 question anyone asks a debugger, so it is in `NOT_TOOLS`. Deriving the
 table from `cli._QUERY_MODULES` instead would have made `redact` a tool
 the day it was written, and the NEXT command a tool the day IT is
-written -- a silent default a surface with two executing tools cannot
+written -- a silent default a surface with three executing tools cannot
 afford. Field derivation stays automatic; only placement is by hand,
 and `test_every_query_module_is_placed` fails until one is placed.
 
@@ -27,8 +27,8 @@ retyped help is right on the day it is typed and wrong the first time
 the flag's own wording improves.
 
 `command_argv` is the seam to the child runner: `(argv, extras)`, where
-`extras` is empty for every tool but `record` and holds exactly the two
-fields that must never reach argv.
+`extras` is empty for every tool but `record` and `record_c`. `record`
+holds `cwd` and `python`; `record_c` holds `cwd`. Neither reaches argv.
 """
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ NARROWING = ("depth", "limit", "after", "around", "context", "misses", "fn",
 ANNOTATIONS_QUERY = {"readOnlyHint": True, "destructiveHint": False,
                      "idempotentHint": True, "openWorldHint": False}
 
-#: ...and two run a program that may do anything.
+#: ...and three run a program that may do anything.
 ANNOTATIONS_EXECUTE = {"readOnlyHint": False, "destructiveHint": False,
                        "idempotentHint": False, "openWorldHint": True}
 
@@ -130,6 +130,43 @@ def _record_schema() -> ToolSchema:
 #: The CLI's `run`, as the tool `record`.
 RECORD = _record_schema()
 
+_RECORD_C_HELP = "record a C build or program"
+_RECORD_C_DESCRIPTION = (
+    "Runs the command under the C recorder and writes one trace; "
+    "`command` is the build or program argv, for example `make test` "
+    "or `./a.out`, and `strict` refuses optimized translation units.")
+_C_COMMAND_HELP = ("the build or program argv, for example make test "
+                   "or ./a.out")
+_C_CWD_HELP = "the directory to run in"
+_C_STRICT_HELP = "refuse optimized translation units"
+
+
+def _record_c_schema() -> ToolSchema:
+    """`record_c`, written out rather than read off a parser.
+
+    `c run`'s parser belongs to the recorder. The argv this tool builds
+    is `["c", "run", ...]` by hand, the same way `record` cannot be
+    `to_argv`'s, so the schema does not have to be derived to stay true.
+    """
+    fields = (
+        Field(name="command", kind="array", required=True, positional=True,
+              description=_C_COMMAND_HELP),
+        Field(name="cwd", kind="string", required=False,
+              description=_C_CWD_HELP),
+        Field(name="strict", kind="boolean", required=False,
+              description=_C_STRICT_HELP, option="--strict"),
+    )
+    # Present because `ToolSchema` requires one. `command_argv` does not
+    # parse with it.
+    parser = argparse.ArgumentParser(prog="sensorium record_c",
+                                     exit_on_error=False)
+    return ToolSchema("record_c", fields, _RECORD_C_HELP,
+                      _RECORD_C_DESCRIPTION, parser)
+
+
+#: A C build or program, as the tool `record_c`.
+RECORD_C = _record_c_schema()
+
 
 @dataclass(frozen=True)
 class Tool:
@@ -166,6 +203,7 @@ def table(allow_run: bool) -> dict[str, Tool]:
             ts = schema.derive(module)
             tools[ts.command] = Tool(ts.command, ts, executes=True)
         tools["record"] = Tool("record", RECORD, executes=True)
+        tools["record_c"] = Tool("record_c", RECORD_C, executes=True)
     return tools
 
 
@@ -200,10 +238,18 @@ def command_argv(tool: Tool, arguments: dict) -> tuple[list[str], dict]:
     `record` is the one tool `to_argv` cannot build for. Its target is
     the argv AFTER a `--` -- which is what keeps a target's own `-m` or
     `--include` the target's -- and `cwd`/`python` are the child's
-    process, not its arguments. It is refused by `schema.validate`
-    first all the same, so an unknown or missing field is named here in
-    the words every other tool uses.
+    process, not its arguments. `record_c` is the other: its argv is
+    `c run`, with `--strict` before the `--` and `cwd` kept out of argv.
+    Both are refused by `schema.validate` first, so an unknown or
+    missing field is named here in the words every other tool uses.
     """
+    if tool.schema is RECORD_C:
+        schema.validate(RECORD_C, arguments)
+        argv = ["c", "run"]
+        if arguments.get("strict"):
+            argv.append("--strict")
+        argv.extend(["--", *arguments["command"]])
+        return argv, {"cwd": arguments.get("cwd") or None}
     if tool.schema is not RECORD:
         return schema.to_argv(tool.schema, arguments), {}
     schema.validate(RECORD, arguments)

@@ -33,12 +33,12 @@ RUN = "20260101-000000-abcdef"
 RUN2 = "20260101-000001-fedcba"
 
 #: The whole sentence, minus the path and the version -- both of which are
-#: the environment's rather than the rule's. `(python, rust, typescript)`
+#: the environment's rather than the rule's. `(python, rust, typescript, c)`
 #: is `db.KNOWN_LANGS` spelled out: a reader who meets this line learns
 #: which languages an upgrade would have to bring, not merely that theirs
 #: is not one of them.
 WHO = "was written by cobol-rec 1.0 for lang 'cobol', which this sensorium"
-WHAT = ("has no vocabulary for (python, rust, typescript); upgrade "
+WHAT = ("has no vocabulary for (python, rust, typescript, c); upgrade "
         "sensorium to read it")
 
 

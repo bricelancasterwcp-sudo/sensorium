@@ -41,9 +41,10 @@ venv's `sensorium`, never a stale binary on `PATH`.
 
        .venv/bin/sensorium mcp --allow-run --store $PWD/.sensorium
 
-   `--allow-run` is what offers `record` and `refocus`. Without it those
-   two are not tools. `--store` is `SENSORIUM_DIR` for the server and
-   every child.
+   `--allow-run` is what offers `record`, `refocus` and `record_c`.
+   Without it those are not tools. `record_c` records a C build
+   (`{"command": ["make", "test"]}`) when `--allow-run` is on.
+   `--store` is `SENSORIUM_DIR` for the server and every child.
 
 7. Register any MCP client with that absolute binary on stdio. The
    minimum args are `["mcp", "--allow-run"]`; add `--store` when the

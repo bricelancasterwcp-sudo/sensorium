@@ -1,13 +1,13 @@
 [project]
 name = "sensorium"
 version = "0.18.2"
-description = "Execution-trace recorder for Python programs, driver and converter for the TypeScript recorder, and the LLM-native query CLI that reads every sensorium trace: Python's, the Rust recorder's and the TypeScript recorder's alike"
+description = "Execution-trace recorder for Python programs, driver and converter for the TypeScript and C recorders, and the LLM-native query CLI that reads every sensorium trace: Python's, the Rust recorder's, the TypeScript recorder's and the C recorder's alike"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pyyaml>=6", "pytest-cov>=5"]
+dev = ["pytest>=8", "pyyaml>=6", "pytest-cov>=5", "pyelftools>=0.31"]
 # The official MCP Python SDK, installed for ONE test file
 # (`tests/test_mcp_conformance.py`) and never imported under `src/`:
 # it is the conformance oracle for `sensorium mcp`, the one client
@@ -21,6 +21,7 @@ conformance = ["mcp>=2.2,<3"]
 
 [project.scripts]
 sensorium = "sensorium.cli:main"
+sensorium-cc = "sensorium.c.cc:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -36,6 +37,9 @@ packages = ["src/sensorium"]
 "typescript/package.json" = "sensorium/_typescript/package.json"
 "typescript/package-lock.json" = "sensorium/_typescript/package-lock.json"
 "typescript/src" = "sensorium/_typescript/src"
+# The C runtime source. Not a Python package. A wheel lays it where
+# `sensorium c` can compile against it without the checkout.
+"c/rt/sensorium_c_rt.c" = "sensorium/_c/rt/sensorium_c_rt.c"
 
 # The same files in the sdist, so a wheel built from the sdist (not only
 # from a git checkout) can still copy them. Paths stay `typescript/...`:
@@ -44,6 +48,9 @@ packages = ["src/sensorium"]
 "typescript/package.json" = "typescript/package.json"
 "typescript/package-lock.json" = "typescript/package-lock.json"
 "typescript/src" = "typescript/src"
+# Same file, still at its source path, so a wheel built from this sdist
+# can apply the mapping above. pkg.py also walks up to c/rt/.
+"c/rt/sensorium_c_rt.c" = "c/rt/sensorium_c_rt.c"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
