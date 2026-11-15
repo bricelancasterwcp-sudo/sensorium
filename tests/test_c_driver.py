@@ -74,6 +74,26 @@ def test_strict_still_compiles_o0(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
+def test_exclude_file_list_is_not_passed_to_clang():
+    """Clang 21 rejects ``-finstrument-functions-exclude-file-list``."""
+    from sensorium.c.cc import _compile_args, instrument_flags
+
+    gcc = instrument_flags("/usr/bin/gcc")
+    clang = instrument_flags("/usr/bin/clang-21")
+    assert any(flag.startswith("-finstrument-functions-exclude-file-list")
+               for flag in gcc)
+    assert "-finstrument-functions" in clang
+    assert not any("exclude-file-list" in flag for flag in clang)
+    built = _compile_args("/usr/bin/clang", [
+        "-O0",
+        "-finstrument-functions-exclude-file-list=/usr/include,/usr/lib",
+        "hello.c",
+    ])
+    assert not any("exclude-file-list" in arg for arg in built)
+    assert "-finstrument-functions" in built
+    assert built[-1] != "hello.c"
+
+
 def test_clang_o0_writes_a_plan(tmp_path):
     """`CMAKE_C_COMPILER_LAUNCHER` prefixes the real compiler, so argv is
     `sensorium-cc <clang> -O0 hello.c -o hello`."""

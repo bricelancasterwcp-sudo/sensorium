@@ -153,7 +153,7 @@ def _env(bindir: Path, spool: Path, strict: bool, no_retval: bool) -> dict:
         env["SENSORIUM_C_NO_RETVAL"] = "1"
     else:
         env.pop("SENSORIUM_C_NO_RETVAL", None)
-    flags = " ".join(cc_mod.INSTRUMENT_FLAGS)
+    flags = " ".join(cc_mod.instrument_flags(real_cc))
     env["CFLAGS"] = _append_flags(env.get("CFLAGS", ""), flags)
     env["CMAKE_C_COMPILER_LAUNCHER"] = os.fspath(bindir / "cc")
     env["CMAKE_C_FLAGS"] = _append_flags(env.get("CMAKE_C_FLAGS", ""), flags)

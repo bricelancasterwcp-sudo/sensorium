@@ -23,6 +23,8 @@ from sensorium.c import pkg
 
 #: Appended to every compile and every link. Last, so they override a
 #: default of the opposite flag. Duplicate copies are harmless.
+#: The exclude-file-list entry is gcc only. Clang 21 rejects it as an
+#: unknown argument, so a clang compile does not receive it.
 INSTRUMENT_FLAGS = [
     "-g",
     "-fno-omit-frame-pointer",
@@ -31,6 +33,7 @@ INSTRUMENT_FLAGS = [
     "-finstrument-functions",
     "-finstrument-functions-exclude-file-list=/usr/include,/usr/lib",
 ]
+_EXCLUDE_FILE_LIST = "-finstrument-functions-exclude-file-list"
 
 _SHIM_NAMES = {"gcc", "cc", "clang"}
 _COMPILER_BASENAME = re.compile(r"^(?:gcc|cc|clang|clang-\d+|.+-gcc)$")
@@ -46,6 +49,45 @@ _SCRIPT = os.path.realpath(__file__)
 
 class CompilerError(Exception):
     """The real compiler could not be named or found."""
+
+
+def instrument_flags(compiler: str) -> list[str]:
+    """Instrument flags this compiler accepts.
+
+    gcc keeps the exclude-file-list entry so inlines from ``/usr/include``
+    and ``/usr/lib`` stay out of the trace. Clang has no such flag.
+    """
+    if _is_clang(compiler):
+        return [flag for flag in INSTRUMENT_FLAGS if not _exclude_file_list(flag)]
+    return list(INSTRUMENT_FLAGS)
+
+
+def _compile_args(compiler: str, args: list[str]) -> list[str]:
+    """``args`` plus instrument flags, without a flag this compiler rejects.
+
+    ``CFLAGS`` may already carry the gcc exclude-file-list entry. Drop
+    that token when the real compiler is clang, then append the flags
+    this compiler accepts.
+    """
+    if _is_clang(compiler):
+        args = [arg for arg in args if not _exclude_file_list(arg)]
+    return [*args, *instrument_flags(compiler)]
+
+
+def _exclude_file_list(arg: str) -> bool:
+    return arg == _EXCLUDE_FILE_LIST or arg.startswith(_EXCLUDE_FILE_LIST + "=")
+
+
+def _is_clang(compiler: str) -> bool:
+    """True for clang, including a ``cc`` symlink whose target is clang."""
+    names = [os.path.basename(compiler).lower()]
+    try:
+        linked = os.path.basename(os.path.realpath(compiler)).lower()
+    except OSError:
+        linked = ""
+    if linked and linked not in names:
+        names.append(linked)
+    return any(name == "clang" or name.startswith("clang-") for name in names)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -70,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         _emit(line)
     if warnings and _strict():
         return 2
-    cmd = [compiler, *args, *INSTRUMENT_FLAGS]
+    cmd = [compiler, *_compile_args(compiler, args)]
     linking = _links(args)
     if linking:
         try:
