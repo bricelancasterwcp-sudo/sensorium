@@ -6,6 +6,13 @@
  * glibc 2.41 mangles jmp_buf rbp/rsp/pc as ROL(value ^ %fs:0x30, 17).
  */
 #define _GNU_SOURCE
+/* Ubuntu's gcc defines _FORTIFY_SOURCE when optimizing. glibc then
+ * renames longjmp, _longjmp, and siglongjmp onto __longjmp_chk (an asm
+ * label, or a macro when the compiler has no asm labels). The four
+ * interposers below have to stay four symbols: fortified callers enter
+ * at __longjmp_chk, everyone else at longjmp. This file does not need
+ * fortify of its own, and the level is latched by the first include. */
+#undef _FORTIFY_SOURCE
 
 #include <dlfcn.h>
 #include <elf.h>
@@ -1163,6 +1170,11 @@ NOI static void repair_longjmp(struct __jmp_buf_tag *env) {
         emit(t, (uint8_t)'J', rbp, rsp, pc, (uint64_t)abandoned, NULL, 0);
     }
 }
+
+/* A fortify header may still have macro-substituted these names. */
+#undef longjmp
+#undef _longjmp
+#undef siglongjmp
 
 NOI __attribute__((noreturn)) void longjmp(struct __jmp_buf_tag env[1], int val) {
     resolve_syms();
