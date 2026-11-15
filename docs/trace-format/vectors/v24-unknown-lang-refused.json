@@ -42,7 +42,7 @@
       "expect_exit": 2,
       "expect_contains": [
         "was written by cobol-rec 1.0 for lang 'cobol', which this sensorium",
-        "has no vocabulary for (python, rust, typescript); upgrade sensorium to read it"],
+        "has no vocabulary for (python, rust, typescript, c); upgrade sensorium to read it"],
       "expect_absent": ["asyncio", "python ?", "recorded:", "fingerprint",
                         "capabilities:"]
     },
@@ -52,7 +52,7 @@
       "command": ["tree", "$RUN"],
       "expect_exit": 2,
       "expect_contains": [
-        "has no vocabulary for (python, rust, typescript); upgrade sensorium to read it"],
+        "has no vocabulary for (python, rust, typescript, c); upgrade sensorium to read it"],
       "expect_absent": ["asyncio", "python ?", "MAIN-PARA"]
     }
   ]

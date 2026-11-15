@@ -60,6 +60,11 @@ this slice ships. `TRACE_FORMAT` stays **4**.
   `sensorium-rt` **0.7.2**, `cargo-sensorium` **0.8.4**,
   `sensorium-ts` **0.6.2**.
 
+- **C recorder, Linux x86-64, debug builds.** `sensorium c run -- <cmd>`
+  records calls, arguments, returns and crashes (signals and asserts) from
+  gcc or clang at `-O0` or `-Og`. `exceptions` and `failures` read them.
+  MCP `record_c` runs the same command. Trace format stays **4**.
+
 ## 0.18.2 — 2026-11-14
 
 **Review round 1.** Python **0.18.2**. `TRACE_FORMAT` stays **4**.

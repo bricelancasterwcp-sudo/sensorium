@@ -59,8 +59,8 @@ SUPPORTED = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"]
 NINE = ["runs", "info", "tree", "frame", "grep", "exceptions", "failures",
         "flow", "watch", "diff"]
 
-#: ...and the two the flag adds, in the order the gate appends them.
-ELEVEN = [*NINE, "refocus", "record"]
+#: ...and the tools the flag adds, in the order the gate appends them.
+ELEVEN = [*NINE, "refocus", "record", "record_c"]
 
 #: Enough for `runs` to have an answer; recorded once for the module.
 PROGRAM = """

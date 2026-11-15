@@ -449,7 +449,7 @@ def test_record_and_refocus_absent_without_the_flag_and_present_with_it(
         assert [t["name"] for t in closed.list_tools()] == list(NINE)
     with spawn(store, tmp_path, "--allow-run", name="open") as opened:
         assert [t["name"] for t in opened.list_tools()] == [
-            *NINE, "refocus", "record"]
+            *NINE, "refocus", "record", "record_c"]
         made = opened.call("record", {"command": ["hello.py"],
                                       "cwd": str(tmp_path)})
         listed = opened.call("runs", {})

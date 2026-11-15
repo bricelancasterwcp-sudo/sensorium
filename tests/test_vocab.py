@@ -33,7 +33,7 @@ from sensorium import cli
 from tests.rust_traces import focused_trace
 
 from sensorium.mcp import cmd as mcp_cmd
-from sensorium.query.vocab import (PYTHON, RUST, TYPESCRIPT, Terms,
+from sensorium.query.vocab import (C, PYTHON, RUST, TYPESCRIPT, Terms,
                                    exit_brief, exit_phrase, terms)
 from sensorium.store.reader import Trace
 from sensorium.store.gc import add_parsers as add_gc_parsers
@@ -260,6 +260,7 @@ def test_no_language_with_rules_carries_an_exceptions_refusal():
     assert PYTHON.exceptions_refusal is None
     assert RUST.exceptions_refusal is None
     assert TYPESCRIPT.exceptions_refusal is None
+    assert C.exceptions_refusal is None
     assert PYTHON.kind_labels == {} and RUST.kind_labels == {}, (
         "the contract's kind words are already these two languages' own; a "
         "mapping here would reword markers the legacy suite pins")
@@ -324,6 +325,10 @@ def test_exit_phrase_reads_the_basis_and_never_invents_a_status():
     # "signal 9" here would claim a witness that does not exist.
     assert exit_phrase({"exit_status": None, "exit_signal": 9,
                         "exit_status_basis": "unwitnessed"}) == "unwitnessed"
+    assert exit_phrase({"exit_status": 0,
+                        "exit_status_basis": "on_exit"}) == "0 (on_exit)"
+    assert exit_phrase({"exit_status": None, "exit_signal": 11,
+                        "exit_status_basis": "on_exit"}) == "signal 11 (on_exit)"
 
 
 def test_exit_brief_is_the_status_without_the_basis():
@@ -337,6 +342,10 @@ def test_exit_brief_is_the_status_without_the_basis():
                        "exit_status_basis": "waited"}) == "signal 9"
     assert exit_brief({"exit_status": None,
                        "exit_status_basis": "unwitnessed"}) == "unwitnessed"
+    assert exit_brief({"exit_status": 0,
+                       "exit_status_basis": "on_exit"}) == "0"
+    assert exit_brief({"exit_status": None, "exit_signal": 11,
+                       "exit_status_basis": "on_exit"}) == "signal 11"
 
 
 def test_a_signalled_exit_is_printed_by_info_and_runs(tmp_path):
@@ -516,7 +525,7 @@ def test_every_column_answers_every_field_and_none_may_be_defaulted():
     recorder would go unanswered by the other two.
     """
     for name in Terms.__dataclass_fields__:
-        for column in (PYTHON, RUST, TYPESCRIPT):
+        for column in (PYTHON, RUST, TYPESCRIPT, C):
             assert hasattr(column, name), f"{column.lang} lacks {name}"
     for f in fields(Terms):
         assert f.default is MISSING and f.default_factory is MISSING, f.name
@@ -530,6 +539,7 @@ def test_the_dialect_a_reader_parses_a_dbg_capture_in():
     assert PYTHON.dbg_dialect is None
     assert RUST.dbg_dialect == "rust"
     assert TYPESCRIPT.dbg_dialect == "inspect"
+    assert C.dbg_dialect == "c"
 
 
 def test_how_each_language_spells_one_recorded_site():
@@ -540,6 +550,7 @@ def test_how_each_language_spells_one_recorded_site():
     assert PYTHON.site_spelling == "module"
     assert RUST.site_spelling == "module"
     assert TYPESCRIPT.site_spelling == "rel"
+    assert C.site_spelling == "module"
 
 
 def test_what_object_identity_rests_on_in_each_language():
@@ -550,6 +561,7 @@ def test_what_object_identity_rests_on_in_each_language():
     assert PYTHON.identity_basis == "address"
     assert RUST.identity_basis == "none"
     assert TYPESCRIPT.identity_basis == "serial"
+    assert C.identity_basis == "none"
 
 
 def test_how_a_name_leaves_scope_in_each_language():
@@ -567,13 +579,45 @@ def test_how_a_name_leaves_scope_in_each_language():
         "at those sites it was not bound yet, or had gone out of scope "
         "again (`del`, or the",
         "implicit unbind that ends an `except E as e:` block)")
-    for column in (RUST, TYPESCRIPT):
+    for column in (RUST, TYPESCRIPT, C):
         joined = " ".join(column.scope_exit_note)
         assert "`del`" not in joined, column.lang
         assert "except" not in joined, column.lang
         assert "block" in joined, column.lang
     assert "a `let` is unbound" in " ".join(RUST.scope_exit_note)
     assert "a `let` or `const` is" in " ".join(TYPESCRIPT.scope_exit_note)
+
+
+def test_c_terms_name_what_a_c_trace_has():
+    """The fourth column. Threads, a compiler, and no refocus."""
+    class _Fake:
+        lang = "c"
+    assert terms(_Fake()) is C
+    assert C.task_noun == "thread"
+    assert C.task_noun_plural == "thread(s)"
+    assert C.a_task == "a thread"
+    assert C.stream_scope == "threads"
+    assert C.thread_origin == "as OS threads (pthreads the program started)"
+    assert C.harness_thread is None
+    assert C.unnamed_task == "(unnamed thread)"
+    assert C.numbered_task_note == "thread(s) with no name"
+    assert C.default_name_note is None
+    assert C.no_rerun_note == (
+        "no rerun was attempted; the C recorder has no refocus")
+    assert C.interp_line({}) == "compiler: ?"
+    assert C.interp_line({"compiler": "gcc"}) == "compiler: gcc"
+    assert C.kind_labels == {}
+    assert C.blind_spot_tasks == "threads"
+    assert "LINE" in C.timeline_hint
+    assert "sensorium run --focus" not in C.timeline_hint
+    assert "cargo sensorium" not in C.timeline_hint
+    assert "-finstrument-functions" in C.blind_spot_scope
+    for line in (C.blind_spot_scope, C.blind_spot_threads,
+                 C.blind_spot_outside, C.blind_spot_footprint):
+        assert "Python" not in line and "cargo" not in line
+        assert "node" not in line
+    assert any("driver" in spot for spot in C.refocus_blind_spots)
+    assert any("line" in spot for spot in C.refocus_blind_spots)
 
 
 def test_the_command_that_records_this_trace_again():
@@ -583,9 +627,11 @@ def test_the_command_that_records_this_trace_again():
     assert PYTHON.rerun_command == "sensorium run{focus} -- {command}"
     assert TYPESCRIPT.rerun_command == "sensorium ts run{focus} -- {command}"
     assert RUST.rerun_command == "cargo sensorium{focus} {command}"
+    assert C.rerun_command == "sensorium c run -- {command}"
     assert PYTHON.command_key == "argv"
     assert TYPESCRIPT.command_key == "harness_command"
     assert RUST.command_key == "cargo_args"
+    assert C.command_key == "driver_command"
 
 
 def test_the_rust_timeline_hint_names_focus_since_0_4_0():

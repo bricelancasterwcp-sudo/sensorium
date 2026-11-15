@@ -78,12 +78,13 @@ which member the block's sentences are about.
 import re
 from dataclasses import dataclass, field
 
-# Both rule modules import this one INSIDE `run` (the house idiom of
-# `exceptions_cmd`), so both are safe to take at module level here: `_at`
+# Rust and TypeScript import this module INSIDE `run` (the house idiom of
+# `exceptions_cmd`). C does not import it at all: its single-trace lines
+# are its own. All three are safe to take at module level here. `_at`
 # names a site the way every verdict in those modules does, and
 # `_hops_line` is the block's own last line. Rendering either a second time
 # here would be two spellings of one journey.
-from sensorium.query import exceptions_rust, exceptions_typescript
+from sensorium.query import exceptions_c, exceptions_rust, exceptions_typescript
 from sensorium.query.fmt import fmt_event, fmt_exc
 
 #: An event or frame reference in printed text. Anchored on word boundaries
@@ -244,6 +245,17 @@ def _typescript_key(trace, unit, d, site, hops):
             hops if d.site is None else None)
 
 
+def _c_key(trace, unit, d, site, hops):
+    """`(tag, site, masked verdict)`.
+
+    A signal raise names no sink and no route: the site is the RAISE's
+    own, and the verdict is the whole of what two of them can share.
+    `hops` is always absent (`exceptions_c._hops_line` returns None) and
+    is not a component, so a missing journey cannot split one crash.
+    """
+    return (d.tag, site, exceptions_c.mask(d.verdict))
+
+
 RUST = Renderer(at=exceptions_rust._at,
                 hops_line=exceptions_rust._hops_line,
                 site=exceptions_rust._site,
@@ -259,6 +271,14 @@ TYPESCRIPT = Renderer(at=exceptions_typescript._at,
                       site_file=exceptions_typescript.site_file,
                       tag_order=exceptions_typescript.TAG_ORDER,
                       key=_typescript_key, mask=ts_mask)
+
+C = Renderer(at=exceptions_c._at,
+             hops_line=exceptions_c._hops_line,
+             site=exceptions_c._site,
+             site_text=exceptions_c.site_text,
+             site_file=exceptions_c.site_file,
+             tag_order=exceptions_c.TAG_ORDER,
+             key=_c_key, mask=exceptions_c.mask)
 
 
 @dataclass

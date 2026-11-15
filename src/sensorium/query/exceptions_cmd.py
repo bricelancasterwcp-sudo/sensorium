@@ -656,13 +656,12 @@ def _language_refusal(trace) -> str | None:
     and which rung owes it.
 
     NO LANGUAGE CARRIES ONE TODAY. Every column is `None`: Python's rules
-    are these, `run` dispatches Rust to `exceptions_rust` (rung 3) and
-    TypeScript to `exceptions_typescript` above, and each of those gates on
-    the `err_flow` capability, so an older recording of either refuses
-    because of what it does not HOLD rather than because of what nobody
-    wrote. This function is therefore unreachable until a fourth language
-    arrives with words and no rules -- which is exactly the state it exists
-    to describe, and why it and the `vocab` field stay.
+    are these, and `run` dispatches Rust, TypeScript and C above. Rust and
+    TypeScript still gate on `capabilities.err_flow`, so an older recording
+    of either refuses because of what it does not HOLD rather than because
+    of what nobody wrote. This function is therefore unreachable until a
+    language arrives with words and no rules -- which is exactly the state
+    it exists to describe, and why it and the `vocab` field stay.
     """
     return terms(trace).exceptions_refusal
 
@@ -718,13 +717,20 @@ def run(args) -> int:
         # still refuses, with the capability sentence.
         from sensorium.query import exceptions_typescript
         return exceptions_typescript.run(trace, args, after)
+    if trace.lang == "c":
+        # A crash is a signal RAISE, not an exception object and not an
+        # `Err`. The rules below read `exc["oid"]`, which this recorder
+        # does not carry. Local for the same cycle as the two above:
+        # `exceptions_c` imports `Disposition` from this module.
+        from sensorium.query import exceptions_c
+        return exceptions_c.run(trace, args, after)
     refusal = _language_refusal(trace)
     if refusal:
         # Unreachable today, and kept for the language that is not here
-        # yet: all three columns dispatch above, so every `vocab` column's
-        # refusal is `None`. What a fourth language would be missing is a
-        # set of rules, not a record -- and the sentence its own column
-        # would carry is the one that says so.
+        # yet: Python, Rust, TypeScript and C all dispatch above, so every
+        # `vocab` column's refusal is `None`. What a further language
+        # would be missing is a set of rules, not a record -- and the
+        # sentence its own column would carry is the one that says so.
         print(refusal)
         return UNSETTLED
     idx = Index.build(trace, trace.meta)

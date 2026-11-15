@@ -40,11 +40,11 @@ Without it, the store it inherited (`$SENSORIUM_DIR`, else `~/.sensorium`).
 
 | flag | default | what it does |
 |---|---|---|
-| `--allow-run` | off | offer `record` and `refocus`, the two tools that execute your program |
+| `--allow-run` | off | offer `record`, `refocus` and `record_c`, the three tools that execute your program |
 | `--store DIR` | the inherited store | the store to serve, as `SENSORIUM_DIR` for the server and every call |
 | `--max-output BYTES` | `65536` | cap one answer's body; minimum `4096` |
 | `--timeout SECONDS` | `60` | how long one query tool may take |
-| `--run-timeout SECONDS` | `600` | the same bound for `record` and `refocus` |
+| `--run-timeout SECONDS` | `600` | the same bound for `record`, `refocus` and `record_c` |
 
 A bad flag is a refusal to START, in the CLI's words on stderr and exit 2 --
 there is no client yet to send JSON-RPC to:
@@ -53,13 +53,13 @@ there is no client yet to send JSON-RPC to:
     sensorium mcp: --timeout 0 is not a positive number of seconds
 
 Diagnostics go to stderr and nothing else does: stdout is JSON-RPC. One line
-names the surface at boot (`serving 12 tools (allow_run=True) store=...`), one
+names the surface at boot (`serving 13 tools (allow_run=True) store=...`), one
 per handshake, one per spawned child (`child <pid> pgid <pid> tool <name>`),
 one for the exit reason (`exit 0 (eof)`, `(sigterm)`, `(pipe)`).
 
 ## The tools
 
-Twelve with `--allow-run`, ten without, listed in this order. Each
+Thirteen with `--allow-run`, ten without, listed in this order. Each
 description is the command's own `help=` and `description=` -- the two
 sentences `sensorium <cmd> --help` prints -- and each tool's fields are read
 off that command's parser, so neither a sentence nor a flag can disagree with
@@ -73,12 +73,13 @@ the CLI.
 | `frame` | always | one activation in full. Arguments, return or raise, and the per-line locals timeline when the run was recorded with `--focus`; frame ids fN come from `exceptions`, `tree` and `grep`. |
 | `grep` | always | search events by name or value. Every CALL, RETURN, RAISE, HANDLED or LINE event whose name or rendered value contains the pattern; `--after` resumes from an event id a previous answer showed. |
 | `exceptions` | always | raises, handles, swallows. Every raise classified swallowed, uncaught, re-raised, propagated or ambiguous, with the reason; SWALLOWED is claimed only when the recording proves it. |
-| `failures` | always | failed tests and the frame they failed in. Each failed test mapped to the frame and the assertion, panic or exception recorded there. A vitest expect and a Rust panic are listed here; exceptions still judges throw and Err flow and does not list them. |
+| `failures` | always | failed tests and the frame they failed in. Each failed test mapped to the frame and the assertion, panic or exception recorded there. A vitest expect, a Rust panic, and a C crash or assert in a test_ frame are listed here; exceptions still judges throw and Err flow and does not list them. |
 | `flow` | always | provenance of a value or an object. `--value` follows a literal by equality through captured arguments, locals and returns; `--object` follows one identity from the event that captured it; one of the two is required, and each refuses by name what the recording did not capture. |
 | `watch` | always | predicate over captured state. A gdb-style watchpoint evaluated after the fact at every recorded site of one function; needs a `--focus` recording, and NOTHING WAS CHECKED is a refusal, never a pass. |
 | `diff` | always | first causal divergence between two runs. Aligns the two causal streams and names the first event where they part, with drill-in commands; MATCH or DIVERGED, or REFUSED when no verdict exists. |
 | `refocus` | `--allow-run` | re-run a recorded command with deeper capture, verified. Executes the recorded command again with the added `--focus` and reports whether it was the same execution — MATCH, DIVERGED or REFUSED; the licence names what was compared. |
 | `record` | `--allow-run` | record one execution. Runs the command under the recorder from `cwd` and writes one trace; only code under `cwd` is recorded; the command is a .py file, a `-m` module or a console script, never `python` itself. |
+| `record_c` | `--allow-run` | record a C build or program. Runs the command under the C recorder and writes one trace; `command` is the build or program argv, for example `make test` or `./a.out`, and `strict` refuses optimized translation units. |
 
 `redact` is a query command too, and deliberately NOT a tool: it rewrites
 a stored trace, which is not a question anyone asks a debugger, and the store's
@@ -157,17 +158,17 @@ own line, which is not itself counted against the limit:
 on `tree`, `limit, after, fn, kind` on `grep`, `fn` on `frame`,
 `limit, after` on `exceptions` and `flow`, `limit` on `failures`,
 `limit, after, misses` on `watch`,
-`context` on `diff`. A tool with none -- `runs`, `info`, `record`, `refocus`
+`context` on `diff`. A tool with none -- `runs`, `info`, `record`, `refocus`, `record_c`
 -- says `narrow with: nothing on this tool`. Both kept halves are cut back to
 a line boundary when the kept window holds a newline; a window without one is
 a raw byte cut and may begin or end in U+FFFD.
 
 ## `--allow-run`
 
-Without the flag the table has ten tools: `record` and `refocus` are absent
-from `tools/list`, and a call to either comes back `Unknown tool: record` --
-the wire shows no trace of the flag, because a tool the server will not offer
-is a tool it does not have. With the flag:
+Without the flag the table has ten tools: `record`, `refocus` and `record_c`
+are absent from `tools/list`, and a call to one of them comes back
+`Unknown tool: record` -- the wire shows no trace of the flag, because a tool the server
+will not offer is a tool it does not have. With the flag:
 
 * **`record`** takes `command` (required: the program as its own argv -- a
   `.py` file, `-m` and a module, or a console script, with its arguments, and
@@ -178,6 +179,9 @@ is a tool it does not have. With the flag:
   dependencies. Both default to the server's own.
 * **`refocus`** re-runs the command a trace remembers with a deeper `--focus`
   and reports whether it was the same execution.
+* **`record_c`** records a C build or program. `command` is the build or
+  program argv, for example `make test` or `./a.out`. `cwd` is the directory
+  to run in. `strict` refuses optimized translation units.
 
 **Every call inherits the server's whole environment**, `record` included,
 plus the `SENSORIUM_DIR` that `--store` exports. That is not incidental: it is

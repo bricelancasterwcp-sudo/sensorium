@@ -33,8 +33,9 @@ from pathlib import Path
 #: has never seen MCP needs its shape in one sentence.
 HELP = "serve the store to a model over the Model Context Protocol on stdio"
 DESCRIPTION = ("One JSON-RPC message per line on stdin/stdout; every query "
-               "command except redact is a tool, and record and refocus are "
-               "tools only under --allow-run. Diagnostics go to stderr.")
+               "command except redact is a tool, and record, refocus and "
+               "record_c are tools only under --allow-run. Diagnostics go "
+               "to stderr.")
 EPILOG = "exit: 0 at EOF or SIGTERM, 2 a refusal to start"
 
 #: Below this a cap cannot hold a head, a tail and the marker between
@@ -49,8 +50,8 @@ def add_parser(sub) -> None:
     p = sub.add_parser("mcp", help=HELP, description=DESCRIPTION,
                        epilog=EPILOG)
     p.add_argument("--allow-run", action="store_true",
-                   help="offer record and refocus, the two tools that "
-                        "execute the recorded program; default off")
+                   help="offer record, refocus and record_c, the three "
+                        "executing tools; default off")
     p.add_argument("--store", default=None, metavar="DIR",
                    help="the trace store to serve, as SENSORIUM_DIR for "
                    "this server and every call it makes; default the "
@@ -64,7 +65,7 @@ def add_parser(sub) -> None:
                    "take before its process group is killed and the call "
                    "is answered no answer")
     p.add_argument("--run-timeout", type=float, default=DEFAULT_RUN_TIMEOUT,
-                   metavar="SECONDS", help="the same bound for the two "
+                   metavar="SECONDS", help="the same bound for the three "
                    "tools that execute the recorded program, which are "
                    "expected to take longer")
     p.set_defaults(func=run)

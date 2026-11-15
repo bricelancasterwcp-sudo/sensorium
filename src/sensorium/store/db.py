@@ -16,7 +16,7 @@ TRACE_FORMAT = 4
 # told a reader of such a trace about `asyncio tasks` and `python ?`. The
 # order is the order the columns were written, and it is the order the
 # refusal lists them in.
-KNOWN_LANGS = ("python", "rust", "typescript")
+KNOWN_LANGS = ("python", "rust", "typescript", "c")
 
 # Keys a finalized format-4 trace MUST carry (spec §5.1). Every reader
 # defaults these when absent; on a trace that claims `incomplete = False`

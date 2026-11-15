@@ -18,6 +18,11 @@ rendered -- Python's -- names no dialect at all: no Python trace carries a
 `RUST` is the default for a caller that passes none, which keeps every
 call written before the second dialect existed reading exactly as it did
 (plan P10).
+
+The `c` dialect is neither of those two. C struct text is `dbg`, and a
+literal inside it must not be parsed as Rust `Debug` or as `util.inspect`.
+`read` returns the text unchanged and `write` returns a string unchanged,
+so `flow --value` matches that rendered text and nothing else.
 """
 from collections import namedtuple
 
@@ -31,9 +36,20 @@ from sensorium.query.vocab import terms
 #: let `flow` report a sighting the predicate at that site then denies.
 Dialect = namedtuple("Dialect", "read write")
 
+def _read_c(text):
+    """C struct text, unchanged. Not parsed."""
+    return text
+
+
+def _write_c(value):
+    """The string itself. Anything else is not C struct text."""
+    return value if isinstance(value, str) else None
+
+
 RUST = Dialect(read_debug, debug_text)
 INSPECT = Dialect(read_inspect, inspect_text)
-BY_NAME = {"rust": RUST, "inspect": INSPECT}
+C = Dialect(_read_c, _write_c)
+BY_NAME = {"rust": RUST, "inspect": INSPECT, "c": C}
 
 
 def for_trace(trace) -> Dialect:

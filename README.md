@@ -65,7 +65,7 @@ from that trace in dense plain text shaped for a language model to read. It
 exists because reading logs is reading a diary; this is watching the
 execution.
 
-Three recorders write that trace, and one command line reads it:
+Four recorders write that trace, and one command line reads it:
 
 - **Python**: `sensorium run -- <command>` wraps one run with PEP 669
   (`sys.monitoring`) instrumentation. Python 3.12+, no runtime dependencies.
@@ -74,14 +74,13 @@ Three recorders write that trace, and one command line reads it:
 - **TypeScript**: `sensorium ts run [--focus <spec>]… -- vitest run …` (or
   `-- node --test …`) transforms the consumer's own sources at load time and
   writes one trace per test-file process. Node 24, vitest 4.1.
+- **C**: `sensorium c run -- <cmd>` instruments a Linux x86-64 debug build
+  (gcc or clang, `-O0` or `-Og`) and writes one trace per process.
 
-All three write [trace format 4](docs/TRACE-FORMAT.md), so every query below
-answers on any of the three kinds of trace, and where a recorder declares a
-capability it does not have, the query refuses by name instead of answering
-from data that was never recorded. Python is documented first; [Rust](#rust)
-and [TypeScript](#typescript) have their own sections here, and
-[`rust/README.md`](rust/README.md) and
-[`typescript/README.md`](typescript/README.md) are their full references.
+All four write [trace format 4](docs/TRACE-FORMAT.md). A query refuses by
+name when a recorder lacks a capability. [Rust](#rust), [TypeScript](#typescript)
+and [C](#c) have sections here. Full references: [`rust/README.md`](rust/README.md),
+[`typescript/README.md`](typescript/README.md), [`c/README.md`](c/README.md).
 
 Two commitments run through all of it:
 
@@ -171,8 +170,8 @@ traces your tests and your code, and not pytest's. `--focus module:qualname`
 adds line-level capture with local-variable deltas for the named code;
 `--window QUALNAME` limits that capture to what runs inside one function's
 activations. Traces land in `~/.sensorium/traces` (or
-`$SENSORIUM_DIR/traces`), one SQLite file per run, the Rust and TypeScript
-recorders write to the same directory, so one `runs` lists all three.
+`$SENSORIUM_DIR/traces`), one SQLite file per run. Rust, TypeScript and C
+recorders write to the same directory, so one `runs` lists all four.
 
 A run reference is a full run id, a unique prefix, or `last` (the most
 recently written trace). Every query takes one, `runs` takes none and `diff`
@@ -780,16 +779,17 @@ each rung left open, is in `docs/superpowers/acceptance/` and in
   after their numbers, so all three stand as findings, and the next slice
   re-registers them.
 
+## C
+
+`sensorium c run -- <cmd>` records a Linux x86-64 debug build (`-O0` or
+`-Og`, gcc or clang). Crashes (signals and asserts) are what `exceptions`
+reads. The reference is [`c/README.md`](c/README.md).
+
 ## Not yet
 
 What each slice deferred, and the ruling each deferral is waiting on, is
 [`docs/CARRIED-DEBT.md`](docs/CARRIED-DEBT.md), appended at every merge,
 resolved items struck through rather than deleted.
-
-Subprocess following, attach-to-live-server flight recording, native (rr)
-substrates. See
-`docs/superpowers/specs/2026-08-21-sensorium-arc2-inspectable-coroutines-design.md`
-(extends `2026-08-21-sensorium-async-design.md`, arc 1's spec).
 
 ## License
 

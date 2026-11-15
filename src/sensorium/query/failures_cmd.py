@@ -28,7 +28,8 @@ def add_parser(sub) -> None:
         "failures", help="failed tests and the frame they failed in",
         description="Each failed test mapped to the frame and the "
                     "assertion, panic or exception recorded there. A "
-                    "vitest expect and a Rust panic are listed here; "
+                    "vitest expect, a Rust panic, and a C crash or "
+                    "assert in a test_ frame are listed here; "
                     "exceptions still judges throw and Err flow and "
                     "does not list them.",
         epilog="exit: 0 yes, 1 no, 2 fix the call, 3 change the recording")
@@ -48,6 +49,8 @@ def run(args) -> int:
         rows, empty = _rust(trace)
     elif lang == "typescript":
         rows, empty = _typescript(trace)
+    elif lang == "c":
+        rows, empty = _c(trace)
     else:
         rows, empty = _python(trace)
     print_incomplete(trace, _INCOMPLETE)
@@ -249,6 +252,55 @@ def _typescript(trace):
             name = task.name if task.name else "(unnamed)"
             rows.append((name, f"task t{task.id}", _place(trace, origin),
                          line, _text(root.unwind_exc)))
+    if not rows:
+        return [], "no test failures recorded"
+    return rows, None
+
+
+def _c_test_name(qualname: str) -> bool:
+    """The qualname itself, not a dotted suffix: `test_foo` and `TestFoo`."""
+    return qualname.startswith("test_") or qualname.startswith("Test")
+
+
+def _c(trace):
+    """A C test fails when its frame closed raised by a signal or a
+    longjmp. The deepest RAISE of that unwind under the test supplies the
+    line; a longjmp, which writes no RAISE, names the test frame and no
+    line."""
+    tests = []
+    for frame in trace.frames():
+        if frame.code_id is None:
+            continue
+        name = trace.code(frame.code_id).qualname
+        if _c_test_name(name):
+            tests.append(frame)
+    if not tests:
+        return [], "no test functions recorded"
+    rows = []
+    for test in tests:
+        exc = test.unwind_exc or {}
+        if (trace.frame_state(test).state != "raised"
+                or exc.get("kind") not in ("signal", "longjmp")):
+            continue
+        best = None
+        want = (exc.get("kind"), exc.get("type"))
+        for frame in _descendants(trace, test.id):
+            for event in trace.events(kind="RAISE", frame_id=frame.id):
+                got = (event.payload or {}).get("exc") or {}
+                if (got.get("kind"), got.get("type")) != want:
+                    continue
+                rank = (frame.depth, event.id)
+                if best is None or rank > best[0]:
+                    best = (rank, frame, event)
+        title = trace.code(test.code_id).qualname
+        if best is None:
+            rows.append((title, _place(trace, test), _place(trace, test),
+                         None, _text(exc)))
+            continue
+        _rank, origin, event = best
+        got = (event.payload or {}).get("exc") or exc
+        rows.append((title, _place(trace, test), _place(trace, origin),
+                     event.line, _text(got)))
     if not rows:
         return [], "no test failures recorded"
     return rows, None
