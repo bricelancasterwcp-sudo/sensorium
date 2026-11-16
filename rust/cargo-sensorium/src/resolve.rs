@@ -219,8 +219,8 @@ mod tests {
     use std::path::PathBuf;
     use std::time::SystemTime;
 
-    /// The fixture §2.2's cases are stated against: three eligible fns
-    /// (`m::f`, `h`, `S::k`) and one the transform skips (`m::g`, async).
+    /// The fixture: four eligible fns (`m::f`, `m::g`, `h`, `S::k`). `m::g` is
+    /// async and is instrumented at call tier, so a focus may name it.
     const LIB: &str = "mod m {\n    pub fn f() {}\n    pub async fn g() {}\n}\nfn h() {}\n\
                        struct S;\nimpl S {\n    fn k(&self) {}\n}\n";
 
@@ -270,8 +270,8 @@ mod tests {
     fn a_container_value_selects_the_eligible_functions_under_it() {
         let t = Tmp::new("container");
         let r = resolve(&t, "m");
-        // `m::g` is async, so `m` selects `m::f` and nothing else.
-        assert_eq!(r.matched, v(&["m::f"]));
+        // `m::g` is async and instrumented, so `m` selects both functions.
+        assert_eq!(r.matched, v(&["m::f", "m::g"]));
         assert!(!r.refuses(), "{r:?}");
     }
 
@@ -290,8 +290,20 @@ mod tests {
     }
 
     #[test]
+    fn a_value_that_names_an_async_fn_matches_it() {
+        let t = Tmp::new("async-match");
+        let r = resolve(&t, "m::g");
+        assert_eq!(r.matched, v(&["m::g"]));
+        assert!(r.skipped_only.is_empty());
+        assert!(!r.refuses(), "{r:?}");
+    }
+
+    #[test]
     fn a_value_that_names_only_a_skipped_function_refuses_with_the_reason() {
-        let t = Tmp::new("skipped");
+        let t = Tmp::with(
+            "skipped",
+            "mod m {\n    pub const fn g() -> u8 { 1 }\n}\nfn h() {}\n",
+        );
         let r = resolve(&t, "m::g");
         assert!(r.matched.is_empty());
         assert_eq!(r.unmatched, vec![]);
@@ -299,7 +311,7 @@ mod tests {
             r.skipped_only,
             vec![(
                 "m::g".to_owned(),
-                vec![("m::g".to_owned(), "async".to_owned())]
+                vec![("m::g".to_owned(), "const".to_owned())]
             )]
         );
         assert!(r.refuses());
@@ -335,10 +347,10 @@ mod tests {
     fn every_value_is_judged_so_one_bad_name_does_not_hide_another() {
         let t = Tmp::new("all");
         let r = resolve(&t, "m::f,zz,m::g");
-        assert_eq!(r.matched, v(&["m::f"]));
+        assert_eq!(r.matched, v(&["m::f", "m::g"]));
         assert_eq!(r.unmatched.len(), 1);
-        assert_eq!(r.skipped_only.len(), 1);
-        assert!(r.refuses(), "a partial match still refuses");
+        assert!(r.skipped_only.is_empty());
+        assert!(r.refuses(), "an unmatched name still refuses");
     }
 
     #[test]
@@ -350,9 +362,8 @@ mod tests {
         assert_eq!(shared_suffix_segments(&["zz"], "m::f"), 0);
     }
 
-    /// Every skipped function the value found, not just the first: a person
-    /// told "`m` matches only `m::a`" over a `mod m` of three `async fn`s
-    /// would fix `m::a` and meet the same refusal twice more.
+    /// Async fns are eligible. A module of two async fns and one const fn
+    /// matches the async fns and does not refuse on the const sibling.
     #[test]
     fn a_value_that_finds_only_skipped_functions_names_all_of_them() {
         let t = Tmp::with(
@@ -361,18 +372,11 @@ mod tests {
              pub const fn c() -> u8 { 1 }\n}\nfn keep() {}\n",
         );
         let r = resolve(&t, "m");
-        assert!(r.matched.is_empty());
-        assert_eq!(
-            r.skipped_only,
-            vec![(
-                "m".to_owned(),
-                vec![
-                    ("m::a".to_owned(), "async".to_owned()),
-                    ("m::b".to_owned(), "async".to_owned()),
-                    ("m::c".to_owned(), "const".to_owned()),
-                ]
-            )]
+        assert_eq!(r.matched, v(&["m::a", "m::b"]));
+        assert!(
+            r.skipped_only.is_empty(),
+            "a value that also matches eligible fns is not a skip-only refusal: {r:?}"
         );
-        assert!(r.refuses());
+        assert!(!r.refuses(), "{r:?}");
     }
 }

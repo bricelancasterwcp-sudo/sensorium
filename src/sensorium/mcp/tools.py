@@ -98,7 +98,8 @@ def _record_schema() -> ToolSchema:
     spec = (("focus", "array"), ("include", "array"),
             ("exclude", "array"), ("window", "string"),
             ("max_events", "string"), ("max_bytes", "string"),
-            ("max_calls", "string"), ("no_cap", "boolean"))
+            ("max_calls", "string"), ("no_cap", "boolean"),
+            ("no_children", "boolean"))
     if not p.description:
         raise schema.SchemaError("run: the command has no description; "
                                  "the server refuses to boot")
@@ -231,6 +232,27 @@ def narrowing_fields(tool: Tool) -> tuple[str, ...]:
     return tuple(name for name in NARROWING if name in names)
 
 
+def _refocus_compact_argv(argv: list[str], arguments: dict) -> list[str]:
+    """`--compact` unless the call passed false.
+
+    The CLI flag defaults off, and `schema.to_argv` therefore emits it
+    only when the caller passed true. A model that omits `compact` is
+    asking for the short report: the schema's default is true, and the
+    long report is `compact: false`. Applying that default inside
+    `to_argv` would rebuild every corpus refocus question with a flag
+    it never typed, so the default is applied here, at the server's
+    argv seam, and nowhere else.
+    """
+    if arguments.get("compact") is False:
+        return [word for word in argv if word != "--compact"]
+    if "--compact" in argv:
+        return argv
+    if "--" in argv:
+        at = argv.index("--")
+        return [*argv[:at], "--compact", *argv[at:]]
+    return [*argv, "--compact"]
+
+
 def command_argv(tool: Tool, arguments: dict) -> tuple[list[str], dict]:
     """`(argv, extras)` for a call: the child's command line, and what
     the runner must be told that no command line can carry.
@@ -251,7 +273,10 @@ def command_argv(tool: Tool, arguments: dict) -> tuple[list[str], dict]:
         argv.extend(["--", *arguments["command"]])
         return argv, {"cwd": arguments.get("cwd") or None}
     if tool.schema is not RECORD:
-        return schema.to_argv(tool.schema, arguments), {}
+        argv = schema.to_argv(tool.schema, arguments)
+        if tool.name == "refocus":
+            argv = _refocus_compact_argv(argv, arguments)
+        return argv, {}
     schema.validate(RECORD, arguments)
     argv = ["run"]
     for f in RECORD.fields:

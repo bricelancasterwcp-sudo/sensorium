@@ -1,6 +1,6 @@
 [package]
 name = "sensorium-rt"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2021"
 publish = false
 description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values, err-flow and LINE records, the panic hook, and the repository's one sha256."
@@ -27,6 +27,9 @@ repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
 # `[dependencies]`, which stays empty, and is untouched by this.
 [dev-dependencies]
 serde_json = "1"
+# Tests only. The rlib stays zero-dependency: the driver's bare rustc line
+# compiles src/lib.rs and never sees this.
+tokio = { version = "1", features = ["rt", "macros"] }
 
 [features]
 # Hooks that exist ONLY so a test can drive a path the outside world cannot

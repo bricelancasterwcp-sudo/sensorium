@@ -80,6 +80,15 @@ def test_the_docs_table_names_every_tool_and_its_description():
             f"{tool.name}: the table's description is not the tool's")
 
 
+def test_the_docs_say_refocus_compact_defaults_on():
+    """`compact` is a refocus field the table's one-line description does
+    not name. The `--allow-run` section is where the other executing
+    tools' fields are listed, and this is that sentence."""
+    text = DOC.read_text()
+    assert "`compact` defaults to true" in text
+    assert "compact: false" in text
+
+
 def test_the_docs_quote_the_four_meanings():
     """The header line is `exit.MEANING`'s words (P3), so the page that
     teaches a model to branch on it must carry those words and not a

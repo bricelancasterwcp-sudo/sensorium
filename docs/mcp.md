@@ -178,7 +178,10 @@ will not offer is a tool it does not have. With the flag:
   interpreter to record under, which must import sensorium and your program's
   dependencies. Both default to the server's own.
 * **`refocus`** re-runs the command a trace remembers with a deeper `--focus`
-  and reports whether it was the same execution.
+  (required) and an optional `window`, and reports whether it was the same
+  execution. `compact` defaults to true, so the tool passes `--compact` and
+  the answer is the verdict plus the concrete finding; pass `compact: false`
+  for the full report, the licence catalogue included.
 * **`record_c`** records a C build or program. `command` is the build or
   program argv, for example `make test` or `./a.out`. `cwd` is the directory
   to run in. `strict` refuses optimized translation units.

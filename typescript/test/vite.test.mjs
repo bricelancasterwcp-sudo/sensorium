@@ -18,9 +18,16 @@ import { fileURLToPath } from 'node:url';
 
 const VITE = new URL('../src/vite.mjs', import.meta.url).href;
 const PKG = fileURLToPath(new URL('../', import.meta.url));
-// The probe project is a real root with its own `typescript`; no file under it
-// is read, because `transform(code, id)` is given its source.
-const ROOT = fileURLToPath(new URL('../probes/', import.meta.url));
+// A consumer root whose only dependency is this package's `typescript` (the
+// copy `npm ci --prefix typescript` installs). No file under it is read,
+// because `transform(code, id)` is given its source. The probe project is the
+// end-to-end vitest app, not this fixture, so these tests do not need it.
+const ROOT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sensorium-vite-root-'));
+const ROOT = ROOT_DIR + path.sep;
+fs.mkdirSync(path.join(ROOT_DIR, 'node_modules'), { recursive: true });
+fs.symlinkSync(path.join(PKG, 'node_modules', 'typescript'),
+  path.join(ROOT_DIR, 'node_modules', 'typescript'), 'dir');
+process.on('exit', () => fs.rmSync(ROOT_DIR, { recursive: true, force: true }));
 
 /**
  * Run a plugin script in a child and read what it left behind.

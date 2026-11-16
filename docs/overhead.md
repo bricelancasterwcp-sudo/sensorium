@@ -95,7 +95,9 @@ Rust writes them into the CALL payload, which stops at 2048 bytes; a tail
 that does not fit is dropped and the row says `unread: ["locals"]` beside
 the arguments it kept. The closure that formats them is not called at
 `--tier off`. `--focus` is unchanged: it is still one LINE event per
-executed statement, and `watch` and `flow --value` still need that tier.
+executed statement. `watch` still needs that tier. `flow --value` searches
+returns and call arguments without it and warns that statement locals were
+not recorded.
 A `Debug` impl of a standard collection still walks every element before
 the cap is applied (`rust/sensorium-rt`'s `probe.rs`); the bound is on what
 is stored, not on that walk. No new multiplier was measured for this change.

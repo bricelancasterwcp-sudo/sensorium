@@ -46,10 +46,12 @@ def _notes(idx: Index, seen: int, trunc: int) -> list[str]:
                    "clipped strings); the parts not recorded could not be "
                    "compared, so a value present only there is not listed")
     if not idx.has_line:
-        out.append("note: this run recorded no LINE events, so no local was "
-                   "ever captured; a value that only lived in a local between "
-                   "call and return is not in this trace (re-record with "
-                   "--focus MODULE[:QUALNAME])")
+        # Statement locals live on LINE rows. A return or an argument can
+        # still answer; this says what a miss is not evidence of.
+        out.append("note: this run recorded no LINE events, so statement "
+                   "locals were not recorded; a value that only lived in a "
+                   "local between call and return is not in this trace "
+                   "(re-record with --focus MODULE[:QUALNAME])")
     return out
 
 

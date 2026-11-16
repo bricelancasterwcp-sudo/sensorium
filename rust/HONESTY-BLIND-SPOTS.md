@@ -63,9 +63,10 @@ that stops the rung until it is explained. *Falsified by* E2′ in
      entry and its exit, so a value that changed in place mid-frame (mutation
      through a long-lived `&mut` included) is invisible there, which is what
      this item said of every function before this rung.
-   * **Closure bodies, `async fn` bodies and `async` blocks**, focused or not:
-     the statement walk stops at them (call-level instrumentation only, and an
-     `async fn` is skipped whole for item 5's reason).
+   * **Closure bodies and `async` closures**, focused or not: the statement
+     walk stops at them. An `async fn` body and an `async` block are call-tier
+     frames (item 5). A focus still places no LINE probe inside either, so
+     statement locals there stay unrecorded.
    * **Macro bodies.** A macro invocation is ONE statement with empty
      `deltas`; the expansion is not inspected, so a binding written inside it
      mints nothing.
@@ -182,21 +183,15 @@ that stops the rung until it is explained. *Falsified by* E2′ in
    workspace; nothing was built.` with up to three `Closest:` suggestions) or
    that matches only functions the transform skips, each named with its
    reason, and build nothing; and, on an unfocused trace, by the unchanged
-   refusal `watch` and `flow` print:
+   refusal `watch` prints (`flow --value` searches recorded returns and arguments):
    `REFUSED: watch needs line, which recorder sensorium-rt 0.5.0 declares it
    does not produce (capabilities.line: false); nothing was checked`.
 4. **What the program printed.** libtest owns the capture and the hook that
    would take it is unstable. *Declared by* `capabilities.output: false`: the
    `output` table is empty, and every reader prints the declaration instead of
    a zero.
-5. **`async fn` bodies.** Skipped whole (an entry guard would live across
-   every `.await`, and the guard is the sole emitter of a RETURN (§1)) so an
-   async
-   function gets no frame at all rather than a wrong one. *Declared by* the
-   manifest's `skipped: [{reason: "async"}]`, carried into the meta key
-   `skipped` and printed by `info` as `K skipped (<reasons>)`. bloomery has
-   zero; a workspace with async functions gets one skip record each and no
-   invented frames.
+5. **Statement locals inside `async fn` bodies and `async` blocks.** The call tier records the frame: CALL on the first poll (arguments captured then), YIELD while pending, RESUME on a later poll (including another worker), RETURN on Ready, panic, or drop-while-parked (outcome `none`, after a RESUME). Calls during a poll are children of that frame. YIELD and RESUME are not fingerprinted. No LINE row is placed inside the body.
+   An `async` closure is not framed. A `?` in an `async` block or `async` closure stays partial (`async-block`); a `?` in an `async fn` is wrapped. Through `sensorium-transform` 0.5.1 an `async fn` was skipped whole (`skipped: [{reason: "async"}]`, no frame). From 0.5.2 it is a frame, and a new trace does not list `async` as a skip. An older spool can still carry that skip. `info` still prints `K skipped (<reasons>)` for `const`, `extern`, and `macro`.
 6. **`const fn`, `extern` functions, and function bodies inside
    `macro_rules!`.** Same declaration, reasons `const`, `extern`, `macro`.
    A `?` inside a macro argument is invisible to the parser for the same

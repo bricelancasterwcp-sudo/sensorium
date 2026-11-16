@@ -2,8 +2,40 @@
 
 ## 0.18.3 (unreleased)
 
-**Review round 2, in progress.** The package version stays **0.18.2** until
-this slice ships. `TRACE_FORMAT` stays **4**.
+**Review round 4.** The package version stays **0.18.2** until this slice
+ships. `TRACE_FORMAT` stays **4**.
+
+- **`flow --value` searches recorded returns and call arguments** on a Rust
+  or TypeScript run that was not focused. It refuses only when that trace
+  recorded neither. A run with no LINE events still searches, and says that
+  statement locals were not recorded. `watch` still needs `--focus`.
+
+- **Rust `async fn` bodies and `async` blocks are call-tier frames.** Calls,
+  returns, arguments and panics inside them are recorded. Polls fold into
+  one frame: YIELD parks it, RESUME continues it, including on another
+  worker. A tokio sample covers that path. `sensorium-rt` **0.7.3**,
+  `sensorium-transform` **0.5.2**. `cargo-sensorium` stays **0.8.4**.
+
+- **`refocus --compact` drops the disclaimer block.** The CLI stays verbose
+  unless `--compact` is passed. MCP defaults `compact` to true. A pytest
+  summary whose result words match, and a durations-report line whose phase
+  and test name match, are not mismatches. A later real difference still is.
+
+- **Python threads are grouped.** Each extra thread prints under a heading
+  linked to the frame that called `Thread.start` or an executor `submit`,
+  when that frame is in the trace. One thread, and a trace without
+  `thread_starts`, renders as before.
+
+- **Python child processes join the same run.** `subprocess`,
+  `multiprocessing` (fork, spawn, and forkserver), and a worker started
+  with `sys.executable` (the pytest-xdist shape) are recorded under the
+  frame that spawned them. `--no-children` and `SENSORIUM_NO_CHILDREN=1`
+  record the parent only. A non-Python child is counted. A child that
+  fails to record does not fail the parent.
+
+- **The TypeScript README install is what CI runs.** `npm ci` in
+  `typescript/`, the type-check, and `npm test` run before the probes are
+  installed, so those documented steps pass on their own.
 
 - **Object contents are visible and searchable.** `tree`, `frame` and
   `grep` print a custom repr (`Grid#99 <Grid>`), and `grep` / `flow --value`
@@ -29,7 +61,9 @@ this slice ships. `TRACE_FORMAT` stays **4**.
   traces, and a hand-written `enter`, say that. The probes checker requires
   `a` on every CALL it sees, including an unfocused run and an anonymous
   callback. `--focus` remains the LINE
-  and locals tier, so `watch` and `flow --value` still need it. At `--tier
+  and locals tier, so `watch` still needs it. `flow --value` on an
+  unfocused Rust or TypeScript trace searches recorded returns and call
+  arguments (review round 4). At `--tier
   off` the Rust closure that formats arguments is not called.
   `sensorium-rt` **0.7.1**, `sensorium-transform` **0.5.1**,
   `cargo-sensorium` **0.8.3**, `sensorium-ts` **0.6.1**. `TRACE_FORMAT`

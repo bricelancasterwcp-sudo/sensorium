@@ -60,6 +60,10 @@ def _add_run_parser(sub):
                         "(0 is unlimited)")
     p.add_argument("--no-cap", action="store_true",
                    help="record without an event, size, or per-function cap")
+    p.add_argument("--no-children", action="store_true",
+                   help="do not record Python child processes (subprocess, "
+                        "multiprocessing, pytest-xdist) into this run; "
+                        "SENSORIUM_NO_CHILDREN=1 does the same")
     p.add_argument("--run-id", default=None, help=argparse.SUPPRESS)
     p.add_argument("--refocus-of", default=None, help=argparse.SUPPRESS)
     p.add_argument("target", nargs=argparse.REMAINDER)
@@ -83,10 +87,12 @@ def _run(args) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 2
     try:
+        from sensorium.record.children import children_enabled
         run_id, exit_status = boot.run_target(
             target, focus=args.focus, include=args.include,
             exclude=args.exclude, window=args.window,
-            run_id=args.run_id, refocus_of=args.refocus_of, limits=limits)
+            run_id=args.run_id, refocus_of=args.refocus_of, limits=limits,
+            record_children=False if args.no_children else children_enabled())
     except boot.TargetError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2

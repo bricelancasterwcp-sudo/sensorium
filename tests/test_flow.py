@@ -399,6 +399,9 @@ def test_flow_flags_an_incomplete_run(tmp_path, monkeypatch, capsys):
 
 
 def test_flow_refuses_a_trace_that_declares_no_line_events(tmp_path, monkeypatch, capsys):
+    """No LINE tier and no recorded return or argument, so nothing was
+    searched. A return or an argument on a `line: false` trace is searched
+    instead (`tests/test_flow_serial.py`)."""
     from tests.helpers import finalize_synthetic
     from tests.programs import synthetic
     w = synthetic(tmp_path, monkeypatch)

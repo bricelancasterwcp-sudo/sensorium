@@ -65,11 +65,15 @@ fn the_manifest_has_the_shape_the_plan_names() {
     assert!(sites[0].get("file").is_none());
 
     let skipped = j["skipped"].as_array().expect("skipped");
-    assert_eq!(skipped.len(), 3);
-    assert_eq!(skipped[0]["file"], "src/other.rs");
-    assert_eq!(skipped[0]["qualname"], "plain");
-    assert_eq!(skipped[0]["line"], 1);
-    assert_eq!(skipped[0]["reason"], "async");
+    assert!(
+        skipped.is_empty(),
+        "async fns are instrumented, not skipped: {skipped:?}"
+    );
+    let other = j["files"]["src/other.rs"].as_array().expect("other file");
+    assert_eq!(other.len(), 4);
+    assert_eq!(other[0]["qualname"], "plain");
+    assert_eq!(other[0]["kind"], "fn");
+    assert_eq!(other[0]["site"], 5);
 
     let spawns = j["spawns"].as_array().expect("spawns");
     // Two named handles and the two discarded ones.

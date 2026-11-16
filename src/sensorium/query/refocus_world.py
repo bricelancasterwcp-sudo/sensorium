@@ -644,10 +644,19 @@ def _licence_caveats(orig: Trace, new: Trace) -> list[str]:
         spawns = meta.get("spawn_syscalls") or 0
         if kids or spawns:
             named = (f"{len(kids)} named" if kids else "none named")
+            # python_children is absent on a trace recorded before child
+            # bodies were merged into the run. Those traces still did not
+            # witness what the child did, and the sentence stays that one.
+            if meta.get("python_children"):
+                witnessed = (
+                    "Python children are in this run, linked to the frame "
+                    "that spawned them; a non-Python child is counted and "
+                    "not traced")
+            else:
+                witnessed = "sensorium does not witness what any child did"
             out.append(
                 f"{label} started at least one child process ({named}, "
-                f"{spawns} low-level spawn syscall(s) seen); sensorium does "
-                "not witness what any child did")
+                f"{spawns} low-level spawn syscall(s) seen); {witnessed}")
     # Last, and reported here so that every reader of the licence caveats
     # sees them. `refocus_rust` takes them back out of the WITHHOLDING
     # decision -- a check that could not run is not a finding against the

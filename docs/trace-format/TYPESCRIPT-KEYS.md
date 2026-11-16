@@ -131,8 +131,10 @@ and a RAISE/HANDLED with no open frame (`throw_flow_outside_frames`).
 `sensorium ts run --focus <spec>` is a **transform-time** decision, so the
 capability follows the recording and not the call: a focused run declares
 `capabilities.line: true` and `locals: true`, an unfocused one declares both
-false and writes no LINE record at all, and `watch` and `flow --value` refuse
-the second by the declaration rather than answering from an absence, while
+false and writes no LINE record at all. `watch` refuses that recording by
+the declaration rather than answering from an absence. `flow --value` searches
+the returns and call arguments it did record, warns that statement locals were
+not recorded, and refuses only when none of those captures exist, while
 `frame` prints `timeline: not captured (…)` and its exit stays 0, the frame
 itself being a fact the call tier holds. A spec is `<qualname>` or
 `<file>:<qualname>`; the qualname part is a **prefix on a `.` boundary**, so

@@ -78,10 +78,16 @@ are in
 
     npm ci --prefix typescript
     npm --prefix typescript run check      # type-check: noEmit + checkJs
+    npm --prefix typescript test           # unit tests: node --test
 
 Run the check through the package's own script. A bare
 `npx tsc -p typescript/tsconfig.json` resolves a different `typescript` from
 the repository root and checks the wrong thing.
+
+That install is enough for `npm test`. The unit tests resolve the consumer's
+`typescript` from `typescript/node_modules`. `probes/` and `corpus/typescript/`
+are separate projects (`npm ci` in each) for the end-to-end probe run and the
+corpus, and the unit tests do not need them.
 
 Reading the traces needs the Python side: **`sensorium` 0.9.0+**, which is
 where the `ts` verb, the `TYPESCRIPT` vocabulary and the unknown-language
@@ -259,7 +265,7 @@ these exit statuses mean.
 | Command | Exit | Why |
 |---|---|---|
 | `exceptions` on a trace a **0.1.x** runtime wrote | 3 | That recorder declared `capabilities.err_flow: false` and its HANDLED rows carry no `how` word for the rules to read. The refusal names the capability and the recorder; what such a trace lacks is a record, not a rule, so **re-recording** is the fix. A 0.2.0 or later recording is answered, not refused. |
-| `watch`, `flow --value`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false`. The tier is decided at transform time, so an unfocused run produces no LINE event. Arguments are still on the CALL. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run both answer. |
+| `watch`, on a run that named **no `--focus`** | 3 | `capabilities.line: false` and `locals: false`. The tier is decided at transform time, so an unfocused run produces no LINE event. The refusal names the recorder the TRACE carries, not the one installed, and re-recording under `--focus` is the fix. On a focused run it answers. `flow --value` searches the returns and arguments that unfocused run recorded, warns that statement locals were not, and refuses at 3 only when none of those captures exist. |
 | `flow --object` on a trace a **0.2.x** runtime wrote | 3 | `capabilities.object_identity: false`, that recorder carried no identity, so a question about *that* object cannot be answered from its traces. A recording from **0.3.0** on declares `true` unconditionally, focused or not, and is answered exactly. |
 | `refocus` on a trace a **0.13.0 or earlier** driver converted | 2 | `capabilities.refocus: false`, that converter declared it, and nothing was re-run. A trace THIS driver converts answers (*`refocus`* under **Ask**, above); the seven refusals it can still meet are about the RUN, not the recorder. |
 
@@ -274,8 +280,10 @@ names the command that fills it.
 Arguments are recorded on every CALL, focused or not. An empty list means
 the function was called with none, so `tree` prints `reset()`. A parameter
 prints as its capture, `compute(slot='a')`. `capabilities.locals` stays
-`false` without a `--focus`, because that key is the LINE tier: `watch` and
-`flow --value` still refuse until a spec names the function. A CALL that
+`false` without a `--focus`, because that key is the LINE tier: `watch`
+refuses until a spec names the function. `flow --value` searches the
+arguments and returns already on the CALL and the RETURN, and warns that
+statement locals were not recorded. A CALL that
 omitted its argument list (a spool from before 0.6.1) still reads
 `helper() <unread: locals>`.
 

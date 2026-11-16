@@ -40,6 +40,10 @@ from sensorium.record import capture
 # these are one recorder's internals across two files, not separate
 # modules with surfaces of their own.
 from sensorium.record.boot_io import _StdinProxy, _Tee  # noqa: F401
+from sensorium.record.children import (arm_children, children_enabled,
+                                       disarm_children, merge_children)
+from sensorium.record.thread_starts import (arm_thread_starts,
+                                            finish_thread_starts)
 from sensorium.record.tracer import FocusSpec, Tracer
 from sensorium.store.writer import TraceWriter
 
@@ -525,7 +529,7 @@ def _write_run_meta(w, run_id, argv, focus, include, exclude, window,
 def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
                    truncated_count, live_threads, entry, threads_started,
                    audit_errors, spawn_syscalls, task_errors,
-                   redaction, values) -> None:
+                   redaction, values, thread_starts, child_stats) -> None:
     """Close out the run. Runs after `w.seal()`, hence `set_meta_final`."""
     # How many values rule v1 took, counted by the hand that wrote them (B3)
     # -- captures taken by name or by content, output chunks and exception
@@ -548,13 +552,23 @@ def _finalize_meta(w, *, exit_status, uncaught, stdin_consumed, children,
     # and if it ran only stdlib it has no fingerprint either, so it would be
     # invisible on both counts.
     w.set_meta_final("threads_started", threads_started)
+    # Which frame called Thread.start / Executor.submit, keyed by the tracer
+    # serial -- not the OS ident, which events do not use. Always written,
+    # even empty, so `tree` can tell "this recorder saw no starts" from "this
+    # trace predates the key". An absent key must not grow a heading.
+    w.set_meta_final("thread_starts", thread_starts)
+    # Present even when zero, so a reader can tell this recorder followed
+    # Python children from a trace that predates that merge.
+    w.set_meta_final("python_children", child_stats["python_children"])
+    w.set_meta_final("child_record_errors", child_stats["child_record_errors"])
+    w.set_meta_final("non_python_children", child_stats["non_python_children"])
     # Times the audit hook malfunctioned. Non-zero means `children` above is
     # not to be trusted, and refocus withholds rather than reading a short
     # list as "nothing was spawned".
     w.set_meta_final("audit_errors", audit_errors)
     # Low-level spawns, counted apart from `children` because Popen nests one
-    # and would otherwise be counted twice. This is the only place a
-    # multiprocessing 'spawn'/'forkserver' child is visible at all.
+    # and would otherwise be counted twice. A Python child is also recorded
+    # into this run (children.py); this count stays the licence signal.
     w.set_meta_final("spawn_syscalls", spawn_syscalls)
     # Times the task IDENTITY lookup raised: `current_task()` itself, or a
     # Task subclass's `__hash__`/`__eq__` during the serial lookup. Those
@@ -630,7 +644,8 @@ def _recording_gaps(live: list[str], dropped: int) -> str | None:
 
 
 def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
-               run_id=None, refocus_of=None, limits=None):
+               run_id=None, refocus_of=None, limits=None,
+               record_children=None):
     """Record one execution of `argv`. Returns (run_id, exit_status)."""
     run_id = run_id or paths.new_run_id()
     if not paths.is_valid_run_id(run_id):
@@ -676,6 +691,9 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
     # caller invoking run_target from a worker gets that worker's identity,
     # which is the point. `Trace.main_thread_id()` prefers this key.
     w.set_meta("main_thread_ident", tracer.main_thread_serial)
+    if record_children is None:
+        record_children = children_enabled()
+    w.set_meta("record_children", bool(record_children))
     try:
         tracer.install()
     except BaseException:
@@ -688,6 +706,17 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
     audit_errors: list[int] = []
     spawns: list[int] = []
     _arm_audit(children, started, audit_errors, spawns)
+    # Armed even when children are not recorded: a fork would otherwise
+    # keep this tracer and write the child into this trace file.
+    child_dir = None
+    child_arm_failed = False
+    try:
+        child_dir = arm_children(
+            tracer, record=bool(record_children), focus=focus,
+            include=include, exclude=exclude, window=window,
+            limits=limits)
+    except Exception:
+        child_arm_failed = True
     saved = (sys.stdin, sys.stdout, sys.stderr, sys.argv, list(sys.path))
     stdin_proxy = _StdinProxy(sys.stdin)
     sys.stdin = stdin_proxy
@@ -695,6 +724,10 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
     sys.stderr = _Tee(saved[2], "stderr", w)
     exit_status, uncaught = 0, None
     try:
+        # Before the target, so a Thread.start in the program is wrapped,
+        # and restored in the finally: refocus runs another target in this
+        # same process and must not wrap `start` a second time.
+        arm_thread_starts(tracer)
         target()
     except SystemExit as e:
         exit_status = _exit_status_of(e)
@@ -707,8 +740,24 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
         rv.stats["values"] += rv.count_capture(uncaught)
         traceback.print_exception(e)   # tee'd: the trace holds what was shown
     finally:
-        tracer.uninstall()             # stop callbacks before closing the db
-        _disarm_audit()
+        # `finish` puts `Thread.start` back even when uninstall itself
+        # fails: a wrapped start left installed would wrap again on the
+        # next run in this process.
+        try:
+            tracer.uninstall()         # stop callbacks before closing the db
+            _disarm_audit()
+        finally:
+            thread_starts = finish_thread_starts(tracer)
+            child_stats = {"python_children": 0, "child_record_errors": 0,
+                           "non_python_children": 0}
+            if child_dir is not None:
+                try:
+                    child_stats = merge_children(w, child_dir)
+                except Exception:
+                    child_stats["child_record_errors"] += 1
+            if child_arm_failed:
+                child_stats["child_record_errors"] += 1
+            disarm_children()
         sys.stdin, sys.stdout, sys.stderr, sys.argv = saved[:4]
         sys.path[:] = saved[4]
         w.seal()                       # in-flight callbacks stop writing here
@@ -725,7 +774,8 @@ def run_target(argv, *, focus=(), include=(), exclude=(), window=None,
                 spawn_syscalls=len(spawns),
                 task_errors=tracer.task_errors,
                 redaction=redaction,
-                values=rv.stats["values"] - values_before)
+                values=rv.stats["values"] - values_before,
+                thread_starts=thread_starts, child_stats=child_stats)
         finally:
             w.close()                  # never skipped: no leaked connection
             gaps = _recording_gaps(live, w.late_writes)

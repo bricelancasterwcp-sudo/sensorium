@@ -14,33 +14,33 @@ use crate::convert::manifest::{Manifest, RetKind, SiteInfo, SiteKind};
 use crate::convert::merge::MergeResult;
 use crate::convert::redaction;
 use crate::convert::spool::{
-    self, How, ProcHeader, KIND_CALL, KIND_HANDLED, KIND_LINE, KIND_PANIC, KIND_RAISE, KIND_RETURN,
-    KIND_THREAD_END, TAG_DEBUG, TAG_NO_VALUE, TAG_UNREAD,
+    self, How, ProcHeader, KIND_CALL, KIND_HANDLED, KIND_LINE, KIND_PANIC, KIND_RAISE, KIND_RESUME,
+    KIND_RETURN, KIND_SUSPEND, KIND_THREAD_END, TAG_DEBUG, TAG_NO_VALUE, TAG_UNREAD,
 };
 use crate::convert::sqlite::TraceWriter;
 
-const MAIN_SERIAL: u32 = 1;
+pub(crate) const MAIN_SERIAL: u32 = 1;
 
-struct OpenFrame {
-    frame_id: i64,
-    code_id: i64,
-    rel_file: String,
-    qualname: String,
+pub(crate) struct OpenFrame {
+    pub(crate) frame_id: i64,
+    pub(crate) code_id: i64,
+    pub(crate) rel_file: String,
+    pub(crate) qualname: String,
     /// The frame's own line, for the `loc` of an `Err` that left it.
-    line: u32,
+    pub(crate) line: u32,
     /// `None` on a manifest row that declared no `ret` at all. A frame that
     /// never said what it returns is not one this converter may read a `()`
     /// into (`rust/HONESTY.md` §1's none-versus-zero discipline).
-    ret: Option<RetKind>,
+    pub(crate) ret: Option<RetKind>,
     /// The error a `?` (`How::Try`) on this frame last propagated, as the
     /// try probe rendered it. The exit probe never runs for that return, so
     /// the RETURN record carries no value; this is what the converter prints
     /// in its place. `None` means this frame's return was not a `?`.
-    pending_try: Option<PendingTry>,
+    pub(crate) pending_try: Option<PendingTry>,
 }
 
 /// What the try probe saw of the error a `?` propagated.
-enum PendingTry {
+pub(crate) enum PendingTry {
     /// `Debug` of the error operand, and whether the probe cut that text.
     Debug { text: String, truncated: bool },
     /// The probe could not read the error at all.
@@ -118,8 +118,10 @@ pub struct Walk<'a> {
 /// A site referencing an unregistered unit or an unknown site index, a
 /// RETURN with no open frame on its thread, a CALL/RETURN naming a site the
 /// manifest says is not a frame (or an err-flow record naming one it says is),
-/// a malformed RETURN, PANIC or err-flow payload, an err-flow `how` byte no
-/// runtime writes, or a wire outcome byte outside `0..=3`.
+/// a malformed RETURN, PANIC, SUSPEND, RESUME or err-flow payload, an
+/// err-flow `how` byte no runtime writes, or a wire outcome byte outside
+/// `0..=3`. SUSPEND with no open frame, or RESUME of an id that is not
+/// parked, is the same class of malformed stream.
 #[allow(clippy::too_many_lines)]
 pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> {
     let Walk {
@@ -152,6 +154,7 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
     });
 
     let mut stacks: HashMap<u32, Vec<OpenFrame>> = HashMap::new();
+    let mut parked: HashMap<u64, OpenFrame> = HashMap::new();
     let mut pending_panic: HashMap<u32, PendingPanic> = HashMap::new();
     let mut panic_serial: HashMap<u32, u64> = HashMap::new();
     let mut code_intern: HashMap<(String, String, u32), i64> = HashMap::new();
@@ -542,9 +545,9 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 let how = spool::parse_how(&label, r.kind, r.outcome)?;
                 site.require_err_flow(&label, how)?;
                 let seen = spool::parse_errflow_payload(&label, &r.payload)?;
-                // No open frame, no event: a `?` inside a skipped `async fn`, or
-                // a site whose enclosing CALL was refused, has nothing to be
-                // reported against. Counted instead, the way a panic outside
+                // No open frame, no event: a site whose enclosing CALL was
+                // refused, or a record that arrived with nothing open, has
+                // nothing to attach to. Counted the way a panic outside
                 // every frame is.
                 let Some(top) = stacks.get_mut(&thread_id).and_then(|s| s.last_mut()) else {
                     err_flow_outside_frames += 1;
@@ -582,6 +585,10 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
                 let (rel_file, qualname) = (top.rel_file.clone(), top.qualname.clone());
                 fp_for(&mut main_fp, &mut task_fp, thread_id)
                     .update(&rel_file, &qualname, kind_name);
+            }
+            KIND_SUSPEND | KIND_RESUME => {
+                events_written +=
+                    super::async_park::apply(writer, pid, thread_id, r, &mut stacks, &mut parked)?;
             }
             KIND_THREAD_END => {
                 ended_threads.insert(thread_id);
@@ -623,23 +630,10 @@ pub fn process(writer: &TraceWriter, w: &Walk) -> Result<ProcessResult, String> 
     })
 }
 
-// ---------------------------------------------------------------------------
-// Rule v1 at the five places this walk writes a value or a message
-// ---------------------------------------------------------------------------
-//
-// One shape for all of them: the `Option<&Key>` gate (B26's OFF recording runs
-// no rule at all), the rule, and `+1` on the walk's count when the rule says
-// this is a value the trace withholds. Counting HERE and not inside
-// `redaction` is what makes B3's rule one sentence -- `values` is the number
-// of TEXTS this walk withheld, so a value the rule ran over and left alone is
-// not counted, a value the RECORDER took (wire v4's tag 4) is, and a text
-// written into two rows is counted ONCE because it is one withheld text seen
-// twice. There are exactly two such pairs, and each is settled at the site
-// that writes the SECOND row rather than by a rule here: a panic's message
-// (the PANIC RAISE and the frame's `unwind_exc`, through
-// `PendingPanic.msg_mark`) and, under R16, an `err` RETURN's value (the RETURN
-// and the origin RAISE synthesised in front of it, through the mark read back
-// off the RETURN row).
+// Rule v1, at each place this walk writes a value or a message: the
+// `Option<&Key>` gate, the rule, and `+1` when the rule withholds the text.
+// A value the rule leaves alone is not counted. A text written into two rows
+// is counted once, at the second row (a panic message, an `err` RETURN).
 
 /// Remember a `?` on the frame it fired in. Later tries on the same frame
 /// replace it: a `?` returns, so the last one is the return.

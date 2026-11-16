@@ -302,9 +302,10 @@ per-object serial minted once and never reused: every sighting is the same
 object*), the gap analysis does **not** run, and the footer reads
 `continuity: exact (serial identity)`. There is nothing to corroborate: an
 address can be recycled and a serial cannot. `flow --value` on the same
-trace still needs `line`, and so still needs a `--focus`, because a value
-that only lived in a local between call and return is not in a recording that
-recorded no statement.
+trace searches recorded returns and call arguments without a `--focus`,
+warns that statement locals were not recorded, and refuses at exit 3 only
+when the trace holds none of those captures. A value that only lived in a
+local between call and return is not in a recording that recorded no statement.
 
 ### `info`'s two focus lines: what was typed, and what it selected
 

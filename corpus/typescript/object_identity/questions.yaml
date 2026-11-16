@@ -66,15 +66,14 @@ questions:
       Then can I at least follow the value 9 through the run and see where
       it came from?
     truth: >
-      No, and the refusal is the one the question above did NOT earn.
-      `flow --value` searches per-line state, and a recording made without
-      a focus declares `line: false`; `flow --object` needs only the
-      identity this recorder puts on every capture it writes, which is why
-      the first question is answered and this one is refused. The refusal
-      names the capability it needed and says nothing was checked, rather
-      than answering "no results" to a search that never ran -- and the
-      recording that would answer it is the same run under
-      `sensorium ts run --focus`.
+      As far as this recording goes, yes, and no further. `retriesOf`
+      returned `9`, and that RETURN is a sighting: an unfocused run still
+      captures return values and call arguments. The write
+      `settings.retries = 9` inside `tune` lived in a local between the
+      call and the return, and this run recorded no LINE row, so the
+      command warns that statement locals were not recorded rather than
+      pretending the search never ran. The sighting does not show that
+      local write. A focused re-record would.
     why_logs_fail: >
       A `console.log` of `9` inside `tune` tells you it was written; it
       does not tell you which of the two settings objects downstream
@@ -83,19 +82,12 @@ questions:
       inside one frame about one moment, and nothing throws here in any
       case.
     command: ["flow", "$RUN", "--value", "9"]
-    expect_exit: 3
-    # Re-pinned 2026-09-14 (secrets redaction PR B, task 7): 0.5.0 -> 0.6.0,
-    # because `sensorium-ts` 0.6.0 applies rule v1 to the VALUES it records --
-    # a CALL argument, a LINE delta or a RETURN whose name fires is withheld
-    # at the writer, and every inspected text is scanned for a secret-shaped
-    # span. The refusal is unchanged -- this case records without a
-    # focus, so there are no LINE rows either way -- and only the
-    # recorder's name in the sentence moved.
-    # Re-pinned 2026-09-13 (secrets redaction, PR A): 0.4.0 -> 0.5.0,
-    # because the runtime now redacts its own BOOT environment under rule v1
-    # and writes the two keys that say so. The rows this case asks about are
-    # untouched by that; only the recorder's name in the sentence moved.
+    expect_exit: 0
     expect_contains:
-      - "REFUSED: flow needs line, which recorder sensorium-ts 0.6.2
-         declares it does not produce (capabilities.line: false); nothing
-         was checked"
+      - "retriesOf -> 9   [return]"
+      - "sightings: 1 event(s), 1 capture(s)"
+      - "statement locals were not recorded"
+      - "captured-value equality, not true dataflow analysis"
+    expect_absent:
+      - "nothing was checked"
+      - "REFUSED"

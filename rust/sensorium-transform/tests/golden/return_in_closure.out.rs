@@ -12,11 +12,11 @@ pub fn with_closure(v: &[u8]) -> usize {@G(7,v)
 }
 
 pub fn with_async_block() -> u8 {@G(8)
-    let _fut = async {
+    let _fut = @Q(9)async {
         if false {
             return 1u8;
         }
         2u8
-    };
+    }@E;
     @R(8)3@E
 }@U

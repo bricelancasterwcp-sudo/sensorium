@@ -3,13 +3,14 @@
 // line on its stdout.
 //
 // The temporary root lives in the system temp directory, and its one
-// `node_modules/typescript` is a symlink to the probe project's copy: the
-// resolver resolves the consumer's own TypeScript from the ROOT, which is why
-// these roots used to be written INSIDE `probes/` (CARRIED-DEBT's minor, and
-// a run that died left `resolvetmp-*` directories inside the package). The
-// symlink gives the root the one dependency it needs and leaves the package
-// alone; the walk never enters a `node_modules`, so it changes nothing the
-// resolver sees.
+// `node_modules/typescript` is a symlink to this package's copy (the one
+// `npm ci --prefix typescript` installs). The resolver resolves the consumer's
+// own TypeScript from the ROOT. These roots used to be written INSIDE
+// `probes/` and linked that project's copy (CARRIED-DEBT's minor, and a run
+// that died left `resolvetmp-*` directories inside the package). The symlink
+// gives the root the one dependency it needs and leaves the package alone; the
+// walk never enters a `node_modules`, so it changes nothing the resolver sees.
+// Unit tests must pass without `npm ci` in `probes/`.
 //
 // What is pinned here is everything a refusal rests on: which files are walked
 // at all, which function-likes are eligible, what an unmatched spec is offered
@@ -47,7 +48,7 @@ function writeRoot(files) {
     fs.writeFileSync(path.join(root, rel), source);
   }
   fs.mkdirSync(path.join(root, 'node_modules'), { recursive: true });
-  fs.symlinkSync(path.join(PROBES, 'node_modules', 'typescript'),
+  fs.symlinkSync(path.join(PKG, 'node_modules', 'typescript'),
     path.join(root, 'node_modules', 'typescript'), 'dir');
   return root;
 }

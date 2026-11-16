@@ -219,6 +219,14 @@ class Tracer(_FrameDecisions):
         self._task_lock = threading.Lock()
         self._next_task = 0
         self.task_errors = 0       # lookups a hostile task object broke
+        # None until `thread_starts.arm`. Set before the first mint: the
+        # main thread's serial is assigned by the `_TLS` call below, and
+        # that mint must not look up a missing attribute.
+        self._thread_born = None
+        # Set in the child after os.fork. Inherited frames are still on the
+        # stack; their returns belong to the parent and must not land in the
+        # child's spool. New calls after the fork are in `live`.
+        self._fork_child = False
         self._tls = _TLS(self._assign_thread_serial, self._register_refs)
         # The thread constructing the Tracer runs `_TLS.__init__` above, so it
         # is the first serial (1). `run_target` runs the target on this same
@@ -240,7 +248,18 @@ class Tracer(_FrameDecisions):
     def _assign_thread_serial(self) -> int:
         with self._serial_lock:
             self._next_serial += 1
-            return self._next_serial
+            serial = self._next_serial
+        # Mint is the first moment a new thread exists inside this recorder.
+        # The hook joins the serial to the Thread that started it. The OS
+        # ident cannot: it is recycled, and events carry this serial. The
+        # hook runs from a monitoring callback, so a failure must not escape.
+        hook = self._thread_born
+        if hook is not None:
+            try:
+                hook(serial)
+            except BaseException:
+                pass
+        return serial
 
     def _register_refs(self, serial: int, refs: _ExcRefs) -> None:
         with self._refs_lock:
@@ -337,6 +356,8 @@ class Tracer(_FrameDecisions):
             tid = tls.thread_serial
             frame = sys._getframe(1)
             entry = self._live_entry(tls, frame, code)
+            if entry is None and self._fork_child:
+                return None
             fid = None
             if entry is not None:
                 del tls.live[id(frame)]

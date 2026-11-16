@@ -26,6 +26,12 @@
 //! * `@K(<site>[,<name>]*)` -- the guard of a CLOSURE frame. The same bytes
 //!   `@G` expands to, under a name that says which kind of frame a golden is
 //!   pinning. Names are the closure's parameters, as `@G` takes a fn's.
+//! * `@D(<site>[,<name>]*)` .. `@DE` -- an async fn whose signature returns a
+//!   value: `capture_args` plus `drive_value`, closed by `}).await`.
+//! * `@Y(<site>[,<name>]*)` .. `@DE` -- the same for a unit or `!` async fn,
+//!   which calls `drive_async` and does not probe the output.
+//! * `@Q(<site>)` -- the opening of an `async { }` block wrap. It does not
+//!   await. The closing `)` is `@E`, the same byte an exit wrap closes with.
 //! * `@N(<site>[,<name>]*)` -- one focus tier LINE probe. With no names it is
 //!   the `|| []` form a statement that wrote nothing mints; each name adds one
 //!   `("<name>", ::sensorium_rt::probe_cap!(&<name>))` delta, in order.
@@ -57,6 +63,49 @@ pub fn guard(site: u32, names: &[&str]) -> String {
         "let _sens_guard = ::sensorium_rt::enter_args(&crate::__SENSORIUM_UNIT, {site}, || [{}]);",
         deltas.join(", ")
     )
+}
+
+/// The output probe an async value body spells at the splice. Written here a
+/// second time: a golden that disagrees with `splice::OUTPUT_PROBE` is what
+/// says the emitted text changed.
+const ASYNC_OUTPUT_PROBE: &str = "|__r| { use ::sensorium_rt::probe::*; \
+     ((&&Probe(__r)).debug_cap(), (&&Probe(__r)).outcome()) }";
+
+fn arg_deltas(names: &[&str]) -> String {
+    names
+        .iter()
+        .map(|n| format!("(\"{n}\", ::sensorium_rt::probe_cap!(&{n}))"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// `@D`: value-returning async fn. `@Y`: unit or diverging.
+fn async_fn_open(site: u32, names: &[&str], value: bool) -> String {
+    let caps = format!(
+        "let __sens_caps = ::sensorium_rt::capture_args(&crate::__SENSORIUM_UNIT, {site}, || [{}]);",
+        arg_deltas(names)
+    );
+    if value {
+        format!(
+            "{caps} ::sensorium_rt::drive_value(__sens_caps, {ASYNC_OUTPUT_PROBE}, async move {{"
+        )
+    } else {
+        format!("{caps} ::sensorium_rt::drive_async(__sens_caps, async move {{")
+    }
+}
+
+/// `@Q`: wrap an `async { }` expression. No `.await`.
+fn async_block_open(site: u32) -> String {
+    format!(
+        "::sensorium_rt::drive_value(::sensorium_rt::capture_args(&crate::__SENSORIUM_UNIT, {site}, || []), {ASYNC_OUTPUT_PROBE}, "
+    )
+}
+
+fn async_from_arg(arg: &str, what: &str, value: bool) -> String {
+    let mut parts = arg.split(',');
+    let site = parse_site(parts.next().expect("an async open needs a site"), what);
+    let names: Vec<&str> = parts.filter(|name| !name.is_empty()).collect();
+    async_fn_open(site, &names, value)
 }
 
 /// `@G` and `@K` share one argument list: a site, then the parameter names.
@@ -173,7 +222,23 @@ pub fn expand(template: &str) -> String {
     while let Some(at) = rest.find('@') {
         out.push_str(&rest[..at]);
         let tail = &rest[at..];
-        if let Some(after) = tail.strip_prefix("@G(") {
+        if let Some(after) = tail.strip_prefix("@DE") {
+            out.push_str("}).await");
+            rest = after;
+        } else if let Some(after) = tail.strip_prefix("@D(") {
+            let (arg, next) = split_arg(after, "@D(");
+            out.push_str(&async_from_arg(arg, "@D(", true));
+            rest = next;
+        } else if let Some(after) = tail.strip_prefix("@Y(") {
+            let (arg, next) = split_arg(after, "@Y(");
+            out.push_str(&async_from_arg(arg, "@Y(", false));
+            rest = next;
+        } else if let Some(after) = tail.strip_prefix("@Q(") {
+            let (arg, next) = split_arg(after, "@Q(");
+            let site = parse_site(arg, "@Q(");
+            out.push_str(&async_block_open(site));
+            rest = next;
+        } else if let Some(after) = tail.strip_prefix("@G(") {
             let (arg, next) = split_arg(after, "@G(");
             out.push_str(&guard_from_arg(arg, "@G("));
             rest = next;

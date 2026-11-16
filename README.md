@@ -69,6 +69,8 @@ Four recorders write that trace, and one command line reads it:
 
 - **Python**: `sensorium run -- <command>` wraps one run with PEP 669
   (`sys.monitoring`) instrumentation. Python 3.12+, no runtime dependencies.
+  A Python child (`subprocess`, `multiprocessing`, pytest-xdist) is recorded into that same run, linked to the frame that spawned it.
+  `--no-children` or `SENSORIUM_NO_CHILDREN=1` records the parent only. A non-Python child is counted and not traced.
 - **Rust**: `cargo sensorium test|run` instruments a workspace's own crates
   at build time and writes one trace per process. Stable rustc, Linux.
 - **TypeScript**: `sensorium ts run [--focus <spec>]… -- vitest run …` (or
@@ -510,9 +512,9 @@ and a workload, not a pass/fail property of the tool.
 `cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
 crates the same way `sensorium run` records a Python program: one sensorium
 trace per process, trace format 4, read by the same `sensorium` command line.
-`rust/` ships `sensorium-rt 0.7.2` (zero dependencies, the runtime linked into
+`rust/` ships `sensorium-rt 0.7.3` (zero dependencies, the runtime linked into
 every instrumented unit, and the owner of the one sha256 the other two hash
-with), `sensorium-transform 0.5.1` (the `syn` rewriter), and `cargo-sensorium
+with), `sensorium-transform 0.5.2` (the `syn` rewriter), and `cargo-sensorium
 0.8.4` (driver, workspace wrapper, target runner, converter, one binary, four
 roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
 with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
@@ -622,9 +624,8 @@ makes `watch` and `flow` answer on a Rust trace: `watch last --at fill --expr
 the function, and `flow last --value 3` follows the value through LINE deltas
 as well as returns. `--at Counter` selects `Counter::new` on the same
 boundary rule `Pot` uses for `Pot.add`, so it never quietly answers about
-`Counters::new`. What the tier does **not** reach (closure and `async`
-bodies, place writes, macro bodies, and every function no focus named) is
-`rust/HONESTY-BLIND-SPOTS.md` item 3, narrowed to exactly that list.
+`Counters::new`. What the tier does **not** reach (closure bodies, statement locals inside `async fn` bodies and `async` blocks, place writes, macro bodies, and every function no focus named) is `rust/HONESTY-BLIND-SPOTS.md` item 3.
+An `async fn` and an `async` block are still call-tier frames: calls, returns, arguments and panics inside them are recorded, and polls are folded into one frame.
 
 From `sensorium-rt 0.5.0`, a block-like statement's LINE row also lists the
 names it `unbound`, so `watch`'s fold does not read one as still in scope once
@@ -641,11 +642,8 @@ a reader meets it.
 
 ### What refuses
 
-`watch` and `flow` refuse on an UNFOCUSED trace, never answering from a
-capability the recorder declares it does not have. They print why and exit
-**3** (the recording, not the call, is what would have to change) because
-both need `capabilities.line`, which a build with no `--focus` declares
-`false`.
+`watch` refuses on an UNFOCUSED trace and exits **3**: it needs `capabilities.line`, which a build with no `--focus` declares `false`, and it never answers from a capability the recorder does not have.
+`flow --value` searches the returns and call arguments that build recorded, warns that statement locals were not, and refuses at 3 only when none were.
 
 `refocus` **answers** from `cargo-sensorium` 0.5.0: `capabilities.refocus` is
 `true` for every trace that driver converts, and whether one PARTICULAR
@@ -691,6 +689,7 @@ file; [`typescript/README.md`](typescript/README.md) is the full reference.
 
     npm ci --prefix typescript
     npm --prefix typescript run check                        # type-check
+    npm --prefix typescript test                             # unit tests
     sensorium ts run [--tier off|call] -- vitest run         # or: -- node --test src/
 
 A `pip install`, including the git install in the quickstart, ships those
@@ -730,10 +729,7 @@ its `deltas` the bindings that statement wrote, a guarded body's head names as
 a synthetic first row at each entry, and the block-scoped names a block-like
 statement declared listed `unbound` on its own row, which is the key `watch`'s
 fold pops. Every function's CALL carries its **arguments** (bounded; an empty
-list was read and held nothing). `--focus` is still what records LINE rows. So `watch`
-and `flow --value` answer on a focused run and refuse at exit 3 on an unfocused
-one, naming the recorder the trace itself carries; `frame` answers either way,
-saying `timeline: not captured (record again with …)` at exit 0.
+list was read and held nothing). `--focus` records LINE rows, so `watch` refuses at exit 3 unfocused. `flow --value` searches recorded returns and arguments without a focus, warns that statement locals were not recorded, and refuses at exit 3 only if none exist; `frame` answers either way (`timeline: not captured`).
 
 A TypeScript capture is node's `util.inspect` **text**, so the reading rule is
 written down, and it is Rust's opposite in the place a reader meets first: `flow

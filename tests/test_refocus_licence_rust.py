@@ -381,13 +381,12 @@ def test_the_libtest_thread_is_still_the_harness_s_beside_a_spawned_one(
 
 def test_a_root_whose_site_the_manifest_never_wrote_is_counted(
         tmp_path, monkeypatch):
-    """The `async` shape, pinned rather than coded for. An `async fn` test --
-    `#[tokio::test]` and every other custom harness -- is classified `async`
-    by the transform and skipped whole, so its site row is never written and
-    the lookup finds NO mark. The thread stays the program's, which is the
-    direction that claims less, and it is what the rule did before R1: this
-    test is here so a later mark-lookup that defaulted a missing row to
-    `test` could not slip through."""
+    """A root whose site row was never written stays the program's thread.
+
+    The lookup finds no mark, so the thread is counted, which is the
+    direction that claims less. An older transform skipped an `async fn`
+    test whole, one way a row goes missing. A later mark-lookup that
+    defaulted a missing row to `test` must not slip through."""
     async_fn = "harness_tests::an_async_test"
     run = rust_trace(
         tmp_path, monkeypatch,

@@ -481,3 +481,83 @@ fn a_call_records_the_arguments_it_was_given() {
         ]
     );
 }
+
+/// SUSPEND parks the frame. A later CALL on that thread is not its child.
+/// RESUME on another thread pushes the same frame, and YIELD/RESUME are not
+/// fingerprint events.
+#[test]
+fn a_suspended_async_frame_is_not_the_parent_of_the_next_call() {
+    let f = Fixture::new("async-park");
+    wire::write_manifest(
+        &f.manifests_dir,
+        "meta1",
+        "demo",
+        &[(
+            FILE,
+            &[site(0, "spin", 3, "unit"), site(1, "other", 8, "unit")],
+        )],
+        &[(FILE, "deadbeef")],
+        false,
+        None,
+        &[],
+    );
+    wire::write_proc_header(
+        &f.spool_dir,
+        1301,
+        1,
+        "/w/target/deps/demo",
+        &[(0, "meta1")],
+        None,
+    );
+    let id = 7u64.to_le_bytes();
+    wire::SpoolBuilder::new(1301, 2, "worker-a")
+        .call(0, 1000, 0, 0)
+        .raw(1, 1100, 0, 7, 0, &id)
+        .call(2, 1200, 0, 1)
+        .ret_none(3, 1300, 0, 1)
+        .write(&f.spool_dir);
+    wire::SpoolBuilder::new(1301, 3, "worker-b")
+        .raw(4, 1400, 0, 8, 0, &id)
+        .ret_none(5, 1500, 0, 0)
+        .write(&f.spool_dir);
+
+    let out = f.convert();
+    assert_eq!(out.status.code(), Some(0), "{}", context(&out));
+    let conn = f.only_trace();
+
+    let spin = frame_row_for(&conn, "spin");
+    assert_eq!(spin.parent_qualname, None);
+    assert_eq!(spin.thread_id, 2);
+    let other = frame_row_for(&conn, "other");
+    assert_eq!(
+        other.parent_qualname, None,
+        "other ran while spin was parked, so spin is not its parent"
+    );
+
+    let rows = event_rows(&conn);
+    let kinds: Vec<&str> = rows.iter().map(|r| r.kind.as_str()).collect();
+    assert_eq!(
+        kinds,
+        ["CALL", "YIELD", "CALL", "RETURN", "RESUME", "RETURN"]
+    );
+    assert_eq!(rows[1].payload["async_id"], 7);
+    assert_eq!(rows[4].payload["async_id"], 7);
+    assert_eq!(rows[1].frame_id, rows[4].frame_id);
+
+    let n_a: i64 = conn
+        .query_row(
+            "SELECT n_events FROM task_fingerprints WHERE task_id = 2",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let n_b: i64 = conn
+        .query_row(
+            "SELECT n_events FROM task_fingerprints WHERE task_id = 3",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    // Thread 2: CALL spin, CALL other, RETURN other. Thread 3: RETURN spin.
+    assert_eq!((n_a, n_b), (3, 1));
+}

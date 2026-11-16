@@ -14,7 +14,9 @@
 //! record:       u64 seq  u64 ts_ns  u32 site  u8 kind  u8 outcome_or_how  u16 payload_len
 //!               [payload_len bytes]
 //! kind:         0 = UNWRITTEN (the reader STOPS here), 1 = CALL, 2 = RETURN,
-//!               3 = PANIC, 4 = RAISE, 5 = HANDLED, 255 = THREAD_END
+//!               3 = PANIC, 4 = RAISE, 5 = HANDLED, 6 = LINE,
+//!               7 = SUSPEND (payload u64 async id), 8 = RESUME (same id),
+//!               255 = THREAD_END
 //! outcome:      RETURN only: 0 none, 1 ok, 2 err, 3 panic; 0 on CALL, PANIC, THREAD_END
 //! how:          RAISE/HANDLED only, in the same byte: 1 try, 2 sink_ok,
 //!               3 sink_unwrap_or, 4 sink_let_underscore, 5 arm_propagate,
@@ -42,6 +44,8 @@ pub const KIND_RETURN: u8 = 2;
 pub const KIND_PANIC: u8 = 3;
 pub const KIND_RAISE: u8 = 4;
 pub const KIND_HANDLED: u8 = 5;
+pub const KIND_SUSPEND: u8 = 7;
+pub const KIND_RESUME: u8 = 8;
 pub const KIND_THREAD_END: u8 = 255;
 
 pub const OUTCOME_NONE: u8 = 0;

@@ -68,12 +68,14 @@ pub(crate) const MACRO_ARG: &str = "macro-arg";
 /// reached is a `?` to declare whatever the cause.
 pub(crate) const STRUCT_LITERAL: &str = "struct-literal";
 
-/// A `?` inside an `async {}` block or an `async` closure (design R5/R6). The
-/// future may be polled on a thread other than the one that built it, so a
-/// probe there would record the site against whichever thread happened to
-/// poll -- the same reason an `async fn` gets no guard. A plain closure created
-/// INSIDE an async block is a different thing: its body runs when it is CALLED,
-/// so `Ctx::in_async` is cleared on entering one and its `?` is wrapped.
+/// A `?` inside an `async {}` block or an `async` closure (design R5/R6).
+/// The block is a call-tier frame, but the `?` wrap stays off and the site
+/// is declared partial: the operand would be recorded against whichever
+/// worker polled the future, and that wrap was not retargeted. A `?` inside
+/// an `async fn` is wrapped. That body is one frame, open for the poll.
+/// A plain closure created INSIDE an async block is a different thing: its
+/// body runs when it is CALLED, so `Ctx::in_async` is cleared on entering
+/// one and its `?` is wrapped.
 pub(crate) const ASYNC_BLOCK: &str = "async-block";
 
 /// The `how` byte a site writes, as the transformer knows it: a name for the

@@ -117,6 +117,31 @@ def test_refocus_focus_is_a_required_array_with_min_items_one():
     assert "focus" in schema["required"]
 
 
+def test_refocus_compact_is_a_boolean_defaulting_true():
+    """The CLI flag is off. The tool schema defaults `compact` on, so a
+    model that omits the field is told the short report is what it gets.
+
+    `to_argv` still emits `--compact` only when the call passed true.
+    Applying the default there would rebuild every corpus refocus
+    question with a flag it never typed, and the round trip below this
+    file would fail. `tools.command_argv` is what turns the default
+    into the flag."""
+    schema = json_schema(derive(refocus_cmd))
+    compact = schema["properties"]["compact"]
+    assert compact["type"] == "boolean"
+    assert compact["default"] is True
+    assert "compact" not in schema["required"]
+    assert "verdict" in compact["description"]
+    derived = derive(refocus_cmd)
+    bare = {"run": "r1", "focus": ["a"]}
+    assert to_argv(derived, bare) == [
+        "refocus", "--focus=a", "--", "r1"]
+    assert to_argv(derived, {**bare, "compact": True}) == [
+        "refocus", "--focus=a", "--compact", "--", "r1"]
+    assert to_argv(derived, {**bare, "compact": False}) == [
+        "refocus", "--focus=a", "--", "r1"]
+
+
 def test_diff_run_a_and_run_b_required_and_ignore_moves_boolean():
     schema = json_schema(derive(diff_cmd))
     assert schema["required"] == ["run_a", "run_b"]

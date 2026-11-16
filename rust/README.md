@@ -8,8 +8,8 @@ process. The same SQLite format 4 the Python recorder writes, read by the same
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.7.2`**,
-**`sensorium-transform 0.5.1`** and **`cargo-sensorium 0.8.4`**. On 2026-09-13
+Three crates, all `publish = false`: **`sensorium-rt 0.7.3`**,
+**`sensorium-transform 0.5.2`** and **`cargo-sensorium 0.8.4`**. On 2026-09-13
 secrets redaction part A moved `sensorium-rt` to `0.6.0` and `cargo-sensorium`
 to `0.7.0` (rule v1 over the environment at the runtime's own writer, the
 driver's key, and 0600/0700 on everything either creates under the store and

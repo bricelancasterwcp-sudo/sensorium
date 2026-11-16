@@ -115,9 +115,89 @@ def _diverged_why(a: dict) -> str:
             "attribute to a thread or a task")
 
 
+def _match_line(new: Trace, a: dict) -> str:
+    """The MATCH headline. One sentence, shared with the compact report so
+    the two wordings cannot drift apart about what was compared."""
+    if a["thread_scope"]:
+        return ("refocus verdict: MATCH -- every recorded thread produced "
+                "the identical CALL/RETURN/RAISE/HANDLED sequence outside "
+                f"its {terms(new).stream_scope}, and every task stream "
+                "matched by content")
+    return ("refocus verdict: MATCH -- every recorded thread produced the "
+            "identical CALL/RETURN/RAISE/HANDLED sequence")
+
+
+def _refused_line(new_name: str, orig_name: str) -> str:
+    return (f"refocus verdict: REFUSED -- {new_name} was recorded and is "
+            f"queryable, but it could NOT be verified against "
+            f"{orig_name}: treat it as a separate, UNVERIFIED execution")
+
+
+def _compact_divergence(res: dict, a: dict) -> str | None:
+    """The concrete why, one line: the fingerprint step, the other
+    thread, or the task. Not the observer-effect paragraph."""
+    if a["thread_stream_parted"] and res.get("index") is not None:
+        return (f"at causal step {res['index']}: "
+                f"{res['a_desc']} / {res['b_desc']}")
+    if a["threads"]:
+        return f"threads: DIVERGED -- {a['threads']}"
+    if a["task_divergence"]:
+        return f"tasks: DIVERGED -- {a['task_divergence']}"
+    return None
+
+
+def _print_compact_licence(orig_name: str, a: dict) -> None:
+    """One line. A withheld licence stays visible, with the count and the
+    first reason, not the catalogue. A granted one does not list every
+    verified fact."""
+    caveats = a["caveats"]
+    if caveats:
+        print(f"licence: WITHHELD -- {len(caveats)} check(s) failed; "
+              f"first: {caveats[0]}")
+        return
+    print(f"licence: verified against {orig_name}")
+
+
+def _report_compact(_orig: Trace, new: Trace, res: dict, orig_name: str,
+                    new_name: str, a: dict) -> int:
+    """The same decision as `report`, in the lines an answer can use.
+
+    Verdict, and the concrete finding. No blind-spot catalogue, no
+    schedule-permutation note, no observer-effect paragraph, no verified-
+    fact list. Nothing here re-decides: `a` and `res` are read the way
+    the long report reads them.
+    """
+    verdict = a["verdict"]
+    if verdict == "REFUSED":
+        print(_refused_line(new_name, orig_name))
+        for reason in res.get("reasons") or []:
+            print(f"reason: {reason}")
+        return UNSETTLED
+    if verdict == "DIVERGED":
+        print(f"refocus verdict: DIVERGED -- {_diverged_why(a)}")
+        detail = _compact_divergence(res, a)
+        if detail:
+            print(detail)
+        if a["world"]:
+            n = len(a["world"])
+            more = f" ({n} world difference(s))" if n > 1 else ""
+            print(f"world: {a['world'][0]}{more}")
+        return NEGATIVE
+    print(_match_line(new, a))
+    _print_compact_licence(orig_name, a)
+    return ANSWERED
+
+
 def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
-           a: dict) -> int:
-    """Print the comparison and the verdict; return the exit code."""
+           a: dict, *, compact: bool = False) -> int:
+    """Print the comparison and the verdict; return the exit code.
+
+    `compact` changes the wording, not the decision. The CLI defaults it
+    off so the long report stays what it was; the MCP tool passes it
+    unless the caller says false.
+    """
+    if compact:
+        return _report_compact(orig, new, res, orig_name, new_name, a)
     # `tasks=False`: the task finding is printed below, in the words that
     # are also stamped into the trace, with the drill-in commands beside
     # them. Letting `diff` print its own version too gave this output two
@@ -130,9 +210,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
 
     if verdict == "REFUSED":
         print("threads: not compared -- no verdict was issued")
-        print(f"refocus verdict: REFUSED -- {new_name} was recorded and is "
-              f"queryable, but it could NOT be verified against "
-              f"{orig_name}: treat it as a separate, UNVERIFIED execution")
+        print(_refused_line(new_name, orig_name))
         # Stated here too: "on every verdict" has to include the verdict
         # that says nothing, or the sentence is not true.
         print_blind_spots(new)
@@ -184,14 +262,7 @@ def report(orig: Trace, new: Trace, res: dict, orig_name: str, new_name: str,
     # direction available: the raw per-thread sequence of an order-flipped
     # rerun genuinely differs, and it is the SPLIT -- each thread outside
     # its tasks, plus the task multiset -- that matched.
-    if a["thread_scope"]:
-        print("refocus verdict: MATCH -- every recorded thread produced the "
-              "identical CALL/RETURN/RAISE/HANDLED sequence outside its "
-              f"{terms(new).stream_scope}, and every task stream matched "
-              "by content")
-    else:
-        print("refocus verdict: MATCH -- every recorded thread produced the "
-              "identical CALL/RETURN/RAISE/HANDLED sequence")
+    print(_match_line(new, a))
     # The hazard E4" section 5.3 MEASURED, named where the verdict is read.
     # On 1 of its 61 pairs the per-task assignment moved between the two
     # runs -- the workers carried (216, 205, 151, 233, 151) events on one
