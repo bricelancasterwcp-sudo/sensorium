@@ -394,6 +394,66 @@ test('R12: a nested bare `yield` takes no terminator', () => {
   assert.equal(out.code.includes(';;'), false);
 });
 
+test('for await parks with the same calls as await', () => {
+  const src = [
+    'export async function pull(src) {',
+    '  const out = [];',
+    '  for await (const x of src) out.push(x);',
+    '  return out;',
+    '}',
+    'export async function once(p) { return await p; }',
+    'export function scan(xs) { for (const x of xs) use(x); }',
+    '',
+  ].join('\n');
+  const out = transformSource(src, `${ROOT}/src/for-await.ts`, { root: ROOT, ts, rtPath: RT });
+  assert.ok(out && out.code !== null);
+  assert.equal(out.code.split('\n').length, src.split('\n').length);
+  assert.match(out.code, /for await \(const x of \(\{\[Symbol\.asyncIterator\]/);
+  assert.ok(out.code.includes('__srt.r(__sf,await __srt.y(__sf,'));
+  const parks = out.code.match(/__srt\.y\(__sf,/g);
+  assert.ok(parks && parks.length >= 2, 'the for-await head and the await both park');
+  assert.match(out.code, /for \(const x of xs\)/);
+  assert.equal(out.code.includes('for (const x of ({[Symbol.asyncIterator]'), false);
+  assert.deepEqual(parseDiagnosticsOf(`${ROOT}/src/for-await.ts`, out.code).map((d) =>
+    typeof d.messageText === 'string' ? d.messageText : d.messageText.messageText), []);
+  const nested = 'export async function nest(p) {\n  for await (const x of await p) use(x);\n}\n';
+  const nout = transformSource(nested, `${ROOT}/src/for-await-nest.ts`,
+    { root: ROOT, ts, rtPath: RT });
+  assert.ok(nout && nout.code !== null);
+  assert.equal(nout.code.split('\n').length, nested.split('\n').length);
+  const wrap = nout.code.indexOf('[Symbol.asyncIterator]');
+  const park = nout.code.indexOf('__srt.r(__sf,await __srt.y');
+  assert.ok(wrap !== -1 && wrap < park, 'the iterable await is inside the wrapper');
+  const top = 'export {};\nconst p = await Promise.resolve(1);\nfor await (const x of p) use(x);\n';
+  const tout = transformSource(top, `${ROOT}/src/top-await.ts`, { root: ROOT, ts, rtPath: RT });
+  assert.ok(tout && tout.code !== null);
+  assert.equal(tout.code.includes('__srt.y'), false, 'top-level await has no frame to park');
+  assert.equal(tout.code.split('\n').length, top.split('\n').length);
+});
+
+test('a focused method call names this, and an arrow and a derived constructor do not', () => {
+  const src = [
+    'class Box {',
+    '  set(v) { this.n = v; }',
+    '  f = () => { this.n = 1; };',
+    '}',
+    'class Sub extends Box {',
+    '  constructor() { super(); this.n = 1; }',
+    '}',
+    '',
+  ].join('\n');
+  const focused = transformSource(src, `${ROOT}/src/this.ts`,
+    { root: ROOT, ts, rtPath: RT, focus: ['Box', 'Sub'] });
+  assert.ok(focused && focused.code !== null);
+  assert.ok(focused.code.includes('["this",this,"v",v]'), 'the method receiver is an argument');
+  assert.equal(focused.code.includes('["this",this]);'), false, 'the arrow gains no fake parameter');
+  assert.match(focused.code, /constructor\(\) \{const __sf=__srt\.call\(__sfile,\d,\[\]\);/);
+  const plain = transformSource(src, `${ROOT}/src/this.ts`,
+    { root: ROOT, ts, rtPath: RT });
+  assert.ok(plain && plain.code !== null);
+  assert.equal(plain.code.includes('["this",this'), false, 'an unfocused call omits the receiver');
+});
+
 test('the runtime import path is spliced verbatim', () => {
   const src = fs.readFileSync(path.join(GOLDEN_DIR, 'block-body.ts'), 'utf8');
   const out = transformSource(src, `${ROOT}/src/block-body.ts`, {

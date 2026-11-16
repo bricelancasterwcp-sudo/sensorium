@@ -19,6 +19,7 @@ import {
   headDeclaredOf,
   isStatementPosition,
   paramNames,
+  receiverName,
   writesOf,
 } from '../src/bindings.mjs';
 
@@ -258,20 +259,49 @@ test('writesOf an expression statement that writes nothing is empty', () => {
   assert.deepEqual(writes('console.log(x);'), []);
 });
 
-// ------------------------------------------------- writesOf: the place writes
+// ------------------------------------------------- writesOf: the member writes
 
-test('writesOf a property write is empty — a place write, declared', () => {
-  assert.deepEqual(writes('a.b = 1;'), []);
+test('writesOf a property write names the member, not the base', () => {
+  assert.deepEqual(writes('a.b = 1;'), ['a.b']);
+  assert.deepEqual(writes('a.b += 1;'), ['a.b']);
+  assert.deepEqual(writes('a.b ||= 1;'), ['a.b']);
+  assert.deepEqual(writes('a.b ??= 1;'), ['a.b']);
+  assert.deepEqual(writes('this.x = 1;'), ['this.x']);
+  assert.deepEqual(writes('a.b.c = 1;'), ['a.b.c']);
+  assert.deepEqual(writes('a[i].b = 1;'), ['a[i].b']);
+  assert.deepEqual(writes('a.b[i] = 1;'), ['a.b[i]']);
+  assert.deepEqual(writes('(a).b = 1;'), ['a.b']);
+  assert.deepEqual(writes('(obj as any).x = 1;'), ['obj.x']);
+  assert.deepEqual(writes('a.b = (c = 1);'), ['a.b', 'c']);
+  assert.deepEqual(writes('const o = (a.b = 1);'), ['o', 'a.b']);
 });
 
-test('writesOf an element write is empty, and still reads the index it updates', () => {
-  assert.deepEqual(writes('a[i] = 1;'), []);
+test('writesOf an element write names the access, and still reads an index it updates', () => {
+  assert.deepEqual(writes('a[i] = 1;'), ['a[i]']);
+  assert.deepEqual(writes('a[i + 1] = 1;'), ['a[i + 1]']);
+  assert.deepEqual(writes('a[void 0] = 1;'), ['a[void 0]']);
   assert.deepEqual(writes('arr[i++] = 0;'), ['i']);
+  assert.deepEqual(writes('a[f()] = 1;'), []);
 });
 
-test('writesOf a `delete` and a property update is empty', () => {
-  assert.deepEqual(writes('delete a.b;'), []);
-  assert.deepEqual(writes('a.b++;'), []);
+test('writesOf a delete and a property update name the member', () => {
+  assert.deepEqual(writes('delete a.b;'), ['a.b']);
+  assert.deepEqual(writes('delete this.x;'), ['this.x']);
+  assert.deepEqual(writes('a.b++;'), ['a.b']);
+  assert.deepEqual(writes('++a.b;'), ['a.b']);
+  assert.deepEqual(writes('a.b--;'), ['a.b']);
+});
+
+test('writesOf skips a member whose re-read would lie', () => {
+  assert.deepEqual(writes('f().b = 1;'), []);
+  assert.deepEqual(writes('new C().b = 1;'), []);
+  // The break is trivia. The spelling is rebuilt as `a[i]`, so no newline
+  // is inserted. A terminator inside the index text is still unnamed.
+  assert.deepEqual(writes('a[\ni] = 1;'), ['a[i]']);
+  assert.deepEqual(writes('a[i +\n1] = 1;'), []);
+  const sf = parse('class B extends A { m() { super.x = 1; } }\n');
+  const inner = find(sf, (n) => ts.isExpressionStatement(n));
+  assert.deepEqual(writesOf(ts, inner), []);
 });
 
 // --------------------------------------------- writesOf: the closure boundary
@@ -381,6 +411,8 @@ test('headBindingsOf a for-await reads exactly as a for-of', () => {
 test('headBindingsOf a for-of over an existing binding is that binding', () => {
   assert.deepEqual(heads('for (x of xs) {}'), ['x']);
   assert.deepEqual(heads('for ([a, b] of pairs) {}'), ['a', 'b']);
+  assert.deepEqual(heads('for (a.b of xs) {}'), ['a.b']);
+  assert.deepEqual(heads('for await (a.b of xs) {}'), ['a.b']);
 });
 
 test('headBindingsOf a for-in declaration is the key', () => {
@@ -560,4 +592,32 @@ test('paramNames skips a TypeScript `this` parameter — `this` is not a paramet
 test('paramNames of an arrow with no parameters is empty', () => {
   const fn = find(parse('const g = () => 1;'), (n) => ts.isArrowFunction(n));
   assert.deepEqual(paramNames(ts, fn), []);
+});
+
+// --------------------------------------------------------------- receiverName
+
+test('receiverName is this for a method, getter, setter and constructor', () => {
+  const sf = parse([
+    'class Box {',
+    '  constructor() {}',
+    '  set(v) {}',
+    '  get n() { return 1; }',
+    '  set n(v) {}',
+    '  f = () => 1;',
+    '}',
+    'class Sub extends Box { constructor() { super(); } }',
+    'function plain() {}',
+    'const arrow = () => 1;',
+  ].join('\n'));
+  assert.equal(receiverName(ts, find(sf, (n) => ts.isMethodDeclaration(n))), 'this');
+  assert.equal(receiverName(ts, find(sf, (n) => ts.isGetAccessorDeclaration(n))), 'this');
+  assert.equal(receiverName(ts, find(sf, (n) => ts.isSetAccessorDeclaration(n))), 'this');
+  assert.equal(receiverName(ts, find(sf, (n) => ts.isConstructorDeclaration(n) &&
+    ts.isClassDeclaration(n.parent) && n.parent.name !== undefined &&
+    n.parent.name.text === 'Box')), 'this');
+  assert.equal(receiverName(ts, find(sf, (n) => ts.isConstructorDeclaration(n) &&
+    ts.isClassDeclaration(n.parent) && n.parent.name !== undefined &&
+    n.parent.name.text === 'Sub')), null);
+  assert.equal(receiverName(ts, find(sf, (n) => ts.isArrowFunction(n))), null);
+  assert.equal(receiverName(ts, find(sf, (n) => ts.isFunctionDeclaration(n))), null);
 });

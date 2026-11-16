@@ -12,7 +12,7 @@ import path from 'node:path';
 
 import MagicString from 'magic-string';
 
-import { paramNames } from './bindings.mjs';
+import { paramNames, receiverName } from './bindings.mjs';
 import { callbackHow, catchHow, deferredExit, finallyCompletes } from './escape.mjs';
 import { specMatches } from './focus.mjs';
 // `positions.mjs` is imported by `probe.mjs` too, and by neither of us at
@@ -45,6 +45,18 @@ const HOISTED_VI = new Set(['mock', 'doMock', 'hoisted', 'unmock']);
 /** Suspension kinds on the wire: `await` parks a coroutine, `yield` a generator. */
 const AWAIT = 0;
 const YIELD = 1;
+/** `for await` iterator wrapper. Same `y`/`r` as `await`. No newline in the edit. */
+const FOR_AWAIT_TAIL =
+  ');const __am=__o==null?null:__o[Symbol.asyncIterator];' +
+  'const __m=__am==null?(__o==null?null:__o[Symbol.iterator]):__am;' +
+  'if(typeof __m!="function")throw new TypeError("for await of a non-iterable");' +
+  'const __i=__m.call(__o);const __sync=__am==null;' +
+  'const __park=async(p)=>__srt.r(__sf,await __srt.y(__sf,(p),0));' +
+  'const __box=async(q)=>{if(!__sync||!q||q.value==null||typeof q.value.then!="function")return q;' +
+  'return{done:q.done,value:await __park(q.value)}};' +
+  'return{next:(...a)=>__park(__i.next(...a)).then(__box),' +
+  '"return":(...a)=>typeof __i.return=="function"?__park(__i.return(...a)).then(__box):{done:true,value:a[0]},' +
+  '"throw":(...a)=>typeof __i.throw=="function"?__park(__i.throw(...a)).then(__box):Promise.reject(a[0])}}})';
 
 const CLOSE_BLOCK = ';__srt.ret(__sf,undefined)}catch(__se){__srt.thr(__sf,__se);throw __se}';
 /**
@@ -354,7 +366,14 @@ function isFocusedFrame(ctx, node) {
 function spliceFunction(ctx, node) {
   const { ts, sf, s } = ctx;
   const index = ctx.indexOf.get(node);
-  const args = `,[${pairsOf(paramNames(ts, node))}]`;
+  const names = paramNames(ts, node);
+  // Focused method/getter/setter/non-derived constructor only. Arrow and
+  // derived constructor stay null (lexical `this`, TDZ before `super()`).
+  if (ctx.focused.has(node)) {
+    const recv = receiverName(ts, node);
+    if (recv !== null) names.unshift(recv);
+  }
+  const args = `,[${pairsOf(names)}]`;
   const body = /** @type {import('typescript').Block|import('typescript').Expression} */ (
     node.body
   );
@@ -424,6 +443,15 @@ function spliceSuspension(ctx, node, kind, keyword) {
   }
   s.appendLeft(node.expression.getStart(sf), '__srt.y(__sf,(');
   s.prependRight(node.expression.end, `),${kind}))`);
+}
+
+/** `for await` parks like `await`. @param {Splicer} ctx @param {import('typescript').ForOfStatement} node */
+function spliceForAwait(ctx, node) {
+  if (!node.awaitModifier || !isRecorded(ctx, node)) return;
+  const { sf, s } = ctx;
+  const expr = node.expression;
+  s.appendLeft(expr.getStart(sf), '({[Symbol.asyncIterator](){const __o=(');
+  s.prependRight(expr.end, FOR_AWAIT_TAIL);
 }
 
 /**
@@ -556,7 +584,7 @@ function splice(ctx) {
     else if (ts.isCatchClause(node)) spliceCatch(ctx, node);
     else if (ts.isCallExpression(node) && !spliceRejectionCallback(ctx, node)) {
       spliceTaskBoundary(ctx, node);
-    }
+    } else if (ts.isForOfStatement(node)) spliceForAwait(ctx, node);
     // After the chain and before the children: the focus tier's rows (spec
     // §3.1). A `CatchClause`'s head row must follow the HANDLED the chain just
     // registered, and every statement's row must be registered before its own

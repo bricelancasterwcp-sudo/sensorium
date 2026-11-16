@@ -569,16 +569,14 @@ refused, by the capability sentence)*, and **`refocus: true`** (§12)
 0.13.0-or-earlier conversion still declares `false` and still meets that
 refusal)*.
 
-**One config shape is refused by name.** A `test.projects` or
-`test.workspace` config makes vitest resolve a config PER PROJECT, and this
-wrapper merges onto one: the plugin never reaches the projects' pipelines, so
-the suite runs and nothing is recorded. The wrapper config refuses it at load
-time, `vitest projects/workspaces are not supported by sensorium-ts 0.6.2`,
-and leaves that sentence in the spool directory (`wrapper-refusal.json`) for
-the driver to print at exit 2. *(Added 2026-09-09, ruling R41: measured, such
-a run came back as the CONVERTER's sentence, "nothing was recorded, or the
-recorder wrote somewhere else", the right exit status, naming neither the
-cause nor the fix.)*
+**Inline vitest projects are instrumented; a string project is refused.**
+Vitest 4 does not give a project the root plugin (`extends` defaults false),
+so each inline object in `test.projects` or `test.workspace` gets its own
+plugin, setup file and external regexp, and the root does not also get one.
+A string is a glob or another config file. That shape throws at load
+(`vitest project globs and config-file projects are not supported by
+sensorium-ts 0.6.2`, left in `wrapper-refusal.json`) because a project that
+ran unrecorded would look green. *(R41, narrowed 2026-11-15.)*
 
 **The footprint on the consumer's tree.** One directory is written:
 `<root>/node_modules/.sensorium/`, holding the wrapper vitest config and the
@@ -625,10 +623,13 @@ band. The instrumentation lives in memory between the plugin and the harness,
 never in a file the consumer keeps.
 
 **The harness stays the runner.** The driver spawns the command as typed and
-never re-implements a harness's CLI. `npm test`, `pnpm test` and `yarn test`
-are refused at exit 2 naming the direct form, a package script cannot take the
-two flags the wrapper appends, and guessing what the script runs is a guess.
-jest is refused by name.
+never re-implements a harness's CLI. `npm test`, `npm run test`, `npm t` and
+the pnpm and yarn equivalents expand when `scripts.test` is a simple `vitest`
+or `node --test` argv with no shell metacharacters. Anything else is refused
+at exit 2 naming the script text. jest is refused by name: this recorder
+ships no jest transformer, the suite was not measured under jest, and the
+supported commands are `sensorium ts run -- vitest run …` and
+`sensorium ts run -- node --test …`.
 
 **Falsifiers.** `E4′`, `E5′`, `E6′`,
 `typescript/probes/src/sites.probe.test.ts`, `typescript/test/transform.test.mjs`.
@@ -692,13 +693,16 @@ The whole reading, rule by rule, is
 [`../docs/trace-format/TYPESCRIPT-KEYS.md`](../docs/trace-format/TYPESCRIPT-KEYS.md)
 § *Under a focus*.
 
-**What it does not claim.** That the rows are every write the statement made:
-a place write (`a.b = e`, `a[i] = e`, `delete a.b`) produces a row with no
-delta, `this` is not read, a conditional assignment's row reports the
-binding's value afterwards without saying whether the write happened, and a
-`switch` discriminant's assignment is reported nowhere, blind spots 28–31,
-each a present row with a stated hole rather than a missing row. That the
-count covers nested code: a function-like inside a focused one is selected
+**What it does not claim.** That the rows are every write the statement made.
+A member write whose spelling is safe to re-read (`a.b`, `a[i]`, `this.x`,
+`delete a.b`) is a delta of that spelling; optional chaining, a call base
+and a side-effecting index stay a row with no delta for that place (blind
+spot 28). A focused method's CALL names its receiver `this`; an unfocused
+CALL does not, and an arrow never gains one (blind spot 29). A conditional
+assignment's row reports the binding's value afterwards without saying
+whether the write happened, and a `switch` discriminant's assignment is
+reported nowhere (blind spots 30 and 31). That the count covers nested
+code: a function-like inside a focused one is selected
 only because the spec's prefix rule reached it, and one that the prefix does
 not reach is recorded at the call tier alone (blind spot 33). And that the
 number of functions a spec selects is the number of names typed. It is not:
@@ -782,7 +786,7 @@ a corpus case, a vector or an acceptance endpoint.
 | 8 | No edit contains a newline, so every output line is the input's and 20 shapes land on 20 exact lines | `E4′`, `typescript/test/transform.test.mjs` |
 | 8 | The source map is `hires`, so a planted failing assertion's report is byte-identical instrumented against plain | `E4′`, `typescript/probes/src/sites.probe.test.ts` |
 | 8 | A plain run afterwards is uncontaminated: sources identical by manifest, no marker in any cache, the wrapper directory gone | `E6′` |
-| 8 | Both harnesses run their own way; a package script and jest are refused at exit 2 rather than guessed at | `E5′` |
+| 8 | Both harnesses run their own way; a simple `npm test` / `pnpm test` / `yarn test` script expands to vitest or `node --test`, and any other script, plus jest, is refused at exit 2 rather than guessed at | `E5′` |
 | 9 | Cost is reported with its `n` and lens and gates nothing; a bound crossed buys work, never a verdict | `E1′`, `E10` |
 | 9 | Cost is a STOP where a pre-registered clause did not hold: E6′'s plain-band clause, stated as a STOP and not re-rolled | `E6′`, the acceptance record §4 and §5 gaps 5–6 |
 | 9 | Cost is reported again at rung 2 with the throw flow spliced in: `off/plain` 1.0608, `call/plain` 1.1266, conversion 16.0715 s, and none of the three gates anything | `E1‴`, `E10″` |

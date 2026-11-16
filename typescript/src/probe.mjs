@@ -48,7 +48,7 @@ import { lineOf, terminatorFor } from './positions.mjs';
 /**
  * A `[name, value, …]` argument list, spelled for the runtime: the names are
  * the transform's own (JSON strings) and the values are the program's own
- * identifiers, read where the splice stands.
+ * identifiers or member spellings (`a.b`, `this.x`), read where the splice stands.
  * @param {string[]} names
  * @returns {string} the list's contents, without its brackets
  */

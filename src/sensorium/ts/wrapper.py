@@ -26,17 +26,16 @@ Three rules the text obeys, each of them a measured hazard:
 them: the consumer's setup assumes their own environment, and that is the
 consumer's business (design section 2.2).
 
-The config also REFUSES one shape by name (R41). A `test.projects` or
-`test.workspace` config makes vitest run each project with its own
-resolved config, and this wrapper merges onto ONE: the plugin never
-reaches the projects' pipelines, so the suite runs and nothing is
-recorded. Measured, that ended as the converter's own sentence -- "no
-spools in <dir>: nothing was recorded, or the recorder wrote somewhere
-else" -- which names neither the cause nor the fix. So the config throws,
-and writes `wrapper-refusal.json` into the spool directory on the way out:
-vitest's own error goes to the harness's stderr, where it is one line
-among a config trace, and the driver needs the sentence to give back as
-its own refusal.
+Inline `test.projects` and `test.workspace` entries are instrumented
+(R41, narrowed). Vitest 4 does not hand a root plugin to a project
+(`extends` defaults false until vitest 5), so each inline project object
+receives its own plugin, setup file and external regexp, and the root
+does not also get one: a project that extends the root would otherwise
+be instrumented twice. A string in that list is a glob or another config
+file this wrapper does not merge. The config throws on that shape and
+writes `wrapper-refusal.json`, because a project that ran unrecorded
+would look green. Vitest's own error goes to the harness's stderr, and
+the driver needs the sentence to give back as its own refusal.
 """
 import json
 from pathlib import Path
@@ -53,8 +52,12 @@ PLACEHOLDER = "__PKG__"
 #: and the sentence it refuses with. Read by the driver, which has nothing
 #: else to go on: a config that threw wrote no spool.
 REFUSAL_FILE = "wrapper-refusal.json"
-PROJECTS_REFUSAL = ("vitest projects/workspaces are not supported by "
-                    "sensorium-ts 0.6.2")
+PROJECTS_REFUSAL = (
+    "vitest project globs and config-file projects are not supported by "
+    "sensorium-ts 0.6.2: a string in test.projects or test.workspace names "
+    "another config this wrapper does not merge, so that project would run "
+    "unrecorded. Inline project objects are instrumented. Run one project "
+    "directly, sensorium ts run -- vitest run --project <name>")
 
 #: Every character a JavaScript RegExp literal gives a meaning to, `/`
 #: included -- it ends the literal.
@@ -92,24 +95,66 @@ def home(root: Path) -> Path:
     return Path(root) / "node_modules" / DIRNAME
 
 
-#: The refusal, spelled once, in the config's own words. Four spellings,
-#: because vitest has read the list from `test.projects` and from
-#: `test.workspace`, and a root-level `projects`/`workspace` is the shape a
-#: consumer writes by mistake -- refusing a config we cannot instrument is
-#: right whichever of the four it is.
-REFUSAL_BLOCK = (
-    "const projects = resolved?.test?.projects ?? resolved?.test?.workspace\n"
-    "  ?? resolved?.projects ?? resolved?.workspace;\n"
-    "if (projects !== undefined) {\n"
-    f"  const reason = '{PROJECTS_REFUSAL}';\n"
-    "  const spool = process.env.SENSORIUM_SPOOL;\n"
-    "  if (spool) {\n"
-    "    fs.mkdirSync(spool, { recursive: true });\n"
-    f"    fs.writeFileSync(path.join(spool, '{REFUSAL_FILE}'), "
-    "JSON.stringify({ reason }));\n"
-    "  }\n"
-    "  throw new Error(reason);\n"
-    "}\n")
+def _instrument_block(here: str, pkg: str, rt: str, setup: str,
+                       external: str) -> str:
+    """The config body. Inline project objects each get a fresh layer.
+
+    A string, a glob, or a non-array is the refusal: that project would
+    run unrecorded. The four keys are the ones vitest reads, plus the
+    root-level spellings a consumer writes by mistake. Braces in this
+    text are JavaScript, so it is an f-string rather than ``str.format``.
+    """
+    return (
+        f"const __layer = () => ({{\n"
+        f"  root: '{here}',\n"
+        f"  plugins: [sensorium({{ root: '{here}', pkgDir: '{pkg}', "
+        f"rtPath: '{rt}' }})],\n"
+        f"  test: {{\n"
+        f"    setupFiles: ['{setup}'],\n"
+        f"    server: {{ deps: {{ external: [/{external}/] }} }},\n"
+        f"  }},\n"
+        f"}});\n"
+        "function __plist(cfg) {\n"
+        "  if (cfg == null || typeof cfg !== 'object') return null;\n"
+        "  if (cfg.test && cfg.test.projects !== undefined) "
+        "return ['test', 'projects', cfg.test.projects];\n"
+        "  if (cfg.test && cfg.test.workspace !== undefined) "
+        "return ['test', 'workspace', cfg.test.workspace];\n"
+        "  if (cfg.projects !== undefined) return ['', 'projects', cfg.projects];\n"
+        "  if (cfg.workspace !== undefined) "
+        "return ['', 'workspace', cfg.workspace];\n"
+        "  return null;\n"
+        "}\n"
+        "function __inline(list) {\n"
+        "  return Array.isArray(list) && list.every((p) => p !== null && "
+        "typeof p === 'object' && !Array.isArray(p));\n"
+        "}\n"
+        "function __instrument(cfg) {\n"
+        "  const found = __plist(cfg);\n"
+        "  if (found === null) return mergeConfig(cfg, __layer());\n"
+        "  if (!__inline(found[2])) return null;\n"
+        "  const wrapped = [];\n"
+        "  for (const p of found[2]) {\n"
+        "    const w = __instrument(p);\n"
+        "    if (w === null) return null;\n"
+        "    wrapped.push(w);\n"
+        "  }\n"
+        "  if (found[0] === 'test') return { ...cfg, test: { ...cfg.test, "
+        "[found[1]]: wrapped } };\n"
+        "  return { ...cfg, [found[1]]: wrapped };\n"
+        "}\n"
+        "const __out = __instrument(resolved);\n"
+        "if (__out === null) {\n"
+        f"  const reason = '{PROJECTS_REFUSAL}';\n"
+        "  const spool = process.env.SENSORIUM_SPOOL;\n"
+        "  if (spool) {\n"
+        "    fs.mkdirSync(spool, { recursive: true });\n"
+        f"    fs.writeFileSync(path.join(spool, '{REFUSAL_FILE}'), "
+        "JSON.stringify({ reason }));\n"
+        "  }\n"
+        "  throw new Error(reason);\n"
+        "}\n"
+        "export default __out;\n")
 
 
 def refusal(spool) -> str | None:
@@ -137,6 +182,7 @@ def config_text(root, invocation: str, pkg_dir, user_config) -> str:
     setup = js_string(str(home(root) / f"{invocation}{SETUP_SUFFIX}"))
     base = ("" if user_config is None
             else f"import base from '{js_string(str(user_config))}';\n")
+    block = _instrument_block(here, pkg, rt, setup, js_regexp(rt))
     return (
         f"// written by sensorium ts run for invocation {invocation}; "
         "removed when it exits\n"
@@ -148,16 +194,7 @@ def config_text(root, invocation: str, pkg_dir, user_config) -> str:
         f"const user = {'base' if user_config is not None else '{}'};\n"
         "const resolved = typeof user === 'function' "
         "? await user({ command: 'serve', mode: 'test' }) : user;\n"
-        + REFUSAL_BLOCK +
-        "export default mergeConfig(resolved, {\n"
-        f"  root: '{here}',\n"
-        f"  plugins: [sensorium({{ root: '{here}', pkgDir: '{pkg}', "
-        f"rtPath: '{rt}' }})],\n"
-        "  test: {\n"
-        f"    setupFiles: ['{setup}'],\n"
-        f"    server: {{ deps: {{ external: [/{js_regexp(rt)}/] }} }},\n"
-        "  },\n"
-        "});\n")
+        + block)
 
 
 def setup_text(pkg_dir) -> str:

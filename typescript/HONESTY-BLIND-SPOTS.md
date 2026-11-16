@@ -122,14 +122,18 @@ the claim that this is the whole of it. A bare `§n` below is a section of
    `typescript/probes/src/describe_chain.probe.test.ts`,
    `corpus/typescript/each_naming`, `E9`.
 
-10. **`for await (…)` and top-level `await` mint no YIELD/RESUME.** The
-    suspension rewrite is applied to `await` expressions inside an
-    instrumented function body; a `for await` loop's implicit await and a
-    module's top-level `await` are neither, so a frame parked there is not
-    recorded as parked. Measured absence, not inference: **0** occurrences of
-    either shape in the acceptance lens, so the endpoint that would have
-    caught it had nothing to catch. *(Added 2026-09-09.)*
-    *Falsifier:* `typescript/test/transform.test.mjs`, `E2′`.
+10. **Top-level `await` and top-level `for await` mint no YIELD/RESUME.**
+    `for await` inside a function is recorded: the head's iterable is wrapped
+    so each iterator step parks with the same `y` / `r` calls as `await`, and
+    the `for await` itself stays so `break` and `return` are the program's.
+    A top-level `await`, and a top-level `for await`, have no function frame
+    to park, so they are left as the program wrote them. An `async`
+    `@@asyncIterator` that itself returns a promise is not parked separately
+    from the steps. *(Added 2026-09-09; narrowed 2026-11-15, when `for await`
+    inside a function started recording.)*
+    *Falsifier:* `typescript/test/transform.test.mjs` (`for await parks with the same calls as await`),
+    `typescript/test/rt.test.mjs` (`for await parks the frame on each iterator step`),
+    `E2′`.
 11. ~~**A `.catch(function () {})` is not a sink; only the arrow spelling is.**
     §4's empty-callback sink matches an arrow function with an empty block
     body. The same empty body written as a `function` expression records
@@ -323,26 +327,33 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `E6-TS′`, `E6-TS‴`, `corpus/typescript/{translated,untraced_catcher,
     untraced_catcher_rejection,untraced_catcher_later_failure}`.
 
-28. **A place write is a row with no delta.** `a.b = e`, `a[i] = e`,
-    `a.b++` and `delete a.b` write through an object the statement did not
-    bind, and `writesOf` reports identifier targets only, so the LINE row
-    exists, at the right line, with empty `deltas`. The row is the honest
-    artifact: the statement ran and this recorder cannot say what it
-    changed. Reading it would mean a snapshot-and-diff of every reachable
-    object at every statement, which is a different instrument at a
-    different price (design D3). `flow --value` therefore sights nothing for
-    a value that only ever lived in a property. *(Added 2026-09-12.)*
-    *Falsifier:* `corpus/typescript/focus_place_write` (the present row and
-    the absent value, pinned from both sides),
+28. **Some member writes are still a row with no delta.** `a.b = e`,
+    `a[i] = e`, `a.b.c = e`, `this.x = e`, `a.b++` and `delete a.b` are
+    deltas of that spelling when the base is an identifier or `this` and
+    every index is safe to re-read: the probe reads the spelling again
+    after the statement, and `delete a.b` then reads `undefined`. What is
+    still unnamed, rather than guessed: optional chaining (`a?.b = e`), a
+    base that is a call or `new` (`f().b = e`), `super`, an index that
+    assigns or updates (`a[i++] = e` names `i`, not the element), an index
+    that still contains type syntax or a line terminator, and a spelling
+    that would insert a newline. The base identifier is not also reported.
+    *(Added 2026-09-12; narrowed 2026-11-15.)*
+    *Falsifier:* `corpus/typescript/focus_place_write` (`state.x=5`),
     `typescript/probes/src/focus.probe.test.ts` (`placeWrite`),
-    `typescript/test/bindings.test.mjs`.
-29. **`this` is not read, under a focus or otherwise.** A method's rows
-    carry what it wrote to its own bindings and nothing about the receiver:
-    `this` is not a parameter, so it is not in a CALL's `args`, and it is
-    not an identifier target, so it is not in any row's `deltas`. A method
-    whose whole effect is on `this` records rows with empty deltas. Capturing
-    it as a pseudo-argument is a later slice's decision if demand shows
-    (design §14). *(Added 2026-09-12.)* *Falsifier:*
+    `typescript/test/bindings.test.mjs`
+    (`writesOf a property write names the member, not the base`).
+29. **An unfocused CALL omits the receiver, and an arrow never gains one.**
+    A write of `this.x` is a delta of that name (blind spot 28), focused or
+    not: the statement row is what shows the write. The receiver object is
+    also a CALL argument named `this`, and only under `--focus`, and only
+    for a method, getter, setter or non-derived constructor. An unfocused
+    trace still omits the receiver object. An arrow keeps its lexical
+    `this` and is not given a fake parameter. A derived constructor is not
+    named either: its body starts before `super()`, where reading `this`
+    throws. *(Added 2026-09-12; narrowed 2026-11-15, the receiver half
+    shipped for focused methods only.)* *Falsifier:*
+    `typescript/test/rt.focus.test.mjs`
+    (`a focused method records this.n and the receiver`),
     `typescript/test/bindings.test.mjs`, `typescript/test/golden/`.
 30. **A conditional assignment's row does not say whether the write
     happened.** `x ||= f()`, `x &&= f()` and `x ??= f()` may not assign at

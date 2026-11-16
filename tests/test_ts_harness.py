@@ -8,6 +8,7 @@ of the contract and not a message that may drift.
 Nothing in this module spawns anything. `recognise` reads a command and a
 directory and answers; the driver is what acts on the answer.
 """
+import json
 from pathlib import Path
 
 import pytest
@@ -79,18 +80,98 @@ def test_node_without_test_is_not_a_harness(tmp_path):
 
 # -- the three refusals -----------------------------------------------------
 
-SCRIPTS = [["npm", "test"], ["npm", "run", "test"], ["npm", "t"],
-           ["pnpm", "test"], ["pnpm", "run", "unit"], ["pnpm", "t"],
-           ["yarn", "test"], ["yarn", "run", "unit"], ["yarn", "t"]]
+SCRIPTS = [["pnpm", "run", "unit"], ["yarn", "run", "unit"],
+           ["npm", "test", "--", "src"], ["npm", "run", "unit"]]
 
 
 @pytest.mark.parametrize("cmd", SCRIPTS, ids=[" ".join(c) for c in SCRIPTS])
 def test_a_package_script_is_refused_naming_the_direct_form(cmd, tmp_path):
+    """A script this recorder does not expand. `npm test` itself is the
+    exception, covered below; `npm run unit` and a `npm test` with extra
+    arguments stay a refusal, because appending those arguments would be
+    a guess."""
     message = refusal_for(cmd, tmp_path)
     assert message == (
         f"{cmd[0]} {cmd[1]} runs a package script, and a script cannot take "
         "the flags this recorder appends: run the harness directly, "
         "sensorium ts run -- vitest run …")
+
+
+def _manifest(directory, script):
+    path = directory / "package.json"
+    path.write_text(json.dumps({"name": "app", "scripts": {"test": script}}))
+    return path
+
+
+TEST_FORMS = [["npm", "test"], ["npm", "run", "test"], ["npm", "t"],
+              ["pnpm", "test"], ["pnpm", "run", "test"], ["pnpm", "t"],
+              ["yarn", "test"], ["yarn", "run", "test"], ["yarn", "t"]]
+
+
+@pytest.mark.parametrize("cmd", TEST_FORMS, ids=[" ".join(c) for c in TEST_FORMS])
+def test_a_simple_test_script_expands_to_the_harness(cmd, tmp_path):
+    _manifest(tmp_path, "vitest run src")
+    got = plan_for(cmd, tmp_path)
+    assert got.kind == "vitest"
+    assert got.argv == cmd
+    assert got.stripped == ["vitest", "run", "src"]
+    assert got.root == tmp_path
+
+
+def test_a_node_test_script_expands_too(tmp_path):
+    _manifest(tmp_path, "node --test src")
+    got = plan_for(["npm", "test"], tmp_path)
+    assert got.kind == "node-test"
+    assert got.argv == ["npm", "test"]
+    assert got.stripped == ["node", "--test", "src"]
+
+
+def test_a_shell_test_script_is_refused_naming_the_text(tmp_path):
+    _manifest(tmp_path, "vitest run && node --test")
+    message = refusal_for(["npm", "test"], tmp_path)
+    assert "vitest run && node --test" in message
+    assert "does not spawn a shell" in message
+    assert "sensorium ts run -- vitest run" in message
+
+
+def test_a_test_script_that_is_not_a_harness_names_the_text(tmp_path):
+    _manifest(tmp_path, "mocha src")
+    message = refusal_for(["yarn", "test"], tmp_path)
+    assert "mocha src" in message
+    assert "sensorium ts run -- node --test" in message
+
+
+def test_a_test_script_that_is_jest_names_the_text_and_jest(tmp_path):
+    _manifest(tmp_path, "jest --ci")
+    message = refusal_for(["npm", "test"], tmp_path)
+    assert "jest --ci" in message
+    assert message.find("jest is not supported") != -1
+    assert "Run the harness directly" in message
+
+
+def test_a_missing_test_script_is_refused(tmp_path):
+    (tmp_path / "package.json").write_text('{"name": "app"}\n')
+    message = refusal_for(["npm", "test"], tmp_path)
+    assert "no scripts.test string" in message
+    assert "sensorium ts run -- vitest run" in message
+
+
+def test_a_parent_package_json_is_not_chdir(tmp_path):
+    _manifest(tmp_path, "vitest run")
+    child = tmp_path / "pkg"
+    child.mkdir()
+    message = refusal_for(["pnpm", "test"], child)
+    assert "does not change directory" in message
+    assert str(tmp_path) in message
+
+
+def test_a_test_script_does_not_expand_a_nested_npm_test(tmp_path):
+    """`scripts.test` of `npm test` must not loop, and must not be treated
+    as a harness by guessing a second time."""
+    _manifest(tmp_path, "npm test")
+    message = refusal_for(["npm", "test"], tmp_path)
+    assert "npm test" in message
+    assert "not a vitest" in message
 
 
 JESTS = [["jest"], ["npx", "jest"], ["npx", "jest", "--ci"],

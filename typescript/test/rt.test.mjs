@@ -673,6 +673,44 @@ test('a generator its consumer closed early closes as a return it never read', (
     of(ran.recs, 'YIELD').filter((r) => r.f === generator.f).at(-1)));
 });
 
+test('for await parks the frame on each iterator step', () => {
+  const require = createRequire(import.meta.url);
+  const source = [
+    'async function* three() { yield 1; yield 2; yield 3; }',
+    'async function sum(src) {',
+    '  let n = 0;',
+    '  for await (const x of src) n += x;',
+    '  return n;',
+    '}',
+    'let closed = false;',
+    'async function* one() {',
+    '  try { yield 1; yield 2; } finally { closed = true; }',
+    '}',
+    'async function first(src) {',
+    '  for await (const x of src) return x;',
+    '}',
+    'const sync = await sum([Promise.resolve(1), Promise.resolve(2)]);',
+    'const asyncd = await sum(three());',
+    'const early = await first(one());',
+    'console.log(JSON.stringify({ sync, asyncd, early, closed }));',
+    '',
+  ].join('\n');
+  const out = transformSource(source, '/w/for-await.mjs',
+    { ts: require('typescript'), root: '/w', rtPath: RT });
+  assert.ok(out && out.code);
+  const ran = run(out.code, { raw: true });
+  ok(ran);
+  assert.deepEqual(JSON.parse(ran.res.stdout),
+    { sync: 3, asyncd: 6, early: 1, closed: true });
+  const site = (/** @type {any} */ c) => out.manifest.instrumented[c.c].qualname;
+  const frame = of(ran.recs, 'CALL').find((c) => site(c) === 'sum' &&
+    of(ran.recs, 'RETURN').some((r) => r.f === c.f && r.v && r.v.v === '6'));
+  assert.ok(frame);
+  // Three values and the iterator's final done step. Each is an await.
+  assert.equal(of(ran.recs, 'YIELD').filter((r) => r.f === frame.f).length, 4);
+  assert.equal(of(ran.recs, 'RESUME').filter((r) => r.f === frame.f).length, 4);
+});
+
 test('a generator that runs to its own end still closes with its own value', () => {
   // The `finally` must not overwrite an outcome the body reached: `gclose` is a
   // no-op on a frame `ret` (or `thr`) has already closed. Break this and every

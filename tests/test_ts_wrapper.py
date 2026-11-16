@@ -18,7 +18,9 @@ Two properties this module exists to hold, both of them measured hazards:
 Nothing here runs node. What the text does under vitest 4.1.9 is the live
 test's business (`tests/test_ts_live.py`).
 """
+import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -73,15 +75,55 @@ def golden(root: Path, pkg: Path, user_config: Path | None) -> str:
         f"const user = {'base' if user_config else '{}'};\n"
         "const resolved = typeof user === 'function' "
         "? await user({ command: 'serve', mode: 'test' }) : user;\n"
-        # R41: the one config shape this recorder cannot instrument, refused
-        # by name in the config itself. Spelled out here rather than imported
+        # R41, narrowed: inline project objects are instrumented; a string
+        # project is refused by name. Spelled out here rather than imported
         # from the module under test, which is what makes this a golden.
-        "const projects = resolved?.test?.projects ?? "
-        "resolved?.test?.workspace\n"
-        "  ?? resolved?.projects ?? resolved?.workspace;\n"
-        "if (projects !== undefined) {\n"
-        "  const reason = 'vitest projects/workspaces are not supported by "
-        "sensorium-ts 0.6.2';\n"
+        f"const __layer = () => ({{\n"
+        f"  root: '{root}',\n"
+        f"  plugins: [sensorium({{ root: '{root}', pkgDir: '{pkg}', "
+        f"rtPath: '{rt}' }})],\n"
+        "  test: {\n"
+        f"    setupFiles: ['{root}/node_modules/.sensorium/{INV}.setup.mjs'],\n"
+        f"    server: {{ deps: {{ external: [/{escaped}/] }} }},\n"
+        "  },\n"
+        "});\n"
+        "function __plist(cfg) {\n"
+        "  if (cfg == null || typeof cfg !== 'object') return null;\n"
+        "  if (cfg.test && cfg.test.projects !== undefined) "
+        "return ['test', 'projects', cfg.test.projects];\n"
+        "  if (cfg.test && cfg.test.workspace !== undefined) "
+        "return ['test', 'workspace', cfg.test.workspace];\n"
+        "  if (cfg.projects !== undefined) return ['', 'projects', cfg.projects];\n"
+        "  if (cfg.workspace !== undefined) "
+        "return ['', 'workspace', cfg.workspace];\n"
+        "  return null;\n"
+        "}\n"
+        "function __inline(list) {\n"
+        "  return Array.isArray(list) && list.every((p) => p !== null && "
+        "typeof p === 'object' && !Array.isArray(p));\n"
+        "}\n"
+        "function __instrument(cfg) {\n"
+        "  const found = __plist(cfg);\n"
+        "  if (found === null) return mergeConfig(cfg, __layer());\n"
+        "  if (!__inline(found[2])) return null;\n"
+        "  const wrapped = [];\n"
+        "  for (const p of found[2]) {\n"
+        "    const w = __instrument(p);\n"
+        "    if (w === null) return null;\n"
+        "    wrapped.push(w);\n"
+        "  }\n"
+        "  if (found[0] === 'test') return { ...cfg, test: { ...cfg.test, "
+        "[found[1]]: wrapped } };\n"
+        "  return { ...cfg, [found[1]]: wrapped };\n"
+        "}\n"
+        "const __out = __instrument(resolved);\n"
+        "if (__out === null) {\n"
+        "  const reason = 'vitest project globs and config-file projects are "
+        "not supported by sensorium-ts 0.6.2: a string in test.projects or "
+        "test.workspace names another config this wrapper does not merge, so "
+        "that project would run unrecorded. Inline project objects are "
+        "instrumented. Run one project directly, sensorium ts run -- vitest "
+        "run --project <name>';\n"
         "  const spool = process.env.SENSORIUM_SPOOL;\n"
         "  if (spool) {\n"
         "    fs.mkdirSync(spool, { recursive: true });\n"
@@ -90,15 +132,7 @@ def golden(root: Path, pkg: Path, user_config: Path | None) -> str:
         "  }\n"
         "  throw new Error(reason);\n"
         "}\n"
-        "export default mergeConfig(resolved, {\n"
-        f"  root: '{root}',\n"
-        f"  plugins: [sensorium({{ root: '{root}', pkgDir: '{pkg}', "
-        f"rtPath: '{rt}' }})],\n"
-        "  test: {\n"
-        f"    setupFiles: ['{root}/node_modules/.sensorium/{INV}.setup.mjs'],\n"
-        f"    server: {{ deps: {{ external: [/{escaped}/] }} }},\n"
-        "  },\n"
-        "});\n")
+        "export default __out;\n")
 
 
 # -- the text ---------------------------------------------------------------
@@ -279,3 +313,86 @@ def test_a_read_only_node_modules_is_refused_by_name(tmp_path):
     finally:
         nm.chmod(0o700)
     assert str(nm) in str(e.value)
+
+
+def _run_config(tmp_path, user_source, spool=None):
+    """Import the generated config under a stub `vitest/config`.
+
+    `mergeConfig` records each call and returns a marked object, so the
+    test sees which configs received a layer and does not need vitest.
+    """
+    root, pkg = consumer(tmp_path), fake_pkg(tmp_path)
+    (pkg / "src" / "vite.mjs").write_text(
+        "export default function sensorium(opts) {"
+        " return { name: 'sensorium', opts }; }\n")
+    vitest = root / "node_modules" / "vitest"
+    vitest.mkdir(parents=True)
+    # Node ESM resolves the extensionless `vitest/config` only through exports.
+    (vitest / "package.json").write_text(
+        '{"type": "module", "exports": {"./config": "./config.js"}}\n')
+    (vitest / "config.js").write_text(
+        "export const calls = [];\n"
+        "export function mergeConfig(a, b) {\n"
+        "  calls.push(b);\n"
+        "  return { __merged: true, base: a, layer: b };\n"
+        "}\n")
+    user = root / "vitest.config.js"
+    user.write_text(user_source)
+    config = root / "wrap.mjs"
+    config.write_text(wrapper.config_text(root, INV, pkg, user))
+    env = os.environ.copy()
+    if spool is not None:
+        env["SENSORIUM_SPOOL"] = str(spool)
+    else:
+        env.pop("SENSORIUM_SPOOL", None)
+    return subprocess.run(
+        ["node", "--input-type=module", "-e",
+         "import cfg from " + json.dumps(config.as_uri()) + ";\n"
+         "import { calls } from 'vitest/config';\n"
+         "console.log(JSON.stringify({ out: cfg, calls: calls.length }));\n"],
+        cwd=root, capture_output=True, text=True, env=env)
+
+
+def test_inline_projects_each_receive_a_layer_and_the_root_does_not(tmp_path):
+    """Vitest 4 does not pass a root plugin into a project. Each inline
+    object is merged with its own layer, and the root is not, so a project
+    that extends the root is not instrumented twice."""
+    r = _run_config(tmp_path, """
+export default {
+  test: {
+    projects: [
+      { test: { name: 'alpha', include: ['a.test.ts'] } },
+      { test: { name: 'beta' } },
+    ],
+  },
+};
+""")
+    assert r.returncode == 0, r.stderr
+    got = json.loads(r.stdout)
+    assert got["calls"] == 2
+    projects = got["out"]["test"]["projects"]
+    assert len(projects) == 2
+    assert all(p["__merged"] and p["layer"]["plugins"][0]["name"] == "sensorium"
+               for p in projects)
+    assert "plugins" not in got["out"]
+
+
+def test_a_string_project_is_refused_and_a_leaf_config_is_wrapped(tmp_path):
+    spool = tmp_path / "spool"
+    refused = _run_config(tmp_path, """
+export default { test: { projects: ['./vitest.config.unit.ts'] } };
+""", spool=spool)
+    assert refused.returncode != 0
+    assert "config-file projects are not supported" in refused.stderr
+    assert "Inline project objects are instrumented" in refused.stderr
+    reason = json.loads((spool / "wrapper-refusal.json").read_text())["reason"]
+    assert reason == wrapper.PROJECTS_REFUSAL
+
+    leaf = _run_config(tmp_path / "leaf", """
+export default { test: { include: ['a.test.ts'] } };
+""")
+    assert leaf.returncode == 0, leaf.stderr
+    got = json.loads(leaf.stdout)
+    assert got["calls"] == 1
+    assert got["out"]["__merged"] is True
+    assert got["out"]["layer"]["test"]["setupFiles"]

@@ -146,7 +146,7 @@ export function destructure(o: { a: number; b: number[]; z: number }): number {
 }
 
 export function placeWrite(o: { n: number }): number {
-  // LINE placeWrite -
+  // LINE placeWrite o.n=5
   o.n = 5;
   // LINE placeWrite total=5
   const total = o.n;
@@ -201,7 +201,7 @@ test('destructure: every name the pattern binds', () => {
   expect(destructure({ a: 1, b: [2], z: 9 })).toBe(12);
 });
 
-test('placeWrite: a property write is nobodys delta', () => {
+test('placeWrite: a property write is the member delta', () => {
   expect(placeWrite({ n: 1 })).toBe(5);
 });
 

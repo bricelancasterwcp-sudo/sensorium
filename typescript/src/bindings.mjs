@@ -3,13 +3,13 @@
 // own AST, no state, no I/O, and it lives in its own module because
 // `transform.mjs` is at the repository's line ceiling (plan P2).
 //
-// Three questions, seven exports (spec §3.2, §3.4):
+// Three questions (spec §3.2, §3.4):
 //   writesOf(ts, statement)      the names the statement wrote  → a row's deltas
 //   headBindingsOf(ts, statement)  the names a guard binds       → the head row
 //   declaredIn(ts, statement)    the block-scoped names that died → `unbound`
-// with `boundNames`, `headDeclaredOf`, `isGuard`, `isStatementPosition` and
-// `paramNames` the parts the three are built out of and Task 4's splices ask
-// for by name.
+// with `boundNames`, `headDeclaredOf`, `isGuard`, `isStatementPosition`,
+// `paramNames` and `receiverName` the parts the three are built out of and
+// the splices ask for by name.
 //
 // Nothing here resolves scopes, types or aliases: a name is its spelling. Two
 // rules the whole tier rests on, both plan decisions:
@@ -129,7 +129,7 @@ function unwrapPlace(ts, node) {
 /**
  * @param {TS} ts
  * @param {Node} node
- * @returns {boolean}
+ * @returns {node is import('typescript').PropertyAccessExpression|import('typescript').ElementAccessExpression}
  */
 function isMemberAccess(ts, node) {
   return ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node);
@@ -156,12 +156,16 @@ function indexIsReevalSafe(ts, node) {
     return true;
   }
   if (isMemberAccess(ts, inner)) return chainIsReevalSafe(ts, inner);
+  // `void` and `typeof` are their own nodes, not prefix unaries.
+  if (ts.isVoidExpression(inner) || ts.isTypeOfExpression(inner)) {
+    return indexIsReevalSafe(ts, inner.expression);
+  }
   if (ts.isPrefixUnaryExpression(inner)) {
     const op = inner.operator;
     const k = ts.SyntaxKind;
     if (
       op === k.PlusToken || op === k.MinusToken || op === k.ExclamationToken ||
-      op === k.TildeToken || op === k.VoidKeyword || op === k.TypeOfKeyword
+      op === k.TildeToken
     ) {
       return indexIsReevalSafe(ts, inner.operand);
     }
@@ -201,6 +205,79 @@ function chainIsReevalSafe(ts, node) {
 }
 
 /**
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {boolean}
+ */
+function containsTypeSyntax(ts, node) {
+  if (
+    ts.isAsExpression(node) || ts.isTypeAssertionExpression(node) ||
+    ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node)
+  ) {
+    return true;
+  }
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found && containsTypeSyntax(ts, child)) found = true;
+  });
+  return found;
+}
+
+/**
+ * The index as JavaScript the probe can re-read. A line terminator stays a
+ * refusal: collapsing one would change a template literal, and the splice
+ * must not insert one. Type syntax left inside the index is the same
+ * refusal rather than a guess at the erased spelling.
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {string|null}
+ */
+function spellIndex(ts, node) {
+  const inner = unwrapPlace(ts, node);
+  if (isMemberAccess(ts, inner)) return spellChain(ts, inner);
+  if (ts.isIdentifier(inner)) return inner.text;
+  if (inner.kind === ts.SyntaxKind.ThisKeyword) return 'this';
+  if (containsTypeSyntax(ts, inner)) return null;
+  const text = inner.getText();
+  if (text.length === 0 || /[\n\r\u2028\u2029]/.test(text)) return null;
+  return text;
+}
+
+/**
+ * `a.b`, `a[i]`, `this.x`, with type-only wrappers on the base dropped.
+ * ` (obj as any).x ` is re-read as `obj.x`: the `as` is gone before the
+ * program runs, and inserting it would put type syntax into the splice.
+ * @param {TS} ts
+ * @param {Node} node a property or element access
+ * @returns {string|null}
+ */
+function spellChain(ts, node) {
+  /** @type {string[]} */
+  const parts = [];
+  let current = unwrapPlace(ts, node);
+  while (isMemberAccess(ts, current)) {
+    if (ts.isPropertyAccessExpression(current)) {
+      parts.push(`.${current.name.text}`);
+    } else {
+      const arg = current.argumentExpression;
+      if (!arg) return null;
+      const index = spellIndex(ts, arg);
+      if (index === null) return null;
+      parts.push(`[${index}]`);
+    }
+    current = unwrapPlace(ts, current.expression);
+  }
+  const base = ts.isIdentifier(current)
+    ? current.text
+    : current.kind === ts.SyntaxKind.ThisKeyword
+      ? 'this'
+      : null;
+  if (base === null) return null;
+  parts.reverse();
+  return base + parts.join('');
+}
+
+/**
  * The source spelling of a member write the probe can re-read after the
  * statement, or null when re-reading would lie or move a line. A spelling
  * that contains a line terminator is null: the splice must not insert one.
@@ -211,9 +288,7 @@ function chainIsReevalSafe(ts, node) {
 function placeText(ts, node) {
   const inner = unwrapPlace(ts, node);
   if (!isMemberAccess(ts, inner) || !chainIsReevalSafe(ts, inner)) return null;
-  const text = inner.getText();
-  if (text.length === 0 || /[\n\r\u2028\u2029]/.test(text)) return null;
-  return text;
+  return spellChain(ts, inner);
 }
 
 /**
