@@ -706,7 +706,7 @@ def _installed_version() -> str | None:
     import importlib.metadata as md
 
     try:
-        return md.version("sensorium")
+        return md.version("sensorium-trace")
     except md.PackageNotFoundError:
         return None
 

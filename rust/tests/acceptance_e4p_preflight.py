@@ -81,7 +81,7 @@ def _probe(python, code: str, source: str) -> dict:
     return rec
 
 
-def version_probe(python, dist: str = "sensorium") -> dict:
+def version_probe(python, dist: str = "sensorium-trace") -> dict:
     """The INSTALLED distribution's version, from `importlib.metadata`."""
     return _probe(python,
                   f"import importlib.metadata as m; print(m.version({dist!r}))",

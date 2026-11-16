@@ -90,7 +90,7 @@ def test_the_installed_distribution_reports_the_declared_version():
     package would report the old number to anything that asked.
     """
     declared = declared_version((ROOT / "pyproject.toml").read_text())
-    assert installed_version("sensorium") == declared
+    assert installed_version("sensorium-trace") == declared
 
 
 def test_the_newest_changelog_header_agrees_with_pyproject():
@@ -175,3 +175,74 @@ def test_a_changelog_with_no_header_is_refused():
 ])
 def test_next_patch_bumps_the_last_component(version, expected):
     assert next_patch(version) == expected
+
+
+def test_the_published_name_is_sensorium_trace_and_the_cli_stays_sensorium():
+    """PyPI's `sensorium` is another project. The wheel name is
+    `sensorium-trace` and the console script is still `sensorium`.
+
+    `importlib.metadata.version` looks the distribution up under that
+    published name. The import package does not change.
+    """
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+    assert project["name"] == "sensorium-trace"
+    assert project["scripts"] == {
+        "sensorium": "sensorium.cli:main",
+        "sensorium-cc": "sensorium.c.cc:main",
+    }
+    assert installed_version("sensorium-trace") == project["version"]
+
+
+def _on_triggers(text: str) -> dict[str, list[str]]:
+    """Keys of a workflow `on:` block, each with its nested lines.
+
+    Parsed as text. A YAML 1.1 loader reads the key `on` as boolean true,
+    which would hide the block this test exists to pin.
+    """
+    lines = text.splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        code = line.split("#", 1)[0].strip()
+        if code == "on:":
+            start = i + 1
+            break
+    assert start is not None, "release workflow has no on: block"
+    triggers: dict[str, list[str]] = {}
+    current = None
+    for line in lines[start:]:
+        code = line.split("#", 1)[0].rstrip()
+        if not code.strip():
+            continue
+        if not code.startswith(" "):
+            break
+        indent = len(code) - len(code.lstrip(" "))
+        if indent == 2 and code.strip().endswith(":"):
+            current = code.strip()[:-1].strip()
+            triggers[current] = []
+        elif current is not None:
+            triggers[current].append(code)
+        else:
+            raise AssertionError(f"trigger line outside a key: {code!r}")
+    return triggers
+
+
+def test_the_release_workflow_triggers_only_on_dispatch_and_tags():
+    """Build artifacts on a tag or a manual run. The file does not publish,
+    and it does not run on a branch push or a pull request.
+    """
+    text = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+    assert "Publishing is intentionally not a step" in text
+    assert "npm publish" not in text
+    assert "twine" not in text
+    assert "secrets." not in text
+    triggers = _on_triggers(text)
+    assert set(triggers) == {"workflow_dispatch", "push"}
+    push = triggers["push"]
+    keys = [
+        line.strip()[:-1]
+        for line in push
+        if line.startswith("    ") and not line.startswith("     ")
+        and line.strip().endswith(":")
+    ]
+    assert keys == ["tags"], keys
+    assert any("v*" in line for line in push)

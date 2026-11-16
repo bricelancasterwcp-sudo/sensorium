@@ -126,7 +126,7 @@ def preflight(paths, cfg, dry) -> dict:
     if not Path(paths["sensorium_census_driver"]).is_file():
         raise Refused(f"no census driver at {paths['sensorium_census_driver']}")
     version = out(str(REPO / ".venv" / "bin" / "python"), "-c",
-                  "import importlib.metadata as m; print(m.version('sensorium'))")
+                  "import importlib.metadata as m; print(m.version('sensorium-trace'))")
     head = porcelain = branch = None
     if cfg["git"]:
         head = git(paths, "rev-parse", "HEAD").strip()

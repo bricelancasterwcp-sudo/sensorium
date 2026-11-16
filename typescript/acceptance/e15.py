@@ -175,7 +175,7 @@ def phase_preflight(ctx, res) -> dict:
     step("E15 preflight")
     binary = ctx["bin"]
     version = sh(ctx["python"], "-c", "import importlib.metadata as m; "
-                                      "print(m.version('sensorium'))")
+                                      "print(m.version('sensorium-trace'))")
     if version != DRIVER_VERSION:
         raise Refused(3, f"preflight: driver_version -- the venv reports "
                          f"sensorium {version!r} and §1 cites "
@@ -277,7 +277,7 @@ def context(paths) -> dict:
                   "origin/main"))
     python = str(REPO_ROOT / ".venv" / "bin" / "python")
     version = sh(python, "-c", "import importlib.metadata as m; "
-                               "print(m.version('sensorium'))")
+                               "print(m.version('sensorium-trace'))")
     ts_pkg = json.loads((REPO_ROOT / "typescript" / "package.json")
                         .read_text(encoding="utf-8"))
     return {

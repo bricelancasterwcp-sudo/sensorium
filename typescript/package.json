@@ -1,8 +1,16 @@
 {
-  "name": "sensorium-ts",
+  "name": "sensorium-trace",
   "version": "0.6.2",
-  "private": true,
+  "description": "TypeScript execution-trace recorder. The npm name is sensorium-trace; traces report the recorder as sensorium-ts.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bricelancasterwcp-sudo/sensorium.git",
+    "directory": "typescript"
+  },
+  "files": [
+    "src"
+  ],
   "type": "module",
   "engines": {
     "node": ">=24"

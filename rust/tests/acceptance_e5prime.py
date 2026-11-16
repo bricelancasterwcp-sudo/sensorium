@@ -236,7 +236,7 @@ def preflight(paths, cfg) -> dict:
         "python": out(str(REPO / ".venv" / "bin" / "python"), "-V"),
         "sensorium_version": out(
             str(REPO / ".venv" / "bin" / "python"), "-c",
-            "import importlib.metadata as m; print(m.version('sensorium'))"),
+            "import importlib.metadata as m; print(m.version('sensorium-trace'))"),
         "nproc": os.cpu_count(),
         "governor": Path("/sys/devices/system/cpu/cpu0/cpufreq/"
                          "scaling_governor").read_text().strip(),
