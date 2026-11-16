@@ -128,7 +128,13 @@ fn write_transformed(tag: &str, case: &str) -> PathBuf {
     let dir = out_root().join(tag);
     std::fs::create_dir_all(&dir).expect("creating a per-test output directory");
     let path = dir.join(format!("{case}.out.rs"));
-    std::fs::write(&path, expand(&read(case, "out"))).expect("writing the transformed golden");
+    // The real transform, not the expanded golden: the column-map registration
+    // is not in the `.out.rs` bytes, and this is what checks it under
+    // `-D warnings`.
+    let input = read(case, "in");
+    let t = transform(&input, common::FILE, META, 0, true, &Focus::EMPTY)
+        .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
+    std::fs::write(&path, &t.source).expect("writing the transformed golden");
     path
 }
 
@@ -270,11 +276,14 @@ fn every_golden_output_compiles_with_zero_diagnostics() {
 #[test]
 fn every_focus_golden_output_compiles_with_zero_diagnostics() {
     let mut failures = Vec::new();
-    for (case, _) in FOCUS_CASES {
+    for (case, focus) in FOCUS_CASES {
         let dir = out_root().join(TAG_FOCUS);
         std::fs::create_dir_all(&dir).expect("creating a per-test output directory");
         let path = dir.join(format!("{case}.out.rs"));
-        std::fs::write(&path, expand(&read_focus(case, "out"))).expect("writing the focus golden");
+        let input = read_focus(case, "in");
+        let t = transform(&input, common::FILE, META, 0, true, &Focus::parse(focus))
+            .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
+        std::fs::write(&path, &t.source).expect("writing the focus golden");
         let c = compile(TAG_FOCUS, case, &path, "lib", true);
         println!(
             "{case:<24} lib exit {:<3} stderr {} bytes",
@@ -623,4 +632,117 @@ pub fn observed(t: &T) -> bool { match t.last { __t => { let _ = &__t; __t } }.i
          probing them -- got:\n{}",
         c.stderr
     );
+}
+
+/// The column map, end to end: the transformed bytes move `panic!`, and both
+/// tier `off` and tier `call` report the plain build's column. stderr keeps
+/// the thread name, the message and the note.
+#[test]
+fn a_panic_inside_a_try_operand_is_reported_at_the_plain_column() {
+    const SOURCE: &str = "\
+fn compute(f: impl Fn() -> u32) -> Result<u32, String> { Ok(f()) }\n\
+fn run_operand() -> Result<u32, String> {\n\
+    let v = compute(|| panic!(\"operand probe panic\"))?;\n\
+    Ok(v)\n\
+}\n\
+fn main() {\n\
+    let _ = run_operand();\n\
+}\n";
+    let plain_src = write_source("colmap", "plain", SOURCE);
+    let plain = compile("colmap", "plain", &plain_src, "bin", false);
+    assert_eq!(
+        (plain.status, plain.stderr.as_str()),
+        (0, ""),
+        "plain did not compile:\n{}",
+        plain.stderr
+    );
+    // The registration's path has to be the path rustc will print. `Location::file()`
+    // is the path passed to the compiler, which is this output file.
+    let inst_path = write_source("colmap", "inst", SOURCE);
+    let t = transform(
+        SOURCE,
+        &inst_path.to_string_lossy(),
+        META,
+        0,
+        true,
+        &Focus::EMPTY,
+    )
+    .expect("transform");
+    assert_eq!(
+        t.source.lines().count(),
+        SOURCE.lines().count(),
+        "the registration moved a line"
+    );
+    assert!(
+        ascii_col(&t.source, "panic!") > ascii_col(SOURCE, "panic!"),
+        "the operand wrap did not move the panic column, so this test would \
+         pass without a column map"
+    );
+    std::fs::write(&inst_path, &t.source).expect("rewriting the instrumented source");
+    let inst = compile("colmap", "inst", &inst_path, "bin", true);
+    assert_eq!(
+        (inst.status, inst.stderr.as_str()),
+        (0, ""),
+        "instrumented did not compile:\n{}",
+        inst.stderr
+    );
+
+    let plain_err = run_panicking(&plain.artifact, None);
+    let (plain_line, plain_col) = panic_line_col(&plain_err);
+    for tier in ["off", "call"] {
+        let err = run_panicking(&inst.artifact, Some(tier));
+        let (line, col) = panic_line_col(&err);
+        assert_eq!(line, plain_line, "tier {tier} moved the line:\n{err}");
+        assert_eq!(
+            col, plain_col,
+            "tier {tier} column {col} != plain {plain_col}:\n{err}"
+        );
+        assert!(err.contains("operand probe panic"), "{err}");
+        assert!(err.contains("thread 'main'"), "{err}");
+        assert!(err.contains("note: run with"), "{err}");
+    }
+}
+
+fn ascii_col(source: &str, needle: &str) -> u32 {
+    let byte = source.find(needle).expect(needle);
+    let line_start = source[..byte].rfind('\n').map(|i| i + 1).unwrap_or(0);
+    u32::try_from(byte - line_start).unwrap() + 1
+}
+
+fn run_panicking(bin: &Path, tier: Option<&str>) -> String {
+    let mut cmd = Command::new(bin);
+    cmd.env_remove("SENSORIUM_SPOOL").env("RUST_BACKTRACE", "0");
+    match tier {
+        Some(tier) => {
+            cmd.env("SENSORIUM_TIER", tier);
+        }
+        None => {
+            cmd.env_remove("SENSORIUM_TIER");
+        }
+    }
+    let out = cmd
+        .output()
+        .unwrap_or_else(|e| panic!("spawning {}: {e}", bin.display()));
+    String::from_utf8_lossy(&out.stderr).into_owned()
+}
+
+fn panic_line_col(stderr: &str) -> (u32, u32) {
+    let line = stderr
+        .lines()
+        .find(|line| line.contains("panicked at "))
+        .unwrap_or_else(|| panic!("no panicked at:\n{stderr}"));
+    let at = line.split("panicked at ").nth(1).expect(line);
+    let body = at.trim_end().strip_suffix(':').unwrap_or(at.trim_end());
+    let mut parts = body.rsplitn(3, ':');
+    let col: u32 = parts
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap_or_else(|_| panic!("column in {line}"));
+    let line_no: u32 = parts
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap_or_else(|_| panic!("line in {line}"));
+    (line_no, col)
 }

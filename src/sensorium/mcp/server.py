@@ -148,7 +148,7 @@ class _Call:
 def version() -> str:
     """This package's version, or `?` when it is not installed."""
     try:
-        return importlib.metadata.version("sensorium")
+        return importlib.metadata.version("sensorium-trace")
     except importlib.metadata.PackageNotFoundError:
         return "?"
 

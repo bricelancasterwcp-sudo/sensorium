@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The E4″ pre-registration's locks, and the paths its record lives at.
 
-§1 of `docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` was
+§1 of `docs/planning/acceptance/2026-09-08-sensorium-rung4-e4pp.md` was
 committed ALONE, before any of this slice's source existed -- before
 `strip_recorder_fragment` was in `refocus_env.py`, before `SESSION_EXACT`
 existed, before `harness_threads` had read a `spawn@` name, before the E4″
@@ -59,7 +59,7 @@ import acceptance_rung3 as rung3                                   # noqa: E402
 from acceptance_lib import Refused                                 # noqa: E402
 
 REPO = lib.REPO
-ACCEPTANCE = REPO / "docs" / "superpowers" / "acceptance"
+ACCEPTANCE = REPO / "docs" / "planning" / "acceptance"
 
 #: The record: §0 and §1 at the lock commit; §2 onward appended after the
 #: measurement, outside the locked range.

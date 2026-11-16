@@ -4,7 +4,7 @@
 #
 # Every promise in `rust/HONESTY.md` that a small workspace can falsify in
 # seconds is falsified here: E7(a) and E8(a)-(d) as pre-registered in
-# `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, plus
+# `docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, plus
 # the runner's witnessed exit (§5), children linked by ppid (§6), the doctest
 # route through RUSTDOCFLAGS, `spawn_child` naming (§3), panics and caught
 # panics (§1), a thread still blocked at process exit (§4), per-unit mirrors
@@ -58,14 +58,14 @@ EXT="$RUST/probes/ext"
 EXPECTED_TEST_BINARIES=10
 WRAPPED_EXPECTED="abort_child app_bin blocked e7 e7_operand nested_panic probe_app probe_core spawn_bin threads"
 
-# E7''(rung 3): the wrap prefix `crate::splice::ERR_OPEN` is the six bytes
-# `match `, spliced at the first byte of a `?` operand. A panic whose call site
-# is INSIDE that operand therefore moves by exactly six columns and by no
-# lines. The number is the one pre-registered in
-# `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` §1,
-# written here as a constant rather than read from the transformer's source: a
+# E7''(rung 3): the wrap still splices `match ` (six bytes) in front of a `?`
+# operand, which moves that line's later columns in the bytes rustc compiles.
+# The runtime maps the column back, so the instrumented `panicked at` column
+# equals the plain one (shift 0), at tier `off` and tier `call`. The constant
+# stays in the script, written here rather than read from the transformer: a
 # check that derives its prediction from the thing under test predicts nothing.
-E7_OPERAND_SHIFT=6
+# The asserted relationship is equality with the plain column.
+E7_OPERAND_SHIFT=0
 # The ONLY file a module walk may fail to reach, and how many of this run's
 # units declare it: `probe-app/src/maybe.rs` behind its `#[cfg_attr(path)]`
 # (plan decision D3). An exact set, not a membership test — the probe exercises
@@ -403,14 +403,14 @@ elapsed "E7" "$T0"
 
 # ------------------------------------------------------------- E7'' (rung 3) --
 
-section "E7'' -- a panic inside a ? operand moves by exactly the wrap prefix"
+section "E7'' -- a panic inside a ? operand is reported at the plain column"
 T0="$(now_s)"
-# The one shape rung 3's wrap CAN move. `tests/e7.rs`'s panics sit in plain
-# positions and the checks above demand byte-identical output for them; this
-# probe's panic literal sits inside the operand of a `?`, which the transformer
-# wraps as `match <operand> { __t => .. }`. The prediction, pre-registered
-# before the transformer changed: the LINE is identical and the COLUMN is the
-# plain one plus $E7_OPERAND_SHIFT, exactly.
+# The one shape rung 3's wrap moves in the bytes rustc compiles. `tests/e7.rs`'s
+# panics sit in plain positions and the checks above demand byte-identical
+# output for them; this probe's panic literal sits inside the operand of a `?`,
+# which the transformer wraps as `match <operand> { __t => .. }`. The runtime
+# maps that column back. The LINE is identical and the COLUMN is the plain one
+# plus $E7_OPERAND_SHIFT (0: they are equal), at tier `off` and tier `call`.
 #
 # The plain arm is read first and on its own, for the reason E7's is: two empty
 # outputs diff clean, and a comparison of nothing would pass hardest when the

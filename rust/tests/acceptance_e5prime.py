@@ -2,7 +2,7 @@
 """The rung-3-entry E5' runner: E5 re-measured under the new spawned-task
 naming rule (`<parent> :: spawn@<qualname>#<k>`).
 
-It measures the three endpoints `docs/superpowers/acceptance/
+It measures the three endpoints `docs/planning/acceptance/
 2026-09-03-sensorium-rung3-entry-e5prime.md` §1 pre-registered, and nothing
 else. §1 is BYTE-LOCKED at its own commit: this runner refuses to start if the
 working tree's §1 differs from that commit's, so the endpoint cannot move
@@ -86,7 +86,7 @@ from acceptance_lib import (CLONE_PIN, LOAD_CEILING, REPO_DISK_FLOOR_GB,  # noqa
 
 ph.LOGS = LOGS
 
-DOC = REPO / "docs" / "superpowers" / "acceptance" / \
+DOC = REPO / "docs" / "planning" / "acceptance" / \
     "2026-09-03-sensorium-rung3-entry-e5prime.md"
 BYTE_LOCK = "10f2c59"
 
@@ -121,11 +121,15 @@ def byte_lock_check() -> dict:
     that it did not move afterwards. `awk '/^## 1/,/^## 2/'` is the same
     extraction the brief names."""
     rel = DOC.relative_to(REPO).as_posix()
+    # The lock commit stored docs/superpowers/. rec["doc"] stays the
+    # working-tree path.
+    stored = ("docs/superpowers/" + rel[len("docs/planning/"):]
+              if rel.startswith("docs/planning/") else rel)
     committed = subprocess.run(
-        ["git", "-C", str(REPO), "show", f"{BYTE_LOCK}:{rel}"],
+        ["git", "-C", str(REPO), "show", f"{BYTE_LOCK}:{stored}"],
         capture_output=True, text=True)
     if committed.returncode != 0:
-        raise Refused(f"cannot read {rel} at {BYTE_LOCK}: "
+        raise Refused(f"cannot read {stored} at {BYTE_LOCK}: "
                       f"{committed.stderr.strip()}")
 
     def section1(text: str) -> str:
@@ -153,7 +157,7 @@ def byte_lock_check() -> dict:
         raise Refused(
             f"§1 of {rel} differs from the byte-lock at {BYTE_LOCK}: "
             f"{rec['locked_sha256'][:12]} vs {rec['working_tree_sha256'][:12]}")
-    step(f"byte-lock ok: §1 == {BYTE_LOCK}:{rel} "
+    step(f"byte-lock ok: §1 == {BYTE_LOCK}:{stored} "
          f"(sha256 {rec['locked_sha256'][:12]}, {rec['locked_bytes']} bytes)")
     return rec
 
@@ -236,7 +240,7 @@ def preflight(paths, cfg) -> dict:
         "python": out(str(REPO / ".venv" / "bin" / "python"), "-V"),
         "sensorium_version": out(
             str(REPO / ".venv" / "bin" / "python"), "-c",
-            "import importlib.metadata as m; print(m.version('sensorium'))"),
+            "import importlib.metadata as m; print(m.version('sensorium-trace'))"),
         "nproc": os.cpu_count(),
         "governor": Path("/sys/devices/system/cpu/cpu0/cpufreq/"
                          "scaling_governor").read_text().strip(),
@@ -584,7 +588,7 @@ def assemble_only() -> int:
         "note": ("derived from the raw facts the run recorded, which nothing "
                  "since has touched; no arm was re-run and no value re-measured"),
     }
-    dest = REPO / "docs" / "superpowers" / "acceptance" / \
+    dest = REPO / "docs" / "planning" / "acceptance" / \
         "2026-09-03-sensorium-rung3-entry-e5prime.results.json"
     dest.write_text(json.dumps(out, indent=2, default=str) + "\n")
     print(f"assembled {dest} from results-e5prime-raw.json")

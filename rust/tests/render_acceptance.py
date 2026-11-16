@@ -384,7 +384,7 @@ def rung2_document(argv) -> int:
 
 # --------------------------------------------------------------- E5' (rung 3)
 
-E5PRIME_DEFAULT = (REPO / "docs" / "superpowers" / "acceptance"
+E5PRIME_DEFAULT = (REPO / "docs" / "planning" / "acceptance"
                    / "2026-09-03-sensorium-rung3-entry-e5prime.results.json")
 
 

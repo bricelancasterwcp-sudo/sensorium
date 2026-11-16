@@ -175,7 +175,7 @@ def _dry_assemble(which: str, expected: str) -> dict:
         # sentence. The reading has to be about the assembler.
         out["renderer_prints_it"] = bool(
             out["sentence"] and out["assembler_stamps"] == expected)
-        committed = REPO / "docs" / "superpowers" / "acceptance" / (
+        committed = REPO / "docs" / "planning" / "acceptance" / (
             Path(record["acceptance"]).with_suffix("").name + ".results.json")
         out["committed"] = str(committed)
         if committed.is_file():

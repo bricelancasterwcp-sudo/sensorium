@@ -75,7 +75,29 @@ extern "C" {
     /// `<stdlib.h>`. Runs at process exit, including after an unwinding panic
     /// that leaves with status 101. `abort` does not run it.
     pub fn atexit(func: extern "C" fn()) -> i32;
+    /// `<unistd.h>`.
+    pub fn dup(fd: i32) -> i32;
+    /// `<unistd.h>`.
+    pub fn dup2(oldfd: i32, newfd: i32) -> i32;
+    /// `<unistd.h>`.
+    pub fn close(fd: i32) -> i32;
+    /// `<unistd.h>`.
+    pub fn read(fd: i32, buf: *mut c_void, count: usize) -> isize;
+    /// `<unistd.h>`.
+    pub fn write(fd: i32, buf: *const c_void, count: usize) -> isize;
+    /// `<unistd.h>`.
+    pub fn lseek(fd: i32, offset: off_t, whence: i32) -> off_t;
+    /// `<sys/memfd.h>`, glibc 2.27. The panic hook captures stderr here rather
+    /// than on a pipe, so a full buffer cannot deadlock the hook.
+    pub fn memfd_create(name: *const i8, flags: u32) -> i32;
 }
+
+/// `<unistd.h>`.
+pub const STDERR_FILENO: i32 = 2;
+/// `<unistd.h>`: `lseek` whence, the start of the file.
+pub const SEEK_SET: i32 = 0;
+/// `<linux/memfd.h>`: close the memfd on exec.
+pub const MFD_CLOEXEC: u32 = 1;
 
 /// `CLOCK_MONOTONIC` nanoseconds: every record's `ts_ns`.
 #[must_use]

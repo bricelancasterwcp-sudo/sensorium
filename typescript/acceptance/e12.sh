@@ -95,7 +95,7 @@ LOAD_TRIES=90
 LOAD_SLEEP=20
 
 REPO_ROOT="$(cd "$HERE/../.." && pwd -P)"
-HASHES="${E12_HASHES:-$REPO_ROOT/docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus-tracehashes.txt}"
+HASHES="${E12_HASHES:-$REPO_ROOT/docs/planning/acceptance/2026-09-11-sensorium-s5-rung4-focus-tracehashes.txt}"
 
 # The store: absent, or present and empty. Never somebody else's traces.
 if [ -e "$STORE" ]; then

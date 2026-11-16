@@ -8,7 +8,7 @@ and one cell, `e12p-h8.json`.
 
 THE CLAUSES ARE THE RECORD'S, ENUMERATED BY THE RECORD
 ------------------------------------------------------
-§1.9 of `docs/superpowers/acceptance/2026-09-12-sensorium-s5-rung4-debts.md`
+§1.9 of `docs/planning/acceptance/2026-09-12-sensorium-s5-rung4-debts.md`
 is a `| # | clause |` table, and this file reads it: the clause NUMBERS, the
 clause TEXT, and the literals inside the text (`748 OK / 0 FAILED`,
 `focus matched: 5 … (6 functions)`, `26 passed (26)`) all come from there. A

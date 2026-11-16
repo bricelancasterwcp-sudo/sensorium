@@ -48,11 +48,11 @@ import assemble_s5debts as assembler                              # noqa: E402
 #: The committed transcripts of rung 4's thirteen reads, and the two records
 #: this slice's instruments read. Spelled here too, so each test file stands
 #: on its own rather than importing its sibling's constants.
-REAL = (REPO / "docs" / "superpowers" / "acceptance"
+REAL = (REPO / "docs" / "planning" / "acceptance"
         / "2026-09-11-sensorium-s5-rung4-focus-reads")
-RUNG4 = (REPO / "docs" / "superpowers" / "acceptance"
+RUNG4 = (REPO / "docs" / "planning" / "acceptance"
          / "2026-09-11-sensorium-s5-rung4-focus.md")
-CENSUS = (REPO / "docs" / "superpowers" / "acceptance"
+CENSUS = (REPO / "docs" / "planning" / "acceptance"
           / "2026-09-12-sensorium-s5-rung4-debts-census.md")
 
 

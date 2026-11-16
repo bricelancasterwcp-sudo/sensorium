@@ -6,7 +6,7 @@ defects its own post-mortem named.
 
 NOTHING HERE RECORDS AND NOTHING HERE RE-RUNS. The data is rung 4's, already
 committed: the thirteen read transcripts under
-`docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus-reads/` and
+`docs/planning/acceptance/2026-09-11-sensorium-s5-rung4-focus-reads/` and
 the store those reads were taken against, opened READ-ONLY for the one fact a
 printed row cannot carry -- a CALL's code-object line. The question is not
 "what did the recorder do" (rung 4 answered that, once) but "can an instrument

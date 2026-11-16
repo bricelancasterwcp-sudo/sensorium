@@ -32,9 +32,9 @@ from test_acceptance_e15_cells import (SURVEY_3,          # noqa: E402
                                        raw_of, three_rows)
 from test_acceptance_e15_lock import BYTE_LOCK, SURVEY_LOCK        # noqa: E402
 
-SURVEY = (REPO / "docs" / "superpowers" / "acceptance"
+SURVEY = (REPO / "docs" / "planning" / "acceptance"
           / "2026-09-13-sensorium-e15-refocus-typescript-survey.md")
-RECORD = (REPO / "docs" / "superpowers" / "acceptance"
+RECORD = (REPO / "docs" / "planning" / "acceptance"
           / "2026-09-13-sensorium-e15-refocus-typescript.md")
 REV = "0" * 40
 

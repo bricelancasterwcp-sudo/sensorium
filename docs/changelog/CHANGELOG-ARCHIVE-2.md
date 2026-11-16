@@ -1,7 +1,7 @@
 # Changelog: the earlier entries, volume 2
 
 `0.9.1` and `0.9.0`, **moved here 2026-09-12 (S5 rung 4's debts) so
-[`CHANGELOG.md`](CHANGELOG.md) stays under 800 lines**. The fifth cut, and
+[`CHANGELOG.md`](../../CHANGELOG.md) stays under 800 lines**. The fifth cut, and
 the first that could not be taken into
 [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md). Volume 1 stood at **742**
 lines when this cut was sized; these two entries are **271**, so appending them
@@ -14,7 +14,7 @@ move.
 
 So the archive becomes **numbered volumes, each kept under 800 lines, never
 one growing file**, the rule
-[`docs/CARRIED-DEBT-ARCHIVE-2.md`](docs/CARRIED-DEBT-ARCHIVE-2.md) set for the
+[`docs/CARRIED-DEBT-ARCHIVE-2.md`](../CARRIED-DEBT-ARCHIVE-2.md) set for the
 debt ledger when the same thing happened to it, and which that ledger is now
 eight volumes deep in. Volume 1 is closed: nothing is appended to it again.
 
@@ -641,7 +641,7 @@ E7″'s needle list cannot be applied as written, because `Err` as a
   runtime and its blind-spot list restruck, with the list split to
   `typescript/HONESTY-BLIND-SPOTS.md`; `docs/query.md` gains the TypeScript
   paragraph under `exceptions`; `docs/CARRIED-DEBT.md` gains the rung's section
-  after cutting rung 1's to [`docs/CARRIED-DEBT-ARCHIVE-6.md`](docs/CARRIED-DEBT-ARCHIVE-6.md),
+  after cutting rung 1's to [`docs/CARRIED-DEBT-ARCHIVE-6.md`](../CARRIED-DEBT-ARCHIVE-6.md),
   drafted and measured first the way the ledger's own lesson asks; this rung's
   design gains a §14 naming every place its own text moved and why.
 

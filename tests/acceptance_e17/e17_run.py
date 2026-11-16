@@ -175,7 +175,7 @@ class Part:
         through this process: the instrument may be launched by another
         interpreter, and the subject is the venv's package."""
         r = self._run([self.python, "-c", "import importlib.metadata as m; "
-                       "print(m.version('sensorium'))"], REPO, self.env(), 60)
+                       "print(m.version('sensorium-trace'))"], REPO, self.env(), 60)
         return r["out"].strip() if r["rc"] == 0 else None
 
     def rel(self, path, root=None) -> str:

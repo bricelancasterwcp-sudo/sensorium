@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The rung-2 acceptance runner: E2', E3, E5, E7 and E8 against a real
-workspace, in the order `docs/superpowers/acceptance/
+workspace, in the order `docs/planning/acceptance/
 2026-09-02-sensorium-rung2-acceptance.md` §1 pre-registered.
 
 It writes `results.json` in the pre-registered none-versus-zero schema, every
@@ -126,7 +126,7 @@ def preflight(paths, cfg, dry) -> dict:
     if not Path(paths["sensorium_census_driver"]).is_file():
         raise Refused(f"no census driver at {paths['sensorium_census_driver']}")
     version = out(str(REPO / ".venv" / "bin" / "python"), "-c",
-                  "import importlib.metadata as m; print(m.version('sensorium'))")
+                  "import importlib.metadata as m; print(m.version('sensorium-trace'))")
     head = porcelain = branch = None
     if cfg["git"]:
         head = git(paths, "rev-parse", "HEAD").strip()

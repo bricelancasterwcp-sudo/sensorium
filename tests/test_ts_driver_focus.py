@@ -196,9 +196,13 @@ def test_a_spec_matching_nothing_is_refused_before_anything_is_minted(
     sdir = tmp_path / "sdir"
     r = drive(project, sdir, "--focus", "nope")
     assert r.returncode == 2, r.stdout + r.stderr
+    # The suite callbacks are named, so they are eligible. Nothing shares a
+    # trailing segment with `nope`, and the three slots fill by name. A space
+    # sorts before the closing quote, so `adds again` precedes `adds`.
     assert r.stderr.strip() == (
         f"error: --focus nope matches no function under {project}; "
-        "nothing was run. Closest: add")
+        "nothing was run. Closest: add, "
+        'describe("arithmetic"), describe("arithmetic").test("adds again")')
     assert "Traceback" not in r.stderr
     assert not (sdir / "spool").exists()
     assert not (sdir / "traces").exists()
@@ -361,7 +365,16 @@ def test_the_resolver_is_run_with_the_root_and_the_specs_in_its_environment(
     res = focus_mod.resolve(project, pkg_mod.locate(),
                             ["lib.ts:add", "a.test.ts:add"])
     assert res.matched_specs == ["lib.ts:add"]
-    assert res.unmatched == [{"spec": "a.test.ts:add", "closest": ["add"]}]
+    # `add` shares the spec's trailing segment. The other two share nothing
+    # and fill the remaining slots by name (`adds again` before `adds`).
+    assert res.unmatched == [{
+        "spec": "a.test.ts:add",
+        "closest": [
+            "add",
+            'describe("arithmetic")',
+            'describe("arithmetic").test("adds again")',
+        ],
+    }]
     assert res.files_scanned == 2 and res.files_unparsable == 0
     assert res.wall > 0
 

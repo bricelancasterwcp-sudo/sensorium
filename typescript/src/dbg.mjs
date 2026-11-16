@@ -27,6 +27,21 @@ const INSPECT = {
   compact: true,
 };
 
+// State only. At depth 0 a fulfilled string and a rejection's stack are still
+// inlined, so the capture keeps the state word and drops the rest.
+// `maxStringLength: 0` stops a long fulfilled string from being copied into
+// that check. No `then`: a reaction would observe a pending promise and would
+// handle a rejection the program left unhandled.
+const PROMISE_INSPECT = {
+  depth: 0,
+  maxStringLength: 0,
+  customInspect: false,
+  showHidden: false,
+  compact: true,
+  breakLength: Infinity,
+  colors: false,
+};
+
 /**
  * What the rule withheld, on the capture it took it from (§4.2): `by` is
  * `name` for a value taken whole and `content` for a span replaced inside
@@ -84,6 +99,103 @@ function oidOf(o) {
 }
 
 /**
+ * @param {unknown} v
+ * @returns {v is object}
+ */
+function isObject(v) {
+  return v !== null && (typeof v === 'object' || typeof v === 'function');
+}
+
+/**
+ * @param {object} v
+ * @returns {string}
+ */
+function ctorName(v) {
+  // A throwing getter is not a timer. Falling through lets `inspect` read the
+  // value and `typeOf` report `unread`.
+  try {
+    const ctor = /** @type {{constructor?: unknown}} */ (v).constructor;
+    return typeof ctor === 'function' && typeof ctor.name === 'string' ? ctor.name : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * @param {object} v
+ * @param {string} name
+ * @returns {boolean}
+ */
+function hasMethod(v, name) {
+  try {
+    return typeof /** @type {Record<string, unknown>} */ (v)[name] === 'function';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Node's `Timeout` (`setTimeout` / `setInterval`). It is not a thenable.
+ * @param {unknown} v
+ * @returns {boolean}
+ */
+function isTimeout(v) {
+  return isObject(v) && ctorName(v) === 'Timeout' && hasMethod(v, 'ref') && hasMethod(v, 'refresh');
+}
+
+/**
+ * Node's `Immediate` (`setImmediate`).
+ * @param {unknown} v
+ * @returns {boolean}
+ */
+function isImmediate(v) {
+  return isObject(v) && ctorName(v) === 'Immediate' && hasMethod(v, 'ref') && hasMethod(v, 'hasRef');
+}
+
+/**
+ * A real promise: `then` is a function, and the value is one this process
+ * treats as a Promise. An arbitrary thenable is left to `inspect`.
+ * @param {unknown} v
+ * @returns {v is Promise<unknown>}
+ */
+function isPromise(v) {
+  if (!isObject(v) || !util.types.isPromise(v)) return false;
+  return typeof /** @type {{then?: unknown}} */ (v).then === 'function';
+}
+
+/**
+ * `Promise { <pending> }`, `Promise { <fulfilled> }`, or `Promise { <rejected> }`.
+ * The state word is the prefix of `inspect`, never a fulfilled value that
+ * happens to mention the same word.
+ * @param {string} text
+ * @returns {string}
+ */
+function promiseSummary(text) {
+  const mark = /^[^{]*\{\s*<(pending|rejected)>/.exec(text);
+  if (mark !== null && (mark[1] === 'pending' || mark[1] === 'rejected')) {
+    return `Promise { <${mark[1]}> }`;
+  }
+  // Fulfilled inspect names Promise and no state word. If it names neither,
+  // the state could not be read, so the capture is the one word `Promise`.
+  return text.includes('Promise') ? 'Promise { <fulfilled> }' : 'Promise';
+}
+
+/**
+ * A short stand-in for a Promise, Timeout, or Immediate, or null when `v`
+ * is an ordinary value. Timers are recognized first so their inspect, which
+ * prints `_idleNext` and symbols, is never the capture. A promise's
+ * fulfillment is not walked, so a promise of a timer stays a promise summary.
+ * @param {unknown} v
+ * @returns {string|null}
+ */
+function summaryOf(v) {
+  if (isTimeout(v)) return 'Timeout';
+  if (isImmediate(v)) return 'Immediate';
+  if (!isPromise(v)) return null;
+  return promiseSummary(util.inspect(v, PROMISE_INSPECT));
+}
+
+/**
  * Capture a value — a RETURN's, a focused CALL's argument, a statement's delta.
  * @param {unknown} v
  * @returns {Captured}
@@ -94,7 +206,9 @@ export function dbg(v) {
   if (v === undefined) return { k: 'dbg', v: 'undefined', trunc: false };
   let text;
   try {
-    text = util.inspect(v, INSPECT);
+    // Summarize before the byte cap, so a timer or a promise is the short
+    // text and `trunc` stays false.
+    text = summaryOf(v) ?? util.inspect(v, INSPECT);
   } catch {
     return { k: 'unread' };
   }

@@ -15,7 +15,7 @@ cite `§n` as an identifier.
 ## 13. Refocus: the recorded command, run again one flag deeper
 
 Added 2026-09-07 by rung 4, slice 2
-(`docs/superpowers/specs/2026-09-07-sensorium-rung4-refocus-design.md`,
+(`docs/planning/specs/2026-09-07-sensorium-rung4-refocus-design.md`,
 rulings G1–G3 with amendments B1 and B2). `sensorium refocus <run> --focus
 <name>` answers on a Rust trace instead of refusing, and this section is what
 that answer may mean. **None of it is a claim that the two runs were the same
@@ -87,7 +87,7 @@ and the stamps `refocus_verdict`, `refocus_diverge_*`,
 meta, which is what makes a verdict outlive the terminal it printed in.
 
 *Falsified by* **E4 H3**
-(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md` §4: **61 of
+(`docs/planning/acceptance/2026-09-07-sensorium-rung4-e4.md` §4: **61 of
 61 MATCH**, 0 DIVERGED and 0 REFUSED over every `#[test]` of the seven
 `pager_*_test.rs` files of a workspace nobody wrote this recorder for, one
 test at a time under `--exact`, against an expected-MATCH list written and
@@ -217,7 +217,7 @@ fragment stripped before comparing: RUSTDOCFLAGS` rides on the env line and in
 the stamped fact.
 
 *Measured by* **E4″ H2**
-(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md`, §3 and §4)
+(`docs/planning/acceptance/2026-09-08-sensorium-rung4-e4pp.md`, §3 and §4)
 at n = 61 over the same 61 kept originals, recorded by driver **0.5.0** and
 re-run here by **0.5.2**, a different build by construction and the one
 condition E4′ could not create. `RUSTDOCFLAGS` is in **0 of 61** changed lists;
@@ -228,7 +228,7 @@ every re-run), with none unread, so there is no pair on which the strip fired
 untested. The reading's other half, the count of fragments removed per key per
 side, was read (**1** per side on 61 of 61, `occurrences` **2**) and lifted
 into no published cell: gap 4 of
-`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp-findings.md`.
+`docs/planning/acceptance/2026-09-08-sensorium-rung4-e4pp-findings.md`.
 *Also falsified by* `tests/test_refocus_env.py`, a world flag beside the
 fragment still withholds, two tokens naming different directories are not our
 fragment, a pair with no fragment reads exactly as it did, and the removal and

@@ -7,7 +7,7 @@ non-empty `dropped` list is the ONLY representation of not-measured, and `0`
 is measured-and-zero.
 
 Nothing here decides a verdict, and nothing here counts a false accusation.
-§1 of `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md` asks for
+§1 of `docs/planning/acceptance/2026-09-05-sensorium-rung3-e6q.md` asks for
 every printed SWALLOWED line to be adjudicated against the CLONE'S SOURCE by
 the acceptance author. That is a reading, not a computation: all three arms'
 false-accusation headlines are `null` with the reason, and what the schema

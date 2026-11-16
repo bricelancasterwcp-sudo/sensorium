@@ -1,5 +1,5 @@
 //! The chain machine (design R7 and §2a of
-//! `docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`):
+//! `docs/planning/specs/2026-09-04-sensorium-rung3-err-flow-design.md`):
 //! per-thread state × next record, in one pure function.
 //!
 //! **What this module decides, and what it refuses to decide.** It mints chain
@@ -364,7 +364,7 @@ impl Machine {
     /// The four close rows of §2a, applied to every chain the closing frame
     /// holds. On `Outcome::Err`, the exit hop goes to the held chain whose
     /// text the RETURN carries (design B3, 2026-09-05,
-    /// `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
+    /// `docs/planning/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
     /// §3), falling back to the innermost eligible held chain when no
     /// eligible one matches -- a wildcard text (cut or unread) matches every
     /// chain, so the fallback IS that case. Every other row (`Ok`, `Panic`,

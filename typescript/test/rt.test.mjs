@@ -612,16 +612,21 @@ test("the transform's own output runs against this runtime", () => {
   // wrapped TEST callback reaches is inside one — which is the whole of what
   // the task boundary claims.
   assert.deepEqual([...new Set(calls.filter((c) => c.t === null).map(site))],
-    ['describe', '<anonymous>', 'it']);
+    ['describe', 'describe("math")', 'it']);
   const inTask = calls.filter((c) => c.t === task.id);
-  assert.deepEqual([...new Set(inTask.map(site))].sort(),
-    ['<anonymous>.<anonymous>', '<anonymous>.<anonymous>.<anonymous>', 'counter', 'guard', 'twice']);
+  assert.deepEqual([...new Set(inTask.map(site))].sort(), [
+    'counter',
+    'describe("math").it("adds")',
+    'describe("math").it("adds").<anonymous>',
+    'guard',
+    'twice',
+  ]);
   // A generator parked at `yield` is not the parent of what runs next: the
   // `guard(x)` calls in the loop body belong to the test callback's frame.
   const generator = calls.find((c) => site(c) === 'counter');
   assert.deepEqual(calls.filter((c) => c.p === generator.f), [],
     'nothing nests under a parked generator');
-  const body = calls.find((c) => site(c) === '<anonymous>.<anonymous>');
+  const body = calls.find((c) => site(c) === 'describe("math").it("adds")');
   assert.deepEqual([...new Set(calls.filter((c) => site(c) === 'guard').map((c) => c.p))],
     [body.f], 'the loop body called guard, not the generator');
   // One thrown object, followed from the `throw` through the unwind into the
@@ -666,6 +671,44 @@ test('a generator its consumer closed early closes as a return it never read', (
     .map((r) => r.k), ['yield', 'yield']);
   assert.ok(ran.recs.indexOf(closed) > ran.recs.lastIndexOf(
     of(ran.recs, 'YIELD').filter((r) => r.f === generator.f).at(-1)));
+});
+
+test('for await parks the frame on each iterator step', () => {
+  const require = createRequire(import.meta.url);
+  const source = [
+    'async function* three() { yield 1; yield 2; yield 3; }',
+    'async function sum(src) {',
+    '  let n = 0;',
+    '  for await (const x of src) n += x;',
+    '  return n;',
+    '}',
+    'let closed = false;',
+    'async function* one() {',
+    '  try { yield 1; yield 2; } finally { closed = true; }',
+    '}',
+    'async function first(src) {',
+    '  for await (const x of src) return x;',
+    '}',
+    'const sync = await sum([Promise.resolve(1), Promise.resolve(2)]);',
+    'const asyncd = await sum(three());',
+    'const early = await first(one());',
+    'console.log(JSON.stringify({ sync, asyncd, early, closed }));',
+    '',
+  ].join('\n');
+  const out = transformSource(source, '/w/for-await.mjs',
+    { ts: require('typescript'), root: '/w', rtPath: RT });
+  assert.ok(out && out.code);
+  const ran = run(out.code, { raw: true });
+  ok(ran);
+  assert.deepEqual(JSON.parse(ran.res.stdout),
+    { sync: 3, asyncd: 6, early: 1, closed: true });
+  const site = (/** @type {any} */ c) => out.manifest.instrumented[c.c].qualname;
+  const frame = of(ran.recs, 'CALL').find((c) => site(c) === 'sum' &&
+    of(ran.recs, 'RETURN').some((r) => r.f === c.f && r.v && r.v.v === '6'));
+  assert.ok(frame);
+  // Three values and the iterator's final done step. Each is an await.
+  assert.equal(of(ran.recs, 'YIELD').filter((r) => r.f === frame.f).length, 4);
+  assert.equal(of(ran.recs, 'RESUME').filter((r) => r.f === frame.f).length, 4);
 });
 
 test('a generator that runs to its own end still closes with its own value', () => {

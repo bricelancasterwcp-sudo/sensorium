@@ -29,7 +29,6 @@ questions:
     expect_exit: 0
     expect_line:
       - ["e5 HANDLED", "handled Error('upstream is down') L6"]
-      - ["SWALLOWED -- caught by sink_empty_catch_callback at e5
-          (<anonymous> L6) in f1, which returned"]
+      - ['SWALLOWED -- caught by sink_empty_catch_callback at e5 (test("a quote is fetched before the receipt is printed") L6) in f1, which returned']
       - ["born outside a throw statement (a reject())"]
       - ["dispositions: swallowed 1"]

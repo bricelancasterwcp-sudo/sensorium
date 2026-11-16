@@ -167,8 +167,8 @@ beside an unfocused `helper(tier='bronze')` in the same tree),
 `~ RESUME` between them, and the reader that took the placeholder sitting in
 the gap), `focus_catch_binding` (SWALLOWED, the clause's entry row carrying
 `e`, then the `try`'s own row with `unbound:e`), `focus_place_write`
-(`state.x = 5` as a present row with an absent delta, and the 5 followable
-nowhere), `focus_container` (two spellings of one class name selecting the
+(`state.x = 5` as a row whose delta is `state.x=5`, which `flow` sights),
+`focus_container` (two spellings of one class name selecting the
 same two methods, with `info` printing the specs as typed beside what they
 matched) and `flow_value_inspect` (the inspect dialect's own spellings: a
 `5.0` needle finding a JS `5`, a quoted string, a 150-character value cut at

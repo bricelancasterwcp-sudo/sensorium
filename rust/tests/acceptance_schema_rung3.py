@@ -5,7 +5,7 @@ Same rules as `acceptance_schema.assemble`: every measurement is
 list is the ONLY representation of not-measured, and `0` is measured-and-zero.
 
 Nothing here decides a verdict. §4 of
-`docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
+`docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
 written by hand against §1's rules, and E6''s adjudication -- which no program
 can do, because it is a reading of the clone's SOURCE -- is carried as a
 `null` with the reason, never as a number this file invented.
@@ -263,8 +263,8 @@ def _e7pp(raw) -> dict:
         "operand_column_shift": meas(
             op.get("column_shift_call") if have else None, 1,
             f"instrumented column minus plain column for the panic literal "
-            f"inside a `?` operand, tier `call`; §1 predicted "
-            f"{op.get('predicted_shift')} (the wrap prefix `match `)",
+            f"inside a `?` operand, tier `call`; predicted shift "
+            f"{op.get('predicted_shift')}",
             op.get("dropped") or []),
         "operand_column_shift_off": meas(
             op.get("column_shift_off") if have else None, 1,

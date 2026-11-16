@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The E9 runner: the focus tier measured ONCE against the bloomery clone, in
-the order `docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md` §1
+the order `docs/planning/acceptance/2026-09-06-sensorium-rung4-e9.md` §1
 pre-registers.
 
 WHAT THIS RUNNER DOES
@@ -109,7 +109,7 @@ eph.LOGS = LOGS
 e6ppp.LOGS = LOGS
 e6ppp.BASE = BASE
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-06-sensorium-rung4-e9.md")
 
 #: The commit §1 is byte-locked against NOW: the AMENDED lens. A `None` lock
@@ -149,7 +149,7 @@ RUNNER = "rust/tests/acceptance_e9.py"
 SCHEMA_VERSION = "e9/2"
 
 RAW = LEDGER / "results-e9-raw.json"
-RESULTS = (REPO / "docs" / "superpowers" / "acceptance"
+RESULTS = (REPO / "docs" / "planning" / "acceptance"
            / "2026-09-06-sensorium-rung4-e9.results.json")
 
 #: §1.1's hand count, line by line, as a COMPARISON TARGET published under
@@ -398,7 +398,7 @@ def preflight_e9(paths, cfg) -> dict:
         "python": out(str(REPO / ".venv" / "bin" / "python"), "-V"),
         "sensorium_version": out(
             str(REPO / ".venv" / "bin" / "python"), "-c",
-            "import importlib.metadata as m; print(m.version('sensorium'))"),
+            "import importlib.metadata as m; print(m.version('sensorium-trace'))"),
         "nproc": os.cpu_count(),
         "governor": Path("/sys/devices/system/cpu/cpu0/cpufreq/"
                          "scaling_governor").read_text().strip(),

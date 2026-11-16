@@ -477,18 +477,12 @@ def test_the_wrapper_goes_when_the_run_merely_finishes(tmp_path, monkeypatch):
 
 def test_the_wrappers_own_refusal_is_what_the_driver_prints(
         tmp_path, monkeypatch, capsys):
-    """R41. A `test.projects` config makes vitest resolve a config per
-    project; this wrapper merges onto ONE, so the plugin never reaches the
-    projects' pipelines and the suite runs recording nothing. What the
-    caller then got was the converter's own sentence -- "nothing was
-    recorded, or the recorder wrote somewhere else" -- which names neither
-    the cause nor the fix.
-
-    The config refuses by name now, and leaves the sentence in the spool
-    directory on its way out: vitest's own error is one line inside a
-    config trace on the harness's stderr, and the driver has nothing else
-    to go on. Both arms are checked: the file when it is there, and the
-    fallback when it is not.
+    """R41. A string or glob in `test.projects` names a config this wrapper
+    does not merge. It refuses by name and leaves the sentence in the spool,
+    so the driver prints that sentence instead of "nothing was recorded".
+    Inline project objects are instrumented and do not take this path.
+    Both arms are checked: the file when it is there, and the fallback
+    when it is not.
     """
     from sensorium.ts import driver, wrapper
     from sensorium.ts.invocation import HarnessExit

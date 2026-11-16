@@ -69,9 +69,9 @@ edition the triple does not, and the moves either side of it are the sentences
 above; nothing else in the chain changed.)
 
 Sensorium's founding rule is that **the instrument never answers from data it
-does not have**. The Python recorder keeps its half of that rule in the
-README's *What the answers claim*, *What a trace file holds* and *What
-sensorium sees at all*. This is the Rust recorder's half, and it is written to
+does not have**. The Python recorder keeps its half of that rule in
+[`../docs/claims.md`](../docs/claims.md) and [`../docs/visibility.md`](../docs/visibility.md).
+This is the Rust recorder's half, and it is written to
 the same standard the standing ruling of 2026-08-20 set: a sibling recorder
 carries its own honesty ledger, and multi-language support never softens the
 core.
@@ -86,12 +86,12 @@ document does not carry assertions. The index is
 **Provenance.** Spec §7 requires this document *before* the transformer, so it
 is written first and the code is written to it, not the other way round. The
 design is
-`docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`; the
+`docs/planning/specs/2026-09-01-sensorium-rust-recorder-design.md`; the
 measurements it rests on are
-`docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md` (rung 1, cited
+`docs/planning/spikes/2026-09-02-rust-mechanics-spike.md` (rung 1, cited
 below as *findings §n*); the endpoints named E2′, E3, E5, E7 and E8 are
 pre-registered in
-`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`. Where a
+`docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md`. Where a
 falsifier is a file that a later task of the rung-2 plan creates, the path here
 is the name that task must use.
 
@@ -195,7 +195,7 @@ reader renders it.
   is a thread name, not a task name, so a child of `main` is `spawn@<site>`
   alone (a task row belongs to every *non-main* thread, above), and an empty
   name is no name.~~ **Superseded 2026-09-03** (rung-3 entry decision (b),
-  `docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`
+  `docs/planning/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`
   decisions N1, N5, N6): a rewritten `std::thread::spawn` site now produces
   the name `<parent task name> :: spawn@<qualname>#<k>`, or
   `spawn@<qualname>#<k>` alone when the spawning thread has no *task* name
@@ -239,7 +239,7 @@ reader renders it.
     the three fn visitors descend into the body only, and
     `visit_item_impl`/`visit_item_trait` visit `items` only (a pre-existing
     rung-2 hole, found and dated 2026-09-03, carried as an open item in
-    `docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md` §3; (vii) a
+    `docs/planning/specs/2026-09-02-sensorium-rung3-inbox.md` §3; (vii) a
     `fn` item nested inside a `const`/`static` initialiser now carries that
     item's name as a qualname prefix (`X::h`, where rung 2 wrote `h`)) a
     `Site.qualname` change, more correct, zero instances on bloomery
@@ -256,7 +256,7 @@ reader renders it.
   file move by `diff --ignore-moves`, and seen as moved by plain `diff`),
   `corpus/rust/spawned_thread`, `rust/tests/mechanics.sh` (two checks pin
   `<test fn> :: spawn@<test fn>#1`), and the E5′ acceptance record
-  `docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`
+  `docs/planning/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`
   (its §4. This ledger does not assert that document's verdict; the
   STOP-conjunct question its §5.1 left open was ruled 2026-09-04: (b)
   withdrawn; see the record §5.1).
@@ -456,7 +456,7 @@ fixture of `tests/test_rust_convert.py`.
 **Falsified by** E3 (20 identical re-runs of one test binary, same binary hash:
 DIVERGED 0/19 and REFUSED 0/19) and E5 (`diff --ignore-moves` on the
 registry.rs split, plus the planted call-site swap that must read DIVERGED) in
-`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, by
+`docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, by
 `rust/cargo-sensorium/tests/unit_identity.rs` (two units of one crate root get
 two mirrors with two different unit statics, and the check asserts it examined
 more than zero crate roots, findings §5.29), and by the identical-pair fixture
@@ -573,7 +573,7 @@ number in this rung gates anything.
   reason to stop recording.
 
 **Falsified by** the reported walls of the acceptance run
-(`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3,
+(`docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3,
 *reported without a gate*): plain against call in alternating order with a
 cool-down, the load recorded per arm, and an arm **dropped rather than
 re-rolled** if the box was busy when it started.
@@ -592,7 +592,7 @@ before it, rather than one discovered at the ceiling.
 ## 12. The focus tier: LINE, and the deltas a statement wrote
 
 Added 2026-09-06 by rung 4, slice 1
-(`docs/superpowers/specs/2026-09-06-sensorium-rung4-focus-tier-design.md`, §3
+(`docs/planning/specs/2026-09-06-sensorium-rung4-focus-tier-design.md`, §3
 and amendments A1-A12). `watch` answers on a focused Rust trace instead of
 refusing. `flow --value` reads the LINE bindings this section describes, and
 on a run with no `--focus` it still searches recorded returns and call
@@ -632,7 +632,7 @@ match only where the manifest's source hashes are still present in the tree,
 or its mtime is at or after the invocation's start) is `docs/CARRIED-DEBT.md`,
 not taken here, because it is a `src` change after the measurement (R-F14).
 *Falsified by* **E9 H3**
-(`docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md` §4: **N = 26**
+(`docs/planning/acceptance/2026-09-06-sensorium-rung4-e9.md` §4: **N = 26**
 LINE rows over one activation of a real workspace function, against a count
 hand-derived from these rules and locked before the transform could produce a
 competing number, with **0** line differences against its per-line table);

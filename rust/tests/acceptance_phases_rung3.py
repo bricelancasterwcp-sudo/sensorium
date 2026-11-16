@@ -10,7 +10,7 @@ same way is IMPORTED from it (`phase_e3`, `phase_e5`, `phase_walls`,
 protocol.
 
 Each phase returns RAW FACTS. Nothing here decides a verdict -- §4 of
-`docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
+`docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
 written by hand against §1's rules, and `acceptance_schema_rung3.assemble_rung3`
 turns these facts into the none-versus-zero `results.json`.
 """
@@ -562,19 +562,20 @@ def _try_rows(paths, scope: list[str]) -> dict:
 
 # ------------------------------------------------------------------ E7''
 
-#: The wrap prefix `crate::splice::ERR_OPEN`, and therefore §1's predicted
-#: column shift for a panic inside a `?` operand. Written here as the number
-#: §1 pre-registered, not read from the source at run time: a check that
-#: derives its own prediction from the thing under test predicts nothing.
-E7_PREDICTED_SHIFT = 6
+#: The column shift E7'' predicts for a panic inside a `?` operand. The wrap
+#: still inserts `match `, and the runtime maps the reported column back, so
+#: the live prediction is 0: the instrumented column equals the plain one.
+#: Written here as a constant, not read from the source at run time.
+E7_PREDICTED_SHIFT = 0
 
 PANIC_AT = re.compile(r"panicked at ([A-Za-z0-9_./-]+\.rs):(\d+):(\d+)")
 
 
 def phase_e7pp(paths, cfg) -> dict:
     """E7'': `rust/tests/mechanics.sh`, whose E7 section now carries BOTH the
-    unchanged checks on the probe's existing panics and the new
-    `?`-operand-panic check with its pre-registered +6 column.
+    unchanged checks on the probe's existing panics and the
+    `?`-operand-panic check, whose predicted shift is 0 (the mapped column
+    equals the plain column).
 
     `acceptance_phases.phase_e7a` is not reused: it reads `ok:`/`FAIL:` lines
     generically, and E7'' needs the operand check's three numbers (plain

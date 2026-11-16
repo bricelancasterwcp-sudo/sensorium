@@ -28,8 +28,8 @@ heard of, is stored as typed. The **content rule** fires on what a text LOOKS
 like, and its list is a floor of nineteen shapes. A secret matching none of
 them is stored as typed too. Between them they reach the environment (by name
 only), every captured value (by name) and every stored text (by content).
-What they do not reach is "The honest limits" below, and the README's "What a
-trace file holds" says the same in shorter words.
+What they do not reach is "The honest limits" below, and [visibility.md](visibility.md)
+says the same in shorter words.
 
 Treat a trace the way you would treat a core dump. What the rule removes is
 two classes of accident (the shell's exported credentials, which nobody

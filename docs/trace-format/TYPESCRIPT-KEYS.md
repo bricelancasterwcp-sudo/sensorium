@@ -160,7 +160,7 @@ is the frame's child (0.4.0; blind spot 38 closed).
 | `const` / `let` / `var PAT = e;` | every identifier `PAT` binds, nested object and array patterns, defaults, rest elements |
 | `let x;` | `x`. JavaScript binds it to `undefined`, which is a write; Rust's deferred `let` binds nothing until assigned, and the two contracts differ here on purpose |
 | `x = e`, `x += e`, `x ??= e`, `x++`, `[a, b] = [b, a]`, `({a} = o)`, at any depth in the statement's own expressions | the identifier targets, in source order, once each. A `\|\|=` / `&&=` / `??=` may not write at all; the row reports the binding's value after the statement either way |
-| `a.b = e`, `a[i] = e`, `delete a.b`, `a.b++` | **none**, a place write, declared (blind spot 28) |
+| `a.b = e`, `a[i] = e`, `a.b.c = e`, `this.x = e`, `delete a.b`, `a.b++`, when the base is an identifier or `this` and the spelling is safe to re-read | that spelling. `delete a.b` then reads `undefined`. Optional chaining, a call base, `super`, and an index that assigns or updates are still **none** for the place (blind spot 28) |
 | an expression statement that writes nothing (`foo();`, `await p;`) | empty. The row says the line ran |
 | a block-like statement completing (`if`, `for`, `while`, `do`, `switch`, `try`, a bare block) | empty, plus `unbound`; and, from plan P1, the assignment targets of its own HEAD, `while ((m = re.exec(s)) !== null)` reports `m = null` on the `while`'s row, which is the value every later site reads |
 | a nested function's statements | **none of this function's**, `writesOf` stops at a function-like or class-member body; those statements are the nested function's own rows when it is focused too (blind spot 33) |

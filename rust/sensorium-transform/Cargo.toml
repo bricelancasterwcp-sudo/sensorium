@@ -22,6 +22,10 @@ proc-macro2 = { version = "1.0.80", features = ["span-locations"] }
 syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# The same `unicode-width` rustc_span 1.96 uses to print `Location::column()`.
+# Widths are computed here and stored as numbers; `sensorium-rt` stays
+# dependency-free and only subtracts them.
+unicode-width = "=0.2.2"
 
 [dev-dependencies]
 # The tests re-parse what the transformer emitted with an INDEPENDENT call, so

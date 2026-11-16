@@ -145,7 +145,8 @@ def test_the_amendment_ADDED_section_1_5_and_moved_no_earlier_row():
 def _section1_at(sha: str) -> str:
     """§1 as committed at `sha`, by the lock's own extraction."""
     text = subprocess.run(
-        ["git", "show", f"{sha}:{runner.DOC.relative_to(REPO).as_posix()}"],
+        ["git", "show",
+         f"{sha}:{rung3.lock_commit_path(runner.DOC.relative_to(REPO).as_posix())}"],
         cwd=REPO, capture_output=True, text=True).stdout
     return rung3.section1(text)
 

@@ -262,7 +262,7 @@ def _version() -> str:
     is what would read the file. `?` from a source tree that was never
     installed: a refusal must not fail while explaining itself."""
     try:
-        return importlib.metadata.version("sensorium")
+        return importlib.metadata.version("sensorium-trace")
     except importlib.metadata.PackageNotFoundError:
         return "?"
 

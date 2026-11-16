@@ -26,7 +26,7 @@ questions:
     expect_contains: ["task t1: a sweep is scheduled and not awaited"]
     expect_count: {"sweep() -> 1": 1}
     expect_line:
-      - ["<anonymous>()", "[async]", "!! AssertionError("]
+      - ['test("a sweep is scheduled and not awaited")()', "[async]", "!! AssertionError("]
       - ["pending() -> 0"]
   - id: who-called-the-sweep
     ask: Which frame of the program called `sweep`?
@@ -67,11 +67,11 @@ questions:
       test did. That is the mistake this question exists to make impossible,
       and no `console.log`, `DEBUG` namespace or stack trace distinguishes
       "ran during" from "was called by".
-    command: ["frame", "$RUN", "--fn", "<anonymous>"]
+    command: ["frame", "$RUN", "--fn", 'test("a sweep is scheduled and not awaited")']
     expect_contains: ["children (3):", "state: raised"]
     expect_line:
-      - ["timer_callback_parentless.test.ts:<anonymous>", "depth 0",
-         "closed: unwind"]
+      - ['timer_callback_parentless.test.ts:test("a sweep is scheduled and not awaited")',
+         "depth 0", "closed: unwind"]
       - ["enqueue(n=1) -> 1"]
     # Not the bare word: the TASK is named after the sweep, and the claim
     # here is about a child ROW -- which is spelled `sweep()`.

@@ -5,10 +5,12 @@
 // a captured object carries, and the two declaration shapes a BOOT can have.
 // Nothing here is a mock; the child-process helper is `helpers/rt-child.mjs`.
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import test from 'node:test';
 
 import { VERSION } from '../src/index.mjs';
-import { of, ok, one, run } from './helpers/rt-child.mjs';
+import { transformSource } from '../src/transform.mjs';
+import { RT, of, ok, one, run } from './helpers/rt-child.mjs';
 
 // --- LINE ------------------------------------------------------------------
 
@@ -285,6 +287,30 @@ test('an odd pairs list is a transform bug and throws rather than dropping a nam
   `);
   assert.notEqual(out.res.status, 0, 'the child must not exit 0');
   assert.match(out.res.stderr, /captures: an odd pairs list — 3 entries/);
+});
+
+test('a focused method records this.n and the receiver', () => {
+  const require = createRequire(import.meta.url);
+  const source = [
+    'class Box {',
+    '  set(v) { this.n = v; return this.n; }',
+    '}',
+    'new Box().set(1);',
+    '',
+  ].join('\n');
+  const out = transformSource(source, '/w/box.mjs', {
+    ts: require('typescript'), root: '/w', rtPath: RT, focus: ['Box.set'],
+  });
+  assert.ok(out && out.code);
+  const ran = run(out.code, { raw: true, focus: 'Box.set' });
+  ok(ran);
+  const site = (/** @type {any} */ c) => out.manifest.instrumented[c.c].qualname;
+  const set = of(ran.recs, 'CALL').find((c) => site(c) === 'Box.set');
+  assert.ok(set, 'Box.set ran');
+  assert.equal(set.a.this.type, 'Box');
+  const wrote = of(ran.recs, 'LINE').find((r) => r.f === set.f && r.d['this.n']);
+  assert.ok(wrote, 'the member write is a delta');
+  assert.equal(wrote.d['this.n'].v, '1');
 });
 
 test("the recorder's version is 0.6.2", () => {

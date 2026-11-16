@@ -1,4 +1,4 @@
-import * as __srt from "RT";const __sfile=__srt.file("src/options-object.test.ts","/w/src/options-object.test.ts",[["<anonymous>",3,"function"],["<anonymous>.<anonymous>",4,"function"],["<anonymous>",11,"function"],["<anonymous>",15,"function"]],"015417a0d17ba2c8753b60d9ea15ae66c2cdf185042cce1ef69324d06f798f22");import { describe, expect, test } from "vitest";
+import * as __srt from "RT";const __sfile=__srt.file("src/options-object.test.ts","/w/src/options-object.test.ts",[["describe(\"options\")",3,"function"],["describe(\"options\").test(\"times out\")",4,"function"],["test(\"options across lines\")",11,"function"],["test(\"a concise body with options\")",15,"function"]],"015417a0d17ba2c8753b60d9ea15ae66c2cdf185042cce1ef69324d06f798f22");import { describe, expect, test } from "vitest";
 
 describe(...__srt.suite(("options"), { concurrent: true }, () => {const __sf=__srt.call(__sfile,0,[]);try{
   test(...__srt.task(("times out"), { timeout: 100 }, () => {const __sf=__srt.call(__sfile,1,[]);try{

@@ -641,7 +641,7 @@ def test_results_json_if_present_matches_the_committed_schema():
     """When the run has happened, the published `results.json` must still be
     the shape the renderer reads -- a document whose numbers were pasted by
     hand would not be."""
-    p = (REPO / "docs" / "superpowers" / "acceptance"
+    p = (REPO / "docs" / "planning" / "acceptance"
          / "2026-09-04-sensorium-rung3-acceptance.results.json")
     if not p.is_file():
         pytest.skip("the acceptance run has not published results.json yet")

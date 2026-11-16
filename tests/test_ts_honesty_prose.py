@@ -27,7 +27,7 @@ The three dialects, and how a falsifier is classified:
   `tests/common/*.rs` is a per-crate cargo convention, not one path).
 * an **acceptance endpoint** -- `E2'`, `E6-TS'`, `H6` and their kin, which
   are names of measurements rather than files. The record that measured one
-  is a file under `docs/superpowers/acceptance/`, so the endpoint is checked
+  is a file under `docs/planning/acceptance/`, so the endpoint is checked
   by its name appearing in some record there.
 * a **title** -- the parenthesised note a citation may carry, italic
   (`(*a statement of the finally mints its row*)`) or backticked
@@ -162,7 +162,7 @@ def _titles(note: str) -> list[str]:
 
 
 def _acceptance_text() -> str:
-    records = REPO / "docs" / "superpowers" / "acceptance"
+    records = REPO / "docs" / "planning" / "acceptance"
     return "\n".join(p.read_text(errors="replace")
                      for p in sorted(records.rglob("*")) if p.is_file())
 
@@ -270,7 +270,7 @@ def test_every_acceptance_record_the_cost_ledger_cites_exists():
     no longer resolves is a cost number with no evidence behind it."""
     text = TS_COST.read_text()
     cited = sorted({t for t in re.findall(r"`([^`]+)`", text)
-                    if "docs/superpowers/acceptance/" in t})
+                    if "docs/planning/acceptance/" in t})
     assert len(cited) >= 3, cited
     missing = [t for t in cited if not _exists(t, TS_COST.parent)]
     assert missing == [], missing

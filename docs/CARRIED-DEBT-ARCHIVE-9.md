@@ -183,7 +183,7 @@ closed: it now reads within the unit's own window; a logged rethrow
   `tests/test_ceiling.py` enforces, so the next release entry cannot be
   written until its oldest section is cut. The mechanism is this repo's
   own and is NOT this file's numbered volumes:
-  [`CHANGELOG-ARCHIVE.md`](../CHANGELOG-ARCHIVE.md), one archive file, the
+  [`CHANGELOG-ARCHIVE.md`](changelog/CHANGELOG-ARCHIVE.md), one archive file, the
   oldest entries moved into it as a pure move in a commit that lands
   BEFORE the release entry is appended. The way `0.8.2`, `0.8.1` and
   `0.8.0` moved at rung 1. Cut before append. *Cost if wrong:* the release

@@ -204,7 +204,7 @@ meta key or column that hides a bad ratio, because the promise is about what the
 record does, not about a value inside the trace file itself.
 
 **Falsifier.** the acceptance record carries the ratio whichever way it reads:
-`docs/superpowers/acceptance/<S1 date>-model-recorder.md` §E-overhead, an acceptance record
+`docs/planning/acceptance/<S1 date>-model-recorder.md` §E-overhead, an acceptance record
 that omits the ratio, or omits it specifically because it fell below the `[0.95, 1.00]` band,
 falsifies the "never gated" half of the promise.
 
@@ -223,4 +223,4 @@ falsifies the "never gated" half of the promise.
 | 7 | `exec.run_id` is the id passed to the child or null; the daemon's witness and the program trace's exit are two labeled facts | `m07a-spans-exec-ref-joins-program-trace` (daemon unwitnessed, trace exit 1) and `m07b-spans-exec-ref-trace-not-found` (daemon saw exit 1, trace not found); `tests/test_join_env.py::test_join_copied_verbatim_or_omitted` (S3) |
 | 8 | `noise_band` only on a blessed trace, naming its baseline | `m05c-diff-within-noise-needs-blessed-band` (REFUSED when weights differ); E-noise′ |
 | 9 | nothing says why; attention under FA declared unwitnessable | `m09-attention-declared-unwitnessable-under-fa` |
-| 10 | cost reported, never gated | E-overhead published either way; the acceptance record carries the ratio whichever way it reads: `docs/superpowers/acceptance/<S1 date>-model-recorder.md` §E-overhead |
+| 10 | cost reported, never gated | E-overhead published either way; the acceptance record carries the ratio whichever way it reads: `docs/planning/acceptance/<S1 date>-model-recorder.md` §E-overhead |

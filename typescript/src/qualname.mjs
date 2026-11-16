@@ -5,11 +5,19 @@
 // and no binding is `<anonymous>` with NO ordinal, because an ordinal would move
 // every later anonymous function's key when one is inserted above it — the very
 // move-fragility `diff --ignore-moves` exists to absorb.
+//
+// A direct callback of `test`, `it`, `describe`, or `suite` is named from that
+// call (`it("adds")`, nested as `describe("math").it("adds")`). The callee in
+// the name is the root identifier, and only a string or no-substitution
+// template title counts. Every other nameless function stays `<anonymous>`.
 
 /** @typedef {typeof import('typescript')} TS */
 /** @typedef {import('typescript').Node} Node */
 
 export const ANONYMOUS = '<anonymous>';
+
+/** Roots of a test or suite call. The name keeps this root, never `skip` or `each`. */
+const TEST_ROOTS = new Set(['test', 'it', 'describe', 'suite']);
 
 /**
  * The dotted text of `a.b.c`, or null when a segment is not a plain name.
@@ -64,14 +72,82 @@ function spelledName(ts, name) {
 }
 
 /**
+ * The identifier chain of a call's callee, the same walk `tasks.mjs` uses for
+ * a task boundary. `it.skip` is `['it', 'skip']` and `test.each(rows)` is
+ * `['test', 'each']`. A tagged `test.each` is the same chain.
+ * @param {TS} ts
+ * @param {import('typescript').Expression} callee
+ * @returns {string[]|null}
+ */
+function calleeChain(ts, callee) {
+  /** @type {string[]} */
+  const chain = [];
+  let cur = callee;
+  for (;;) {
+    if (ts.isCallExpression(cur)) { cur = cur.expression; continue; }
+    if (ts.isTaggedTemplateExpression(cur)) { cur = cur.tag; continue; }
+    if (ts.isPropertyAccessExpression(cur)) {
+      chain.unshift(cur.name.text);
+      cur = cur.expression;
+      continue;
+    }
+    if (ts.isIdentifier(cur)) { chain.unshift(cur.text); return chain; }
+    return null;
+  }
+}
+
+/**
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {node is import('typescript').StringLiteral | import('typescript').NoSubstitutionTemplateLiteral}
+ */
+function isLiteralTitle(ts, node) {
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
+}
+
+/**
+ * `"` and `\` become escapes so the printed name stays one token.
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeTitle(text) {
+  return text.replace(/[\\"]/g, (ch) => `\\${ch}`);
+}
+
+/**
+ * The name of a direct callback of `test`/`it`/`describe`/`suite`, or null.
+ * The callback is argument 2 when argument 1 is an object literal
+ * (`test(name, options, fn)`), otherwise argument 1. A computed title, a
+ * parenthesized callback, or any other callee stays unnamed here.
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {string|null}
+ */
+function testCallbackName(ts, node) {
+  const parent = node.parent;
+  if (!parent || !ts.isCallExpression(parent)) return null;
+  const chain = calleeChain(ts, parent.expression);
+  if (!chain || !TEST_ROOTS.has(chain[0])) return null;
+  const args = parent.arguments;
+  const title = args[0];
+  if (!title || !isLiteralTitle(ts, title)) return null;
+  const hasOptions = args.length > 1 && ts.isObjectLiteralExpression(args[1]);
+  if (args[hasOptions ? 2 : 1] !== node) return null;
+  // A dot inside a title is still a focus boundary.
+  return `${chain[0]}("${escapeTitle(title.text)}")`;
+}
+
+/**
  * The name of the binding a nameless function is attached to: a variable, an
- * object property, a class field, an assignment target, or `default` for an
- * `export default` expression.
+ * object property, a class field, an assignment target, a test or suite
+ * callback, or `default` for an `export default` expression.
  * @param {TS} ts
  * @param {Node} node
  * @returns {string|null}
  */
 function bindingName(ts, node) {
+  const called = testCallbackName(ts, node);
+  if (called !== null) return called;
   const parent = node.parent;
   if (!parent) return null;
   if (ts.isVariableDeclaration(parent) || ts.isPropertyAssignment(parent) ||

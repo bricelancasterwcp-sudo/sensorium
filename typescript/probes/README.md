@@ -1,7 +1,7 @@
 # `probes/`: the recorder recording itself
 
 A self-contained vitest project whose only job is to be recorded. Its expected
-rows were pinned by the S5 mechanics spike (`docs/superpowers/spikes/2026-09-08-typescript-mechanics-spike.md`,
+rows were pinned by the S5 mechanics spike (`docs/planning/spikes/2026-09-08-typescript-mechanics-spike.md`,
 §1.1–§1.3) **before** this recorder existed, and `check.mjs` holds the spools to
 them.
 

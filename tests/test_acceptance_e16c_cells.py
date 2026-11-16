@@ -49,7 +49,7 @@ from e16c_cells import (AMENDMENTS, CLEAN, DRY_TIMERS,            # noqa: E402
 from sensorium.query.redact_cmd import line_for, summary          # noqa: E402
 from sensorium.redact_store import Plan                           # noqa: E402
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-13-sensorium-e16-redaction.md")
 
 STEMS = ["20260101-000001-aaaaaa", "20260102-000002-bbbbbb",

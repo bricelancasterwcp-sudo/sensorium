@@ -6,7 +6,7 @@ assemble_rung3`: every measurement is `{"value", "n", "lens", "dropped"}`, a
 not-measured, and `0` is measured-and-zero.
 
 Nothing here decides a verdict, and nothing here counts a false accusation.
-§1 of `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` asks
+§1 of `docs/planning/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` asks
 for every printed SWALLOWED line to be adjudicated against the CLONE'S SOURCE
 by the acceptance author, under two readings. That is a reading, not a
 computation: both arms' false-accusation headlines are `null` with the reason,

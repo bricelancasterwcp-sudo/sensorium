@@ -56,7 +56,7 @@ from e16a import (ARMS, PREDICTIONS, RULES, TOKEN_VAR,          # noqa: E402
                   cell_h1, cell_h2, cell_h3, cell_h6, gated_roots,
                   part_word, read_pair)
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-13-sensorium-e16-redaction.md")
 
 

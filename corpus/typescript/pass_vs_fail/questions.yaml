@@ -15,7 +15,7 @@ questions:
       than listing two unmatched streams. Which recording is A and which is
       B is not fixed: one invocation records one trace per test file, in
       spool-name order, so this question asserts only what holds either way
-      -- one `<anonymous>` CALL on each side at step 0.
+      -- one `test("an order at the tier boundary earns gold")` CALL on each side at step 0.
     why_logs_fail: >
       Diffing two `console.log` transcripts finds the first difference
       in what was PRINTED, which here is nothing at all until vitest's
@@ -29,7 +29,8 @@ questions:
     expect_contains:
       - "first difference inside an order at the tier boundary earns gold"
       - "at causal step 0:"
-    expect_count: {"CALL    <anonymous>": 2}
+    expect_count:
+      'CALL    test("an order at the tier boundary earns gold")': 2
     expect_absent: ["verdict: MATCH", "REFUSED"]
   - id: where-do-the-two-runs-really-part
     ask: >
@@ -40,7 +41,7 @@ questions:
       from the same `price` in the same shared `pricing.ts`. Everything
       before that is identical once the two test callbacks are paired across
       the split, and everything after it is downstream consequence. The
-      pairing is stated with the verdict -- `moved: <anonymous>` between the
+      pairing is stated with the verdict -- `moved: test("an order at the tier boundary earns gold")` between the
       two test files -- rather than assumed, and `silver`/`gold` are named
       as the code objects each side has and the other does not. A and B are
       whichever container's spool sorted first, so the assertions here hold
@@ -61,7 +62,7 @@ questions:
       - "1 code object(s) paired across a move by qualname"
     expect_count: {"CALL    gold": 1, "CALL    silver": 1}
     expect_line:
-      - ["moved: <anonymous>", "above.test.ts", "boundary.test.ts"]
+      - ['moved: test("an order at the tier boundary earns gold")', "above.test.ts", "boundary.test.ts"]
     expect_absent: ["verdict: MATCH", "REFUSED"]
   - id: whose-exit-status-is-whose
     ask: >

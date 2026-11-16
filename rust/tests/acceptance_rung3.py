@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The rung-3 acceptance runner: E6, E6', E2'', E7'', E3'', E5'' and E0'',
-in the order `docs/superpowers/acceptance/
+in the order `docs/planning/acceptance/
 2026-09-04-sensorium-rung3-acceptance.md` §1 pre-registered, plus E1''
 reported without a gate.
 
@@ -76,7 +76,7 @@ from acceptance_lib import (CLONE_PIN, E3_RUNS, LOAD_CEILING,      # noqa: E402
 
 ph.LOGS = LOGS
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-04-sensorium-rung3-acceptance.md")
 
 #: The commit §1 is byte-locked against NOW: the amended E6' endpoint.
@@ -166,8 +166,24 @@ def locked_range(text: str) -> str:
     return "".join(parts)
 
 
+def lock_commit_path(rel: str) -> str:
+    """Path a lock commit still has.
+
+    Records moved from docs/superpowers/ to docs/planning/. git show and
+    git diff of a lock commit must name the path that commit stored.
+    A path outside that prefix is returned unchanged, so a fixture file
+    passed to the mutation tests still shows as itself.
+    """
+    new = "docs/planning/"
+    old = "docs/superpowers/"
+    if rel.startswith(new):
+        return old + rel[len(new):]
+    return rel
+
+
 def _committed(rel: str, commit: str) -> str | None:
-    r = subprocess.run(["git", "-C", str(REPO), "show", f"{commit}:{rel}"],
+    stored = lock_commit_path(rel)
+    r = subprocess.run(["git", "-C", str(REPO), "show", f"{commit}:{stored}"],
                        capture_output=True, text=True)
     return r.stdout if r.returncode == 0 else None
 
@@ -358,7 +374,7 @@ def preflight(paths, cfg) -> dict:
         "python": out(str(REPO / ".venv" / "bin" / "python"), "-V"),
         "sensorium_version": out(
             str(REPO / ".venv" / "bin" / "python"), "-c",
-            "import importlib.metadata as m; print(m.version('sensorium'))"),
+            "import importlib.metadata as m; print(m.version('sensorium-trace'))"),
         "nproc": os.cpu_count(),
         "governor": Path("/sys/devices/system/cpu/cpu0/cpufreq/"
                          "scaling_governor").read_text().strip(),
@@ -561,7 +577,7 @@ def assemble_only(raw: dict | None = None) -> int:
                  "since has touched; no arm was re-run and no value "
                  "re-measured"),
     }
-    dest = (REPO / "docs" / "superpowers" / "acceptance"
+    dest = (REPO / "docs" / "planning" / "acceptance"
             / "2026-09-04-sensorium-rung3-acceptance.results.json")
     dest.write_text(json.dumps(doc, indent=2, default=str) + "\n")
     print(f"assembled {dest} from results-rung3-raw.json")

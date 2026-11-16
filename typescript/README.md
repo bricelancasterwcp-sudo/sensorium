@@ -8,10 +8,11 @@ process, the same SQLite format 4 the Python and Rust recorders write, read by
 the same `sensorium` command line. It exists for the same reason those do:
 reading logs is reading a diary, and this is watching the execution.
 
-One private npm package, **`sensorium-ts 0.6.2`**: ESM `.mjs` with JSDoc
-types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24 (the version
-this was measured on; the driver refuses below it before spawning anything).
-Twenty modules and a version:
+The npm publish name is `sensorium-trace`, and the recorder identity in
+traces stays `sensorium-ts` (`recorder: sensorium-ts 0.6.2`). ESM `.mjs`
+with JSDoc types, type-checked by `tsc --checkJs`, no build step, Node ≥ 24
+(the version this was measured on; the driver refuses below it before
+spawning anything). Twenty modules and a version:
 
 | Module | What it is |
 |---|---|
@@ -56,7 +57,8 @@ settles) so the checker's exit status is the gate, not vitest's. The recipe is
 variables and a spool directory outside the repository: `probes/README.md`.
 
 **What it records**, tier `call`: calls and returns with a captured return
-value, YIELD/RESUME at every `await`, `yield` and `yield*`, RAISE at every
+value, YIELD/RESUME at every `await`, `yield`, `yield*` and `for await`
+inside a function, RAISE at every
 `throw` and HANDLED at every `catch` and empty-callback sink, frames with
 outcomes, an object serial (`oid`) and constructor name on every object or
 function capture, and **tests as tasks** named the way vitest names them.
@@ -72,7 +74,7 @@ What it does *not* see, and what says so in the trace, is
 contract all three recorders are written against is
 [`../docs/TRACE-FORMAT.md`](../docs/TRACE-FORMAT.md); the design and its rungs
 are in
-`../docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`.
+`../docs/planning/specs/2026-09-09-sensorium-typescript-recorder-design.md`.
 
 ## Install
 
@@ -120,10 +122,15 @@ package, whose dependencies resolve from a parent) the driver **creates** it,
 and removes it again on the way out when it is still empty, which it is only
 when the driver is what made it. Resolution is unaffected: an empty directory
 is walked past. A directory that still holds anything is left alone, so a
-second concurrent invocation of the same project keeps its own two files. For `node --test` it prepends an `--import`. `npm test`, `pnpm test`
-and `yarn test` are refused at exit 2 naming the direct form: a package script
-cannot carry the flags the wrapper needs, and guessing what the script runs is
-a guess. jest is refused by name.
+second concurrent invocation of the same project keeps its own two files. For `node --test` it prepends an `--import`. `npm test`, `npm run test`,
+`npm t` and the pnpm and yarn equivalents are expanded when `package.json`'s
+`scripts.test` is a simple `vitest` or `node --test` command with no shell
+metacharacters; the driver does not spawn a shell. Any other script is
+refused at exit 2 naming the script text and the direct form.
+
+jest is refused by name. The recorder does not ship a jest transformer, so
+the consumer's suite was not measured under jest. The supported commands are
+`sensorium ts run -- vitest run …` and `sensorium ts run -- node --test …`.
 
 `--tier off` compiles exactly the same edits and emits nothing, so switching
 tiers rebuilds nothing and `off` is a real control arm rather than a different
@@ -292,14 +299,14 @@ thing to do instead:
 
 | What | Exit | Why |
 |---|---|---|
-| `npm test`, `pnpm test`, `yarn test` | 2 | A package script cannot carry the two flags the wrapper appends, and guessing what the script runs is a guess. The refusal names the direct form. |
-| `jest …` | 2 | *"jest is not supported: not measured, and the consumer does not run it."* By name, not by silence. |
+| `npm test`, `pnpm test`, `yarn test`, and `npm run test` / `npm t` (pnpm and yarn the same), when `scripts.test` is a simple vitest or `node --test` command | the harness's | The script's argv is what runs. A shell metacharacter, a missing script, a parent `package.json`, or a script that is not one of those two harnesses is exit 2 and names the script text. |
+| `jest …` | 2 | Refused by name. No jest transformer ships here, and the suite was not measured under jest. Use `sensorium ts run -- vitest run …` or `sensorium ts run -- node --test …`. |
 | anything else after `--` | 2 | The command names no harness this recorder wires; the refusal names both forms it does. |
 | `node` below 24 | 2 | Checked before a spool directory exists, so a refused run leaves nothing behind. |
 | `typescript/node_modules` not installed | 2 | Names `npm ci --prefix <pkg>`. A wheel install ships the sources at `sensorium/_typescript`; a checkout keeps them at `typescript/`. Set `SENSORIUM_TS_PKG` to point somewhere else. |
 | your project has no `typescript` in `node_modules` | 2 | The transform parses with **your** compiler, not this package's, so the root must have one; resolved the way Node resolves it, parents included. Names `npm install --save-dev typescript`. |
 | a `node_modules` that cannot be written | 2 | The wrapper has to live under `node_modules` for `vitest/config` to resolve from your tree, so this is a refusal rather than a write somewhere else in your source. |
-| a vitest `test.projects` / `test.workspace` config | 2 | vitest resolves a config per project and the wrapper merges onto one, so the plugin never reaches those pipelines and the suite would run unrecorded. Refused at config load, by name. |
+| a string or glob in vitest `test.projects` / `test.workspace` | 2 | Inline project objects are instrumented. A string names another config this wrapper does not merge, so that project would run unrecorded. Refused at config load, by name. |
 | a harness binary that is not there | 2 | `recognise` reads the command you typed and does not resolve it -- which `vitest` runs is your choice. A name that is not a program is refused by name, and the invocation it would have recorded is taken back. |
 | `ts ingest` over a directory already ingested | 2 | `ingested.json` names the run ids the first pass minted; a second pass would mint new ones over the same records. |
 | `ts ingest` over a directory no driver wrote | 2 | A spool set with no `invocation.json` cannot say what produced it. |
@@ -310,8 +317,9 @@ thing to do instead:
 
 ## Not yet
 
-The browser, which needs a runtime without a filesystem; jest; a transform
-cache. Which frame *scheduled* a continuation is recorded by nothing
+The browser, which needs a runtime without a filesystem; jest (refused by
+name, above: no jest transformer, and the suite was not measured under it);
+a transform cache. Which frame *scheduled* a continuation is recorded by nothing
 here. Argument capture and per-line state under a `--focus` **arrived in rung
 4** and `refocus` in **S5's refocus slice**, both above; the `exceptions`
 disposition rules arrived in **rung 2** (the empty `catch` is a sink, the rethrow is a hop, the completing `finally` is
@@ -320,15 +328,16 @@ and 0.1.1 alike stay refused**, because both declare `err_flow: false` and
 re-recording is the fix. What none of it can see, it says: a `try` with its own
 `catch` clause is never marked for the `finally` sink, a logger that is not
 `console.*` reads as an escape, an assertion failure born in vitest's `expect`
-writes no RAISE at all, and a focused row reports no place write, no `this`
-and no `switch` discriminant, [`HONESTY.md`](HONESTY.md) §3, §4, §11 and
+writes no RAISE at all, a member write through a call or `?.` is still not a
+delta, an unfocused CALL still omits the receiver, and a `switch` discriminant
+is reported nowhere, [`HONESTY.md`](HONESTY.md) §3, §4, §11 and
 [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md).
 
 ## What rung 1 measured, and what it did not settle
 
 Twelve endpoints and two controls, **pre-registered before this code existed**
 and byte-locked in
-`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §1. **The
+`../docs/planning/acceptance/2026-09-09-sensorium-s5-rung1.md` §1. **The
 rung ships DONE-WITH-STOP.** Ten of the twelve gated endpoints PASS, both
 controls PASS, **one is a STOP** and **one is REPORTED**.
 
@@ -372,7 +381,7 @@ a second consumer.
 ## What rung 2 measured, and the four gaps it found
 
 Nine endpoints, pre-registered and byte-locked before this rung's code existed
-(`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §1), on the
+(`../docs/planning/acceptance/2026-09-10-sensorium-s5-rung2.md` §1), on the
 same lens. **The rung ships DONE**: every endpoint ran once and not one fired
 its rule's failure word. No row reads PASS and neither does the rung, because
 six of the nine rules name only a failure word and three name none at all,
@@ -409,7 +418,7 @@ than guessing there is exactly what keeps the false-SWALLOWED count at 0.
 
 Eight endpoints, pre-registered and byte-locked before this rung's code
 existed
-(`../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §1),
+(`../docs/planning/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §1),
 on the same lens. This time on **830 files** of it, one 26-test file as the
 subject, three of its pure functions as the focus. **The rung ships
 DONE-WITH-STOP.**
@@ -443,7 +452,7 @@ extra clause happened to hold, so neither parser defect had a chance to show.
 Reported, never gated. The tier is a runtime gate and the transform runs every
 time, so the whole cost of `--tier off` is the transform. Every number, with
 its `n` and the suite it was measured on, is in
-`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, and the
+`../docs/planning/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, and the
 summary is the table above. Where a reading crosses a pre-registered bound it
 buys **work** (a transform cache, a converter elsewhere) and never a verdict
 about whether the recorder is honest.

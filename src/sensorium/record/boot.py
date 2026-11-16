@@ -64,7 +64,7 @@ CAPABILITIES = {"line": True, "locals": True, "return_value": True,
 
 def _recorder_id() -> str:
     try:
-        return f"sensorium {importlib.metadata.version('sensorium')}"
+        return f"sensorium {importlib.metadata.version('sensorium-trace')}"
     except importlib.metadata.PackageNotFoundError:
         return "sensorium (uninstalled source tree)"
 

@@ -1,10 +1,17 @@
 [project]
-name = "sensorium"
+name = "sensorium-trace"
 version = "0.18.2"
 description = "Execution-trace recorder for Python programs, driver and converter for the TypeScript and C recorders, and the LLM-native query CLI that reads every sensorium trace: Python's, the Rust recorder's, the TypeScript recorder's and the C recorder's alike"
+readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
+authors = [{ name = "bricelancasterwcp-sudo" }]
+keywords = ["tracing", "debugging", "testing", "execution-trace"]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/bricelancasterwcp-sudo/sensorium"
+Repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pyyaml>=6", "pytest-cov>=5", "pyelftools>=0.31"]
@@ -26,6 +33,12 @@ sensorium-cc = "sensorium.c.cc:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Skip directories the root .gitignore excludes (`target/`, `node_modules/`)
+# instead of walking them. A probe build is hundreds of megabytes of
+# absolute symlinks, and one of those in the sdist is a tarball pip rejects.
+[tool.hatch.build]
+skip-excluded-dirs = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sensorium"]

@@ -39,9 +39,9 @@ import e15_report as rep                                          # noqa: E402
 from test_acceptance_e15_lock import BYTE_LOCK, SURVEY_LOCK       # noqa: E402
 
 FIXTURE = REPO / "tests" / "fixtures" / "e15" / "refocus-match.txt"
-SURVEY = (REPO / "docs" / "superpowers" / "acceptance"
+SURVEY = (REPO / "docs" / "planning" / "acceptance"
           / "2026-09-13-sensorium-e15-refocus-typescript-survey.md")
-RECORD = (REPO / "docs" / "superpowers" / "acceptance"
+RECORD = (REPO / "docs" / "planning" / "acceptance"
           / "2026-09-13-sensorium-e15-refocus-typescript.md")
 
 

@@ -38,11 +38,13 @@ questions:
       Both methods were handed the same reading. Did they agree about it?
     truth: >
       No, and both halves are in the trace because both were selected by the
-      one name. `Fog.compute(raw=25) -> 10` clamped it to the ceiling;
-      `Fog.render(raw=25) -> 'fog(25)'` drew it unclamped. Each recorded its
-      own arguments -- a focus is what puts `raw=25` on a CALL line at all --
-      so the disagreement is visible as two lines of one tree rather than as
-      a difference between two runs.
+      one name. `Fog.compute(this=Fog { ceiling: 10 }, raw=25) -> 10`
+      clamped it to the ceiling; `Fog.render(this=Fog { ceiling: 10 },
+      raw=25) -> 'fog(25)'` drew it unclamped. A focused method records its
+      receiver, so `this` sits beside `raw`. Each recorded its own arguments,
+      and a focus is what puts them on a CALL line at all, so the
+      disagreement is visible as two lines of one tree rather than as a
+      difference between two runs.
     why_logs_fail: >
       A `console.log` in one method tells you what that method did; the fault
       is that two methods disagree, and no single printed line holds both
@@ -54,5 +56,5 @@ questions:
     command: ["tree", "$RUN"]
     expect_exit: 0
     expect_line:
-      - ["Fog.compute(raw=25) -> 10"]
-      - ["Fog.render(raw=25) -> 'fog(25)'"]
+      - ['Fog.compute(this=Fog { ceiling: 10 }, raw=25) -> 10']
+      - ["Fog.render(this=Fog { ceiling: 10 }, raw=25) -> 'fog(25)'"]

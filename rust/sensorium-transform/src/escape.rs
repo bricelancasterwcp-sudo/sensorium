@@ -20,7 +20,7 @@
 //!    the statement walk.
 //!
 //! Rule 2 replaced an older one on 2026-09-05 -- the borrow repair, design B1
-//! of `docs/superpowers/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
+//! of `docs/planning/specs/2026-09-05-sensorium-rung3-borrow-repair-design.md`
 //! §2, which closes blind spot 23 (c). A `&e` used to be exempt WHEREVER it
 //! stood. That proved the BORROW could not outlive the arm and said nothing
 //! about the borrowing call's VALUE: `let (status, body) = map_error(&e, ..);

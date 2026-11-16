@@ -57,10 +57,13 @@
 //!   recording a tier the caller did not ask for would put dishonest data in
 //!   the trace.
 //!
-//! **The panic hook** is installed by the first `enter` that records, not by
-//! `init`: it chains to whatever hook was in place, so a panicking program
-//! prints exactly what it would have printed with no recorder linked in
-//! (`src/panic.rs`).
+//! **The panic hook** chains to the hook it found. A panicking program prints
+//! what it would have printed with no recorder linked in, except a column an
+//! insertion moved, which is mapped back to the original source column
+//! (`src/panic.rs`, `src/columns.rs`). Each instrumented file registers its
+//! map from `.init_array` and installs the hook there, so tier `off` corrects
+//! columns without touching `enter`'s inert path. A recording `enter` installs
+//! the hook when nothing has registered one.
 //!
 //! **The inert path.** `enter`'s first arm is one `Acquire` load, one compare
 //! and the guard value -- no call, no branch on anything else, no allocation.
@@ -81,6 +84,7 @@ compile_error!(
 
 mod async_drive;
 mod cap;
+mod columns;
 mod errflow;
 mod exit;
 mod ffi;
@@ -110,6 +114,7 @@ mod thread;
 // no runtime path can write it, and the writer refuses it.
 pub use async_drive::{capture_args, drive_async, drive_value};
 pub use cap::{DEFAULT_MAX_BYTES, DEFAULT_MAX_CALLS, DEFAULT_MAX_EVENTS};
+pub use columns::{ensure_panic_hook, original_column_in, register_columns, ColInsert};
 pub use errflow::{
     err_site, err_site_unbound, err_site_value, ErrCapture, HOW_ARM_AMBIGUOUS, HOW_ARM_HANDLED,
     HOW_ARM_PROPAGATE, HOW_SINK_LET_UNDERSCORE, HOW_SINK_OK, HOW_SINK_UNWRAP_OR, HOW_TRY,

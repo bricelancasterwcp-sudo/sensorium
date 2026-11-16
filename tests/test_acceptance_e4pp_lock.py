@@ -1,6 +1,6 @@
 """The E4″ byte-lock, checked in the suite rather than by a refusal at launch.
 
-§1 of `docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` was
+§1 of `docs/planning/acceptance/2026-09-08-sensorium-rung4-e4pp.md` was
 committed ALONE, before any of this slice's source existed. Two things are
 locked and they are locked differently: §1 itself by RANGE (the
 `awk '/^## 1/,/^## 2/'` bytes at the lock commit) and its 61-row subject

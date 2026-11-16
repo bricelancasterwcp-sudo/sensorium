@@ -2,11 +2,14 @@
 //! installed, so the program's own output is unchanged.
 //!
 //! **What is on the wire.** `u16 loc_len`, the location as
-//! `"<file>:<line>:<col>"` exactly as [`std::panic::Location`] gave it, then the
-//! message -- `payload().downcast_ref::<&str>()` or `::<String>()`, and
-//! `"<non-string payload>"` when it is neither. The record's `kind` is 3 and its
-//! `outcome` byte is 0: outcome is a RETURN's field, and the frame this panic
-//! unwinds carries `panic` on its own RETURN a moment later.
+//! `"<file>:<line>:<col>"`. The file and the line are what
+//! [`std::panic::Location`] gave; the column is mapped back to the original
+//! source column when an insertion earlier on that line moved it
+//! (`columns.rs`). Then the message -- `payload().downcast_ref::<&str>()` or
+//! `::<String>()`, and `"<non-string payload>"` when it is neither. The
+//! record's `kind` is 3 and its `outcome` byte is 0: outcome is a RETURN's
+//! field, and the frame this panic unwinds carries `panic` on its own RETURN
+//! a moment later.
 //!
 //! **The serial is not on the wire.** A panic's serial is per thread, and the
 //! converter mints it: PANIC records on one thread are numbered in the order
@@ -73,13 +76,15 @@ const NO_SITE: u32 = 0;
 
 static INSTALLED: Once = Once::new();
 
-/// Install the hook once per process, on the first `enter` that records.
+/// Install the hook once per process.
 ///
+/// Called from a recording `enter`, and from [`crate::ensure_panic_hook`],
+/// which the column-map registration runs out of `.init_array` before `main`.
 /// Not from `init()`: `std::panic::set_hook` **panics** when it is called from a
 /// panicking thread, and a first `enter` reached from a `Drop` running during an
 /// unwind would turn that into a double panic and abort the process. Skipping
-/// leaves `INSTALLED` uncompleted, so the next `enter` on a thread that is not
-/// panicking installs it.
+/// leaves `INSTALLED` uncompleted, so the next caller that is not panicking
+/// installs it.
 #[inline]
 pub(crate) fn install() {
     if INSTALLED.is_completed() {
@@ -101,10 +106,12 @@ fn install_cold() {
                 return;
             }
             record(info);
-            // Every byte the program would have printed, printed by whoever was
-            // going to print it. This is endpoint E7, and it is the reason the
-            // hook chains instead of replacing.
-            previous(info);
+            // The program's own output, printed by whoever was going to print
+            // it. When an insertion moved the column, only that column in the
+            // `panicked at` line is rewritten; every other byte stays. This is
+            // endpoint E7, and it is the reason the hook chains instead of
+            // replacing.
+            crate::columns::report(&previous, info);
         }));
     });
 }
@@ -157,10 +164,21 @@ fn message<'a>(info: &'a PanicHookInfo<'_>) -> &'a str {
 
 /// `"<file>:<line>:<col>"` into a fixed buffer. `None` -- which std does not
 /// currently produce -- writes an empty location rather than inventing one.
+/// The column is the original one ([`crate::columns::original_column`]).
 fn write_location(buf: &mut [u8; LOC_CAP], at: Option<&std::panic::Location<'_>>) -> (usize, bool) {
     let Some(at) = at else {
         return (0, false);
     };
+    write_mapped_location(buf, at.file(), at.line(), at.column())
+}
+
+fn write_mapped_location(
+    buf: &mut [u8; LOC_CAP],
+    file: &str,
+    line: u32,
+    column: u32,
+) -> (usize, bool) {
+    let column = crate::columns::original_column(file, line, column);
     let mut w = Fixed {
         buf,
         len: 0,
@@ -168,7 +186,7 @@ fn write_location(buf: &mut [u8; LOC_CAP], at: Option<&std::panic::Location<'_>>
     };
     // The `Err` at the cap is `Fixed`'s own and is expected; nothing else in
     // this format can fail.
-    let _ = write!(w, "{}:{}:{}", at.file(), at.line(), at.column());
+    let _ = write!(w, "{file}:{line}:{column}");
     (w.len, w.cut)
 }
 
@@ -255,5 +273,30 @@ mod tests {
         assert!(cut, "512 bytes cannot hold 1200");
         assert_eq!(len, 510, "3 does not divide 512; the cut steps back");
         assert!(std::str::from_utf8(&buf[..len]).is_ok());
+    }
+
+    /// The PANIC record's location uses the mapped column, not rustc's.
+    #[test]
+    fn the_record_location_uses_the_original_column() {
+        crate::register_columns(
+            "src/mapped.rs",
+            &[crate::ColInsert {
+                line: 33,
+                start: 13,
+                added: 6,
+                removed: 0,
+            }],
+        );
+        let mut buf = [0u8; LOC_CAP];
+        let (len, cut) = write_mapped_location(&mut buf, "src/mapped.rs", 33, 30);
+        assert!(!cut);
+        assert_eq!(std::str::from_utf8(&buf[..len]), Ok("src/mapped.rs:33:24"));
+        let (len, cut) = write_mapped_location(&mut buf, "src/plain.rs", 33, 30);
+        assert!(!cut);
+        assert_eq!(
+            std::str::from_utf8(&buf[..len]),
+            Ok("src/plain.rs:33:30"),
+            "a file with no registration keeps rustc's column"
+        );
     }
 }

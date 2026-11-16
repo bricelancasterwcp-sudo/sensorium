@@ -59,14 +59,15 @@ from acceptance_lib import Refused                                 # noqa: E402
 lib.LOGS, lib.LEDGER, ph.LOGS = _PTRS
 
 #: The document this module locks.
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-10-sensorium-s5-rung3.md")
 
 #: The prediction §1 pins by content. Kept as a repo-relative string because
 #: that is the spelling §1's last line carries, and the line is compared whole.
 HANDREAD_REL = ("docs/superpowers/acceptance/"
                 "2026-09-10-sensorium-s5-rung3-handread.md")
-HANDREAD = REPO / HANDREAD_REL
+HANDREAD = REPO / HANDREAD_REL.replace(
+    "docs/superpowers/", "docs/planning/", 1)
 
 #: The commit that carried §1 first, and alone. Set at Task 0 Step 4, after
 #: the record was committed and before any rung-3 code existed. `None` skips
@@ -355,7 +356,7 @@ def test_the_hand_reads_origins_are_the_transcripts_catch_all_lines():
     order -- otherwise the table predicts about shapes the lens never
     printed, and E6-TS‴ would compare the reader against a fiction."""
     _require_lock_commits(BYTE_LOCK)
-    transcript = (REPO / "docs" / "superpowers" / "acceptance"
+    transcript = (REPO / "docs" / "planning" / "acceptance"
                   / "2026-09-10-sensorium-s5-rung2-e6tsp-exceptions.txt")
     lines = transcript.read_text().splitlines()
     want = [lines[i - 1].lstrip() for i, ln in enumerate(lines)

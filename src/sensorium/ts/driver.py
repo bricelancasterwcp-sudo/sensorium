@@ -292,7 +292,7 @@ def _env_hash() -> str:
 
 def _driver_version() -> str:
     try:
-        return importlib.metadata.version("sensorium")
+        return importlib.metadata.version("sensorium-trace")
     except importlib.metadata.PackageNotFoundError:
         return "sensorium (uninstalled source tree)"
 

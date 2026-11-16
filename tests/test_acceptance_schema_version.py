@@ -162,7 +162,7 @@ def test_the_committed_results_predate_the_field_and_are_NOT_repaired(name):
     in CARRIED-DEBT and stated in the E4′ record's H5; if this test ever
     goes red, someone re-derived a closed record.
     """
-    path = REPO / "docs" / "superpowers" / "acceptance" / name
+    path = REPO / "docs" / "planning" / "acceptance" / name
     record = json.loads(path.read_text())
     assert "schema_version" not in record, (
         f"{name} was re-derived; a closed record's derivation is STATED, "

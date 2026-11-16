@@ -51,7 +51,7 @@ from pathlib import Path
 from lens import REPO_ROOT, cell, emit, sensorium_bin, usage
 
 #: The record whose §1 is the locked contract every expectation is read from.
-RECORD = (REPO_ROOT / "docs" / "superpowers" / "acceptance"
+RECORD = (REPO_ROOT / "docs" / "planning" / "acceptance"
           / "2026-09-11-sensorium-s5-rung4-focus.md")
 
 

@@ -5,7 +5,7 @@ under 800 lines. The wording and order of those three are unchanged; the
 README keeps a paragraph for each and a link here. `refocus` on a Rust trace
 was added here 2026-09-07, and `failures` in review round 2. The rest
 (`diff`, `refocus`'s general shape, `tree`, `info` and `runs`) stays in
-[`../README.md`](../README.md). What rule v1 withholds is
+[`claims.md`](claims.md). What rule v1 withholds is
 [`redaction.md`](redaction.md).
 
 ### `exceptions`: five dispositions, and a real refusal
@@ -56,7 +56,7 @@ is `ambiguous` by design, never "propagated by default". What each verdict
 may mean, and the twelve shapes err flow cannot see, are
 [`rust/HONESTY-ERR-FLOW.md`](../rust/HONESTY-ERR-FLOW.md) §11 and
 [`rust/HONESTY-BLIND-SPOTS.md`](../rust/HONESTY-BLIND-SPOTS.md) items 15–26;
-the two measurements behind them are in `../README.md`'s Rust section.
+the two measurements behind them are in `../rust/HONESTY.md` and the rung-3 records.
 
 **On a TypeScript trace the words are Python's and the shapes are
 JavaScript's** *(added 2026-09-10, S5 rung 2; `sensorium` 0.10.0 and
@@ -172,7 +172,7 @@ spans many) and a member whose recorder declares `capabilities.err_flow:
 false` refuses the whole answer, naming it.
 
 The byte counts behind that grain are in
-`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §3.
+`docs/planning/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §3.
 **Python traces are untouched**: they still print one block per raise and page
 by event id.
 
@@ -343,7 +343,7 @@ for the empty list a recorder wrote down.
 answers on a Rust trace that this driver converted, instead of refusing on
 `capabilities.refocus`. A recording an EARLIER driver made still declares
 `refocus: false` and still meets that refusal at exit 2, unchanged. The
-three verdicts, their exits and the licence's shape are `../README.md`'s
+three verdicts, their exits and the licence's shape are [`claims.md`](claims.md)'s
 `refocus` section, unchanged; what follows is the Rust half.
 
 **Five refusals come first, and none of them runs anything.** They are about
@@ -557,7 +557,7 @@ pins all three):
 
 **Measured, and it is why the thread counts have a house rule.** E4 re-ran
 all 61 `#[test]` functions of a real workspace one at a time
-(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md`): **61 of 61
+(`docs/planning/acceptance/2026-09-07-sensorium-rung4-e4.md`): **61 of 61
 MATCH**, 0 DIVERGED, 0 REFUSED, with source, environment and exit each
 verified 61 of 61 and output and children UNVERIFIABLE 61 of 61, **and the
 licence WITHHELD on every one of the 61**, `licences granted` 0. The cause was
@@ -644,12 +644,12 @@ always said: granted where every check that ran agrees, withheld where a thread
 the PROGRAM started ran no traced code and left nothing to compare. Reading the
 four counts is still the better habit. E4's own numbers stand as the record of
 the behaviour BEFORE the rule. E4′
-(`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md`) measured the
+(`docs/planning/acceptance/2026-09-07-sensorium-rung4-e4p.md`) measured the
 exclusion firing and being named on 61 of 61 pairs, but its H1 **STOPPED**: the
 environment clause above withheld all 61 on the recorder's own `RUSTDOCFLAGS`
 fragment, so the word itself said nothing about this rule. The rule's own
 numbers are **E4″**'s
-(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §4, 2026-09-08,
+(`docs/planning/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §4, 2026-09-08,
 **H1 PASS**): over those same 61 pairs, granted on **57** and withheld on the
 four whose tests really do start threads, program-thread counts **1 / 4 / 4 /
 4**, the partition byte-locked before that instrument existed. On a `cargo

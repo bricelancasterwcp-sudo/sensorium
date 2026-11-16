@@ -44,7 +44,8 @@
 //! -- ahead of an exit wrap's opening fragment, since a closure's expression
 //! body is its own tail operand and both land on that byte -- then an exit
 //! wrap's opening fragment, then an err wrap's `match ` (again inside it), then
-//! a spawn rewrite, then the crate root's `allow` and its static. Nested wraps
+//! a spawn rewrite, then the crate root's `allow` and its static, then the
+//! column-map registration. Nested wraps
 //! of every kind close innermost-first, which is what the reversed `seq` in
 //! `assemble::splice_order` is for; opens of one kind at one byte go
 //! outermost-first, which is the walk's own order. The assembled output is
@@ -170,8 +171,9 @@ pub(crate) fn scope_open_fragment(stmt: &str) -> String {
 /// Its closing half.
 pub(crate) const SCOPE_CLOSE: &str = " }";
 
-/// The opening half of an err wrap (design R3). Six bytes, and the whole reason
-/// `tests/oracle.rs` can predict the column shift inside a wrapped operand.
+/// The opening half of an err wrap (design R3). Six bytes, spliced at the
+/// first byte of a wrapped operand. The runtime's column map subtracts them
+/// again, so a panic inside the operand is reported at the original column.
 pub(crate) const ERR_OPEN: &str = "match ";
 
 /// The closing half of an err wrap: the single arm that probes the value and
@@ -270,6 +272,10 @@ pub(crate) enum Kind {
     Allow,
     /// The crate root's unit static, past the file's last token.
     Static,
+    /// The per-file column-map registration, past the static when they share a
+    /// byte. Not itself a row of the map: nothing panickable follows it, and
+    /// its length depends on the rows.
+    ColMap,
 }
 
 #[derive(Debug, Clone)]

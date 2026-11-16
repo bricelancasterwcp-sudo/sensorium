@@ -12,8 +12,8 @@ questions:
       there, the rethrown object hit a `catch` that returned, so the block
       said SWALLOWED. Here the rethrow leaves the test's own root frame with
       nothing traced above it, so the origin's block reads `RE-RAISED --
-      raised again at e5 (<anonymous> L10) → propagated`, with a `hops:`
-      line drawing the route (`e5 (load L11) → e5 (<anonymous> L10)` -- one
+      raised again at e5 (test("a disk failure is logged before it fails the suite") L10) → propagated`, with a `hops:`
+      line drawing the route (`e3 (load L11) → e5 (test("a disk failure is logged before it fails the suite") L10)` -- one
       object, one serial, two RAISE rows), and the rethrow's OWN block
       carries the verdict that matters: `PROPAGATED -- to the harness: test
       "a disk failure is logged before it fails the suite" failed`. The
@@ -42,9 +42,9 @@ questions:
     expect_exit: 0
     expect_line:
       - ["e3 RAISE", "load raise Error('disk offline') L11"]
-      - ["RE-RAISED -- raised again at e5 (<anonymous> L10) → propagated"]
-      - ["hops: e3 (load L11) → e5 (<anonymous> L10)"]
-      - ["e5 RAISE", "<anonymous> raise Error('disk offline') L10"]
+      - ['RE-RAISED -- raised again at e5 (test("a disk failure is logged before it fails the suite") L10) → propagated']
+      - ['hops: e3 (load L11) → e5 (test("a disk failure is logged before it fails the suite") L10)']
+      - ['e5 RAISE', 'test("a disk failure is logged before it fails the suite") raise Error(''disk offline'') L10']
       - ['PROPAGATED -- to the harness: test "a disk failure is logged
           before it fails the suite" failed']
       - ["dispositions: re-raised 1, propagated 1"]

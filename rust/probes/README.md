@@ -5,7 +5,7 @@ A workspace small enough to read whole and shaped to make every promise in
 [`rust/tests/mechanics.sh`](../tests/mechanics.sh) records, builds twice,
 edits, aborts, blocks and diffs; the same endpoints run against a real
 workspace in
-[the acceptance document](../../docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md).
+[the acceptance document](../../docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md).
 
 Run the checks:
 

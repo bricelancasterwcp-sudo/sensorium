@@ -57,13 +57,13 @@ def test_a_wheel_install_locates_the_shipped_package(tmp_path):
         cwd=ROOT,
         check=True,
     )
-    sdist = next(dist.glob("sensorium-*.tar.gz"))
+    sdist = next(dist.glob("sensorium_trace-*.tar.gz"))
     wheel_dir = tmp_path / "wheels"
     subprocess.run(
         [str(py), "-m", "pip", "wheel", "--no-deps", "--wheel-dir", str(wheel_dir), str(sdist)],
         check=True,
     )
-    wheel = next(wheel_dir.glob("sensorium-*.whl"))
+    wheel = next(wheel_dir.glob("sensorium_trace-*.whl"))
     subprocess.run([str(py), "-m", "pip", "install", "--no-deps", str(wheel)], check=True)
     script = r"""
 import sensorium.ts.pkg as p

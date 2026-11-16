@@ -402,7 +402,7 @@ def results(r) -> list[str]:
 
 def document(argv) -> int:
     import json                                                    # noqa: PLC0415
-    default = (Path(__file__).resolve().parents[2] / "docs" / "superpowers"
+    default = (Path(__file__).resolve().parents[2] / "docs" / "planning"
                / "acceptance"
                / "2026-09-05-sensorium-rung3-e6q.results.json")
     args = [a for a in argv if not a.startswith("--")]

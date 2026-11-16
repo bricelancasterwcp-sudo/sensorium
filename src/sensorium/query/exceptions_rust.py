@@ -150,7 +150,7 @@ def _site(trace, e) -> tuple:
     each holding a `let _ =` at L42 print the same words and are not the
     same place, and the first rung-4 measurement keyed on the words: 18 of
     the workspace's chains were booked under a sibling file while every
-    count stayed right (ruling R-G12, `docs/superpowers/acceptance/
+    count stayed right (ruling R-G12, `docs/planning/acceptance/
     2026-09-05-sensorium-rung4-entry-grain.md` §4.3/§5.1). A code object
     this trace does not carry is `("?", line, "?")` -- the same `?` `_at`
     printed before there was a triple, so a site with no code object is

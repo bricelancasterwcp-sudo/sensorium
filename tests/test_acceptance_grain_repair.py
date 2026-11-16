@@ -114,7 +114,8 @@ def test_the_amendment_moved_no_ROW_of_the_pre_registration():
     import subprocess
 
     def rows(sha):
-        rel = runner.DOC.relative_to(runner.REPO).as_posix()
+        rel = rung3.lock_commit_path(
+            runner.DOC.relative_to(runner.REPO).as_posix())
         text = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=REPO,
                               capture_output=True, text=True).stdout
         return [ln for ln in rung3.section1(text).splitlines()

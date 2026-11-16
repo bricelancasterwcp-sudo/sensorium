@@ -11,7 +11,7 @@ does not reach; and item 12, which rung 4's refocus slice narrowed 2026-09-07
 to what a re-run does not compare and what its licence cannot check.
 Items 15–26 are rung 3's own, from the design's R16 (`?`,
 sinks and `Err` arms:
-`docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`).
+`docs/planning/specs/2026-09-04-sensorium-rung3-err-flow-design.md`).
 Items 27–29 are rung 4's, from the refocus licence: **27** from E4′'s H1 STOP
 and **28** from the whole-branch review of that same slice (design 2026-09-07),
 both **closed 2026-09-08** by the slice that built and measured their ruled
@@ -32,7 +32,7 @@ every unit either instruments or says it fell back. Rung 1 measured 100.0% of
 eligible function items on bloomery (2051/2051), and this rung re-measures it
 as **E2′**, where a floor of 98% applies and *any* fell-back unit is a finding
 that stops the rung until it is explained. *Falsified by* E2′ in
-`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` and by
+`docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md` and by
 `rust/sensorium-transform/tests/census.rs`, which requires
 `instrumented + async == eligible` over a real workspace's files.
 
@@ -301,7 +301,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
       agreement, which is the bug class the wording exists to refuse.
       *Declared by* those two lines and the `refocus_licence*` stamps.
       *Measured* at n = 61 by **E4 H4**
-      (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4.md` §3/§4):
+      (`docs/planning/acceptance/2026-09-07-sensorium-rung4-e4.md` §3/§4):
       both UNVERIFIABLE 61 of 61, and **0** licence lines claimed an
       unverifiable check as verified.
     * **A multi-process invocation is refused, not compared.** `cargo
@@ -417,7 +417,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     build produced 108 units *in total*, findings §5.13), so the path is driven
     by a test and by nothing else yet. *Falsified by*
     `rust/sensorium-rt/tests/units.rs`.
-14. **Everything the Python README's *What sensorium sees at all* rules out**,
+14. **Everything [../docs/visibility.md](../docs/visibility.md) (*What sensorium sees at all*) rules out**,
     which is not language-specific: any file the program read or wrote, the
     environment beyond the variables a command names as compared, the clock,
     the network, and everything else the machine did. *Declared by*
@@ -498,7 +498,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     still reach SWALLOWED: a **false-accusation generator**, the same class
     the R2 amendment of 2026-09-05 was written for, one nesting level in. Its
     exposure on the bloomery clone was **measured zero**
-    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.3) (a fact about that workspace, not a promise about any other) and it was
+    (`docs/planning/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.3) (a fact about that workspace, not a promise about any other) and it was
     recorded rather than repaired.
     (b) A whole-word literal `e` inside a NON-logging macro's string
     over-escapes, so an arm that handled reads AMBIGUOUS. That is the **safe
@@ -518,7 +518,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     call's product is provably dropped (an expression statement, a `let _ =`,
     or a logging macro's argument) and that arm reads `arm_ambiguous`.
     **Measured, and the control discriminated**
-    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`):
+    (`docs/planning/acceptance/2026-09-05-sensorium-rung3-e6q.md`):
     **E6⁗-A PASS**, 0 false accusations of 14; **E6⁗-WS PASS**, 0 false of 782
     over 144 processes of `cargo sensorium test --workspace`; **E6⁗-WS0
     DISCRIMINATING**, the same command under the PRE-repair driver printed 30
@@ -550,7 +550,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     `arm_ambiguous`: **no log-and-continue arm can read SWALLOWED on a
     workspace that logs that way**, and a low SWALLOWED count there is not
     evidence the classifier is right
-    (`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.4).
+    (`docs/planning/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §5.4).
     **Untested by fixture.**
 25. **Records with no frame to attach to, and a chain machine that is
     per-thread.** Sinks and arms inside an `async {}` block ARE probed (only a
@@ -588,7 +588,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     made, the same class this licence already exempts twice, for the
     recorder's `SENSORIUM_*` variables and (item 12) for R1's harness thread.
     **Measured 2026-09-07 at n = 61 by E4′**
-    (`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md` §4): the
+    (`docs/planning/acceptance/2026-09-07-sensorium-rung4-e4p.md` §4): the
     61 originals were recorded by `cargo-sensorium` **0.5.0** and re-run by
     **0.5.1**, and the identical caveat `1 environment variable(s) differ
     between the two runs (RUSTDOCFLAGS)` withheld the licence on **61 of 61**
@@ -617,7 +617,7 @@ that stops the rung until it is explained. *Falsified by* E2′ in
     The key is named on the env line and in the stamped fact as `; the
     recorder's own fragment stripped before comparing: RUSTDOCFLAGS`.
     **Measured 2026-09-08 at n = 61 by E4″**
-    (`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §3/§4,
+    (`docs/planning/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §3/§4,
     **H2 PASS**), over the same 61 originals — recorded by driver **0.5.0** and
     re-run by **0.5.2**, the different-build condition E4′ could not create:
     `RUSTDOCFLAGS` in **0 of 61** changed lists, the strip clause naming it on

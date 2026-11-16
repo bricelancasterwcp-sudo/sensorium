@@ -66,14 +66,15 @@ from acceptance_lib import Refused                                 # noqa: E402
 lib.LOGS, lib.LEDGER, ph.LOGS = _PTRS
 
 #: The document this module locks.
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-11-sensorium-s5-rung4-focus.md")
 
 #: The prediction §1 pins by content. Kept as a repo-relative string because
 #: that is the spelling §1's last line carries, and the line is compared whole.
 HANDCOUNT_REL = ("docs/superpowers/acceptance/"
                  "2026-09-11-sensorium-s5-rung4-handcount.md")
-HANDCOUNT = REPO / HANDCOUNT_REL
+HANDCOUNT = REPO / HANDCOUNT_REL.replace(
+    "docs/superpowers/", "docs/planning/", 1)
 
 #: The commit that carried §1 first, and alone. Set at Task 0 Step 3, after
 #: the record was committed and before any rung-4 code existed. `None` skips

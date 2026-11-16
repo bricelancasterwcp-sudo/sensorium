@@ -9,19 +9,26 @@ that names the fix.
 The refusals are the interesting part, and each one exists because guessing
 would be worse than refusing:
 
-* `npm test` runs a SCRIPT, and a script cannot take the two flags the
-  driver appends. What the script runs is the package's business and reading
-  it would be a guess about a shell string;
+* `npm test`, `npm run test`, `npm t` and the pnpm and yarn equivalents are
+  read from the nearest `package.json` only when `scripts.test` is a simple
+  `vitest` or `node --test` command. A shell metacharacter, a missing
+  script, or a manifest that is not in the working directory is a refusal
+  that names the script text: this module does not spawn a shell and does
+  not change directory;
+* any other package script is refused, because a script cannot take the
+  flags the driver appends and guessing a shell string would be a guess;
 * `jest` was not measured and the consumer does not run it, so a wiring for
   it would be a claim nobody has checked;
 * anything else names neither harness, and a driver that spawned it anyway
   would record nothing and exit 0 -- the one failure this recorder must
   never have.
 
-Nothing here spawns, writes or reads anything but the root directory it is
-asked about.
+Nothing here spawns or writes. It reads `package.json` only to expand the
+test-script forms above.
 """
+import json
 import os
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -95,11 +102,18 @@ class Plan:
                 *self.stripped[cut:]]
 
 
-def recognise(cmd: list[str], cwd: Path) -> Plan | Refusal:
-    """Read a typed command. See the module docstring for the three rules."""
+#: Characters that make `scripts.test` a shell program rather than an argv.
+#: `&&` and `||` are covered by `&` and `|`. A newline is one of them.
+_SHELL_META = frozenset("&|;<>`$\n\r")
+
+
+def recognise(cmd: list[str], cwd: Path, *, expand: bool = True) -> Plan | Refusal:
+    """Read a typed command. See the module docstring for the rules."""
     cwd = Path(cwd)
     if not cmd:
         return Refusal(f"no harness command given: {_BOTH}")
+    if expand and _is_test_script(cmd):
+        return _expand_test_script(cmd, cwd)
     start = _skip_runners(cmd)
     if isinstance(start, Refusal):
         # `npm run jest` is both a script and jest, and the script sentence's
@@ -119,6 +133,85 @@ def recognise(cmd: list[str], cwd: Path) -> Plan | Refusal:
         return _node_test(cmd, start, cwd)
     return Refusal(f"{' '.join(cmd)} names no harness this recorder wires: "
                    f"{_BOTH}")
+
+
+def _is_test_script(cmd: list[str]) -> bool:
+    """The exact forms whose `scripts.test` this recorder will read.
+
+    `npm run unit` is not one of them, and neither is `npm test -- src`:
+    extra tokens are arguments a script would receive, and appending them
+    is a second guess. `npm run jest` is jest's sentence, decided later.
+    """
+    if not cmd or cmd[0] not in MANAGERS:
+        return False
+    if len(cmd) == 2 and cmd[1] in ("test", "t"):
+        return True
+    return len(cmd) == 3 and cmd[1] == "run" and cmd[2] == "test"
+
+
+def _expand_test_script(cmd: list[str], cwd: Path) -> Plan | Refusal:
+    """Replace `npm test` with the argv `scripts.test` names, or refuse.
+
+    The plan's `argv` stays what was typed. `stripped` is the script's
+    argv, which is what the driver spawns. No shell.
+    """
+    manifest = _package_json(cwd)
+    if manifest is None:
+        return Refusal(
+            "no package.json found, so scripts.test was not read. "
+            f"Run the harness directly, {_BOTH}")
+    if manifest.parent.resolve() != Path(cwd).resolve():
+        return Refusal(
+            f"{' '.join(cmd)} would run scripts.test from {manifest.parent}, "
+            "and this recorder does not change directory. "
+            f"Run the harness directly, {_BOTH}")
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return Refusal(
+            f"{manifest} does not parse as JSON, so scripts.test was not "
+            f"read. Run the harness directly, {_BOTH}")
+    scripts = data.get("scripts") if isinstance(data, dict) else None
+    script = scripts.get("test") if isinstance(scripts, dict) else None
+    if not isinstance(script, str):
+        return Refusal(
+            "package.json has no scripts.test string. "
+            f"Run the harness directly, {_BOTH}")
+    if any(ch in _SHELL_META for ch in script):
+        return Refusal(
+            f"package.json scripts.test is {script!r}, which is a shell "
+            "command, and this recorder does not spawn a shell. "
+            f"Run the harness directly, {_BOTH}")
+    try:
+        argv = shlex.split(script)
+    except ValueError:
+        return Refusal(
+            f"package.json scripts.test is {script!r}, which is not a "
+            "simple command. Run the harness directly, {_BOTH}")
+    inner = recognise(argv, cwd, expand=False)
+    if isinstance(inner, Plan):
+        return Plan(kind=inner.kind, argv=list(cmd), stripped=inner.stripped,
+                    harness_args=inner.harness_args, root=inner.root,
+                    user_config=inner.user_config,
+                    harness_index=inner.harness_index)
+    if inner.message == JEST:
+        return Refusal(
+            f"package.json scripts.test is {script!r}, and {JEST}. "
+            f"Run the harness directly, {_BOTH}")
+    return Refusal(
+        f"package.json scripts.test is {script!r}, which is not a vitest "
+        "or node --test command this recorder can run without a shell. "
+        f"Run the harness directly, {_BOTH}")
+
+
+def _package_json(cwd: Path) -> Path | None:
+    """The nearest `package.json`, walking parents the way npm does."""
+    here = Path(cwd).resolve()
+    for directory in [here, *here.parents]:
+        candidate = directory / "package.json"
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _script_names_jest(cmd: list[str]) -> bool:

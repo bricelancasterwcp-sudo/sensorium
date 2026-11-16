@@ -2,7 +2,7 @@
 
 > The contract for the third recorder kind, `sensorium-model` (S1 of the sensor-suite program).
 > Kept out of `docs/TRACE-FORMAT.md` so that file stays under its 800-line ceiling; TRACE-FORMAT
-> §1 names format 5 and points here. Design: `docs/superpowers/specs/2026-09-05-sensorium-trace-join-and-model-recorder-design.md`.
+> §1 names format 5 and points here. Design: `docs/planning/specs/2026-09-05-sensorium-trace-join-and-model-recorder-design.md`.
 > **Status 2026-09-05: contract only.** No recorder writes this format yet; sensorium 0.18.0 refuses
 > a format-5 file by TRACE-FORMAT §1's newer-format rule, which is the intended behavior until S1.
 

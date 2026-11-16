@@ -9,7 +9,7 @@ questions:
     truth: >
       The same reason as `untraced_catcher`, reached across a suspension
       instead of a synchronous call: `caught by untraced code inside
-      <anonymous> (untraced_catcher_rejection.test.ts): f2 unwound, its
+      test("a fetch reports the outage as a rejection") (untraced_catcher_rejection.test.ts): f2 unwound, its
       caller f1 returned; not followed`. `fetchThing` is called directly --
       there is no wrapping arrow the way `expect(() => parse(...))` has one
       -- so its own frame IS the one that unwinds, f2, and its caller is f1,
@@ -37,9 +37,7 @@ questions:
     expect_exit: 0
     expect_line:
       - ["e3 RAISE", "fetchThing raise Error('offline') L9"]
-      - ["AMBIGUOUS -- caught by untraced code inside <anonymous>
-          (untraced_catcher_rejection.test.ts): f2 unwound, its caller f1
-          returned; not followed"]
+      - ['AMBIGUOUS -- caught by untraced code inside test("a fetch reports the outage as a rejection") (untraced_catcher_rejection.test.ts): f2 unwound, its caller f1 returned; not followed']
       - ["dispositions: ambiguous 1"]
       - ["ambiguous by reason: untraced catcher 1"]
     expect_absent: ["SWALLOWED", "no rule of this recorder"]

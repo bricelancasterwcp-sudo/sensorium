@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The E6⁗ runner: E6⁗-A, E6⁗-WS, E6⁗-WS0, E-flip, E6-again′, E7⁗ and E0‴,
-in the order `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`
+in the order `docs/planning/acceptance/2026-09-05-sensorium-rung3-e6q.md`
 §1 pre-registers them.
 
 A SIBLING of `acceptance_e6ppp.py`, not a fork of it. Everything §1 calls
@@ -107,7 +107,7 @@ ph.LOGS = LOGS
 e6ppp.LOGS = LOGS
 e6ppp.BASE = BASE
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-05-sensorium-rung3-e6q.md")
 
 #: The commit that committed §1 ALONE, before any E6⁗ number was read. `None`
@@ -679,7 +679,7 @@ def assemble_only(raw: dict | None = None) -> int:
                  "since has touched; no arm was re-run and no value "
                  "re-measured"),
     }
-    dest = (REPO / "docs" / "superpowers" / "acceptance"
+    dest = (REPO / "docs" / "planning" / "acceptance"
             / "2026-09-05-sensorium-rung3-e6q.results.json")
     dest.write_text(json.dumps(doc, indent=2, default=str) + "\n")
     print(f"assembled {dest} from results-e6q-raw.json")
