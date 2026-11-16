@@ -114,6 +114,15 @@ pub(crate) fn run(
         ));
     }
     splices.sort_by(splice_order);
+    push_column_map(
+        &mut splices,
+        source,
+        file,
+        prefix,
+        parsed.shebang.is_some(),
+        is_crate_root,
+    )?;
+    splices.sort_by(splice_order);
 
     let out = assemble(source, &splices)?;
     check_line_count(source, &out, appended_line)?;
@@ -340,6 +349,40 @@ impl StaticPlacement {
             text,
         }
     }
+}
+
+/// Append the column-map registration when this file inserted anything a
+/// panic column could land after. The registration is newline-free. A non-root
+/// file skips a placement that would add a line or that needs a leading
+/// newline to escape a trailing comment: there is no byte there that keeps
+/// the line count. A crate root already accounts for that one appended line
+/// on its unit static, and this item sorts after [`Kind::Static`] so it lands
+/// on that same new line.
+fn push_column_map(
+    splices: &mut Vec<Splice>,
+    source: &str,
+    file: &str,
+    prefix: usize,
+    has_shebang: bool,
+    is_crate_root: bool,
+) -> Result<(), syn::Error> {
+    let rows = crate::columns::rows_from_splices(source, splices);
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let placement = static_splice(source, prefix, has_shebang);
+    if !is_crate_root && (placement.lead_newline || placement.appended_line) {
+        return Ok(());
+    }
+    let offset = checked_static_offset(source, placement.offset)?;
+    splices.push(Splice {
+        start: offset,
+        end: offset,
+        kind: Kind::ColMap,
+        seq: usize::MAX,
+        text: crate::columns::registration(file, &rows),
+    });
+    Ok(())
 }
 
 fn adds_a_final_line(source: &str, offset: usize) -> bool {

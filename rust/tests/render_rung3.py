@@ -251,8 +251,8 @@ def _e7pp(r) -> list[str]:
         row("new operand panic: line identical (1 = yes)",
             e["operand_line_identical"]),
     ]
-    out += ["", f"Predicted shift: **+{e.get('operand_predicted_shift')}** "
-            f"(the wrap prefix `match `). Measured locations:", "",
+    out += ["", f"Predicted shift: **+{e.get('operand_predicted_shift')}**. "
+            "Measured locations:", "",
             "| Arm | file:line:col |", "|---|---|"]
     for k in ("plain", "off", "call"):
         v = loc.get(k)

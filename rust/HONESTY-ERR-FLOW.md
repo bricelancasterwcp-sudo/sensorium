@@ -45,23 +45,22 @@ without it. *Falsified by* `corpus/rust/macro_arg_partial`, the goldens
 `try_in_macro_arg` / `async_block_try` / `struct_literal_partial`, and E2″
 below, whose `partial` count was pre-registered as a number and met it.
 
-**The wrap moves no line, and shifts a column in exactly two places.** Every
-injected fragment is newline-free (§9), so `file!()`, `line!()`, panic
-locations and backtraces stay the plain build's under rung 3's new wraps too.
-The two places are the 2026-09-04 record's §5.4 clause, adopted here
-2026-09-05. **(a) Inside a wrapped `?`/sink/`let _` operand**. A panic literal
-moves right by the wrap prefix's byte length, `match ` = **6 bytes**, and by
-nothing else: **measured**, predicted before the run and met exactly at both
-tiers (plain `e7_operand.rs:33:24`, instrumented `:33:30`). **(b) After an arm
-probe or closure guard spliced at a same-line `{`** (or a `{ probe; expr }`
-wrap). Everything after the probe on that line moves by *the probe's own byte
-length*, not by 6; the shape is
+**The wrap moves no line. It still inserts bytes, and the reported column is the original.** Every
+injected fragment is newline-free (§9), so `file!()` and `line!()` stay the plain build's, and a
+panic's line does too. The bytes that would move a column are the same two the 2026-09-04 record's
+§5.4 named. **(a) Inside a wrapped `?`/sink/`let _` operand** the wrap still splices `match ` (6
+bytes) in front of the operand. **(b) After an arm probe or closure guard spliced at a same-line
+`{`** (or a `{ probe; expr }` wrap) the probe's own bytes still sit on that line; the shape is
 `rust/sensorium-transform/tests/golden/err_arms_three_ways.out.rs:14`
-(`Err(e) => { @P(9,HOW_ARM_PROPAGATE,e) Err(e) },`): **stated, unmeasured**.
-*Falsified by* E7″ and E7‴ (§3 of the two acceptance records below) and
-`rust/tests/mechanics.sh`'s six E7 checks, 0 differences in both runs, which
-cover (a) and the *nowhere else* half; the missing check for (b) is
-`docs/CARRIED-DEBT.md`.
+(`Err(e) => { @P(9,HOW_ARM_PROPAGATE,e) Err(e) },`). The runtime keeps a per-file map of those
+insertions and, when a panic is reported, subtracts the ones strictly before that column. The
+`panicked at` column and the PANIC record's `file:line:col` are that original column. A column
+inside an inserted fragment is left as the compiler reported it. Backtrace frames are debuginfo
+and are not remapped. (a) is measured: `rust/tests/mechanics.sh` E7'' expects the instrumented
+column to equal the plain one, at tier `off` and tier `call`. (b) is the same map, unit-tested,
+and still has no dedicated mechanics probe (`docs/CARRIED-DEBT.md`). *Falsified by* E7'' in
+`rust/tests/mechanics.sh`, the column-map unit test in `rust/sensorium-rt/src/columns.rs`, and
+the six E7 checks that panics outside those insertions stay byte-identical.
 
 **Chain identity is a derivation, and its limits are stated on the wire.**
 There is no error identity on the wire at all: chain serials are minted at

@@ -26,7 +26,7 @@ fn a_trailing_block_doc_comment_still_takes_the_static_in_place() {
     let t =
         transform("/*! Crate docs. */\n", FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert_eq!(
-        t.source,
+        common::strip_column_map(&t.source),
         format!(
             "/*! Crate docs. */{}{}\n",
             common::CRATE_ALLOW,
@@ -57,7 +57,7 @@ fn a_file_with_no_tokens_takes_the_static_at_offset_zero() {
     // is legal because a file with no tokens has no items either.
     let t = transform("// nothing here\n", FILE, META, 0, true, &Focus::EMPTY).expect("transform");
     assert_eq!(
-        t.source,
+        common::strip_column_map(&t.source),
         format!("{}// nothing here\n", common::unit_static_with_allow(META))
     );
     assert_eq!(t.source.lines().count(), 1);
@@ -67,7 +67,10 @@ fn a_file_with_no_tokens_takes_the_static_at_offset_zero() {
 #[test]
 fn an_empty_crate_root_is_the_one_documented_line_count_exception() {
     let t = transform("", FILE, META, 0, true, &Focus::EMPTY).expect("transform");
-    assert_eq!(t.source, common::unit_static_with_allow(META));
+    assert_eq!(
+        common::strip_column_map(&t.source),
+        common::unit_static_with_allow(META)
+    );
     assert_eq!("".lines().count(), 0);
     assert_eq!(t.source.lines().count(), 1);
     assert!(t.appended_line);
@@ -108,7 +111,7 @@ fn crlf_line_endings_keep_their_offsets() {
     let input = "fn f() -> u8 {\r\n    1\r\n}\r\n";
     let t = transform(input, FILE, META, 3, false, &Focus::EMPTY).expect("transform");
     assert_eq!(
-        t.source,
+        common::strip_column_map(&t.source),
         format!(
             "fn f() -> u8 {{{}\r\n    {}1)\r\n}}\r\n",
             common::guard(3, &[]),
@@ -123,7 +126,7 @@ fn a_byte_order_mark_shifts_every_offset() {
     let input = "\u{feff}fn f() -> u8 { 1 }\n";
     let t = transform(input, FILE, META, 3, false, &Focus::EMPTY).expect("transform");
     assert_eq!(
-        t.source,
+        common::strip_column_map(&t.source),
         format!(
             "\u{feff}fn f() -> u8 {{{} {}1) }}\n",
             common::guard(3, &[]),
@@ -148,12 +151,12 @@ fn the_spawn_site_string_is_the_qualname_and_ordinal_not_the_path() {
     )
     .expect("transform");
     // Asserted FIRST, and on a substring BOTH spellings share, so an unescaped
-    // leak (`a"b.rs`) is caught as well as an escaped one (`a\\"b.rs`) -- and
-    // so this is the assertion that reports when a path reaches the source at
-    // all.
+    // leak (`a"b.rs`) is caught as well as an escaped one (`a\\"b.rs`). The
+    // column-map registration is the one escaped copy of the path, so it is
+    // stripped before this check; the spawn literal is what must not carry it.
     assert!(
-        !t.source.contains("b.rs"),
-        "the path is not baked into the rewritten source: {}",
+        !common::strip_column_map(&t.source).contains("b.rs"),
+        "the path is not baked into the spawn literal: {}",
         t.source
     );
     assert!(

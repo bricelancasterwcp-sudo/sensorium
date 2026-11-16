@@ -49,7 +49,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use sensorium_transform::{transform_file, FileRole, Focus, RetKind, SiteKind, Transformed};
+use sensorium_transform::{
+    transform_file, FileRole, Focus, RetKind, SiteKind, Transformed, COLUMN_MAP_PREFIX,
+};
 
 pub const META: &str = "d41d8cd98f00b204";
 pub const FILE: &str = "src/lib.rs";
@@ -415,7 +417,11 @@ pub fn run_focus(case: &str, first_site: u32, focus: &Focus) -> Transformed {
     )
     .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
 
-    assert_eq!(t.source, expected, "{case}: transformed source differs");
+    assert_eq!(
+        strip_column_map(&t.source),
+        expected,
+        "{case}: transformed source differs"
+    );
     assert_eq!(
         t.source.lines().count(),
         input.lines().count() + usize::from(t.appended_line),
@@ -472,7 +478,11 @@ pub fn run_role(case: &str, first_site: u32, role: FileRole) -> Transformed {
     let t = transform_file(&input, FILE, META, first_site, role, &Focus::EMPTY)
         .unwrap_or_else(|e| panic!("{case}: transform failed: {e}"));
 
-    assert_eq!(t.source, expected, "{case}: transformed source differs");
+    assert_eq!(
+        strip_column_map(&t.source),
+        expected,
+        "{case}: transformed source differs"
+    );
     assert_eq!(
         t.source.lines().count(),
         input.lines().count() + usize::from(t.appended_line),
@@ -486,6 +496,24 @@ pub fn run_role(case: &str, first_site: u32, role: FileRole) -> Transformed {
         "{case}: the unit static must be a real top-level item, not commented out"
     );
     t
+}
+
+/// Drop the column-map registration. Goldens pin the probes, not that item:
+/// it is newline-free, re-parsed with the rest of the file, and compiled by
+/// `tests/oracle.rs` from the real transform output.
+pub fn strip_column_map(source: &str) -> String {
+    let Some(start) = source.find(COLUMN_MAP_PREFIX) else {
+        return source.to_owned();
+    };
+    const END: &str = "__sensorium_colmap_init };";
+    let Some(rel) = source[start..].find(END) else {
+        return source.to_owned();
+    };
+    let end = start + rel + END.len();
+    let mut out = String::with_capacity(source.len() - (end - start));
+    out.push_str(&source[..start]);
+    out.push_str(&source[end..]);
+    out
 }
 
 /// The FN sites of a result: `(site, qualname, firstlineno, ret)`. Err-flow

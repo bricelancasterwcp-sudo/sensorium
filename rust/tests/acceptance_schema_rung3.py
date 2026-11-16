@@ -263,8 +263,8 @@ def _e7pp(raw) -> dict:
         "operand_column_shift": meas(
             op.get("column_shift_call") if have else None, 1,
             f"instrumented column minus plain column for the panic literal "
-            f"inside a `?` operand, tier `call`; §1 predicted "
-            f"{op.get('predicted_shift')} (the wrap prefix `match `)",
+            f"inside a `?` operand, tier `call`; predicted shift "
+            f"{op.get('predicted_shift')}",
             op.get("dropped") or []),
         "operand_column_shift_off": meas(
             op.get("column_shift_off") if have else None, 1,

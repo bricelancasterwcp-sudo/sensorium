@@ -106,6 +106,7 @@ mod assemble;
 mod attrs;
 mod census;
 mod closures;
+mod columns;
 mod errflow;
 mod escape;
 mod exits;
@@ -118,6 +119,7 @@ mod spawn;
 mod splice;
 mod visit;
 
+pub use columns::COLUMN_MAP_PREFIX;
 pub use focus::{canonical_values, fn_items, FnItem, Focus};
 pub use manifest::{FocusRecord, Manifest, ManifestSite};
 
