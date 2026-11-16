@@ -612,16 +612,21 @@ test("the transform's own output runs against this runtime", () => {
   // wrapped TEST callback reaches is inside one — which is the whole of what
   // the task boundary claims.
   assert.deepEqual([...new Set(calls.filter((c) => c.t === null).map(site))],
-    ['describe', '<anonymous>', 'it']);
+    ['describe', 'describe("math")', 'it']);
   const inTask = calls.filter((c) => c.t === task.id);
-  assert.deepEqual([...new Set(inTask.map(site))].sort(),
-    ['<anonymous>.<anonymous>', '<anonymous>.<anonymous>.<anonymous>', 'counter', 'guard', 'twice']);
+  assert.deepEqual([...new Set(inTask.map(site))].sort(), [
+    'counter',
+    'describe("math").it("adds")',
+    'describe("math").it("adds").<anonymous>',
+    'guard',
+    'twice',
+  ]);
   // A generator parked at `yield` is not the parent of what runs next: the
   // `guard(x)` calls in the loop body belong to the test callback's frame.
   const generator = calls.find((c) => site(c) === 'counter');
   assert.deepEqual(calls.filter((c) => c.p === generator.f), [],
     'nothing nests under a parked generator');
-  const body = calls.find((c) => site(c) === '<anonymous>.<anonymous>');
+  const body = calls.find((c) => site(c) === 'describe("math").it("adds")');
   assert.deepEqual([...new Set(calls.filter((c) => site(c) === 'guard').map((c) => c.p))],
     [body.f], 'the loop body called guard, not the generator');
   // One thrown object, followed from the `throw` through the unwind into the

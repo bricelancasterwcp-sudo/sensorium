@@ -245,7 +245,9 @@ test('R8: ordinary source is never wrapped, whatever the callback shape', () => 
   assert.ok(code.includes('test("shared", sharedCase);'));
   assert.deepEqual(out.manifest.instrumented, [
     { qualname: 'describe', line: 3, kind: 'function', focused: false, deferred: false },
-    { qualname: '<anonymous>', line: 9, kind: 'function', focused: false, deferred: false },
+    // Not wrapped (this file is not a test file), but the arrow is still a
+    // direct callback of `describe` with a string title, so it is named.
+    { qualname: 'describe("x")', line: 9, kind: 'function', focused: false, deferred: false },
   ]);
 });
 

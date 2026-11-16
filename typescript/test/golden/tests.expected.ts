@@ -1,4 +1,4 @@
-import * as __srt from "RT";const __sfile=__srt.file("src/tests.ts","/w/src/tests.ts",[["<anonymous>",3,"function"],["<anonymous>.<anonymous>",4,"function"],["<anonymous>.<anonymous>",10,"function"],["<anonymous>.<anonymous>",12,"function"],["<anonymous>",15,"function"]],"5e4ed0d13cc30d1a83a009c7e3235887e13c5d10a6efebbc044c6115a26a5a0b");import { describe, expect, it, suite, test } from "vitest";
+import * as __srt from "RT";const __sfile=__srt.file("src/tests.ts","/w/src/tests.ts",[["describe(\"math\")",3,"function"],["describe(\"math\").test(\"adds\")",4,"function"],["describe(\"math\").test(\"retries\")",10,"function"],["describe(\"math\").<anonymous>",12,"function"],["suite(\"edges\")",15,"function"]],"5e4ed0d13cc30d1a83a009c7e3235887e13c5d10a6efebbc044c6115a26a5a0b");import { describe, expect, it, suite, test } from "vitest";
 
 describe(...__srt.suite(("math"), () => {const __sf=__srt.call(__sfile,0,[]);try{
   test(...__srt.task(("adds"), () => {const __sf=__srt.call(__sfile,1,[]);try{

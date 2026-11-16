@@ -1,4 +1,4 @@
-import * as __srt from "RT";const __sfile=__srt.file("src/tests-each.ts","/w/src/tests-each.ts",[["<anonymous>",3,"coroutine"],["<anonymous>",7,"function"],["<anonymous>",14,"function"],["<anonymous>",18,"function"],["<anonymous>.<anonymous>",19,"function"]],"0091ad1a43c3e53a6e5ec6f02e1d7035bfd9d39a1e25cc5a192d3e767501fefe");import { describe, expect, it, test } from "vitest";
+import * as __srt from "RT";const __sfile=__srt.file("src/tests-each.ts","/w/src/tests-each.ts",[["it(\"subtracts\")",3,"coroutine"],["test(\"doubles %i\")",7,"function"],["test(\"adds $a\")",14,"function"],["describe(\"suite %s\")",18,"function"],["describe(\"suite %s\").it(\"is a letter\")",19,"function"]],"0091ad1a43c3e53a6e5ec6f02e1d7035bfd9d39a1e25cc5a192d3e767501fefe");import { describe, expect, it, test } from "vitest";
 
 it.concurrent(...__srt.task(("subtracts"), async () => {const __sf=__srt.call(__sfile,0,[]);try{
   expect(__srt.r(__sf,await __srt.y(__sf,(sub(2, 1)),0))).toBe(1);

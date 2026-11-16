@@ -242,6 +242,7 @@ test('an unspellable name is never suggested', () => {
     'src/a.test.ts': [
       "import { describe, test } from 'node:test';",
       '',
+      'const xs = [1].map((n) => n);',
       "describe('outer', () => {",
       "  test('inner', () => {});",
       '});',
@@ -250,9 +251,12 @@ test('an unspellable name is never suggested', () => {
       '',
     ].join('\n'),
   });
-  // The callbacks are `<anonymous>` and `<anonymous>.<anonymous>`, which sort
-  // first and which no caller can type: a suggestion is a name to retype.
-  assert.deepEqual(json.unmatched, [{ spec: 'nope', closest: ['named'] }]);
+  // The `.map` callback is `<anonymous>`, which sorts first and which no
+  // caller can type. The test callbacks are spellable and are offered.
+  assert.deepEqual(json.unmatched, [{
+    spec: 'nope',
+    closest: ['describe("outer")', 'describe("outer").test("inner")', 'named'],
+  }]);
 });
 
 test('a missing variable is one line on stderr and exit 2, with no JSON', () => {
