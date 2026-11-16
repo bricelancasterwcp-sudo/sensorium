@@ -2,6 +2,35 @@
 
 Record one run of your program, then let a coding agent ask what actually happened: call trees, exceptions, and where a value came from, answered from the trace or refused.
 
+A failing checkout, three queries, no edits. `item_weight` returned 1800 grams and `shipping_cost` took that number as `weight_kg`.
+
+```
+$ sensorium run -- pytest examples/test_shipping.py -q
+F                                                                        [100%]
+E       AssertionError: assert 5569.0 == 74.5
+run: 20261116-104837-c926b7
+
+$ sensorium exceptions last
+raised (1):
+  e30 RAISE   test_order_total_for_a_mug_and_kettle raise AssertionError("assert 5569.0 == 74.5\n +  where 5569.0 = order_total([{'name': 'mug', 'price': 12.0, 'grams': 400}, {'name': 'kettle', 'price': 49.0, 'grams': 1800}])") L10
+    propagated (handler not in traced code)
+
+$ sensorium flow last --value 1800
+  e22 CALL    item_weight(item=dict[3]={'name': 'kettle', 'price': 49.0, 'grams': 1800})   [arg item.grams]
+  e23 RETURN  item_weight -> 1800   [return]
+  e24 CALL    shipping_cost(weight_kg=1800)   [arg weight_kg]
+sightings: 6 event(s), 6 capture(s)
+
+$ sensorium refocus last --focus examples.shipping:shipping_cost --compact
+refocus verdict: MATCH -- every recorded thread produced the identical CALL/RETURN/RAISE/HANDLED sequence
+```
+
+From a clone, with `sensorium` and `pytest` on PATH:
+
+    sensorium run -- pytest examples/test_shipping.py -q
+
+Event ids move when the program does; `last` is the newest trace. The bug lives in [`examples/shipping.py`](examples/shipping.py).
+
 ## What Sensorium is
 
 Sensorium records one run (every call, return, and exception, with captured values) into a SQLite trace, and answers debugging questions from that trace in plain text. Four recorders write [trace format 4](docs/TRACE-FORMAT.md). One command line, `sensorium`, reads all four.
@@ -15,13 +44,23 @@ A query refuses by name when a recorder lacks a capability.
 
 Two commitments run through all of it. The instrument never answers from data it does not have: truncated captures are marked, sites a predicate could not be evaluated at are counted, a recording that died is labelled, and a rerun that was a different execution says so. Nothing here guesses. Every answer is a deterministic function of the recorded trace, and where the trace cannot settle a question the output says so instead of inferring. `refocus` is the one command that executes anything: it re-runs the program and says whether what came back was the same execution. The per-command limits are [docs/claims.md](docs/claims.md).
 
-## Quickstart (Python 3.12+, uv)
+## Answers from the trace, or refuses
 
-    uv venv .venv && uv pip install -p .venv/bin/python "sensorium-trace @ git+https://github.com/bricelancasterwcp-sudo/sensorium" pytest
-    .venv/bin/sensorium run -- pytest tests/test_something.py
-    .venv/bin/sensorium exceptions last
+Sensorium never guesses why a test failed. A well formed question whose recording cannot settle it is refused by name.
 
-Run these from your project root, in your project's own venv, so recordings import your dependencies.
+- **REFUSED.** Printed `REFUSED: ...` when a capability is missing, and `refocus verdict: REFUSED -- <run> was recorded and is queryable, but it could NOT be verified against <run>: treat it as a separate, UNVERIFIED execution` when a rerun could not be checked. `diff` prints `verdict: REFUSED -- cannot issue a MATCH/DIVERGED verdict`. Re-record.
+- **NOTHING WAS CHECKED.** `watch` prints `verdict: NOTHING WAS CHECKED -- the predicate could not be evaluated at any of the N recorded site(s)` when no site had the names the predicate needs. The next line is `'hits: 0' here means 'could not evaluate', NOT 'the invariant held'`.
+- **DIVERGED.** Two runs took different paths. `diff` prints `verdict: DIVERGED at causal step N`. `refocus` prints `refocus verdict: DIVERGED -- ...`. The new trace is queryable and is a different execution.
+
+Exit 3 means change the recording. Exit 2 means fix the call. Details: [docs/claims.md](docs/claims.md).
+
+## Quickstart (Python 3.12+)
+
+    pip install sensorium-trace pytest
+    sensorium run -- pytest tests/test_something.py
+    sensorium exceptions last
+
+`uv tool install sensorium-trace` puts the same `sensorium` command on PATH. Run these from your project root, in an environment that can import your code.
 
 ## Connect your agent (MCP)
 
@@ -68,17 +107,22 @@ Claude Code:
 
 ## Install
 
-Python 3.12+. The CLI command is `sensorium`.
+Python 3.12+. The CLI command is `sensorium`. The name `sensorium` on PyPI and npm is an unrelated project; these packages publish as `sensorium-trace`.
 
-From git, which works today:
+    pip install sensorium-trace
+    uv tool install sensorium-trace
+
+TypeScript recorder (Node 24):
+
+    npm install sensorium-trace
+
+These resolve once the packages are on the indexes. The import and the CLI stay `sensorium`. The npm package is the recorder library; traces still report `recorder: sensorium-ts`.
+
+From git:
 
     uv venv .venv && uv pip install -p .venv/bin/python "sensorium-trace @ git+https://github.com/bricelancasterwcp-sudo/sensorium"
 
-From PyPI, once published: `uv pip install sensorium-trace`.
-
-Dev checkout: `uv venv .venv && uv pip install -p .venv/bin/python -e ".[dev]"`.
-
-The import package stays `sensorium`. The name `sensorium` on PyPI and npm is an unrelated project. The publish name is `sensorium-trace`. npm package of the same name is the TypeScript recorder; it does not replace the CLI. Details: [docs/install.md](docs/install.md).
+Dev checkout: `uv venv .venv && uv pip install -p .venv/bin/python -e ".[dev]"`. Details: [docs/install.md](docs/install.md).
 
 The recorder is `sys.monitoring` and nothing else, so on 3.11 it refuses to start. Witnessing a `multiprocessing` spawn needs the `_posixsubprocess.fork_exec` audit event, which arrived in 3.14. Below that, such a spawn is unwitnessed, and `refocus` says so by withholding the "no child process witnessed" line ([docs/claims.md](docs/claims.md)).
 
