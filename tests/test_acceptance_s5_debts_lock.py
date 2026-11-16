@@ -100,7 +100,7 @@ from acceptance_lib import Refused                                 # noqa: E402
 lib.LOGS, lib.LEDGER, ph.LOGS = _PTRS
 
 #: The document this module locks.
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-12-sensorium-s5-rung4-debts.md")
 
 #: The two predictions §1 pins by content. Kept as repo-relative strings
@@ -110,8 +110,9 @@ HANDCOUNT_REL = ("docs/superpowers/acceptance/"
                  "2026-09-12-sensorium-s5-rung4-debts-h2-handcount.md")
 CENSUS_REL = ("docs/superpowers/acceptance/"
               "2026-09-12-sensorium-s5-rung4-debts-census.md")
-HANDCOUNT = REPO / HANDCOUNT_REL
-CENSUS = REPO / CENSUS_REL
+HANDCOUNT = REPO / HANDCOUNT_REL.replace(
+    "docs/superpowers/", "docs/planning/", 1)
+CENSUS = REPO / CENSUS_REL.replace("docs/superpowers/", "docs/planning/", 1)
 
 #: The sha256 of §1 as it now stands: the ORIGINAL lock plus BOTH dated §1.7
 #: amendments (P6's reason-line pin, P16's SWALLOWED-count correction).
@@ -394,7 +395,8 @@ def test_the_debts_record_carries_both_shas_and_the_amendment_flag():
     _require_source_commits(ORIGINAL_COMMIT)
     assert BYTE_LOCK != ORIGINAL_LOCK
     rec = byte_lock_facts(DOC.read_text(), BYTE_LOCK, ORIGINAL_LOCK,
-                          _at(ORIGINAL_COMMIT, DOC.relative_to(REPO).as_posix()))
+                          _at(ORIGINAL_COMMIT, rung3.lock_commit_path(
+                              DOC.relative_to(REPO).as_posix())))
     assert rec["amended_after_the_original_lock"] is True
     assert rec["original_lock_sha256"] == ORIGINAL_LOCK
     assert rec["original_lock_declared_matches"] is True
@@ -416,7 +418,7 @@ def test_the_amendment_moved_no_row_of_the_pre_registration():
     together."""
     _require_lock()
     _require_source_commits(ORIGINAL_COMMIT)
-    rel = DOC.relative_to(REPO).as_posix()
+    rel = rung3.lock_commit_path(DOC.relative_to(REPO).as_posix())
     before = rung3.section1(_at(ORIGINAL_COMMIT, rel)).splitlines()
     after = rung3.section1(DOC.read_text()).splitlines()
     rows_before = [ln for ln in before if ln.startswith("|")]

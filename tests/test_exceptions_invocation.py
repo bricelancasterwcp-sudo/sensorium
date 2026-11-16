@@ -609,7 +609,7 @@ def test_a_run_id_still_wins_over_an_invocation_prefix(
 #: test files, and the file-less key merged their chains ACROSS processes --
 #: 18 of them booked under `task_exec_read_find_test.rs` while
 #: `task_exec_run_test.rs` vanished from the table entirely
-#: (`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md`
+#: (`docs/planning/acceptance/2026-09-05-sensorium-rung4-entry-grain.md`
 #: §4.3/§5.1). The names are the record's, so the pin below is that shape.
 READ_FIND = "/w/bloomery-daemon/tests/task_exec_read_find_test.rs"
 RUN_TEST = "/w/bloomery-daemon/tests/task_exec_run_test.rs"

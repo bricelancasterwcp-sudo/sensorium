@@ -4,7 +4,7 @@
 #
 # Every promise in `rust/HONESTY.md` that a small workspace can falsify in
 # seconds is falsified here: E7(a) and E8(a)-(d) as pre-registered in
-# `docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, plus
+# `docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md`, plus
 # the runner's witnessed exit (§5), children linked by ppid (§6), the doctest
 # route through RUSTDOCFLAGS, `spawn_child` naming (§3), panics and caught
 # panics (§1), a thread still blocked at process exit (§4), per-unit mirrors
@@ -62,7 +62,7 @@ WRAPPED_EXPECTED="abort_child app_bin blocked e7 e7_operand nested_panic probe_a
 # `match `, spliced at the first byte of a `?` operand. A panic whose call site
 # is INSIDE that operand therefore moves by exactly six columns and by no
 # lines. The number is the one pre-registered in
-# `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` §1,
+# `docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md` §1,
 # written here as a constant rather than read from the transformer's source: a
 # check that derives its prediction from the thing under test predicts nothing.
 E7_OPERAND_SHIFT=6

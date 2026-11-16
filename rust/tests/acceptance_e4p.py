@@ -2,7 +2,7 @@
 """The E4′ runner: PASS 2 ONLY, measured ONCE over E4's 61 kept originals
 under the repaired harness rule.
 
-`docs/superpowers/acceptance/2026-09-07-sensorium-rung4-e4p.md` §1.
+`docs/planning/acceptance/2026-09-07-sensorium-rung4-e4p.md` §1.
 
 WHAT THIS RUNNER DOES
 ---------------------
@@ -148,7 +148,7 @@ pre.LOGS = LOGS
 e6ppp.LOGS = LOGS
 e6ppp.BASE = BASE
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-07-sensorium-rung4-e4p.md")
 
 #: The commit §1 is byte-locked against NOW: the AMENDED §1. A `None` lock
@@ -177,7 +177,7 @@ ORIGINAL_LOCK = "2991c3b"
 
 RUNNER = "rust/tests/acceptance_e4p.py"
 RAW = LEDGER / "results-e4p-raw.json"
-RESULTS = (REPO / "docs" / "superpowers" / "acceptance"
+RESULTS = (REPO / "docs" / "planning" / "acceptance"
            / "2026-09-07-sensorium-rung4-e4p.results.json")
 
 #: The seven locations, and the `paths` keys they land under.

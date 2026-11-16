@@ -532,7 +532,7 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     `corpus/typescript/refocus_match`, whose `siblings in the re-run: 0` is
     the same claim at n = 1. Closing it is **refocus by invocation id** (every pair compared and a roll-up verdict over them) which is a different
     report shape with its own brainstorm, named as not-in-this-slice by
-    [`../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
+    [`../docs/planning/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/planning/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
     §7.
 41. **Harness set 1 is exempted from the environment check, so a program that
     read its own worker slot can still earn a licence.** *Added 2026-09-13*
@@ -617,6 +617,6 @@ the claim that this is the whole of it. A bare `§n` below is a section of
     together added 13 188 510 863 spool bytes and 21 302 018 048 trace
     bytes. Closing it is the
     narrowing spelling of
-    [`../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
+    [`../docs/planning/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`](../docs/planning/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md)
     §7, which must be announced as what the reader asked for if a later slice
     wants it.

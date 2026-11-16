@@ -19,8 +19,8 @@ prose:
 
   Unlike `tests/test_acceptance_e15_lock.py`, the source read is the WORKING
   TREE and only the working tree -- no `git show <commit>:<path>` fallback.
-  `docs/superpowers/specs/2026-09-13-sensorium-secrets-redaction-design.md`
-  and all three `docs/superpowers/plans/…-sensorium-redaction-{a,b,c}.md`
+  `docs/planning/specs/2026-09-13-sensorium-secrets-redaction-design.md`
+  and all three `docs/planning/plans/…-sensorium-redaction-{a,b,c}.md`
   are committed on THIS branch, and CI does not fetch the docs branch those
   files were first drafted on -- a `git show` primary read would skip by
   name on every CI run, which is a check that never checks anything. The
@@ -56,16 +56,16 @@ sys.path.insert(0, str(REPO / "rust" / "tests"))
 from acceptance_lib import Refused                                 # noqa: E402
 
 #: The document this module locks.
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-13-sensorium-e16-redaction.md")
 
-_SPEC = (REPO / "docs" / "superpowers" / "specs"
+_SPEC = (REPO / "docs" / "planning" / "specs"
          / "2026-09-13-sensorium-secrets-redaction-design.md")
-_PLAN = (REPO / "docs" / "superpowers" / "plans"
+_PLAN = (REPO / "docs" / "planning" / "plans"
          / "2026-09-13-sensorium-redaction-a.md")
-_PLAN_B = (REPO / "docs" / "superpowers" / "plans"
+_PLAN_B = (REPO / "docs" / "planning" / "plans"
            / "2026-09-14-sensorium-redaction-b.md")
-_PLAN_C = (REPO / "docs" / "superpowers" / "plans"
+_PLAN_C = (REPO / "docs" / "planning" / "plans"
            / "2026-09-15-sensorium-redaction-c.md")
 
 _SPEC_HEAD = "## 9. E16, pre-registered"

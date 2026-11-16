@@ -97,14 +97,14 @@ from acceptance_lib import Refused                                 # noqa: E402
 lib.LOGS, lib.LEDGER, ph.LOGS = _PTRS
 
 #: The document this module locks.
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-13-sensorium-e15-refocus-typescript.md")
 
 #: The prediction §1 pins by content. Kept as a repo-relative string because
 #: that is the spelling §1's own line carries, and the line is compared whole.
 SURVEY_REL = ("docs/superpowers/acceptance/"
               "2026-09-13-sensorium-e15-refocus-typescript-survey.md")
-SURVEY = REPO / SURVEY_REL
+SURVEY = REPO / SURVEY_REL.replace("docs/superpowers/", "docs/planning/", 1)
 
 #: The sha256 of §1 as it now stands: the ORIGINAL lock plus the one dated
 #: amendment (ruling P16's H7′/H8′ pre-registration, added before any
@@ -366,7 +366,8 @@ def test_the_record_carries_both_shas_and_the_amendment_flag():
     _require_source_commits(ORIGINAL_COMMIT)
     assert BYTE_LOCK != ORIGINAL_LOCK
     rec = byte_lock_facts(DOC.read_text(), BYTE_LOCK, ORIGINAL_LOCK,
-                          _at(ORIGINAL_COMMIT, DOC.relative_to(REPO).as_posix()))
+                          _at(ORIGINAL_COMMIT, rung3.lock_commit_path(
+                              DOC.relative_to(REPO).as_posix())))
     assert rec["amended_after_the_original_lock"] is True
     assert rec["original_lock_sha256"] == ORIGINAL_LOCK
     assert rec["original_lock_declared_matches"] is True
@@ -389,7 +390,7 @@ def test_the_amendment_added_a_paragraph_and_moved_no_row():
     """
     _require_lock()
     _require_source_commits(ORIGINAL_COMMIT)
-    rel = DOC.relative_to(REPO).as_posix()
+    rel = rung3.lock_commit_path(DOC.relative_to(REPO).as_posix())
     before_s1 = rung3.section1(_at(ORIGINAL_COMMIT, rel))
     after_s1 = rung3.section1(DOC.read_text())
     before, after = before_s1.splitlines(), after_s1.splitlines()

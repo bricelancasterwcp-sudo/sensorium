@@ -22,8 +22,8 @@ gate whose scope is a list of the files someone remembered is a gate that
 grows a hole every time a document is added at a new path, so the scope is
 the whole extension and `EXEMPT` is the only thing that carves it back.
 
-Exempt, by name and only by name: `docs/superpowers/acceptance/`,
-`docs/superpowers/plans/` and `docs/superpowers/specs/`. Those three hold
+Exempt, by name and only by name: `docs/planning/acceptance/`,
+`docs/planning/plans/` and `docs/planning/specs/`. Those three hold
 dated history -- some byte-locked -- and are never edited after the fact
 except by appended amendments; a record growing past 800 lines as its
 history accumulates is accepted, because a record is read by section, not
@@ -32,7 +32,7 @@ exemption_list_is_exactly_these_three_record_directories` below pins the
 list itself, so a fourth entry cannot be added silently to widen it.
 
 This gate lands AFTER Tasks 1-4 split every file this branch pushed over
-800 lines (`docs/superpowers/specs/2026-09-08-sensorium-debts-buttonup-
+800 lines (`docs/planning/specs/2026-09-08-sensorium-debts-buttonup-
 design.md` R2) -- it is the check that those splits actually cleared the
 ceiling, not the mechanism that clears it. A file this gate names is a
 Task 1-4 miss: the fix is to split that file at its seam, the same way the
@@ -61,9 +61,9 @@ PATTERNS = ("*.py", "*.rs", "*.sh", "*.md", "*.mjs", "*.ts", "*.tsx")
 #: edited after the fact except by appended amendments. Exactly these
 #: three -- see the test below that pins this tuple.
 EXEMPT = (
-    "docs/superpowers/acceptance/",
-    "docs/superpowers/plans/",
-    "docs/superpowers/specs/",
+    "docs/planning/acceptance/",
+    "docs/planning/plans/",
+    "docs/planning/specs/",
 )
 
 
@@ -101,9 +101,9 @@ def test_the_exemption_list_is_exactly_these_three_record_directories():
     tuple in passing -- widening it is a deliberate, reviewable change to
     the assertion below, not a side effect of some other fix."""
     assert EXEMPT == (
-        "docs/superpowers/acceptance/",
-        "docs/superpowers/plans/",
-        "docs/superpowers/specs/",
+        "docs/planning/acceptance/",
+        "docs/planning/plans/",
+        "docs/planning/specs/",
     )
     for prefix in EXEMPT:
         assert (REPO / prefix).is_dir(), prefix
@@ -125,14 +125,15 @@ def test_the_widened_markdown_scope_reaches_the_repository_root():
     `CHANGELOG.md` at 798 lines, two from the ceiling and rising with every
     release; `ORIGIN.md`; and `corpus/rust/README.md`. The fourth,
     `CHANGELOG-ARCHIVE.md`, is the volume the same wave cut out of the
-    first, and it is covered from its first commit rather than from the
-    day someone remembers to add a pattern for it. Naming the four here
-    rather than trusting the glob is the check that the widening actually
-    happened -- `PATTERNS` narrowed back to `README.md` would still pass
-    every assertion above.
+    first. It now lives at `docs/changelog/CHANGELOG-ARCHIVE.md` and is
+    covered from its first commit rather than from the day someone
+    remembers to add a pattern for it. Naming the four here rather than
+    trusting the glob is the check that the widening actually happened.
+    `PATTERNS` narrowed back to `README.md` would still pass every
+    assertion above.
     """
-    for relpath in ("CHANGELOG.md", "CHANGELOG-ARCHIVE.md", "ORIGIN.md",
-                    "corpus/rust/README.md"):
+    for relpath in ("CHANGELOG.md", "docs/changelog/CHANGELOG-ARCHIVE.md",
+                    "ORIGIN.md", "corpus/rust/README.md"):
         assert relpath in FILES, relpath
 
 

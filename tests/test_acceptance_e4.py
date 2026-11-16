@@ -132,7 +132,7 @@ def test_the_e4_record_carries_both_shas_and_the_amendment_flag():
 
 
 def _section1(sha) -> str:
-    rel = runner.DOC.relative_to(REPO).as_posix()
+    rel = rung3.lock_commit_path(runner.DOC.relative_to(REPO).as_posix())
     text = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=REPO,
                           capture_output=True, text=True).stdout
     return rung3.section1(text)

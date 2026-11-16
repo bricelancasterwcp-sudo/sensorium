@@ -11,7 +11,7 @@ is the parser without them. This file is what says so, in two halves:
 * **the committed data** -- the thirteen transcripts of 2026-09-11, which are
   in the repository and whose sha256 list is the new record's §1.1. The
   numbers asserted here are the ones §1 of
-  `docs/superpowers/acceptance/2026-09-12-sensorium-s5-rung4-debts.md`
+  `docs/planning/acceptance/2026-09-12-sensorium-s5-rung4-debts.md`
   pre-registers, and every one of them is a STOP of rung 4's instrument
   turned into a PASS **of this instrument**, never a re-measurement of the
   recorder:
@@ -54,11 +54,11 @@ import e12p_report as e12p                                        # noqa: E402
 
 #: The committed transcripts of rung 4's thirteen reads. They are in the
 #: repository, so these tests need no box and no environment.
-REAL = (REPO / "docs" / "superpowers" / "acceptance"
+REAL = (REPO / "docs" / "planning" / "acceptance"
         / "2026-09-11-sensorium-s5-rung4-focus-reads")
 
 #: The rung-4 record, whose §4.2 quotes `node resolve.mjs`'s six sites.
-RUNG4 = (REPO / "docs" / "superpowers" / "acceptance"
+RUNG4 = (REPO / "docs" / "planning" / "acceptance"
          / "2026-09-11-sensorium-s5-rung4-focus.md")
 
 

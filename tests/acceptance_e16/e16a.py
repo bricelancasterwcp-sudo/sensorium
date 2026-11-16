@@ -4,7 +4,7 @@
 Launched detached by `e16a.sh`, which passes every location in the
 environment so that no path on one box is written into a file that travels
 with the repository. What this measures is fixed by the record's §1
-(`docs/superpowers/acceptance/2026-09-13-sensorium-e16-redaction.md`) and
+(`docs/planning/acceptance/2026-09-13-sensorium-e16-redaction.md`) and
 narrowed to part A by the plan's pre-registration block: H1 restricted to
 the ENVIRONMENT, H2 in full, H3 in full, H6 restricted to `redaction.env`.
 H1-values, H4, H5 and H6-values belong to parts B and C and are written into

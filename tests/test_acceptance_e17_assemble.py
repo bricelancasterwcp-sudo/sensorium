@@ -53,11 +53,11 @@ from assemble_e17 import (PIN, offenders, refuse_dry_run,          # noqa: E402
 from e17_cells import CELL_TITLES, RULES                          # noqa: E402
 from e17_run import Refused                                       # noqa: E402
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-16-sensorium-e17-mcp.md")
-_SPEC = (REPO / "docs" / "superpowers" / "specs"
+_SPEC = (REPO / "docs" / "planning" / "specs"
          / "2026-09-16-sensorium-mcp-stdio-design.md")
-_PLAN = (REPO / "docs" / "superpowers" / "plans"
+_PLAN = (REPO / "docs" / "planning" / "plans"
          / "2026-09-16-sensorium-mcp-stdio.md")
 _SPEC_HEAD = "## 9. E17, pre-registered"
 _PLAN_HEAD = ("## Pre-registration (Task 0 appends this block verbatim to "

@@ -5,7 +5,7 @@ Same rules as `acceptance_schema.assemble`: every measurement is
 list is the ONLY representation of not-measured, and `0` is measured-and-zero.
 
 Nothing here decides a verdict. §4 of
-`docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
+`docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
 written by hand against §1's rules, and E6''s adjudication -- which no program
 can do, because it is a reading of the clone's SOURCE -- is carried as a
 `null` with the reason, never as a number this file invented.

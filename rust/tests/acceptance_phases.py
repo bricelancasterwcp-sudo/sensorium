@@ -1,7 +1,7 @@
 """The rung-2 acceptance phases, in the pre-registered protocol order.
 
 Each phase returns raw facts only. Nothing here decides a verdict: §4 of
-`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` is
+`docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md` is
 written by hand against the rules, and `acceptance_schema.py` turns these
 facts into the none-versus-zero `results.json` the renderer prints.
 """

@@ -61,7 +61,7 @@ from e16b_cells import (ARMS, BASELINE, BENCH_REPS,               # noqa: E402
                         cell_h1_values, cell_h5, cell_h6_values,
                         parse_bench, part_word)
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-13-sensorium-e16-redaction.md")
 
 

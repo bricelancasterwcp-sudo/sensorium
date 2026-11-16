@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The E6‴ runner: E6‴-A, E6‴-W, E6-again and E7‴, in the order
-`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §1
+`docs/planning/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` §1
 pre-registered.
 
 A SIBLING of `acceptance_rung3.py`, not a fork of it. Everything §1 calls
@@ -91,7 +91,7 @@ lib.LEDGER = LEDGER
 lib.LOGS = LOGS
 ph.LOGS = LOGS
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-05-sensorium-rung3-e6ppp.md")
 
 #: The commit §1 is byte-locked against NOW: the amendment that recorded the
@@ -635,7 +635,7 @@ def assemble_only(raw: dict | None = None) -> int:
                  "since has touched; no arm was re-run and no value "
                  "re-measured"),
     }
-    dest = (REPO / "docs" / "superpowers" / "acceptance"
+    dest = (REPO / "docs" / "planning" / "acceptance"
             / "2026-09-05-sensorium-rung3-e6ppp.results.json")
     dest.write_text(json.dumps(doc, indent=2, default=str) + "\n")
     print(f"assembled {dest} from results-e6ppp-raw.json")

@@ -2,7 +2,7 @@
 """The E4″ runner: PASS 2 ONLY, measured ONCE over E4's 61 kept originals
 under a DIFFERENT driver build, plus two four-pair control arms.
 
-`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §1.
+`docs/planning/acceptance/2026-09-08-sensorium-rung4-e4pp.md` §1.
 
 WHAT THIS RUNNER DOES
 ---------------------

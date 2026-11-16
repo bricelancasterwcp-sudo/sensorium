@@ -6,7 +6,7 @@ deleted.
 
 Started 2026-09-05, at rung 3's close. Earlier slices carried their debt in
 the rung-3 inbox
-(`docs/superpowers/specs/2026-09-02-sensorium-rung3-inbox.md` §3) and in the
+(`docs/planning/specs/2026-09-02-sensorium-rung3-inbox.md` §3) and in the
 gitignored plan ledgers; nothing there is restated here, and that document
 stays the record for rungs 0–2.
 
@@ -172,7 +172,7 @@ here.
 ## 2026-09-17: sensorium as an MCP server, the local stdio slice
 
 The first slice of the product direction Brice ruled on 2026-09-13
-(`docs/superpowers/specs/2026-09-16-sensorium-mcp-stdio-design.md`): sensorium
+(`docs/planning/specs/2026-09-16-sensorium-mcp-stdio-design.md`): sensorium
 offered as an MCP service, with the free tier shipped as it will be used,
 one process, `sensorium mcp`, over the developer's own store, speaking the
 Model Context Protocol on stdio, and the exact process a hosted deployment
@@ -180,7 +180,7 @@ will later run per tenant. Thirty-four design decisions (**D1–D34**), thirty
 plan decisions (**P1–P30**) and nineteen rulings (**R1–R19**) are in that
 spec's **§13** with what each costs if wrong, beside every place the shipped
 code differs from §§2–10. **DONE**. E17 was measured **once**, 2026-09-17
-(`docs/superpowers/acceptance/2026-09-16-sensorium-e17-mcp.md` §2), 251.2 s
+(`docs/planning/acceptance/2026-09-16-sensorium-e17-mcp.md` §2), 251.2 s
 wall clock: **H1 parity PASS · H2 conformance PASS · H3 the cap PASS · H4 the
 gate PASS · H5 liveness PASS · H6 secrecy PASS · H7 the deploy target
 reported (n = 1) · latency measured**.
@@ -775,7 +775,7 @@ S1, D28, M5 and Rust/TS `record` tools were not opened.
 ### Deferred by ruling
 
 Everything the MCP section deferred stays deferred. No `record` tool
-for `sensorium ts run` or `cargo sensorium`. The README's `fog.py`
+for `sensorium ts run` or `cargo sensorium`. `docs/use.md`'s `fog.py`
 examples stay historical (they were run as typed); the agent path
 points at a file that is in the repo.
 

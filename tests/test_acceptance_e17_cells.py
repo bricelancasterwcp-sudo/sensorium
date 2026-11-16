@@ -61,7 +61,7 @@ from e17_cells import (CELLS, CELL_TITLES, ELEVEN,                # noqa: E402
 from corpus.cases import load_cases                               # noqa: E402
 from sensorium.mcp import result, tools                           # noqa: E402
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-16-sensorium-e17-mcp.md")
 
 #: §1 alone. Task 10 writes a verdict table into §2 quoting the very

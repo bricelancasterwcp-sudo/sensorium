@@ -13,7 +13,7 @@ and the ledger's index, which cite `§n` as an identifier.
 ## 11. Err flow
 
 Added 2026-09-05 by rung 3
-(`docs/superpowers/specs/2026-09-04-sensorium-rung3-err-flow-design.md`,
+(`docs/planning/specs/2026-09-04-sensorium-rung3-err-flow-design.md`,
 R1–R16 and its §2a chain machine). `sensorium exceptions` answers on a Rust
 trace instead of refusing, and this section is what that answer may mean. It
 is **§11, not the §10 the plan wrote**: §10 is rung 2's shipped cost section,
@@ -180,7 +180,7 @@ a converter bug, not a fact about their program.
 **What this rung measured, both records.** Rung 3 was measured twice, and
 both documents stand:
 
-- `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`,
+- `docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md`,
   **overall STOP**, on E6′. Six of seven endpoints PASS (E6 on 17 corpus
   cases, E2″ 392/401 = 97.76 %, E7″, E3″ 0/19, E5″, E0″ 0.046/0.047 s). E6′
   printed **15** SWALLOWED lines on the clone's `--lib` suite and **1 was
@@ -188,7 +188,7 @@ both documents stand:
   `Err(e) =>` arm whose `format!` PRODUCT is the value the function returns.
   The rule was wrong; the record says so, and nothing was re-run after the
   number was read.
-- `docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md`, the
+- `docs/planning/acceptance/2026-09-05-sensorium-rung3-e6ppp.md`, the
   repair slice, **overall PASS**. The R2 amendment (a bound name mentioned
   in `format!`/`format_args!`/`write!`/`writeln!` ESCAPES; only the logging
   family's bare arguments stay exempt) removed that accusation and bought no
@@ -224,7 +224,7 @@ is provably dropped (an expression statement, a `let _ =`, or a logging
 macro's argument) so
 `Err(e) => { let (status, value) = map_error(&e, ..); V1Result::json(status, value) }`
 reads AMBIGUOUS. **Measured, and the control discriminated**
-(`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6q.md`): E6⁗-A
+(`docs/planning/acceptance/2026-09-05-sensorium-rung3-e6q.md`): E6⁗-A
 **PASS**, 0 false accusations of 14; E6⁗-WS **PASS**, 0 false of 782 over
 144 processes of `cargo sensorium test --workspace`; and E6⁗-WS0
 **DISCRIMINATING**, the same command under the PRE-repair driver printed 30

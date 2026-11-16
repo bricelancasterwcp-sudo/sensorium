@@ -406,9 +406,9 @@ workspace, what it still does not compare is `HONESTY.md` §13 and
 `HONESTY-BLIND-SPOTS.md` item 12, narrowed the same way.
 
 The design and its rungs are in
-`../docs/superpowers/specs/2026-09-01-sensorium-rust-recorder-design.md`; what
+`../docs/planning/specs/2026-09-01-sensorium-rust-recorder-design.md`; what
 rung 1 measured, including everything it could not do, is in
-`../docs/superpowers/spikes/2026-09-02-rust-mechanics-spike.md`.
+`../docs/planning/spikes/2026-09-02-rust-mechanics-spike.md`.
 
 ## Cost
 
@@ -420,7 +420,7 @@ together, with the lens on each; the acceptance document carries the numbers
 with their `n`.
 
 **What err flow added, reported the same way.** On the rung-3 acceptance run
-(`../docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`,
+(`../docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md`,
 *reported without a gate*) the clone's `-p bloomery-daemon --lib` suite ran
 **0.063 s plain against 0.132 s recorded**, medians of n=5 alternating arms
 with the load recorded per arm, a difference of 0.069 s on a near-vacuous
@@ -449,7 +449,7 @@ number the disk never held. Budget one artifact set per distinct focus (that
 is the part that still accumulates) and expect a focused build after an
 unfocused one to compile rather than to be `Fresh`. The runtime cost of the probes themselves
 is **not measured**: on the rung-4 acceptance run
-(`../docs/superpowers/acceptance/2026-09-06-sensorium-rung4-e9.md`, endpoint
+(`../docs/planning/acceptance/2026-09-06-sensorium-rung4-e9.md`, endpoint
 **H6**, whose verdict is **REPORTED** with no gate) libtest reported
 **0.00 s** for all four binaries (too fast to time at its resolution) and
 the four invocation walls (U1 **6.693 s**, F1 **6.690 s**, U2 **1.448 s**,

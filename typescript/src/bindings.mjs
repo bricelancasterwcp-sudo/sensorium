@@ -105,14 +105,126 @@ function unwrap(ts, node) {
 }
 
 /**
- * The names an assignment TARGET binds — the left of an `=`, a `for…of` head's
+ * Parentheses, and the type-only wrappers a place can wear (`as`, a type
+ * assertion, `!`, `satisfies`). Those wrappers are erased before the program
+ * runs, so the spelling that is re-read is the expression inside them.
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {Node}
+ */
+function unwrapPlace(ts, node) {
+  let inner = unwrap(ts, node);
+  while (
+    ts.isParenthesizedExpression(inner) ||
+    ts.isAsExpression(inner) ||
+    ts.isTypeAssertionExpression(inner) ||
+    ts.isNonNullExpression(inner) ||
+    ts.isSatisfiesExpression(inner)
+  ) {
+    inner = unwrap(ts, inner.expression);
+  }
+  return inner;
+}
+
+/**
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {boolean}
+ */
+function isMemberAccess(ts, node) {
+  return ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node);
+}
+
+/**
+ * Whether re-reading `node` where the probe stands cannot call, assign,
+ * update, delete, await or yield. An index that fails this is not named:
+ * the probe re-reads the spelling, and a second `i++` would be a different
+ * program.
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {boolean}
+ */
+function indexIsReevalSafe(ts, node) {
+  const inner = unwrapPlace(ts, node);
+  if (ts.isIdentifier(inner) || inner.kind === ts.SyntaxKind.ThisKeyword) return true;
+  if (
+    ts.isLiteralExpression(inner) ||
+    inner.kind === ts.SyntaxKind.NullKeyword ||
+    inner.kind === ts.SyntaxKind.TrueKeyword ||
+    inner.kind === ts.SyntaxKind.FalseKeyword
+  ) {
+    return true;
+  }
+  if (isMemberAccess(ts, inner)) return chainIsReevalSafe(ts, inner);
+  if (ts.isPrefixUnaryExpression(inner)) {
+    const op = inner.operator;
+    const k = ts.SyntaxKind;
+    if (
+      op === k.PlusToken || op === k.MinusToken || op === k.ExclamationToken ||
+      op === k.TildeToken || op === k.VoidKeyword || op === k.TypeOfKeyword
+    ) {
+      return indexIsReevalSafe(ts, inner.operand);
+    }
+    return false;
+  }
+  if (ts.isBinaryExpression(inner)) {
+    if (isAssignmentToken(ts, inner.operatorToken.kind)) return false;
+    return indexIsReevalSafe(ts, inner.left) && indexIsReevalSafe(ts, inner.right);
+  }
+  if (ts.isConditionalExpression(inner)) {
+    return indexIsReevalSafe(ts, inner.condition) &&
+      indexIsReevalSafe(ts, inner.whenTrue) &&
+      indexIsReevalSafe(ts, inner.whenFalse);
+  }
+  return false;
+}
+
+/**
+ * A property or element chain whose ultimate base is an identifier or `this`,
+ * with no optional `?.` anywhere on it. A call, `new`, `super` or `import.meta`
+ * base is not one: re-reading `f().b` would call `f` again.
+ * @param {TS} ts
+ * @param {Node} node a property or element access
+ * @returns {boolean}
+ */
+function chainIsReevalSafe(ts, node) {
+  let current = node;
+  while (isMemberAccess(ts, current)) {
+    if (current.questionDotToken) return false;
+    if (ts.isElementAccessExpression(current)) {
+      const arg = current.argumentExpression;
+      if (!arg || !indexIsReevalSafe(ts, arg)) return false;
+    }
+    current = unwrapPlace(ts, current.expression);
+  }
+  return ts.isIdentifier(current) || current.kind === ts.SyntaxKind.ThisKeyword;
+}
+
+/**
+ * The source spelling of a member write the probe can re-read after the
+ * statement, or null when re-reading would lie or move a line. A spelling
+ * that contains a line terminator is null: the splice must not insert one.
+ * @param {TS} ts
+ * @param {Node} node
+ * @returns {string|null}
+ */
+function placeText(ts, node) {
+  const inner = unwrapPlace(ts, node);
+  if (!isMemberAccess(ts, inner) || !chainIsReevalSafe(ts, inner)) return null;
+  const text = inner.getText();
+  if (text.length === 0 || /[\n\r\u2028\u2029]/.test(text)) return null;
+  return text;
+}
+
+/**
+ * The names an assignment TARGET binds: the left of an `=`, a `for…of` head's
  * existing binding, an element of either.
  *
- * A `PropertyAccessExpression` or `ElementAccessExpression` contributes
- * nothing: `a.b = 1` writes a property of an object this recorder is not
- * tracking, and calling it a write of `a` would be a lie (spec §3.9, a place
- * write). Everything else is a destructuring shape, and its identifiers are
- * read out of it.
+ * A property or element access contributes its own spelling (`a.b`, `a[i]`,
+ * `this.x`, `a.b.c`) and not the base. Calling `a.b = 1` a write of `a` would
+ * be a lie. An optional chain, a call base, `super`, or an index that is not
+ * safe to re-read contributes nothing. Everything else is a destructuring
+ * shape, and its identifiers are read out of it.
  * @param {TS} ts
  * @param {Node} target
  * @returns {string[]} in source order, duplicates kept for the caller to fold
@@ -125,6 +237,11 @@ function targetNames(ts, target) {
     const inner = unwrap(ts, node);
     if (ts.isIdentifier(inner)) {
       out.push(inner.text);
+      return;
+    }
+    const place = placeText(ts, inner);
+    if (place !== null) {
+      out.push(place);
       return;
     }
     if (ts.isArrayLiteralExpression(inner)) {
@@ -199,8 +316,14 @@ function collectTargets(ts, node, out) {
     const updates =
       node.operator === ts.SyntaxKind.PlusPlusToken ||
       node.operator === ts.SyntaxKind.MinusMinusToken;
-    const operand = unwrap(ts, node.operand);
-    if (updates && ts.isIdentifier(operand)) out.push(operand.text);
+    // `++a.b` and `a.b++` name the member; `++x` still names `x`. An unsafe
+    // member (`++f().b`) names nothing, the same rule as an assignment.
+    if (updates) out.push(...targetNames(ts, node.operand));
+  } else if (ts.isDeleteExpression(node)) {
+    // After `delete a.b` the probe re-reads `a.b` and gets `undefined`. That
+    // is the value the name holds, not a guess at what `delete` returned.
+    const place = placeText(ts, node.expression);
+    if (place !== null) out.push(place);
   }
   // Both halves are still walked: `arr[i++] = 0` writes no name the target
   // names, and `i` all the same.
@@ -540,9 +663,10 @@ export function declaredIn(ts, statement) {
 }
 
 /**
- * Every name a function's parameters bind, in order — what a focused CALL
- * carries as its `args` (spec §3.3). A TypeScript `this` parameter is not a
- * parameter and is not read.
+ * Every name a function's parameters bind, in order. What a CALL carries as
+ * its `args` (spec §3.3). A TypeScript `this` parameter is a type and is not
+ * read here; the runtime receiver, when a focused method has one, is
+ * `receiverName`.
  * @param {TS} ts
  * @param {FunctionLike} fn
  * @returns {string[]}
@@ -555,4 +679,39 @@ export function paramNames(ts, fn) {
     out.push(...boundNames(ts, parameter.name));
   }
   return out;
+}
+
+/**
+ * The receiver a focused CALL may name `this`, or null.
+ *
+ * A method, getter, setter or non-derived constructor has a receiver at body
+ * entry. An arrow keeps the lexical `this` and is not given a fake parameter.
+ * A function declaration or expression is not a method. A derived
+ * constructor's body starts before `super()`, where reading `this` throws, so
+ * it is not named: the splice stands at the first token of the body.
+ * @param {TS} ts
+ * @param {FunctionLike} fn
+ * @returns {string|null}
+ */
+export function receiverName(ts, fn) {
+  if (
+    ts.isArrowFunction(fn) ||
+    ts.isFunctionDeclaration(fn) ||
+    ts.isFunctionExpression(fn)
+  ) {
+    return null;
+  }
+  const isMethod =
+    ts.isMethodDeclaration(fn) ||
+    ts.isGetAccessorDeclaration(fn) ||
+    ts.isSetAccessorDeclaration(fn) ||
+    ts.isConstructorDeclaration(fn);
+  if (!isMethod) return null;
+  if (ts.isConstructorDeclaration(fn)) {
+    const cls = fn.parent;
+    const derived = !!cls && (ts.isClassDeclaration(cls) || ts.isClassExpression(cls)) &&
+      (cls.heritageClauses ?? []).some((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword);
+    if (derived) return null;
+  }
+  return 'this';
 }

@@ -4,7 +4,7 @@
 Launched DETACHED by `e17.sh`, which passes every location in the
 environment so that no path on one box is written into a file that travels
 with the repository. What this measures is fixed by the record's §1
-(`docs/superpowers/acceptance/2026-09-16-sensorium-e17-mcp.md`), which is
+(`docs/planning/acceptance/2026-09-16-sensorium-e17-mcp.md`), which is
 byte-locked: seven H rows and a latency reading, each decided by a pure
 function in `e17_cells.py` over inputs gathered here and in
 `e17_gather.py`.

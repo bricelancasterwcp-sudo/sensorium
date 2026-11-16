@@ -80,7 +80,7 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   1.197s** -- the 0.903s figure above is left as it was recorded (a single
   ad-hoc reading taken at fix time, same box, same spool) rather than
   silently replaced; the addendum's number is the one to quote
-  (`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md`
+  (`docs/planning/acceptance/2026-09-02-sensorium-rung2-acceptance.md`
   §3.1). Both are the same ~1000x order of improvement over the 1118.9s
   per-row baseline; neither reading is gated.
 - **Permissions**: from `sensorium 0.15.0` / `cargo-sensorium 0.7.0` /
@@ -91,7 +91,7 @@ $SENSORIUM_DIR/traces/<run-id>.db        # default $SENSORIUM_DIR = ~/.sensorium
   captured values (minus what rule v1 withheld from each), everything the
   program wrote to stdout/stderr, the working directory, and the command
   line, which rule v1 does not reach. Treat one as a core dump or a `.env`;
-  see the README's "What a trace file holds" and [`redaction.md`](redaction.md).
+  see [`visibility.md`](visibility.md) ("What a trace file holds") and [`redaction.md`](redaction.md).
 
 ## 3. Tables
 

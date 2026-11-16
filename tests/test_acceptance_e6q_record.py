@@ -335,7 +335,7 @@ def test_the_renderer_prints_not_measured_rather_than_a_dash():
 def test_results_json_if_present_matches_the_committed_schema():
     """After the run, the published `results.json` must be reproducible from
     the raw record by the committed assembler -- not by a one-off script."""
-    p = (REPO / "docs" / "superpowers" / "acceptance"
+    p = (REPO / "docs" / "planning" / "acceptance"
          / "2026-09-05-sensorium-rung3-e6q.results.json")
     if not p.is_file():
         pytest.skip("not measured yet")

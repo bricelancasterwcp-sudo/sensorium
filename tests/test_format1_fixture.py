@@ -34,8 +34,8 @@ def test_fixture_opens_under_the_current_reader():
 
 
 def test_fixture_carries_no_ambient_environment():
-    """A trace stores the whole process environment (README: 'What a trace
-    file holds'). A fixture committed to git must therefore be recorded under
+    """A trace stores the whole process environment (docs/visibility.md:
+    'What a trace file holds'). A fixture committed to git must therefore be recorded under
     `env -i` with exactly these three variables -- pinned EXACTLY so that a
     re-recording in a live shell (tokens, sockets, home paths) fails here
     rather than landing in history."""

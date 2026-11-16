@@ -10,7 +10,7 @@ same way is IMPORTED from it (`phase_e3`, `phase_e5`, `phase_walls`,
 protocol.
 
 Each phase returns RAW FACTS. Nothing here decides a verdict -- §4 of
-`docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
+`docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md` is
 written by hand against §1's rules, and `acceptance_schema_rung3.assemble_rung3`
 turns these facts into the none-versus-zero `results.json`.
 """

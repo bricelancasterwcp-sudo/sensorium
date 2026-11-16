@@ -8,7 +8,7 @@ because `tests/test_ceiling.py` holds this directory's files under 800 lines.
 
 Controller ruling P1 is what this file exists to honour: every number E12′
 compares against is parsed out of
-`docs/superpowers/acceptance/2026-09-12-sensorium-s5-rung4-debts.md`'s own §1
+`docs/planning/acceptance/2026-09-12-sensorium-s5-rung4-debts.md`'s own §1
 text, the way `e12_report.one()` parses rung 4's. A constant typed into an
 instrument is a second pre-registration nobody locked -- and §1 of that
 record is byte-locked by `tests/test_acceptance_s5_debts_lock.py`, so there
@@ -33,11 +33,11 @@ REPO = Path(__file__).resolve().parents[2]
 
 #: THIS slice's record: §1.1's hash list and §1.2-§1.4's predicted numbers.
 #: The QUESTIONS are `e12_report.RECORD`'s, which is rung 4's own.
-RECORD = (REPO / "docs" / "superpowers" / "acceptance"
+RECORD = (REPO / "docs" / "planning" / "acceptance"
           / "2026-09-12-sensorium-s5-rung4-debts.md")
 
 #: H2′'s hand count, sha-pinned as §1's second-to-last line.
-HANDCOUNT = (REPO / "docs" / "superpowers" / "acceptance"
+HANDCOUNT = (REPO / "docs" / "planning" / "acceptance"
              / "2026-09-12-sensorium-s5-rung4-debts-h2-handcount.md")
 
 #: The rung-4 record's own results file: where the SUITE half of H2′ is read
@@ -45,7 +45,7 @@ HANDCOUNT = (REPO / "docs" / "superpowers" / "acceptance"
 #: printed by the arms -- and rung 4 saved them in its H2 cell. §1.2 predicts
 #: them "exactly as the rung-4 record's §4.2 quotes it", so the cell compares
 #: the saved measurement against the record's quotation of it.
-RUNG4_RESULTS = (REPO / "docs" / "superpowers" / "acceptance"
+RUNG4_RESULTS = (REPO / "docs" / "planning" / "acceptance"
                  / "2026-09-11-sensorium-s5-rung4-focus.results.json")
 
 #: A row as every listing command prints it, read correctly for a CALL

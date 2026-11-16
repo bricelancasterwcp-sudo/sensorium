@@ -7,7 +7,7 @@
 //! moves. Its line does not: the wrap never inserts a newline.
 //!
 //! The prediction is pre-registered in
-//! `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md` §1
+//! `docs/planning/acceptance/2026-09-04-sensorium-rung3-acceptance.md` §1
 //! (E7''): line identical, column = the plain column + 6 exactly. This file
 //! exists to be measured against that number, and it is a SEPARATE test target
 //! on purpose -- putting the panic in `tests/e7.rs` would make the unchanged

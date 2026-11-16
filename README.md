@@ -2,17 +2,26 @@
 
 Record one run of your program, then let a coding agent ask what actually happened: call trees, exceptions, and where a value came from, answered from the trace or refused.
 
-<!-- Demo GIF goes here: an agent hits a failing test, queries Sensorium over MCP, and fixes the bug.
-![Sensorium demo](docs/demo.gif)
--->
+## What Sensorium is
+
+Sensorium records one run (every call, return, and exception, with captured values) into a SQLite trace, and answers debugging questions from that trace in plain text. Four recorders write [trace format 4](docs/TRACE-FORMAT.md). One command line, `sensorium`, reads all four.
+
+- **Python**: `sensorium run -- <command>` uses PEP 669 (`sys.monitoring`). Python 3.12+, no runtime dependencies. A Python child (`subprocess`, `multiprocessing`, pytest-xdist) is recorded into that same run. `--no-children` or `SENSORIUM_NO_CHILDREN=1` records the parent only. A non-Python child is counted and not traced.
+- **Rust**: `cargo sensorium test` or `cargo sensorium run`. Stable rustc, Linux. [rust/README.md](rust/README.md).
+- **TypeScript**: `sensorium ts run [--focus <spec>]… -- vitest run …` or `-- node --test …`. Node 24, vitest 4.1. [typescript/README.md](typescript/README.md).
+- **C**: `sensorium c run -- <cmd>` for a Linux x86-64 debug build (gcc or clang, `-O0` or `-Og`). [c/README.md](c/README.md).
+
+A query refuses by name when a recorder lacks a capability.
+
+Two commitments run through all of it. The instrument never answers from data it does not have: truncated captures are marked, sites a predicate could not be evaluated at are counted, a recording that died is labelled, and a rerun that was a different execution says so. Nothing here guesses. Every answer is a deterministic function of the recorded trace, and where the trace cannot settle a question the output says so instead of inferring. `refocus` is the one command that executes anything: it re-runs the program and says whether what came back was the same execution. The per-command limits are [docs/claims.md](docs/claims.md).
 
 ## Quickstart (Python 3.12+, uv)
 
-    uv venv .venv && uv pip install -p .venv/bin/python "sensorium @ git+https://github.com/bricelancasterwcp-sudo/sensorium" pytest
+    uv venv .venv && uv pip install -p .venv/bin/python "sensorium-trace @ git+https://github.com/bricelancasterwcp-sudo/sensorium" pytest
     .venv/bin/sensorium run -- pytest tests/test_something.py
     .venv/bin/sensorium exceptions last
 
-Run these from your project root, in your project's own venv, so recordings import your dependencies. Not on PyPI yet; the `sensorium` name on PyPI and npm belongs to unrelated projects.
+Run these from your project root, in your project's own venv, so recordings import your dependencies.
 
 ## Connect your agent (MCP)
 
@@ -49,169 +58,58 @@ Claude Code:
 
     claude mcp add sensorium -- /abs/path/to/project/.venv/bin/sensorium mcp --allow-run
 
+`sensorium mcp` serves the same store on stdio. Every query except `redact` is a tool. `record`, `refocus`, and `record_c` exist only with `--allow-run`. Tools, the result header, the cap, and the audit file: [docs/mcp.md](docs/mcp.md).
+
 ## How this differs from live debuggers and LLM tracing
 
 - **Live debuggers over MCP** (DAP-based servers) make the agent step through a paused process, one breakpoint at a time. Sensorium records the whole run once, and the agent queries it afterward, as often as it likes, with stable event ids.
 - **LLM tracing** (LangSmith, Langfuse and similar) records the model's prompts and tool calls. Sensorium records the program under test: its calls, returns, exceptions and values.
 - **Not sensorium-mcp.** [andriyshevchenko/sensorium-mcp](https://github.com/andriyshevchenko/sensorium-mcp) is an unrelated Telegram and memory agent that shares the name.
 
-## What Sensorium is
-
-Record what a program actually did; ask it questions afterward.
-
-Sensorium records one run of a program (every call, return and exception,
-with captured values) into a SQLite trace, and answers debugging questions
-from that trace in dense plain text shaped for a language model to read. It
-exists because reading logs is reading a diary; this is watching the
-execution.
-
-Four recorders write that trace, and one command line reads it:
-
-- **Python**: `sensorium run -- <command>` wraps one run with PEP 669
-  (`sys.monitoring`) instrumentation. Python 3.12+, no runtime dependencies.
-  A Python child (`subprocess`, `multiprocessing`, pytest-xdist) is recorded into that same run, linked to the frame that spawned it.
-  `--no-children` or `SENSORIUM_NO_CHILDREN=1` records the parent only. A non-Python child is counted and not traced.
-- **Rust**: `cargo sensorium test|run` instruments a workspace's own crates
-  at build time and writes one trace per process. Stable rustc, Linux.
-- **TypeScript**: `sensorium ts run [--focus <spec>]… -- vitest run …` (or
-  `-- node --test …`) transforms the consumer's own sources at load time and
-  writes one trace per test-file process. Node 24, vitest 4.1.
-- **C**: `sensorium c run -- <cmd>` instruments a Linux x86-64 debug build
-  (gcc or clang, `-O0` or `-Og`) and writes one trace per process.
-
-All four write [trace format 4](docs/TRACE-FORMAT.md). A query refuses by
-name when a recorder lacks a capability. [Rust](#rust), [TypeScript](#typescript)
-and [C](#c) have sections here. Full references: [`rust/README.md`](rust/README.md),
-[`typescript/README.md`](typescript/README.md), [`c/README.md`](c/README.md).
-
-Two commitments run through all of it:
-
-- **The instrument never answers from data it does not have.** Truncated
-  captures are marked and counted, sites a predicate could not be evaluated at
-  are counted rather than skipped, a recording that died is labelled, and a
-  rerun that turned out to be a different execution says so permanently.
-- **Nothing here guesses.** Every answer is a deterministic function of the
-  recorded trace, and where the trace cannot settle a question the output says
-  so instead of inferring. Sensorium reports; the agent reading it reasons.
-  (`refocus` is the one command that *executes* anything. It re-runs your
-  program, which is why its whole job is telling you whether what came back
-  was the same execution.)
-
 ## Install
 
-    uv venv .venv && uv pip install -p .venv/bin/python -e ".[dev]"
+Python 3.12+. The CLI command is `sensorium`.
 
-Requires Python 3.12+. The recorder is `sys.monitoring` and nothing else, so
-on 3.11 it refuses to start rather than falling back to something weaker. No
-runtime dependencies; the trace is a SQLite file written with the standard
-library. One capability is version-gated: witnessing a `multiprocessing`
-spawn needs the `_posixsubprocess.fork_exec` audit event, which arrived in
-**3.14**. Below it such a spawn is unwitnessed, and `refocus` says so by
-withholding the "no child process witnessed" line rather than claiming it (see
-["What the answers claim"](#what-the-answers-claim)). Everything else works
-identically on 3.12 through 3.14, all three of which CI exercises. The Rust
-recorder is a separate build and install: [Install and
-record](#install-and-record), under Rust.
+From git, which works today:
 
-## Use
+    uv venv .venv && uv pip install -p .venv/bin/python "sensorium-trace @ git+https://github.com/bricelancasterwcp-sudo/sensorium"
 
-    sensorium run -- pytest tests/test_fog.py     # record
-    sensorium runs                                # what have I recorded
-    sensorium info last                           # what am I looking at
-    sensorium tree last --depth 3                 # what actually ran
-    sensorium frame last --fn compute             # one activation, in full
-    sensorium grep last compute --kind RETURN     # every event that mentions it
-    sensorium exceptions last                     # what blew up, what got caught
-    sensorium failures last                       # failed tests, and the frame they failed in
-    sensorium flow last --value 1800              # where did that number come from
-    sensorium flow last --object build_key:record # what happened to that object
-    sensorium diff RUN_A RUN_B                    # where two runs part
-    sensorium refocus last --focus fog:compute    # re-run deeper, verified
-    sensorium redact --all --dry-run              # what an older store still holds
-    sensorium mcp --allow-run                     # serve all of the above to a model (MCP, stdio)
+From PyPI, once published: `uv pip install sensorium-trace`.
 
-Per-line state is opt-in at record time, so a predicate over locals needs a
-run that captured them:
+Dev checkout: `uv venv .venv && uv pip install -p .venv/bin/python -e ".[dev]"`.
 
-    sensorium run --focus fog:compute -- pytest tests/test_fog.py
-    sensorium watch last --at fog:compute --expr 'visible > 100'
+The import package stays `sensorium`. The name `sensorium` on PyPI and npm is an unrelated project. The publish name is `sensorium-trace`. npm package of the same name is the TypeScript recorder; it does not replace the CLI. Details: [docs/install.md](docs/install.md).
 
-Asked against a run recorded without that `--focus`, `watch` does not report
-zero hits. It reports `NOTHING WAS CHECKED` and prints the exact re-recording
-command. Every example above was run as typed, against a small `fog.py` whose
-`compute` sums cells into a `visible` local and whose `build_key(record)`
-takes a dict, and a two-test `tests/test_fog.py`.
+The recorder is `sys.monitoring` and nothing else, so on 3.11 it refuses to start. Witnessing a `multiprocessing` spawn needs the `_posixsubprocess.fork_exec` audit event, which arrived in 3.14. Below that, such a spawn is unwitnessed, and `refocus` says so by withholding the "no child process witnessed" line ([docs/claims.md](docs/claims.md)).
 
-On an asyncio program `tree` groups by task, and from trace format 3 every
-traced code object opens a frame (function, generator, coroutine, or async
-generator alike) so a coroutine's callees nest under it exactly like a
-plain function's do, tagged `[generator]`, `[coroutine]`, or
-`[async_generator]` when the kind isn't `function`. A frame that suspended
-carries a derived state as its tail: `~ cancelled (CancelledError thrown in
-at Ln)`, `~ abandoned (GeneratorExit thrown in at Ln)`, `~ unwound by X
-thrown in at Ln` for any other exception thrown in, or `~ suspended at Ln
-at end of recording` for one still parked when recording stopped. A caller
-named but not framed is still never re-parented. It started running before
-recording began (`<- worker (no frame: started before recording)`), and a
-trace from before frames existed keeps arc 1's `(unframed)` wording exactly.
-`--focus`, `watch` and LINE capture all work inside `async def`: a focused
-coroutine's locals are captured at every LINE and interleaved with its
-`~ YIELD`/`~ RESUME` rows in `frame`'s timeline. `--window` is an ancestry flag, not a call-stack depth, so it
-survives a suspension: another task's calls made while the windowed frame is
-parked are outside the window, and the windowed frame's own calls after it
-resumes are still inside. A generator or coroutine resumed on a *different*
-thread from the one that started it (a sync generator first stepped where
-it was made and finished from a thread pool, which is what a streaming
-response does) keeps the frame it opened: its suspensions, its return and
-anything it calls stay on that frame, and every row still names the thread
-that produced it.
+## Commands
 
-Recording captures calls, returns, raises and handled-events for code under
-the working directory the run started in, so `sensorium run -- pytest ...`
-traces your tests and your code, and not pytest's. `--focus module:qualname`
-adds line-level capture with local-variable deltas for the named code;
-`--window QUALNAME` limits that capture to what runs inside one function's
-activations. Traces land in `~/.sensorium/traces` (or
-`$SENSORIUM_DIR/traces`), one SQLite file per run. Rust, TypeScript and C
-recorders write to the same directory, so one `runs` lists all four.
+    sensorium run -- pytest tests/test_fog.py
+    sensorium runs
+    sensorium info last
+    sensorium tree last --depth 3
+    sensorium frame last --fn compute
+    sensorium grep last compute --kind RETURN
+    sensorium exceptions last
+    sensorium failures last
+    sensorium flow last --value 1800
+    sensorium flow last --object build_key:record
+    sensorium diff RUN_A RUN_B
+    sensorium refocus last --focus fog:compute
+    sensorium redact --all --dry-run
+    sensorium mcp --allow-run
 
-A run reference is a full run id, a unique prefix, or `last` (the most
-recently written trace). Every query takes one, `runs` takes none and `diff`
-takes two. Events are addressed as `eN` and frames as `fN`, and those ids are
-stable, so an answer from one command is a runnable argument to the next:
-`--fn NAME`, in both `grep` and `frame`, matches a qualname **exactly
-first**, then falls back to substring over the trace's distinct qualnames,
-one substring hit is used as if it had been named exactly, more than one is
-an ambiguous call, refused with every candidate listed rather than guessed
-among. `frame --fn NAME --nth N` picks among repeated activations and says
-how many there are when `N` is out of range, and `flow --object` takes
-either `e<id>:<name>` (any name captured at that event) or
-`<qualname>:<name>`, which resolves to that function's **first CALL** and so
-names one of its **arguments** (`<qualname>:return` follows the same
-activation to what it handed back). A name that was not captured at the
-event a spec resolves to is refused, with the names that *were* captured
-there listed.
+Per-line state is opt-in: `sensorium run --focus fog:compute -- ...`, then `sensorium watch last --at fog:compute --expr '...'`. Asked without that `--focus`, `watch` reports `NOTHING WAS CHECKED` and prints the re-record command. It does not report zero hits.
 
-## MCP
+Traces land in `~/.sensorium/traces` (or `$SENSORIUM_DIR/traces`), one SQLite file per run. Rust, TypeScript, and C write to the same directory, so one `runs` lists all four. A run reference is a full id, a unique prefix, or `last`. Events are `eN` and frames are `fN`, and those ids stay stable, so an answer from one command is an argument to the next. `--fn` matches a qualname exactly first, then as a substring, and refuses when more than one name matches. Asyncio frames, `--window`, and `flow --object`: [docs/use.md](docs/use.md).
 
-`sensorium mcp` serves the same store to a model over the Model Context
-Protocol, one process on stdio, no runtime dependency, every query command
-above except `redact` a tool, and `record` and `refocus` only under
-`--allow-run`. Register the project's own venv, the interpreter a recording
-runs under:
+## Rust, TypeScript, and C
 
-    claude mcp add sensorium -- <venv>/bin/sensorium mcp --allow-run
+- **Rust.** `rust/` ships `sensorium-rt` 0.7.3, `sensorium-transform` 0.5.2, and `cargo-sensorium` 0.8.4. `cargo install --path rust/cargo-sensorium`, then `cargo sensorium test` or `cargo sensorium run` from a workspace. Linux, stable rustc. Panics show up in `failures`. [rust/README.md](rust/README.md). What it does not see: [rust/HONESTY.md](rust/HONESTY.md).
+- **TypeScript.** `typescript/` ships `sensorium-ts` 0.6.2. A trace reports `recorder: sensorium-ts`. Node 24. From a checkout, `npm ci --prefix typescript`, then `sensorium ts run -- vitest run …` or `sensorium ts run -- node --test …`. Package scripts, jest, a project with no `typescript` of its own, and a vitest `projects` or `workspace` config are refused by name. [typescript/README.md](typescript/README.md).
+- **C.** `sensorium c run -- <cmd>` records a Linux x86-64 debug build (`-O0` or `-Og`, gcc or clang). Crashes are what `exceptions` reads. [c/README.md](c/README.md).
 
-The tools, the result header, the cap, the audit file and what the server
-refuses: [`docs/mcp.md`](docs/mcp.md). Any MCP client, not only Claude,
-registers the same binary on stdio. The `{command, args}` shape is on
-that page.
-
-## For agents
-
-Install, record one run, query it, serve it over MCP: ten steps in
-[`docs/agent.md`](docs/agent.md). After install, prove the path with
-`.venv/bin/python -m pytest tests/test_agent_smoke.py -q`.
+Recording follows code under the working directory the run started in, so `sensorium run -- pytest ...` traces your tests and your code, and not pytest's. `--focus module:qualname` adds line-level capture for the named code. `--window QUALNAME` limits that capture to what runs inside one function. The `fog.py` examples in [docs/use.md](docs/use.md) were run as typed.
 
 ## Exit statuses
 
@@ -224,264 +122,37 @@ The exit status is the caller's next action, not a health code:
 | 2 | the call is wrong, edit the command and ask again | an ambiguous `--fn`; `--nth` out of range; a run reference that resolves to nothing; `refocus` refusing before any rerun was attempted |
 | 3 | the trace cannot settle it, change the recording and re-record | `watch` `NOTHING WAS CHECKED`; `refocus` REFUSED after a rerun; `exceptions`' uncaught-without-RAISE arm; `exceptions` on a Rust trace whose recorder predates err flow (`recorder sensorium-rt 0.2.0 declares it does not produce (capabilities.err_flow: false)`) |
 
-`run` exits with the target's own status. It never applies this table to
-itself.
+`run` exits with the target's own status. It never applies this table to itself.
 
-Every invocation is appended to `<trace root>/invocations.jsonl` (default
-`~/.sensorium/invocations.jsonl`, or under `$SENSORIUM_DIR`) as one JSON
-line with `utc`, `argv`, `exit` and `error` (the exception class name or
-null) and nothing else: never the environment, never the working
-directory. Set `SENSORIUM_NO_INVOCATION_LOG` to any non-empty value other
-than `0` to turn it off for one process, `=0` leaves logging on.
+Every invocation is appended to `<trace root>/invocations.jsonl` (default `~/.sensorium/invocations.jsonl`, or under `$SENSORIUM_DIR`) as one JSON line with `utc`, `argv`, `exit` and `error` (the exception class name or null) and nothing else: never the environment, never the working directory. Set `SENSORIUM_NO_INVOCATION_LOG` to any non-empty value other than `0` to turn it off for one process, `=0` leaves logging on. The same branch is [docs/agent.md](docs/agent.md).
+
+## For agents
+
+Install, record one run, query it, serve it over MCP: ten steps in [docs/agent.md](docs/agent.md). After install, prove the path with `.venv/bin/python -m pytest tests/test_agent_smoke.py -q`.
 
 ## What the answers claim
 
-This is the part worth reading. Each command's output is written to be exact
-about its own limits, and the commands differ in how much they can establish.
+Sensorium reports; the agent reading it reasons. Nothing in an answer is inferred from data the trace does not hold.
 
-### `diff`: shape, not location
+- `diff` compares the shape of two runs, `(file, qualname, kind)`, not their values. A pure move reads DIVERGED unless `--ignore-moves` can pair the name uniquely.
+- `refocus` re-runs, then issues MATCH, DIVERGED, or REFUSED. The licence lists only the checks that ran. A check that could not run withholds the licence. Exit 2 means nothing was re-run.
+- `tree` derives parentage from the caller frame, not from "the last frame on this thread".
+- `exceptions` claims SWALLOWED only when the recording establishes it. Anything short of that is `ambiguous`, with the reason printed.
+- `watch` never reads zero hits as "the invariant held". A site it could not evaluate is counted.
+- `flow` is lineage over captured values, not static dataflow.
+- `info` labels an INCOMPLETE recording and does not print a `0` as proof that nothing happened.
 
-`diff` compares two runs' causal streams on `(file, qualname, kind)`; a MATCH
-is the same shape of execution, not the same values. A function moved to
-another file changes `file` on every one of its events, so a pure move reads
-DIVERGED at the first moved CALL. `diff --ignore-moves` pairs a function that
-left one file with the same-named function that appeared in another (only
-when that pairing is unique on both sides) and prints the pairing with the
-verdict as `moved: helper  a.py -> b.py`. A name present under two files on
-one side is left unpaired and any divergence inside it is still reported. A
-planted call-site swap under the same move reads DIVERGED
-(tests/test_diff_moves.py).
+The full wording is [docs/claims.md](docs/claims.md). `exceptions`, `watch`, `flow`, and Rust `refocus` in detail are [docs/query.md](docs/query.md).
 
-### `refocus`: three verdicts, and a bounded licence
+## What a trace holds, and what it does not see
 
-`refocus` re-runs the recorded command with deeper capture and then asks
-whether the rerun was the same execution, two gates, two different exit
-codes, because "the call is wrong" and "the recording can't settle it" are
-different next actions (see ["Exit statuses"](#exit-statuses)).
-
-**Cannot refocus at all (exit 2, no rerun was attempted):** original trace
-is INCOMPLETE; original run consumed stdin; the target no longer resolves;
-the original working directory is gone; the original was recorded under the
-per-thread fingerprint basis and ran asyncio tasks; the original trace
-records no command to re-run, or no working directory to re-run from; or
-the recorder declares `capabilities.refocus: false`. Every one of these is
-caught before the program runs again, so the reader's next move is a
-different command, not a different recording.
-
-The program DID re-run, and the verdict below is about what came back:
-
-| verdict | exit | means |
-|---|---|---|
-| MATCH | 0 | every thread that left a fingerprint in both runs produced the **identical sequence of `(file, qualname, kind)` for CALL/RETURN/RAISE/HANDLED** outside any asyncio task, every asyncio task's own stream has a counterpart of the same name and content on the other side (a multiset. The order tasks interleaved in is never compared), and there was at least one such event to compare |
-| DIVERGED | 1 | the causal streams part, and the first divergence is named with a drill-in command for each side |
-| REFUSED | 3 | the rerun happened (a new trace exists and is queryable) but no verdict could be issued against it. Four post-rerun reasons: there was nothing to compare (neither side recorded a causal event); a side could not be trusted (INCOMPLETE, or writes dropped after its database sealed); the two traces define a thread stream differently (a pre-0.4.0 trace against a 0.4.0 one, whenever either ran a task); or a trace ran asyncio tasks and holds no task fingerprint rows, so what those tasks did would drop out of the comparison in silence. Treat the new trace as a separate, UNVERIFIED execution. A new recording is what would settle it, which is what 3 means |
-
-`diff --task NAME` diffs one task's stream by name; unnamed tasks match only
-unnamed tasks. Traces recorded before 0.4.0 define a thread stream to
-include task events (`info` says `per-thread basis`); comparing one of those
-with a 0.4.0 trace is REFUSED whenever either ran a task. Asyncio's own
-default `Task-<N>` names count as unnamed too. The number is creation
-order, not an identity, so `diff --task` refuses a literal `Task-<N>` rather
-than pretend it picks anything (Ruling 4). The name a task is compared under
-is the one it had **when it first ran traced code**: the recorder reads
-`get_name()` once, at the moment it mints that task's identity, so a
-`set_name` afterwards is never seen by any comparison. A thread's fingerprint row can
-hold zero events under this basis: a thread whose traced code all ran inside
-asyncio tasks still gets a row of its own, just with nothing in it outside
-those tasks.
-
-**A MATCH is a statement about the shape of the execution, not a statement
-that the two runs were the same.** It licenses one conclusion: the rerun took
-the same path, so the deeper capture describes that same path. What no verdict
-compares, sensorium prints beneath every one of them: argument and return
-values, per-line state, timing, the order threads ran in relative to each
-other, and **the recorder's own footprint**, which is structural and
-unfixable. Deeper capture runs the program's `__repr__` inside hooks that
-suppress themselves, so an instrument that perturbs the program it is watching
-leaves no mark on the fingerprint at all. Comparing the two runs' captured
-output is the only cross-check available, and a side effect that prints
-nothing is invisible to that too.
-
-Beside the verdict, `refocus` prints a **licence**, `verified against <run>
-on exactly these points, and no others`, followed by the list of checks that
-actually ran and agreed (source files unchanged by content, environment
-variables compared, threads started, children witnessed). It is a bounded
-enumeration of what was verified, not a summary judgment. **Any check that
-could not run withholds the licence too**, with the reason itemised, because
-"no git repository, so I could not tell" is a fact about the check and not
-evidence that nothing moved. Two things it will not call a change are the
-tool's own: a target directory that merely **moved**, and the recorder's own
-`--extern sensorium_rt=…` fragment inside `RUSTDOCFLAGS`, whose hash moves
-with every driver build, the first **re-rooted** before the compare, the
-second **removed** from it, and both **named** on the line. A third,
-**session set 1** (the handles a shell, terminal or agent session hands a
-process, listed by name in `docs/query.md`), is counted and named without
-withholding, while every other differing variable withholds exactly as
-before. The verdict and the licence are both stamped into the new trace, so
-`info` and `runs` keep saying so long after the output has scrolled away.
-
-DIVERGED is not a failure of the tool. For a program whose control flow
-depends on state outside the process, DIVERGED is the correct answer; the new
-trace is still recorded and queryable, and permanently labelled.
-
-### `tree`: derived parentage, and what a task group claims
-
-A parent link is the **caller frame**, verified by code identity, never
-"the last frame opened on this thread", coroutines resumed by the event
-loop, generators resumed by their consumer and callbacks from C all break
-that assumption, and v1 made it. From trace format 3 a generator or
-coroutine body opens a frame like any other, so `NULL` now means only that
-the caller was never traced (the event loop, a library) or that it started
-running before recording began, not, as on an older trace, that it was a
-generator or coroutine `tree` could not frame. A trace recorded by a
-format-1 sensorium is labelled `parentage: ASSUMED` because its links were
-the guess.
-
-Every non-function frame is marked with its kind (`[generator]`,
-`[coroutine]`, `[async_generator]`) and closes with the state
-`Trace.frame_state` derived from its YIELD/RESUME rows, `returned` and
-`raised` render exactly as a plain function's do, and the suspension states
-each name where the frame stopped and why: cancelled, abandoned, unwound by
-some other exception thrown in, or still `suspended` at the end of the
-recording. A root frame whose caller is named but not framed shows that
-caller's name and, from format 3, the reason is always the same one, `(no frame: started before recording)`, never the arc-1 `(unframed)`
-reading, which is kept byte-for-byte on older traces because it names a
-limitation this version no longer has.
-
-Grouping by task is a statement about causality *within* a task (one
-task is sequential) and says nothing about order *between* tasks beyond
-wall-clock event ids; the footer says so. Task identity is a serial
-minted per task object, not the task's name (two tasks named alike do
-not merge) and is `NULL` for everything that did not run inside an
-asyncio task (code before/after the loop, and loop callbacks such as
-`call_soon`/`add_done_callback`).
-
-### `exceptions`, `watch` and `flow`: in full, one file away
-
-The three commands whose claims need the most saying are
-[`docs/query.md`](docs/query.md), moved there 2026-09-06 so this file stays
-under 800 lines, wording and order unchanged, and, since 2026-09-07, that
-file also holds a fourth section, `refocus` on a Rust trace, added there
-rather than moved. What each of the three claims, in one paragraph:
-
-**`exceptions`** classifies every raise as `swallowed`, `uncaught`,
-`re-raised`, `propagated` or `ambiguous`, and **SWALLOWED is claimed only when
-the recording establishes it**. Anything short of that is `ambiguous` with
-the reason printed. On a Rust trace it prints one block per SHAPE rather than
-one per chain, and it refuses outright on a trace whose recorder declares
-`err_flow: false`. `docs/query.md` carries the five dispositions, the Rust
-disposition rules, the grouping key and what was measured about it.
-
-**`watch`** evaluates a restricted predicate at every recorded site of the
-named code (a CALL's arguments, a LINE's deltas) and prints a tally that
-accounts for **all** of them: `sites`, `evaluated`, `hits`, `not-captured`,
-`errors`. **Zero hits never reads as "the invariant held"**: a site the
-predicate could not be evaluated at is counted with its reason, and a run
-where nothing could be checked says `NOTHING WAS CHECKED` instead of
-`hits: 0`.
-
-**`flow`** follows a captured value by equality (`--value`) or one object by
-address-plus-type (`--object`) through calls and returns. It is lineage over
-captured values, **not** static dataflow analysis, and the command says so in
-its own header; `--object` is corroborated rather than asserted, because
-CPython recycles addresses.
-
-### `info`, `runs`, and the state of the recording itself
-
-- `info` prints `recorder`, `lang`, and a `capabilities` line. The
-  recorder's own declaration when the trace carries one, and `undeclared
-  (pre-format-4 Python recorder; read as full by every command)` when it does
-  not, because reading an absent declaration as full is what a command does
-  to decide whether to refuse, not something the trace ever said; from trace
-  format 4, a bookkeeping field a trace's declared
-  capabilities say should exist but does not is printed as the recorder's own
-  declaration of that gap, never as a printed `0`, and never as the
-  pre-format-4 "predates that bookkeeping" wording, which is kept for traces
-  that actually predate it.
-- Truncated captures are marked where they appear (a clipped string ends
-  `~`, a sampled container ends `, ...`) and counted in `info`.
-- A run whose recording died is labelled **INCOMPLETE**, in `info` and in the
-  `runs` listing both. Its causal stream can stop anywhere without saying so.
-- Writes dropped under load are reported as a **lower bound** (`>=N`): writes
-  that arrive after the count was taken cannot be counted either.
-- Subprocesses that were noticed are listed as unwitnessed, never silently
-  ignored, and an empty list is not evidence that none ran. A child that can
-  only be *counted* and not named (a `multiprocessing` spawn, which reaches
-  the OS without going through `subprocess`) is reported as a count **on
-  Python 3.14+**, where the underlying syscall raises an audit event; on 3.12
-  and 3.13 that event does not exist, so such a spawn is unwitnessed entirely
-  (which is why `refocus` withholds the "no child witnessed" licence there).
-  Counted too are the threads a run started and any malfunction of the hook.
-  None of these is printed when it is zero: a printed `0` would read as proof
-  nothing was started, which is exactly what it is not.
-
-## What a trace file holds
-
-A trace is one SQLite file under `$SENSORIUM_DIR/traces` (default
-`~/.sensorium/traces`), created **`0600` in a `0700` directory** from 0.15.0
-on, `0644` under your umask before that. It holds:
-
-- **the process environment** at record time, variable by variable, minus
-  what **rule v1** withheld: a secret-*named* variable is stored as
-  `<redacted>` beside an HMAC under a key that never leaves the store, so
-  `refocus` can still say whether it changed; `info` names what it took;
-- **everything the program wrote** to stdout and stderr, interleaved with the
-  events it wrote them between;
-- the command line, the working directory, the git commit, and content
-  digests of every source file the run traced;
-- **captured argument, return and local values**, clipped to the caps `info`
-  prints and under that same rule by NAME, with any secret-shaped SPAN inside
-  a stored text replaced where it stands ([`docs/redaction.md`](docs/redaction.md));
-- which asyncio task each event ran in, and the tasks' names;
-- one causal fingerprint per thread (events outside any task) and per
-  asyncio task.
-
-The file layout is trace format 4; `docs/TRACE-FORMAT.md` is the contract, with
-conformance vectors under `docs/trace-format/vectors/`. A Rust trace holds the
-environment, command line, source digests and captured `Debug` values the same
-way; its tasks are libtest tests and spawned threads, its output is declared
-absent, and its spool holds the same until conversion (`rust/README.md`).
-
-`info` refuses to print the environment and `refocus` the variables it
-compared: both carry secrets. **What rule v1 does not reach is stored as it
-was**, a secret in a variable named `x` or a bare `key`, one no content
-pattern knows, the command line, a token split across two `write()`s,
-anything under `SENSORIUM_NO_REDACT`, every mode bit on Windows, and every
-trace already on disk until `sensorium redact` runs over it. Treat a trace as
-you would a core dump or a `.env`: sharing one shares all of the above, and
-`SENSORIUM_DIR` is the only control over where it lands.
-
-## What sensorium sees at all
-
-Code that this run traced, for the Python recorder, Python code in files
-under the run's own root; for the Rust recorder, the workspace's own crates;
-for the TypeScript recorder, the eligible ES modules under the invocation's
-root. **Nothing else.** On a Python trace, no command here says anything about:
-
-- any child process, by any mechanism;
-- any thread not started through Python's own `threading` / `_thread`;
-- any file the program read or wrote, only source files are hashed, so
-  config, fixtures, databases and inputs move unseen;
-- any code outside the run's root: the stdlib, site-packages, installed
-  dependencies, `PYTHONPATH` modules, and whatever `--include` / `--exclude`
-  filtered out;
-- the environment beyond the variables a command names as compared;
-- the clock, the network, and everything else the machine did.
-
-This is stated as a category rather than as a list of mechanisms on purpose.
-Five review rounds of `refocus` each found a mechanism the tool could not see;
-an enumeration that looks complete is more dangerous than no enumeration,
-because a reader who checks the list concludes their case was covered. The
-Rust and TypeScript recorders draw their boundaries the same way, in
-[`rust/HONESTY.md`](rust/HONESTY.md) and
-[`typescript/HONESTY.md`](typescript/HONESTY.md) with their blind-spot files
-beside them.
+A trace holds the process environment (minus what rule v1 withheld), stdout and stderr, the command line, source digests, and captured values. It does not see children by an unlisted mechanism, non-Python threads, files the program read, code outside the run root, the clock, or the network. Treat a trace as a core dump. [docs/visibility.md](docs/visibility.md). Redaction: [docs/redaction.md](docs/redaction.md).
 
 ## Overhead
 
-Recording overhead and read-back cost, measured on this machine with `python corpus/run_corpus.py --bench` and reported table by
-table, are [`docs/overhead.md`](docs/overhead.md), moved there 2026-09-16 so this file stays under 800 lines, wording unchanged.
-The headline: 2.9× on the corpus's typical workloads, up to 194× on the call-dense one under `--focus`; record failing tests, never benchmarks.
+Recording overhead and read-back cost are [docs/overhead.md](docs/overhead.md).
+Measured with `python corpus/run_corpus.py --bench`.
+The headline: 2.9× on the corpus's typical workloads, up to 194× on the call-dense one under `--focus`. Record failing tests, never benchmarks.
 
 ## Corpus
 
@@ -491,306 +162,20 @@ The headline: 2.9× on the corpus's typical workloads, up to 194× on the call-d
     python corpus/run_corpus.py --require-driver         # a skipped Rust or TypeScript case is exit 1
     python corpus/run_corpus.py --via mcp --compare-cli  # every tool question through the MCP server, diffed against the CLI
 
-Small programs with deliberately planted bugs, and questions registered
-**before** any output was looked at: the question in plain language, the known
-ground truth, the exact invocation expected to yield it, and why a `print()`
-cannot answer it. Ground truth is known because the bugs were planted. This is
-the regression suite, and it includes the honesty cases. The ones whose
-pinned answer is a REFUSAL. **115 cases and 253 questions**: twenty-two Python
-programs with forty-eight questions, forty-five Rust cases and forty-eight
-TypeScript cases, thirteen of the last recorded under a `--focus`. All of them
-case by case in [`docs/corpus.md`](docs/corpus.md), moved there 2026-09-09 so this
-file stays under 800 lines, wording unchanged. A case whose recorder is not built is
-reported skipped BY NAME and counted apart from the passes, never as them;
-`--require-driver` turns such a skip into exit 1, which is what CI passes.
-
-`--bench` reports; it never gates. Overhead is a tracked fact about a machine
-and a workload, not a pass/fail property of the tool.
-
-## Rust
-
-`cargo sensorium test`/`cargo sensorium run` record a Rust workspace's own
-crates the same way `sensorium run` records a Python program: one sensorium
-trace per process, trace format 4, read by the same `sensorium` command line.
-`rust/` ships `sensorium-rt 0.7.3` (zero dependencies, the runtime linked into
-every instrumented unit, and the owner of the one sha256 the other two hash
-with), `sensorium-transform 0.5.2` (the `syn` rewriter), and `cargo-sensorium
-0.8.4` (driver, workspace wrapper, target runner, converter, one binary, four
-roles). What it does and does not see is [`rust/HONESTY.md`](rust/HONESTY.md)
-with [`rust/HONESTY-BLIND-SPOTS.md`](rust/HONESTY-BLIND-SPOTS.md);
-[`rust/README.md`](rust/README.md) is the full build/install/record reference.
-
-**What the licence is worth on a real workspace, measured.** `refocus` over
-61 `#[test]` pairs of a workspace nobody wrote this recorder for was
-re-measured 2026-09-08 as **E4″**
-(`docs/superpowers/acceptance/2026-09-08-sensorium-rung4-e4pp.md`,
-pre-registered and byte-locked before the instrument existed): **H1–H7 PASS,
-H8 a STOP on a cell of that record's own reader**. The licence is granted on
-**57** of the 61 and withheld on the four tests that really do start threads,
-and the recorder's own `RUSTDOCFLAGS` fragment is out of the compare on **61
-of 61**, under a driver build different from the originals', which is the
-only condition that tests the second claim at all. The eighth row missed
-because the reader compared a bare case name against a listing that spells
-Rust cases `rust/<name>`; its three commands came back green, the STOP stands
-as measured, and the one-line fix is ruled for the next slice.
-
-**Which versions, and when.** E4″ ran on **2026-09-08** under
-`cargo-sensorium` **0.5.2**, `sensorium-transform` **0.4.3** and
-`sensorium-rt` **0.4.0** (`main` as it stood that day) and its answers were
-read by Python **0.8.6**. The 61 originals were recorded earlier, by
-`cargo-sensorium` **0.5.0**: that difference between the recording driver and
-the re-running one is the CONDITION the second claim needs, not an accident of
-bookkeeping. The crate numbers at the top of this section are today's
-(**0.5.0 / 0.5.0 / 0.6.0**) and Python **0.13.0** reads these traces now. All
-four moved after the measurement (for the sha256 consolidation, then for the
-LINE row's `unbound`) and none is a version that produced a number above.
-
-### Install and record
-
-    cd rust && cargo build --release
-    cargo install --path rust/cargo-sensorium      # from the repository root
-    cargo sensorium test [--tier off|call] <cargo test args…>
-    cargo sensorium run  [--tier off|call] <cargo run args…>
-
-Cargo stays the runner and the builder; sensorium only changes what gets
-compiled and watches what comes out. `--tier off` compiles the same
-artifacts and gates emission at runtime, so switching tiers rebuilds
-nothing. Traces land beside the Python ones, in `$SENSORIUM_DIR/traces/`.
-
-### What it answers
-
-Tier `call` (the only tier this version ships, and the default) records
-CALL and RETURN with an outcome (`ok`/`err`/`panic`/`none`) and a captured
-`Debug` return value, panics, per-thread `MAP_SHARED` spools, and libtest
-tests plus `spawn_child`-named worker threads as tasks. **From 0.3.0 it also
-records err flow**: a RAISE at every `?` on a `Result`, a HANDLED at each of
-the four written sinks (`.ok()`, `.unwrap_or(..)`, `.unwrap_or_else(..)`,
-`.unwrap_or_default()`), at `let _ = <value>`, and at every `Err(..) =>` arm
-or `if let Err(..)` body, classified by what its body does. `runs`, `info`,
-`tree`, `frame`, `grep`, `diff` (including `diff --ignore-moves` across a
-refactor) and now `exceptions` all answer on a Rust trace; `info` adds the
-toolchain, per-unit instrumentation counts, child runs, live threads at exit,
-and the `?` sites the transformer could not reach (`partial fns: N`), which it
-declares rather than losing.
-
-**What `exceptions` was measured to be worth.** On the bloomery clone's
-`--lib` suite it printed 15 SWALLOWED lines and **one was a false accusation**
-(an `Err(e) =>` arm whose `format!` product is the value the function
-returns) so the rung's pre-registered endpoint read **STOP**, the rule was
-amended, and the repair was re-measured rather than declared:
-**0 false accusations of 14**, on two selectors and under both readings of the
-endpoint. Both records stand and both are worth reading before quoting any of
-it: `docs/superpowers/acceptance/2026-09-04-sensorium-rung3-acceptance.md`
-(§4, §5.1) and
-`docs/superpowers/acceptance/2026-09-05-sensorium-rung3-e6ppp.md` (§4, §5).
-
-**One gap, measured, then fixed.** `diff --ignore-moves` pairs code objects
-correctly across a file split (28/28 paired, 0 added, 0 removed, in the
-acceptance run's own split of a real file), but a spawned worker thread's task
-NAME embedded its spawn site (`<parent task> :: spawn@<file>:<line>`), so moving
-that call site during the same split renamed the task and the comparison read
-DIVERGED even though nothing about the program's behaviour changed. Measured on
-bloomery's own `registry.rs` split, four spawned-task names moved, their stream
-hashes identical pairwise on both sides:
-`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3–§4,
-endpoint E5. **Fixed 2026-09-03** (rung-3 entry decision, Brice's ruling (b)): a
-spawned task is now named `<parent task> :: spawn@<qualname>#<k>`, the
-enclosing named item's file-local qualname plus a source-order ordinal among its
-wrapped spawn sites, neither of which a file move changes
-(`docs/superpowers/plans/2026-09-03-sensorium-rung3-entry-spawn-names.md`,
-decisions N1–N6; `rust/HONESTY.md` §3). Verified by E5′ on the endpoint the fix
-exists for, which reads **PASS** (§4): across that same split, 28 code objects
-pair and all ten task streams pair, where rung 2 read DIVERGED; the four spawned
-children carry byte-identical names on both sides (E5′-names' first conjunct, 8
-of 8 exactly the predicted string). **E5′-coverage** reads **PASS** (0 units
-fell back). The record's overall line is **STOP**, on a third endpoint,
-**E5′-names**, whose second conjunct asked that the multiset of `(name, hash)`
-pairs be equal across the split while naming the trace's STORED hash as the
-source, and that hash is defined over `file`, so a file move changes it by
-construction. That is a defect in the pre-registration rather than in the naming
-rule; it was read once, no repair was applied after the number, and it was
-**ruled 2026-09-04: (b) withdrawn; see the record §5.1**. Read §4 and §5.1
-before citing any of this:
-`docs/superpowers/acceptance/2026-09-03-sensorium-rung3-entry-e5prime.md`.
-
-### Per-line answers, under `--focus`
-
-`cargo sensorium --focus <qualname> …` (repeatable, and a container value
-selects its children on the `::` boundary) splices a probe after every
-statement of each function it names, so the trace carries **one LINE event per
-completed statement** with the bindings that statement wrote. That is what
-makes `watch` and `flow` answer on a Rust trace: `watch last --at fill --expr
-'b == 2'` settles the predicate at the statement that wrote `b` rather than at
-the function, and `flow last --value 3` follows the value through LINE deltas
-as well as returns. `--at Counter` selects `Counter::new` on the same
-boundary rule `Pot` uses for `Pot.add`, so it never quietly answers about
-`Counters::new`. What the tier does **not** reach (closure bodies, statement locals inside `async fn` bodies and `async` blocks, place writes, macro bodies, and every function no focus named) is `rust/HONESTY-BLIND-SPOTS.md` item 3.
-An `async fn` and an `async` block are still call-tier frames: calls, returns, arguments and panics inside them are recorded, and polls are folded into one frame.
-
-From `sensorium-rt 0.5.0`, a block-like statement's LINE row also lists the
-names it `unbound`, so `watch`'s fold does not read one as still in scope once
-its block has closed.
-
-A Rust capture is `Debug` **text**, not a typed value, so the reading rule is
-written down: a literal is compared against its Debug rendering (`5`, `2.5`,
-`true`, `None`, and a string WITH its quotes), a truncated capture never
-matches, and `len()` over one is `NOTHING WAS CHECKED` rather than a
-comparison to nothing. `watch --expr` and `flow --value` are inverses on that
-domain, what one calls a sighting the other cannot deny at the same site.
-`x == 5` compared text, and `docs/TRACE-FORMAT.md`'s `LINE` row says so where
-a reader meets it.
-
-### What refuses
-
-`watch` refuses on an UNFOCUSED trace and exits **3**: it needs `capabilities.line`, which a build with no `--focus` declares `false`, and it never answers from a capability the recorder does not have.
-`flow --value` searches the returns and call arguments that build recorded, warns that statement locals were not, and refuses at 3 only when none were.
-
-`refocus` **answers** from `cargo-sensorium` 0.5.0: `capabilities.refocus` is
-`true` for every trace that driver converts, and whether one PARTICULAR
-recording can be re-run is a refusal about that run, not about the recorder.
-Five such refusals exit **2** with `nothing was re-run` in them, `--window`,
-which the Rust runtime has no per-activation check for; a run that is one of
-*n* processes of its invocation, so no single trace is the answer; a trace
-recording no `workspace_root`; a workspace that has since moved; and no
-`cargo-sensorium` to re-run with. What the verdict then claims, and the two
-licence checks it cannot run at all, is [`docs/query.md`](docs/query.md).
-
-`exceptions` **answers** from 0.3.0, and refuses on exactly one thing: a
-trace an older runtime wrote. The gate is `capabilities.err_flow`, so such a
-trace exits **3** naming the recorder and the capability, and no rule ever
-sees its records, what it lacks is a record, not a rule. Program output under
-libtest and per-line state in an unfocused build are the remaining "not yet"s:
-declared absent in the trace, never silently missing.
-
-### Cost, beside Python's
-
-Measured on this same box
-(`docs/superpowers/acceptance/2026-09-02-sensorium-rung2-acceptance.md` §3.1):
-`cargo test -p bloomery-daemon --lib` plain against
-`cargo sensorium test -p bloomery-daemon --lib` at tier `call`, n=5 each,
-binaries pre-built, **0.058 s plain, 0.125 s call, ×2.1552**, conversion
-INSIDE the timed command. That is not comparable to rung 1's **×1.0103**,
-which timed the whole 8.25 s suite with conversion outside it (§5.3), and it
-is not comparable to Python's 4–9 µs/event above either: a whole-suite wall
-ratio and a per-event figure are not the same unit, and no section here
-states one as a translation of the other. The driver's own fixed cost is
-**0.073 s** (n=5, no-op `--tier off --no-run` against straight cargo).
-
-## TypeScript
-
-`sensorium ts run -- vitest run` records a TypeScript or JavaScript test suite the
-way `cargo sensorium test` records a Rust workspace: one trace per test-file
-process, trace format 4, read by the same `sensorium` command line. `typescript/`
-ships **`sensorium-ts 0.6.2`** (a transform whose edits never contain a newline,
-a runtime on `AsyncLocalStorage`, a vitest plugin, a `node --test` hook) with
-driver and converter in Python, so reading a trace needs no Node. What it sees and
-does not is [`typescript/HONESTY.md`](typescript/HONESTY.md) with its blind-spot
-file; [`typescript/README.md`](typescript/README.md) is the full reference.
-
-    npm ci --prefix typescript
-    npm --prefix typescript run check                        # type-check
-    npm --prefix typescript test                             # unit tests
-    sensorium ts run [--tier off|call] -- vitest run         # or: -- node --test src/
-
-A `pip install`, including the git install in the quickstart, ships those
-Node sources inside the installed package (`sensorium/_typescript`).
-`npm ci --prefix typescript` is the checkout. After a non-editable install:
-
-    npm ci --prefix "$(python -c 'import sensorium.ts.pkg as p; print(p.locate())')"
-    sensorium ts run --focus diceQueue.ts:parseDiceGroups -- npx vitest run src/lib
-
-Everything after `--` is yours, spawned as typed, and the driver exits with the
-harness's status. Tier `call` records calls and returns with a captured value,
-YIELD/RESUME at every `await`/`yield`, RAISE at every `throw`, HANDLED at every
-`catch`, and **tests as tasks** named as vitest names them, so `tree` groups by
-test and `diff` compares a test against itself. `exceptions` **answers** (the same
-five dispositions, from a `how` word the transform decides from each handler's
-syntax, merged across a whole invocation) while a trace an 0.1.x runtime wrote
-refuses at exit 3 on `err_flow: false`. `flow --object` **answers on any recording
-from 0.3.0 on, focused or not, and answers exactly**: identity is a per-object
-serial minted once and never reused, so the footer reads `continuity: exact (serial
-identity)`. `refocus` re-runs the whole recorded invocation and pairs by test file
-(`docs/query.md`); package scripts, jest, a project with no `typescript` of its own
-and a vitest `projects`/`workspace` config are refused by name.
-
-From `sensorium-ts 0.4.0`, a RETURN row follows the rows of any `finally` the
-return passed through.
-
-### Per-statement answers, under `--focus`
-
-`--focus <spec>` (repeatable, `<qualname>` or `<file>:<qualname>`, and a
-container value selects its members on the `.` boundary) is resolved against
-your own sources with your own TypeScript **before anything is spawned**: a
-spec that names nothing is refused at exit **2** with the closest eligible
-qualnames, and one that names only functions this recorder does not
-instrument is refused with the reason and its count. What it selects, the
-transform splices a probe into, **one LINE event per completed statement**,
-its `deltas` the bindings that statement wrote, a guarded body's head names as
-a synthetic first row at each entry, and the block-scoped names a block-like
-statement declared listed `unbound` on its own row, which is the key `watch`'s
-fold pops. Every function's CALL carries its **arguments** (bounded; an empty
-list was read and held nothing). `--focus` records LINE rows, so `watch` refuses at exit 3 unfocused. `flow --value` searches recorded returns and arguments without a focus, warns that statement locals were not recorded, and refuses at exit 3 only if none exist; `frame` answers either way (`timeline: not captured`).
-
-A TypeScript capture is node's `util.inspect` **text**, so the reading rule is
-written down, and it is Rust's opposite in the place a reader meets first: `flow
---value 5.0` **sights** a JavaScript `5`, because JavaScript has one number type.
-`null`, `undefined`, `true` and `false` are predicate constants in every
-language; a string is spelled with its quotes, and one past 100 characters was
-cut by the formatter, so it matches nothing rather than matching a prefix. Every
-spelling is generated rather than argued (41 measured rows in
-`typescript/test/fixtures/inspect-table.json`) and
-[`docs/trace-format/TYPESCRIPT-KEYS.md`](docs/trace-format/TYPESCRIPT-KEYS.md) §
-*Under a focus* is the reading. What the tier does **not** reach (place writes,
-`this`, a conditional assignment's write-or-not, a `switch` discriminant, a
-nested function no spec's prefix reached) is `typescript/HONESTY-BLIND-SPOTS.md`
-items 28–35 and 39, each a present row with a stated hole.
-
-### What four rungs measured
-
-**One lens under nearly every number**, and it is somebody else's code: a
-tabletop VTT frontend at `0091e97` (**372 test files, 4,278 tests**) under
-vitest 4.1.9, node v24.16.0, 16 cores. Each rung was pre-registered and
-byte-locked before its own code existed. Two things none of it licenses: no
-endpoint says a TypeScript trace answered a debugging question nobody
-planted, and none was measured on a second consumer. Every figure, and what
-each rung left open, is in `docs/superpowers/acceptance/` and in
-[`typescript/README.md`](typescript/README.md).
-
-- **Rungs 1–3.** **DONE-WITH-STOP**, then **DONE**, then **DONE**: **372**
-  containers of one test file each and **5,378 of 5,378** eligible sites
-  instrumented, `call/plain` **1.1324** with `E6′` STOPping on one timing
-  clause of four; `exceptions` at **0 false SWALLOWED of 30** hand-adjudicated
-  shapes; the catch-all blocks naming a reason at **0 false names of 20**.
-- **Rung 4: DONE-WITH-STOP**, the focus tier, on 830 files of that same
-  frontend. **H3 is the endpoint the rung exists for and it PASSed on the
-  first reading**: nine LINE rows for one `parseDiceGroups('1d20')`
-  activation, their lines, every delta name and the one `unbound` list row
-  for row against a hand count sha256-locked before the code existed, empty
-  diff. **H1** 4/4, **H6** 4/4, **H8** 6/6, **H7** reported at ×**2.3816**
-  plus 1.132 s of resolution. **H2, H4 and H5 STOP**: H2 because three typed
-  specs select **six** sites (a container's spec reaches what is nested in
-  it, which the pre-registration counted by names typed), H4 and H5 because
-  the reading INSTRUMENT could not tell a loop's head row from its completion
-  row nor see a CALL sighting its own transcript prints. All three were found
-  after their numbers, so all three stand as findings, and the next slice
-  re-registers them.
-
-## C
-
-`sensorium c run -- <cmd>` records a Linux x86-64 debug build (`-O0` or
-`-Og`, gcc or clang). Crashes (signals and asserts) are what `exceptions`
-reads. The reference is [`c/README.md`](c/README.md).
+Small programs with planted bugs, and questions registered before any output was looked at. **115 cases and 253 questions.** A case whose recorder is not built is reported skipped by name. `--bench` reports; it never gates. Case by case: [docs/corpus.md](docs/corpus.md).
 
 ## Not yet
 
-What each slice deferred, and the ruling each deferral is waiting on, is
-[`docs/CARRIED-DEBT.md`](docs/CARRIED-DEBT.md), appended at every merge,
-resolved items struck through rather than deleted.
+What each slice deferred, and the ruling each deferral is waiting on, is [docs/CARRIED-DEBT.md](docs/CARRIED-DEBT.md).
 
 ## License
 
 MIT, see [LICENSE](LICENSE). Copyright © 2026 Brice Lancaster.
 
-Versions after the Proprietary interlude are again under MIT (matching
-releases through 0.14.0).
+Versions after the Proprietary interlude are again under MIT (matching releases through 0.14.0).
 
+## Also
+
+- [docs/agent.md](docs/agent.md), [docs/mcp.md](docs/mcp.md), [docs/query.md](docs/query.md), [docs/TRACE-FORMAT.md](docs/TRACE-FORMAT.md)
+- [docs/install.md](docs/install.md), [docs/changelog/README.md](docs/changelog/README.md), [docs/planning/README.md](docs/planning/README.md)
+- [ORIGIN.md](ORIGIN.md)

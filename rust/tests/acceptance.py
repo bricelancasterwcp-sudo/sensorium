@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The rung-2 acceptance runner: E2', E3, E5, E7 and E8 against a real
-workspace, in the order `docs/superpowers/acceptance/
+workspace, in the order `docs/planning/acceptance/
 2026-09-02-sensorium-rung2-acceptance.md` §1 pre-registered.
 
 It writes `results.json` in the pre-registered none-versus-zero schema, every

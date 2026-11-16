@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The rung-4 grain REPAIR runner: the same H1-H6 protocol, on the repaired
-reader, against `docs/superpowers/acceptance/
+reader, against `docs/planning/acceptance/
 2026-09-05-sensorium-rung4-entry-grain-repair.md` §1.
 
 WHY THERE IS A SECOND RUNNER AND NOT A SECOND RUN OF THE FIRST
@@ -90,7 +90,7 @@ lib.LOGS = LOGS
 ph.LOGS = LOGS
 gph.LOGS = LOGS
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-05-sensorium-rung4-entry-grain-repair.md")
 
 #: The commit §1′ is byte-locked against NOW: the amendment that named the
@@ -108,7 +108,7 @@ ORIGINAL_LOCK = "9bf64df"
 
 #: The record this run assembles. A different file from the first record's,
 #: so a repair that ran twice could never be mistaken for the STOP it repairs.
-RESULTS = (REPO / "docs" / "superpowers" / "acceptance"
+RESULTS = (REPO / "docs" / "planning" / "acceptance"
            / "2026-09-05-sensorium-rung4-entry-grain-repair.results.json")
 
 #: The raw facts, in the (gitignored) plan ledger beside the first run's.

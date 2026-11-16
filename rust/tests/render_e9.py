@@ -420,7 +420,7 @@ def results(r) -> list[str]:
 
 def main(argv) -> int:
     path = Path(argv[0]) if argv else (
-        Path(__file__).resolve().parents[2] / "docs" / "superpowers"
+        Path(__file__).resolve().parents[2] / "docs" / "planning"
         / "acceptance" / "2026-09-06-sensorium-rung4-e9.results.json")
     doc = json.loads(Path(path).read_text())
     print("\n".join(environment(doc) + [""] + results(doc)))

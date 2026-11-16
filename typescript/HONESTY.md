@@ -8,9 +8,9 @@ runtime stamps the package's `VERSION` into every spool's BOOT record and the
 converter spends it on `recorder: "sensorium-ts 0.6.2"` in meta.
 
 Sensorium's founding rule is that **the instrument never answers from data it
-does not have**. The Python recorder keeps its half of that rule in the
-README's *What the answers claim*, *What a trace file holds* and *What
-sensorium sees at all*; the Rust recorder keeps its half in
+does not have**. The Python recorder keeps its half of that rule in
+[`../docs/claims.md`](../docs/claims.md) and
+[`../docs/visibility.md`](../docs/visibility.md); the Rust recorder keeps its half in
 [`../rust/HONESTY.md`](../rust/HONESTY.md). This is the TypeScript recorder's
 half, written to the standard the standing ruling of 2026-08-20 set: a sibling
 recorder carries its own ledger and its own refusals, and multi-language
@@ -46,7 +46,7 @@ it, §9 gains *Measured, rung 2*, blind spots **2**, **3** and **11** are
 **13** is narrowed, **ten new blind spots 18–27** are added, and the numbered
 list moves to [`HONESTY-BLIND-SPOTS.md`](HONESTY-BLIND-SPOTS.md) so this file
 stays under 800 lines. Endpoint ids `E6-TS`–`E10″` name measured cells of
-`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md`, its §3 and
+`../docs/planning/acceptance/2026-09-10-sensorium-s5-rung2.md`, its §3 and
 §4 for the numbers, its §5 for the four gaps they do not cover.
 
 **Amended 2026-09-12, at rung 4's close**, the third edition struck against a
@@ -61,18 +61,18 @@ row name `corpus/typescript/object_identity`, the case that was
 38 were struck 2026-09-12 at S5 rung 4's debts**, by the converter's tail
 count, the E6-TS re-registration procedure and the seal. Endpoint ids
 `H1`–`H8` name measured cells of
-`../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md`, its
+`../docs/planning/acceptance/2026-09-11-sensorium-s5-rung4-focus.md`, its
 §3 and §4 for the numbers, its §5 for the four gaps they do not cover, and
 its word for the rung: **DONE-WITH-STOP**.
 
 **Provenance.** This file is written **before the runtime exists**, which is
 the point: the code is written to the ledger, not the ledger to the code. Its
 facts come from the design
-(`../docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`),
+(`../docs/planning/specs/2026-09-09-sensorium-typescript-recorder-design.md`),
 whose §7 fixes these ten sections, and from the mechanics spike that measured
-them (`../docs/superpowers/spikes/2026-09-08-typescript-mechanics-spike.md`).
+them (`../docs/planning/spikes/2026-09-08-typescript-mechanics-spike.md`).
 Endpoints `E0′`–`E11` below are the pre-registered acceptance of
-`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` (§3.1 for
+`../docs/planning/acceptance/2026-09-09-sensorium-s5-rung1.md` (§3.1 for
 the gated table, §3.2 for the two controls) recorded there before any of this
 was built, so none of them can be chosen after its number is read. A falsifier
 named here that does not yet exist is a file a later task owes.
@@ -729,7 +729,7 @@ hand count sha256-locked before `bindings.mjs`, `probe.mjs`, the runtime's
 (the serial); `E12` H2, H4 and H5 **STOP**: H2 on the pre-registration's own
 under-derivation of the site count, H4 and H5 on **instrument** readings
 found after their numbers, both stated in
-`../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §4.4
+`../docs/planning/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §4.4
 and §4.5 and neither re-measured. The ten focus corpus cases
 (`corpus/typescript/focus_*`, `corpus/typescript/flow_value_inspect`) and
 `corpus/typescript/object_identity`;

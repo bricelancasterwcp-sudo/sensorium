@@ -13,8 +13,8 @@ prose:
 
   As in `tests/test_acceptance_e16_lock.py`, the source read is the WORKING
   TREE and only the working tree -- no `git show <commit>:<path>` fallback.
-  `docs/superpowers/specs/2026-09-16-sensorium-mcp-stdio-design.md` and
-  `docs/superpowers/plans/2026-09-16-sensorium-mcp-stdio.md` are committed
+  `docs/planning/specs/2026-09-16-sensorium-mcp-stdio-design.md` and
+  `docs/planning/plans/2026-09-16-sensorium-mcp-stdio.md` are committed
   on THIS branch, and CI does not fetch the docs branch the spec was first
   drafted on -- a `git show` primary read would skip by name on every CI
   run, which is a check that never checks anything. The bodies end
@@ -60,12 +60,12 @@ sys.path.insert(0, str(REPO / "rust" / "tests"))
 from acceptance_lib import Refused                                 # noqa: E402
 
 #: The document this module locks.
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-16-sensorium-e17-mcp.md")
 
-_SPEC = (REPO / "docs" / "superpowers" / "specs"
+_SPEC = (REPO / "docs" / "planning" / "specs"
          / "2026-09-16-sensorium-mcp-stdio-design.md")
-_PLAN = (REPO / "docs" / "superpowers" / "plans"
+_PLAN = (REPO / "docs" / "planning" / "plans"
          / "2026-09-16-sensorium-mcp-stdio.md")
 
 _SPEC_HEAD = "## 9. E17, pre-registered"

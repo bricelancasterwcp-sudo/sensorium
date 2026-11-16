@@ -57,7 +57,7 @@ from acceptance_lib import Refused                                 # noqa: E402
 lib.LOGS, lib.LEDGER, ph.LOGS = _PTRS
 
 #: The document this module locks.
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-10-sensorium-s5-rung2.md")
 
 #: The commit that carried §1 first, and alone. Set at Task 0 Step 2, after

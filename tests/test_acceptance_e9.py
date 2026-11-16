@@ -143,7 +143,7 @@ def test_the_amendment_moved_no_ROW_of_the_pre_registration():
     _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
 
     def rows(sha):
-        rel = runner.DOC.relative_to(REPO).as_posix()
+        rel = rung3.lock_commit_path(runner.DOC.relative_to(REPO).as_posix())
         text = subprocess.run(["git", "show", f"{sha}:{rel}"], cwd=REPO,
                               capture_output=True, text=True).stdout
         return [ln for ln in rung3.locked_range(text).splitlines()
@@ -161,7 +161,7 @@ def test_the_amendment_is_ONE_dated_paragraph_and_nothing_else():
     a sentence of §1.4's rules -- or anything outside §1 -- would be an
     endpoint moving under cover of a lens note."""
     _require_lock_commits(runner.BYTE_LOCK, runner.ORIGINAL_LOCK)
-    rel = runner.DOC.relative_to(REPO).as_posix()
+    rel = rung3.lock_commit_path(runner.DOC.relative_to(REPO).as_posix())
     diff = subprocess.run(
         ["git", "diff", f"{runner.ORIGINAL_LOCK}..{runner.BYTE_LOCK}", "--",
          rel], cwd=REPO, capture_output=True, text=True).stdout

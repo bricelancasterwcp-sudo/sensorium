@@ -27,7 +27,7 @@ naming a Node converter or a binary wire. Neither outcome is a NO-GO, and
 neither number is allowed to decide whether the recorder is honest.
 
 **Measured, rung 1** *(added 2026-09-09; every number from
-`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, on one
+`../docs/planning/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, on one
 lens: the VTT frontend at `0091e97` (372 test files, 4,278 tests) under
 vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores)*:
 
@@ -67,7 +67,7 @@ vitest 4.1.9, vite 6.4.3, jsdom 29.1.1, node v24.16.0, 16 cores)*:
 
 
 **Measured, slice 2** *(added 2026-09-10; every number from
-`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-slice2.md` §3 and §4,
+`../docs/planning/acceptance/2026-09-10-sensorium-s5-slice2.md` §3 and §4,
 on the same lens)*:
 
 - **Conversion, the ladder.** Rung 1's design input was taken and answered on
@@ -115,7 +115,7 @@ on the same lens)*:
   width is a property of the session, and "under 4.0" is not "idle".
 
 **Measured, rung 2** *(added 2026-09-10; every number from
-`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §3, on the
+`../docs/planning/acceptance/2026-09-10-sensorium-s5-rung2.md` §3, on the
 same lens, with a load guard on every timed run and its reading beside every
 wall. The highest 1-minute load any arm ran under was **3.91**)*:
 

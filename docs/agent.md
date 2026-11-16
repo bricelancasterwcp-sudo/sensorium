@@ -2,10 +2,13 @@
 
 Record one run, then ask what it did. Answers come only from that trace;
 when the trace cannot settle a question the tool refuses instead of
-guessing. Full honesty: [README](../README.md). This page is the path.
+guessing. Full honesty: [claims.md](claims.md) and
+[visibility.md](visibility.md). This page is the path.
 
-Python 3.12+; install is from this repository (not PyPI). Use the
-venv's `sensorium`, never a stale binary on `PATH`.
+Python 3.12+. This page installs a dev checkout. The publish name is
+`sensorium-trace`; the import and the CLI stay `sensorium`. Use the
+venv's `sensorium`, never a stale binary on `PATH`. Details:
+[install.md](install.md).
 
 ## Steps
 
@@ -75,3 +78,43 @@ venv's `sensorium`, never a stale binary on `PATH`.
     That records `corpus/silent_swallow/main.py` through the CLI and
     through MCP, asks `exceptions` both ways, and never writes
     `~/.sensorium`.
+
+## Rust
+
+Linux, stable rustc. From a workspace, install the driver from this
+checkout (or use a binary you already built):
+
+    cargo install --path rust/cargo-sensorium
+
+Record, then ask the same questions the Python steps ask:
+
+    cargo sensorium test
+    cargo sensorium run -- <bin args>
+    sensorium exceptions last
+    sensorium failures last
+    sensorium tree last
+
+Panics show up in `failures`. Build and honesty limits:
+[../rust/README.md](../rust/README.md).
+
+## TypeScript
+
+Node 24. From a checkout:
+
+    npm ci --prefix typescript
+    sensorium ts run -- vitest run ...
+    sensorium ts run -- node --test ...
+
+Then `sensorium exceptions last`, `sensorium failures last`, and
+`sensorium tree last`. `npm test` scripts and jest are limited. What
+is refused by name is [../typescript/README.md](../typescript/README.md).
+
+## C
+
+Linux x86-64, a debug build (gcc or clang, `-O0` or `-Og`):
+
+    sensorium c run -- <cmd>
+
+MCP `record_c` is available when `--allow-run` is on (step 6). Queries
+that answer: `exceptions`, `failures`, `tree`. Reference:
+[../c/README.md](../c/README.md).

@@ -15,7 +15,7 @@ which cites `§n` as an identifier.
 ## 12. Refocus: the recorded invocation, run again one flag deeper
 
 Added 2026-09-13 by S5's refocus slice
-(`docs/superpowers/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`,
+(`docs/planning/specs/2026-09-13-sensorium-s5-refocus-typescript-design.md`,
 rulings R1–R12 with P3, P9, P11 and P12). `sensorium refocus <run> --focus
 <spec>` answers on a TypeScript trace instead of refusing, and this section is
 what that answer may mean. **None of it is a claim that the two runs were the
@@ -167,7 +167,7 @@ checked and failed; and the stamps `refocus_verdict`, `refocus_diverge_*`,
 it printed in.
 
 *Falsified by* **E15**
-(`docs/superpowers/acceptance/2026-09-13-sensorium-e15-refocus-typescript.md`,
+(`docs/planning/acceptance/2026-09-13-sensorium-e15-refocus-typescript.md`,
 §1 pre-registered before the instrument existed, over 31 members of one real
 invocation of somebody else's suite): **H1**, that every original refocuses
 without a pre-rerun refusal; **H2**, that every re-run completes with the

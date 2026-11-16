@@ -11,12 +11,12 @@ would have broken the 800-line ceiling `tests/test_ceiling.py` holds every
 tracked document to, an archive included. `0.9.1` and `0.9.0` went to
 [`CHANGELOG-ARCHIVE-2.md`](CHANGELOG-ARCHIVE-2.md) instead, and the archive is
 **numbered volumes, each under 800 lines**, never one growing file, the rule
-[`docs/CARRIED-DEBT-ARCHIVE-2.md`](docs/CARRIED-DEBT-ARCHIVE-2.md) set for the
+[`docs/CARRIED-DEBT-ARCHIVE-2.md`](../CARRIED-DEBT-ARCHIVE-2.md) set for the
 debt ledger. A volume's number is its cut order, not its age: volume 2 holds
 entries NEWER than every one below.
 
 `0.8.2`, `0.8.1` and `0.8.0`, **moved here 2026-09-09 (S5 rung 1, the
-TypeScript recorder) so [`CHANGELOG.md`](CHANGELOG.md) stays under 800
+TypeScript recorder) so [`CHANGELOG.md`](../../CHANGELOG.md) stays under 800
 lines**, the second cut, by the same rule as the first. `CHANGELOG.md` stood
 at **780** lines, and **all three moved in one commit, before the release
 entry was committed**: that is the shipped history, and `git log` is what any
@@ -34,9 +34,9 @@ either the first cut or the second: the three entries below are byte for byte
 the three that were removed, and `tests/test_ceiling.py` gates both files.
 
 Below them, `0.7.0` and `0.6.0`, **moved here 2026-09-08 (the queue buttoned
-up, rung 4) so [`CHANGELOG.md`](CHANGELOG.md) stays under 800 lines**. The
+up, rung 4) so [`CHANGELOG.md`](../../CHANGELOG.md) stays under 800 lines**. The
 same rule `docs/CARRIED-DEBT.md` keeps for itself, and the reason its own history is
-[`docs/CARRIED-DEBT-ARCHIVE.md`](docs/CARRIED-DEBT-ARCHIVE.md) and two
+[`docs/CARRIED-DEBT-ARCHIVE.md`](../CARRIED-DEBT-ARCHIVE.md) and two
 numbered volumes after it. The file was at **798** with the 0.8.7 entry
 written and the ceiling gate about to cover it, so the archive is taken
 before the gate names it rather than after.
@@ -50,7 +50,7 @@ thing
 
 `0.8.4` and `0.8.3`, **moved here 2026-09-10 (S5 slice 2 (the converter
 ladder, E6″ and the `node --test` extensions) so
-[`CHANGELOG.md`](CHANGELOG.md) stays under 800 lines**) the third cut, by the
+[`CHANGELOG.md`](../../CHANGELOG.md) stays under 800 lines**) the third cut, by the
 same rule as the first two, and the first taken the way the second cut's own
 confession below says to: the `0.9.1` entry was **drafted and measured first**
 (**105** lines against a live file of **756**, which would have taken it to
@@ -61,7 +61,7 @@ a reader to derive. `CHANGELOG.md` stood at **756** lines before the move and
 at **527** after it, entry not yet written.
 
 `0.8.6` and `0.8.5`, **moved here 2026-09-11 (S5 rung 4 (the focus tier for
-the TypeScript recorder) so [`CHANGELOG.md`](CHANGELOG.md) stays under 800
+the TypeScript recorder) so [`CHANGELOG.md`](../../CHANGELOG.md) stays under 800
 lines**) the fourth cut, by the same rule as the first three, and the first
 taken with the live file already **at** the ceiling rather than near it:
 `CHANGELOG.md` stood at **800** lines with the `0.11.0` entry written and

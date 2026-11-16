@@ -73,7 +73,7 @@ What it does *not* see, and what says so in the trace, is
 contract all three recorders are written against is
 [`../docs/TRACE-FORMAT.md`](../docs/TRACE-FORMAT.md); the design and its rungs
 are in
-`../docs/superpowers/specs/2026-09-09-sensorium-typescript-recorder-design.md`.
+`../docs/planning/specs/2026-09-09-sensorium-typescript-recorder-design.md`.
 
 ## Install
 
@@ -329,7 +329,7 @@ and no `switch` discriminant, [`HONESTY.md`](HONESTY.md) §3, §4, §11 and
 
 Twelve endpoints and two controls, **pre-registered before this code existed**
 and byte-locked in
-`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §1. **The
+`../docs/planning/acceptance/2026-09-09-sensorium-s5-rung1.md` §1. **The
 rung ships DONE-WITH-STOP.** Ten of the twelve gated endpoints PASS, both
 controls PASS, **one is a STOP** and **one is REPORTED**.
 
@@ -373,7 +373,7 @@ a second consumer.
 ## What rung 2 measured, and the four gaps it found
 
 Nine endpoints, pre-registered and byte-locked before this rung's code existed
-(`../docs/superpowers/acceptance/2026-09-10-sensorium-s5-rung2.md` §1), on the
+(`../docs/planning/acceptance/2026-09-10-sensorium-s5-rung2.md` §1), on the
 same lens. **The rung ships DONE**: every endpoint ran once and not one fired
 its rule's failure word. No row reads PASS and neither does the rung, because
 six of the nine rules name only a failure word and three name none at all,
@@ -410,7 +410,7 @@ than guessing there is exactly what keeps the false-SWALLOWED count at 0.
 
 Eight endpoints, pre-registered and byte-locked before this rung's code
 existed
-(`../docs/superpowers/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §1),
+(`../docs/planning/acceptance/2026-09-11-sensorium-s5-rung4-focus.md` §1),
 on the same lens. This time on **830 files** of it, one 26-test file as the
 subject, three of its pure functions as the focus. **The rung ships
 DONE-WITH-STOP.**
@@ -444,7 +444,7 @@ extra clause happened to hold, so neither parser defect had a chance to show.
 Reported, never gated. The tier is a runtime gate and the transform runs every
 time, so the whole cost of `--tier off` is the transform. Every number, with
 its `n` and the suite it was measured on, is in
-`../docs/superpowers/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, and the
+`../docs/planning/acceptance/2026-09-09-sensorium-s5-rung1.md` §3, and the
 summary is the table above. Where a reading crosses a pre-registered bound it
 buys **work** (a transform cache, a converter elsewhere) and never a verdict
 about whether the recorder is honest.

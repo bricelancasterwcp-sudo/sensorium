@@ -284,7 +284,9 @@ def context(paths) -> dict:
         "lens_dir": paths["lens_dir"], "work": paths["work"],
         "out": paths["out"],
         "copy": paths["work"] / "lens", "store": paths["work"] / "store",
-        "accept": HERE, "survey": REPO_ROOT / SURVEY_REL,
+        "accept": HERE,
+        "survey": REPO_ROOT / SURVEY_REL.replace(
+            "docs/superpowers/", "docs/planning/", 1),
         "bin": sensorium_bin(), "python": python,
         "cargo_target": os.environ.get("E15_CARGO_TARGET"),
         "head": head, "fence_base": base,

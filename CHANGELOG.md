@@ -777,4 +777,4 @@ thirteen amendments and every controller ruling that changed a section's
 reading. `docs/CARRIED-DEBT.md` closes rung 4's carried debts (three of them
 by this slice's own measurement) and opens this slice's.
 
-Earlier entries: [`CHANGELOG-ARCHIVE-2.md`](CHANGELOG-ARCHIVE-2.md) (0.8.7–0.12.0), [`CHANGELOG-ARCHIVE.md`](CHANGELOG-ARCHIVE.md) (older).
+Earlier entries: [`CHANGELOG-ARCHIVE-2.md`](docs/changelog/CHANGELOG-ARCHIVE-2.md) (0.8.7–0.12.0), [`CHANGELOG-ARCHIVE.md`](docs/changelog/CHANGELOG-ARCHIVE.md) (older).

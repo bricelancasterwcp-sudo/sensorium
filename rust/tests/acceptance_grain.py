@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The rung-4 entry-slice runner: H1-H6, in the order
-`docs/superpowers/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §1
+`docs/planning/acceptance/2026-09-05-sensorium-rung4-entry-grain.md` §1
 pre-registers them.
 
 WHAT MAKES THIS RUNNER DIFFERENT FROM ITS SIBLINGS
@@ -119,7 +119,7 @@ lib.LOGS = LOGS
 ph.LOGS = LOGS
 gph.LOGS = LOGS
 
-DOC = (REPO / "docs" / "superpowers" / "acceptance"
+DOC = (REPO / "docs" / "planning" / "acceptance"
        / "2026-09-05-sensorium-rung4-entry-grain.md")
 
 #: The commit that committed §1 ALONE, before any number below was read.
@@ -133,7 +133,7 @@ ORIGINAL_LOCK = None
 #: The ORACLE: the published E6⁗ record, committed in this repository. Every
 #: number this run is compared against comes from here, and this file is
 #: opened read-only and never rewritten.
-ORACLE = (REPO / "docs" / "superpowers" / "acceptance"
+ORACLE = (REPO / "docs" / "planning" / "acceptance"
           / "2026-09-05-sensorium-rung3-e6q.results.json")
 #: The commit that last touched it, named in §1's lens.
 ORACLE_COMMIT = "605db64"
@@ -479,7 +479,7 @@ def main(argv) -> int:
     return rc
 
 
-RESULTS = (REPO / "docs" / "superpowers" / "acceptance"
+RESULTS = (REPO / "docs" / "planning" / "acceptance"
            / "2026-09-05-sensorium-rung4-entry-grain.results.json")
 
 
