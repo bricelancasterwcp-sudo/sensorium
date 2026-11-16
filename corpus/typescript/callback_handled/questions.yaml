@@ -29,7 +29,6 @@ questions:
     expect_exit: 0
     expect_line:
       - ["e5 HANDLED", "handled Error('token expired') L6"]
-      - ["SWALLOWED -- caught by catch_callback at e5 (<anonymous> L6) in
-          f1, which returned"]
+      - ['SWALLOWED -- caught by catch_callback at e5 (test("a token is refreshed in the background") L6) in f1, which returned']
       - ["born outside a throw statement (a reject())"]
       - ["dispositions: swallowed 1"]

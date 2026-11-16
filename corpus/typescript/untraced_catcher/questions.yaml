@@ -8,12 +8,12 @@ questions:
       know?
     truth: >
       AMBIGUOUS, and rung 3's whole point is that this block now says WHY:
-      `caught by untraced code inside <anonymous> (untraced_catcher.test.ts):
+      `caught by untraced code inside test("an unknown function is reported by type") (untraced_catcher.test.ts):
       f2 unwound, its caller f1 returned; not followed`. `parse` raised at
       e4; its own frame is f2, the arrow passed to `expect(() => …)`, and f2
       unwound with the error the moment `parse` threw. The frame that
       actually decided the assertion -- vitest's own `.toThrow` matcher -- is
-      f1, the test callback `<anonymous>` this file's arrow is named as, and
+      f1, the test callback `test("an unknown function is reported by type")`, and
       it is traced code, so the recorder can see it. What it CANNOT see is
       what happened between f2 unwinding and f1 returning: no handler row
       exists anywhere in this recording for e4's serial, because the catch
@@ -38,9 +38,7 @@ questions:
     expect_exit: 0
     expect_line:
       - ["e4 RAISE", "parse raise FormulaError(\"Unknown function 'sqrt'\") L15"]
-      - ["AMBIGUOUS -- caught by untraced code inside <anonymous>
-          (untraced_catcher.test.ts): f2 unwound, its caller f1 returned;
-          not followed"]
+      - ['AMBIGUOUS -- caught by untraced code inside test("an unknown function is reported by type") (untraced_catcher.test.ts): f2 unwound, its caller f1 returned; not followed']
       - ["dispositions: ambiguous 1"]
       - ["ambiguous by reason: untraced catcher 1"]
     expect_absent: ["SWALLOWED", "no rule of this recorder"]

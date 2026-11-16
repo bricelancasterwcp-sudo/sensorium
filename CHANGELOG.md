@@ -8,7 +8,7 @@
 
 - **Docs.** The README is the short path. Commands, claims, and visibility are [`docs/use.md`](docs/use.md), [`docs/claims.md`](docs/claims.md), and [`docs/visibility.md`](docs/visibility.md). Changelog archives are [`docs/changelog/`](docs/changelog/README.md). Planning records are [`docs/planning/`](docs/planning/README.md) (they were `docs/superpowers/`). [`docs/agent.md`](docs/agent.md) covers Rust, TypeScript, and C.
 
-- **TypeScript names and values.** A test callback is named from its title (`it("adds")`, `describe("math").it("adds")`). A returned Promise, Timeout, or Immediate is a short summary.
+- **TypeScript names and values.** A test callback is named from its title (`it("adds")`, `describe("math").it("adds")`). A returned Promise, Timeout, or Immediate is a short summary. The TypeScript corpus expects those names, a focused method's `this`, and a member-write delta on the statement's own line.
 
 - **Rust panic columns.** Splices still add no newline. The reported column is mapped back to the original source, in `panicked at` and in the PANIC record. Backtrace frames are not remapped.
 

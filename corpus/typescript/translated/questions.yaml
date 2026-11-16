@@ -13,7 +13,7 @@ questions:
       handler and the rule does not follow where. The wrapper's own raise at
       e7 is judged on its own evidence too, and rung 3 names what rung 2
       could only fold into the catch-all: AMBIGUOUS, untraced catcher --
-      `caught by untraced code inside <anonymous> (translated.test.ts): f2
+      `caught by untraced code inside test("a decode failure reaches the caller as a wrapper") (translated.test.ts): f2
       unwound, its caller f1 returned; not followed`. It unwound
       `decodeOrWrap`, and f2 -- the arrow `expect(() => …)` calls -- unwound
       with it; the frame that then decided the assertion is f1, the test
@@ -47,9 +47,7 @@ questions:
           rendering of it left the handler; not followed"]
       - ["e7 RAISE", "decodeOrWrap raise Wrapped('Error: bad payload: {')
           L17"]
-      - ["AMBIGUOUS -- caught by untraced code inside <anonymous>
-          (translated.test.ts): f2 unwound, its caller f1 returned; not
-          followed"]
+      - ['AMBIGUOUS -- caught by untraced code inside test("a decode failure reaches the caller as a wrapper") (translated.test.ts): f2 unwound, its caller f1 returned; not followed']
       - ["dispositions: ambiguous 2"]
       - ["ambiguous by reason: escaped 1, untraced catcher 1"]
     expect_absent: ["SWALLOWED", "no rule of this recorder"]

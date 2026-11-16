@@ -7,8 +7,8 @@ questions:
       `bump` returned 0 and the caller's object came back with `x` set to 5.
       Did the write statement run, and what did the recording see of it?
     truth: >
-      It ran. There is a row at its line, `LINE bump L9`, and the row carries
-      the member it wrote: `state.x=5`. The row above, `LINE bump L8
+      It ran. There is a row at its line, `LINE bump L8`, and the row carries
+      the member it wrote: `state.x=5`. The row above, `LINE bump L7
       seen=0`, is the local the function returns, still 0. The argument
       capture `state={ x: 0 }` is the object as it was on the way in and is
       not re-read, so the field write and the argument are two different
@@ -27,8 +27,8 @@ questions:
       - "args: state={ x: 0 }"
       - "return: 0"
     expect_line:
-      - ["LINE", "bump L8", "seen=0"]
-      - ["LINE", "bump L9", "state.x=5"]
+      - ["LINE", "bump L7", "seen=0"]
+      - ["LINE", "bump L8", "state.x=5"]
   - id: can-the-written-value-be-followed
     ask: >
       Then follow the 5 that was written. Where does it appear?
@@ -54,4 +54,4 @@ questions:
       - "scope: 5 capture(s) searched across 5 event(s) in CALL args, RETURN
          values and LINE local deltas"
     expect_line:
-      - ["LINE", "bump L9", "state.x=5", "[local state.x]"]
+      - ["LINE", "bump L8", "state.x=5", "[local state.x]"]

@@ -29,6 +29,5 @@ questions:
     expect_exit: 0
     expect_line:
       - ["e3 RAISE", "fetchQuote raise Error('quote service down') L8"]
-      - ["SWALLOWED -- caught by catch at e5 (<anonymous> L9) in f1, which
-          returned"]
+      - ['SWALLOWED -- caught by catch at e5 (test("a quote is fetched for the basket") L9) in f1, which returned']
       - ["dispositions: swallowed 1"]
