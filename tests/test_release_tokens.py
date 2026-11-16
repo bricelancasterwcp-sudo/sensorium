@@ -193,6 +193,20 @@ def test_the_published_name_is_sensorium_trace_and_the_cli_stays_sensorium():
     assert installed_version("sensorium-trace") == project["version"]
 
 
+def test_the_typescript_package_files_are_src_and_it_has_no_cli_bin():
+    """The npm tarball is the recorder library. The CLI is the Python
+    `sensorium` console script, so this package has no `bin`.
+    """
+    import json
+    pkg = json.loads((ROOT / "typescript" / "package.json").read_text())
+    assert pkg["name"] == "sensorium-trace"
+    assert pkg["files"] == ["src"]
+    assert "bin" not in pkg
+    assert (ROOT / "typescript" / "LICENSE").is_file()
+    assert (ROOT / "typescript" / "src" / "rt.mjs").is_file()
+    assert (ROOT / "typescript" / "src" / "register.mjs").is_file()
+
+
 def _on_triggers(text: str) -> dict[str, list[str]]:
     """Keys of a workflow `on:` block, each with its nested lines.
 
@@ -226,15 +240,19 @@ def _on_triggers(text: str) -> dict[str, list[str]]:
     return triggers
 
 
-def test_the_release_workflow_triggers_only_on_dispatch_and_tags():
-    """Build artifacts on a tag or a manual run. The file does not publish,
-    and it does not run on a branch push or a pull request.
+def test_the_release_workflow_publishes_on_dispatch_and_tags():
+    """A `v*` tag or a manual run publishes. Branch pushes and pull
+    requests do not trigger this file.
     """
     text = (ROOT / ".github" / "workflows" / "release.yml").read_text()
-    assert "Publishing is intentionally not a step" in text
-    assert "npm publish" not in text
-    assert "twine" not in text
-    assert "secrets." not in text
+    assert "pypa/gh-action-pypi-publish" in text
+    assert "id-token: write" in text
+    assert "environment: pypi" in text
+    assert "npm publish --provenance --access public" in text
+    assert "secrets.NPM_TOKEN" in text
+    assert "TODO" in text
+    assert "crates.io" in text
+    assert "prebuilt" in text
     triggers = _on_triggers(text)
     assert set(triggers) == {"workflow_dispatch", "push"}
     push = triggers["push"]
@@ -246,3 +264,4 @@ def test_the_release_workflow_triggers_only_on_dispatch_and_tags():
     ]
     assert keys == ["tags"], keys
     assert any("v*" in line for line in push)
+    assert "pull_request" not in text.split("on:", 1)[1].split("jobs:", 1)[0]
