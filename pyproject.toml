@@ -34,6 +34,12 @@ sensorium-cc = "sensorium.c.cc:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# Skip directories the root .gitignore excludes (`target/`, `node_modules/`)
+# instead of walking them. A probe build is hundreds of megabytes of
+# absolute symlinks, and one of those in the sdist is a tarball pip rejects.
+[tool.hatch.build]
+skip-excluded-dirs = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/sensorium"]
 # The Node recorder. Not a Python package, so `packages` does not ship it,

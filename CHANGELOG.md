@@ -2,8 +2,19 @@
 
 ## 0.18.3 (unreleased)
 
-**Review round 4.** The package version stays **0.18.2** until this slice
-ships. `TRACE_FORMAT` stays **4**.
+**Review round 5.** The package version stays **0.18.2**. `TRACE_FORMAT` stays **4**. Crate versions stay put.
+
+- **Packages.** The PyPI and npm name is `sensorium-trace` (`sensorium` is taken). The CLI and the import stay `sensorium`. Traces still say `sensorium-ts`. `.github/workflows/release.yml` builds a wheel and an npm pack on manual dispatch or a `v*` tag. It does not publish. Cargo `target/` and `node_modules` stay out of the sdist. Install: [`docs/install.md`](docs/install.md).
+
+- **Docs.** The README is the short path. Commands, claims, and visibility are [`docs/use.md`](docs/use.md), [`docs/claims.md`](docs/claims.md), and [`docs/visibility.md`](docs/visibility.md). Changelog archives are [`docs/changelog/`](docs/changelog/README.md). Planning records are [`docs/planning/`](docs/planning/README.md) (they were `docs/superpowers/`). [`docs/agent.md`](docs/agent.md) covers Rust, TypeScript, and C.
+
+- **TypeScript names and values.** A test callback is named from its title (`it("adds")`, `describe("math").it("adds")`). A returned Promise, Timeout, or Immediate is a short summary.
+
+- **Rust panic columns.** Splices still add no newline. The reported column is mapped back to the original source, in `panicked at` and in the PANIC record. Backtrace frames are not remapped.
+
+- **TypeScript gaps.** Member writes (`a.b = x`, `this.x`, `delete`) are deltas. A focused method records `this`. `for await` inside a function parks like `await`. A shell-free `npm test` that runs vitest or `node --test` is expanded. Inline vitest project objects are instrumented. Still refused or unrecorded: jest, a shell script, a vitest project named by a string or glob, top-level `await`, a member write through a call or `?.`, and `this` on an unfocused call. [`typescript/README.md`](typescript/README.md).
+
+**Review round 4.** `TRACE_FORMAT` stays **4**.
 
 - **`flow --value` searches recorded returns and call arguments** on a Rust
   or TypeScript run that was not focused. It refuses only when that trace

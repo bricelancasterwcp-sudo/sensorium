@@ -106,8 +106,10 @@ Node 24. From a checkout:
     sensorium ts run -- node --test ...
 
 Then `sensorium exceptions last`, `sensorium failures last`, and
-`sensorium tree last`. `npm test` scripts and jest are limited. What
-is refused by name is [../typescript/README.md](../typescript/README.md).
+`sensorium tree last`. A shell-free `npm test` that runs vitest or
+`node --test` is expanded. jest, a shell script, and a vitest project
+named by a string are refused. The list is
+[../typescript/README.md](../typescript/README.md).
 
 ## C
 

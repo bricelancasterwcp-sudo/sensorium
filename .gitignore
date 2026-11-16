@@ -12,3 +12,10 @@ daemon-ran.txt
 # SQLite sidecars a reader leaves beside a fixture .db.
 *.db-shm
 *.db-wal
+
+# Cargo build trees and Node installs. `rust/.gitignore` and
+# `typescript/.gitignore` say the same thing, and git honors those. The
+# sdist builder reads only this file. A probe `target/` holds absolute
+# symlinks, which pip refuses to unpack, so the pattern has to be here.
+target/
+node_modules/
