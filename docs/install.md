@@ -13,7 +13,8 @@ TypeScript recorder (Node 24):
 
     npm install sensorium-trace
 
-These resolve once the packages are on the indexes. The name `sensorium` on
+These are published on PyPI, crates.io and npm, and Linux binaries for
+`cargo-sensorium` are attached to each GitHub Release. The name `sensorium` on
 PyPI and on npm belongs to unrelated projects. The publish name is
 `sensorium-trace`. The import package and the CLI stay `sensorium`. The npm
 package is the recorder library; traces still report the recorder as

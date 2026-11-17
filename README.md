@@ -120,7 +120,7 @@ TypeScript recorder (Node 24):
 
     npm install sensorium-trace
 
-These resolve once the packages are on the indexes. The import and the CLI stay `sensorium`. The npm package is the recorder library; traces still report `recorder: sensorium-ts`.
+Published on [PyPI](https://pypi.org/project/sensorium-trace/), [crates.io](https://crates.io/crates/cargo-sensorium) and [npm](https://www.npmjs.com/package/sensorium-trace); Linux binaries for `cargo-sensorium` are on [GitHub Releases](https://github.com/bricelancasterwcp-sudo/sensorium/releases). The import and the CLI stay `sensorium`. The npm package is the recorder library; traces still report `recorder: sensorium-ts`.
 
 From git:
 
