@@ -1,10 +1,16 @@
 # Changelog
 
-## 0.18.3 (unreleased)
+## 0.18.3 — 2026-11-16
 
-**Review round 5.** The package version stays **0.18.2**. `TRACE_FORMAT` stays **4**. Crate versions stay put.
+**Rust crates on crates.io.** Python **0.18.3**. `TRACE_FORMAT` stays **4**. `sensorium-rt` **0.7.3**, `sensorium-transform` **0.5.2**, `cargo-sensorium` **0.8.4**. TypeScript stays **0.6.2**.
 
-- **Packages.** The PyPI and npm name is `sensorium-trace` (`sensorium` is taken). The CLI and the import stay `sensorium`. Traces still say `sensorium-ts`. `.github/workflows/release.yml` publishes the Python sdist and wheel to PyPI via Trusted Publishing, and the TypeScript package to npm (`npm publish --provenance --access public`), on a `v*` tag or a manual dispatch. Rust crates and prebuilt binaries are still a TODO in that workflow. Cargo `target/` and `node_modules` stay out of the sdist. Install: [`docs/install.md`](docs/install.md).
+- **crates.io.** `cargo install cargo-sensorium` installs the driver. The three crates are published (`sensorium-rt`, `sensorium-transform`, `cargo-sensorium`). The driver embeds `sensorium-rt`'s sources at build time, so an installed binary records without a checkout. Linux only (`MAP_SHARED` / `gettid`).
+- **GitHub Release binaries.** A `v*` tag builds `cargo-sensorium` for `x86_64-unknown-linux-gnu` and attaches a tarball plus sha256 to the GitHub Release. macOS and Windows are not built: the runtime refuses to compile there.
+- **Release workflow.** `.github/workflows/release.yml` still publishes PyPI (Trusted Publishing, env `pypi`) and npm (`NPM_TOKEN`); it now also publishes crates.io (`CARGO_REGISTRY_TOKEN`, skips a crate whose version already exists) and the Linux binary (`permissions: contents: write` on that job only).
+
+**Review round 5.** `TRACE_FORMAT` stays **4**. Crate versions stay put.
+
+- **Packages.** The PyPI and npm name is `sensorium-trace` (`sensorium` is taken). The CLI and the import stay `sensorium`. Traces still say `sensorium-ts`. `.github/workflows/release.yml` publishes the Python sdist and wheel to PyPI via Trusted Publishing, and the TypeScript package to npm (`npm publish --provenance --access public`), on a `v*` tag or a manual dispatch. Rust crates go to crates.io and a Linux `cargo-sensorium` binary is attached to the GitHub Release. Cargo `target/` and `node_modules` stay out of the sdist. Install: [`docs/install.md`](docs/install.md).
 
 - **README.** The page leads with a recorded agent transcript of [`examples/test_shipping.py`](examples/test_shipping.py) (grams handed to `shipping_cost` as `weight_kg`), documents refusal strings (`REFUSED`, `NOTHING WAS CHECKED`, `DIVERGED`), and installs from PyPI / npm first.
 

@@ -81,10 +81,10 @@ venv's `sensorium`, never a stale binary on `PATH`. Details:
 
 ## Rust
 
-Linux, stable rustc. From a workspace, install the driver from this
-checkout (or use a binary you already built):
+Linux, stable rustc. Install the driver (`cargo install cargo-sensorium`
+from crates.io, or from this checkout with `--path rust/cargo-sensorium`):
 
-    cargo install --path rust/cargo-sensorium
+    cargo install cargo-sensorium
 
 Record, then ask the same questions the Python steps ask:
 

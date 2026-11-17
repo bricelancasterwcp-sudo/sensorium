@@ -5,6 +5,10 @@ Python 3.12+. The command is `sensorium`.
     pip install sensorium-trace
     uv tool install sensorium-trace
 
+Rust recorder (Linux, rustc 1.96+):
+
+    cargo install cargo-sensorium
+
 TypeScript recorder (Node 24):
 
     npm install sensorium-trace
@@ -29,4 +33,6 @@ directory. From a checkout:
 
     npm ci --prefix typescript
 
-The CLI remains the Python `sensorium` command.
+The CLI remains the Python `sensorium` command. `cargo sensorium` records
+a Rust workspace; querying the trace still uses this CLI. The recorder is
+Linux-only.

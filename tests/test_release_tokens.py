@@ -250,9 +250,12 @@ def test_the_release_workflow_publishes_on_dispatch_and_tags():
     assert "environment: pypi" in text
     assert "npm publish --provenance --access public" in text
     assert "secrets.NPM_TOKEN" in text
-    assert "TODO" in text
+    assert "cargo publish" in text
+    assert "secrets.CARGO_REGISTRY_TOKEN" in text
     assert "crates.io" in text
-    assert "prebuilt" in text
+    assert "x86_64-unknown-linux-gnu" in text
+    assert "contents: write" in text
+    assert "sha256" in text
     triggers = _on_triggers(text)
     assert set(triggers) == {"workflow_dispatch", "push"}
     push = triggers["push"]

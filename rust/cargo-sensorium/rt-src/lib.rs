@@ -1,0 +1,731 @@
+//! `sensorium-rt` -- the runtime linked into every instrumented compilation
+//! unit of the sensorium Rust recorder. v1, the `call` tier.
+//!
+//! At this tier the runtime records, per instrumented fn item, a CALL when the
+//! entry guard is created and a RETURN when it drops, carrying the frame's
+//! outcome and a capped `Debug` rendering of the value that crossed the
+//! boundary. Not `?` sites (rung 3), not locals or LINE (rung 4), not program
+//! output. `rust/HONESTY.md` is the list of what that does and does not mean;
+//! §1, §2, §4, §7 and §8 are this crate's promises.
+//!
+//! The transformer injects, as the first statement of every eligible fn body:
+//!
+//! ```ignore
+//! let _sens_guard = ::sensorium_rt::enter_args(&crate::__SENSORIUM_UNIT, <site>, || [
+//!     ("x", ::sensorium_rt::probe_cap!(&x)),
+//! ]);
+//! ```
+//!
+//! `enter` (no arguments) remains for a hand-written site. Its CALL payload is
+//! empty, which a reader treats as "the arguments were not read".
+//!
+//! wraps every exit operand of a value-returning fn (the tail expression, and
+//! each `return <e>` at closure depth 0) as:
+//!
+//! ```ignore
+//! ::sensorium_rt::ret(&crate::__SENSORIUM_UNIT, <site>, |__r| {
+//!     use ::sensorium_rt::probe::*;
+//!     ((&&Probe(__r)).debug_cap(), (&&Probe(__r)).outcome())
+//! }, <e>)
+//! ```
+//!
+//! wraps every `?`, sink receiver and `Err(..)` arm the grammar can reach as
+//! (rung 3, `src/errflow.rs`):
+//!
+//! ```ignore
+//! ::sensorium_rt::err_site(&crate::__SENSORIUM_UNIT, <site>, <how>, {
+//!     use ::sensorium_rt::probe::*;
+//!     (&&&Probe(&__t)).err_cap()
+//! });
+//! ```
+//!
+//! and appends to each instrumented crate root:
+//!
+//! ```ignore
+//! #[doc(hidden)]
+//! pub static __SENSORIUM_UNIT: ::sensorium_rt::Unit =
+//!     ::sensorium_rt::Unit::new("<-C metadata hash>");
+//! ```
+//!
+//! Environment, read once per process on the first instrumented event -- an
+//! `enter`, or a `spawn_child` that beats every `enter` to it:
+//!
+//! * `SENSORIUM_SPOOL` -- the spool directory. Unset or empty: the runtime is
+//!   inert. Nothing is created, nothing is written, nothing is allocated.
+//! * `SENSORIUM_TIER` -- `off` or `call`. Absent or empty means `call`. Any
+//!   other value is refused with one stderr line and the runtime stays inert:
+//!   recording a tier the caller did not ask for would put dishonest data in
+//!   the trace.
+//!
+//! **The panic hook** chains to the hook it found. A panicking program prints
+//! what it would have printed with no recorder linked in, except a column an
+//! insertion moved, which is mapped back to the original source column
+//! (`src/panic.rs`, `src/columns.rs`). Each instrumented file registers its
+//! map from `.init_array` and installs the hook there, so tier `off` corrects
+//! columns without touching `enter`'s inert path. A recording `enter` installs
+//! the hook when nothing has registered one.
+//!
+//! **The inert path.** `enter`'s first arm is one `Acquire` load, one compare
+//! and the guard value -- no call, no branch on anything else, no allocation.
+//! That shape is the invariant endpoint E1 measures, and it is the reason
+//! `STATE_OFF` is tested before `STATE_CALL` below.
+//!
+//! **Zero dependencies** (plan decision D1): see `ffi.rs`. This crate must
+//! compile with a bare
+//! `rustc --crate-type rlib --edition 2021 -C opt-level=3 src/lib.rs`, so it has
+//! no build script, needs no cargo feature, and reads nothing from cargo's
+//! environment.
+
+#[cfg(not(target_os = "linux"))]
+compile_error!(
+    "sensorium-rt v1 is Linux-only: thread serials come from gettid()/getpid() and the spool is a \
+     MAP_SHARED mapping grown with ftruncate (spec §4). Portability is designed, not patched in."
+);
+
+mod async_drive;
+mod cap;
+mod columns;
+mod errflow;
+mod exit;
+mod ffi;
+// The one JSON string escaper: `spool.rs` writes the header and `redact.rs`
+// writes two of its keys, and a second escaper beside the first is how two
+// writers of one file end up disagreeing about a backslash.
+mod json;
+mod line;
+mod panic;
+pub mod probe;
+// Public because `tests/redact.rs` drives the rule directly against
+// `docs/trace-format/redaction-v1.json`, the fixture the Python and TypeScript
+// recorders read too. Nothing outside this crate is expected to call it.
+pub mod redact;
+// Public because it is the repository's ONE sha256: `sensorium-transform`
+// (the focus hash) and `cargo-sensorium` (the tool hash, the mirror's cache
+// key, `source_hashes`) take it from here rather than keeping copies. This
+// crate is the leaf -- it has no dependencies at all -- so it is the only
+// one of the three the other two can both depend on.
+pub mod sha256;
+mod spool;
+mod tasks;
+mod thread;
+
+// The seven `how` bytes an instrumented program can write. `HOW_EXIT` is
+// deliberately absent: it is the converter's own synthesised how (errflow.rs),
+// no runtime path can write it, and the writer refuses it.
+pub use async_drive::{capture_args, drive_async, drive_value};
+pub use cap::{DEFAULT_MAX_BYTES, DEFAULT_MAX_CALLS, DEFAULT_MAX_EVENTS};
+pub use columns::{ensure_panic_hook, original_column_in, register_columns, ColInsert};
+pub use errflow::{
+    err_site, err_site_unbound, err_site_value, ErrCapture, HOW_ARM_AMBIGUOUS, HOW_ARM_HANDLED,
+    HOW_ARM_PROPAGATE, HOW_SINK_LET_UNDERSCORE, HOW_SINK_OK, HOW_SINK_UNWRAP_OR, HOW_TRY,
+};
+pub use exit::ret;
+// `probe_cap!` is `#[macro_export]`ed and so already sits at the crate root;
+// `__probe_cap_scope` is the body it expands to and has to be reachable there too.
+// `line_unbinding` beside `line`: the entry point a BLOCK-LIKE statement's
+// probe calls -- a `{ .. }`, an `if`, a `match`, a loop -- which writes the
+// names its inner blocks and its own head pattern bound as tag-3 blocks on the
+// same LINE record, so a reader's fold drops them where they die (design
+// 2026-09-12 R3, plan decision A6). A statement with nothing to unbind still
+// gets `line`, byte for byte as before.
+pub use line::{__probe_cap_scope, line, line_unbinding};
+pub use tasks::spawn_child;
+
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU16, AtomicU64, AtomicU8, Ordering};
+use std::sync::{Mutex, Once, OnceLock};
+
+use exit::{write_return_payload, RETURN_PAYLOAD_MAX};
+use probe::{Exit, Outcome};
+use spool::{KIND_CALL, KIND_RETURN, OUTCOME_NONE, SITE_INDEX_MASK, UNIT_ID_SHIFT};
+
+// ---------------------------------------------------------------------------
+// Process state
+// ---------------------------------------------------------------------------
+
+const STATE_UNINIT: u8 = 0;
+/// Configured off, or no spool directory. Inert.
+const STATE_OFF: u8 = 1;
+/// Recording CALL/RETURN.
+pub(crate) const STATE_CALL: u8 = 2;
+/// More units than the wire format's 8-bit unit id can carry. Inert.
+const STATE_REFUSED: u8 = 3;
+/// An I/O error took the recorder down. Inert.
+const STATE_FAILED: u8 = 4;
+
+/// The single word the hot path reads. Stored with `Release` and loaded with
+/// `Acquire`, so a thread that sees `STATE_CALL` also sees `SPOOL_DIR`.
+pub(crate) static STATE: AtomicU8 = AtomicU8::new(STATE_UNINIT);
+static INIT: Once = Once::new();
+pub(crate) static SPOOL_DIR: OnceLock<PathBuf> = OnceLock::new();
+static START_NS: AtomicU64 = AtomicU64::new(0);
+static START_REALTIME_NS: AtomicU64 = AtomicU64::new(0);
+
+/// One `fetch_add` per record, from 0. `Relaxed` is sufficient: a single
+/// atomic's modification order is consistent with happens-before, so two events
+/// ordered by any synchronisation are ordered by their sequence numbers too.
+/// A number that appears in no spool is a record lost mid-write, which is what
+/// the converter reports as `seq_gaps`.
+static SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// The wire format packs the unit id into 8 bits, so at most this many units
+/// can be distinguished. Ids run `0..=254`: id 255 is never assigned, so the
+/// sentence "the 256th distinct unit makes the runtime refuse" is true read
+/// literally, and a converter author reading it is not surprised.
+const MAX_UNITS: usize = 255;
+
+/// Registered units by id, and the unit that was refused, under one lock. They
+/// move together because the proc header carries both.
+struct Registry {
+    units: Vec<&'static str>,
+    refused: Option<&'static str>,
+}
+
+static REGISTRY: Mutex<Registry> = Mutex::new(Registry {
+    units: Vec::new(),
+    refused: None,
+});
+
+static DIR_READY: Once = Once::new();
+static REFUSAL_WARNED: Once = Once::new();
+static FAILURE_WARNED: Once = Once::new();
+static TIER_WARNED: Once = Once::new();
+
+pub(crate) fn next_seq() -> u64 {
+    SEQ.fetch_add(1, Ordering::Relaxed)
+}
+
+#[cold]
+fn init() {
+    INIT.call_once(|| {
+        // Both clocks at the same instant, so a reader can place the monotonic
+        // timeline of every record on a wall clock.
+        START_NS.store(ffi::now_ns(), Ordering::Relaxed);
+        START_REALTIME_NS.store(ffi::now_realtime_ns(), Ordering::Relaxed);
+        let dir = match std::env::var_os("SENSORIUM_SPOOL") {
+            Some(d) if !d.is_empty() => PathBuf::from(d),
+            _ => {
+                STATE.store(STATE_OFF, Ordering::Release);
+                return;
+            }
+        };
+        let tier = match std::env::var_os("SENSORIUM_TIER") {
+            None => STATE_CALL,
+            Some(v) => match v.to_str() {
+                None => bad_tier(&v.to_string_lossy()),
+                Some("") | Some("call") => STATE_CALL,
+                Some("off") => STATE_OFF,
+                Some(other) => bad_tier(other),
+            },
+        };
+        if tier == STATE_CALL {
+            let _ = SPOOL_DIR.set(dir);
+            // After the directory is published and before STATE_CALL is: a
+            // thread that observes the recording state also observes the caps.
+            cap::install();
+        }
+        STATE.store(tier, Ordering::Release);
+    });
+}
+
+#[cold]
+fn bad_tier(value: &str) -> u8 {
+    TIER_WARNED.call_once(|| {
+        eprintln!(
+            "sensorium-rt: SENSORIUM_TIER={value:?} is not one of `off`, `call`; \
+             recording nothing rather than a tier that was not asked for"
+        );
+    });
+    STATE_OFF
+}
+
+/// One stderr line, then the whole process goes inert. An instrument that
+/// cannot write must say so; it must not keep half a trace and stay quiet.
+#[cold]
+pub(crate) fn fail_process(what: &str, e: &std::io::Error) {
+    FAILURE_WARNED.call_once(|| {
+        eprintln!("sensorium-rt: {what} failed: {e}; this process records nothing further");
+    });
+    STATE.store(STATE_FAILED, Ordering::Release);
+}
+
+/// The spool directory, created (once) on the process's first event. `None`
+/// once the recorder is inert for any reason.
+pub(crate) fn ensure_dir() -> Option<&'static Path> {
+    let dir = SPOOL_DIR.get()?;
+    DIR_READY.call_once(|| {
+        if let Err(e) = create_spool_dir(dir) {
+            fail_process("creating the spool directory", &e);
+            return;
+        }
+        // The proc header exists from the process's first event, before any unit
+        // has registered; each registration rewrites it.
+        let registry = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        write_proc_header(dir, &registry);
+    });
+    if STATE.load(Ordering::Acquire) != STATE_CALL {
+        return None;
+    }
+    Some(dir.as_path())
+}
+
+/// `create_dir_all`, but 0700: the spool holds captured values and the whole
+/// environment, and a directory anyone can list is the first half of a leak.
+/// The mode applies to every directory this creates and to none that already
+/// exists -- a user who pointed `SENSORIUM_SPOOL` at a directory of their own
+/// keeps the permissions they chose.
+#[cfg(unix)]
+fn create_spool_dir(dir: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(dir)
+}
+
+#[cfg(not(unix))]
+fn create_spool_dir(dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)
+}
+
+fn write_proc_header(dir: &Path, registry: &Registry) {
+    if let Err(e) = spool::write_proc_header(
+        dir,
+        std::process::id(),
+        START_NS.load(Ordering::Relaxed),
+        START_REALTIME_NS.load(Ordering::Relaxed),
+        &registry.units,
+        registry.refused,
+    ) {
+        fail_process("writing the process header", &e);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Units
+// ---------------------------------------------------------------------------
+
+const UNIT_UNREGISTERED: u16 = u16::MAX;
+
+/// One instrumented compilation unit. Constructed in a `static` at each
+/// instrumented crate root; it takes its process-unique id lazily, on its first
+/// `enter`, so a unit that never runs costs nothing but its static.
+pub struct Unit {
+    metadata: &'static str,
+    id: AtomicU16,
+}
+
+impl Unit {
+    /// `metadata` is the unit's `-C metadata` hash: stable per crate per build,
+    /// and what the converter joins a manifest to.
+    #[must_use]
+    pub const fn new(metadata: &'static str) -> Unit {
+        Unit {
+            metadata,
+            id: AtomicU16::new(UNIT_UNREGISTERED),
+        }
+    }
+
+    /// The metadata string this unit was declared with.
+    #[must_use]
+    pub fn metadata(&self) -> &'static str {
+        self.metadata
+    }
+
+    /// This unit's id if it has already registered. Never registers: `ret` uses
+    /// it, and a unit that has not registered has no open frame to attach to.
+    fn current_id(&self) -> Option<u8> {
+        match self.id.load(Ordering::Acquire) {
+            UNIT_UNREGISTERED => None,
+            id => Some(id as u8),
+        }
+    }
+}
+
+pub(crate) fn unit_id(unit: &'static Unit, dir: &Path) -> Option<u8> {
+    match unit.current_id() {
+        Some(id) => Some(id),
+        None => register_unit(unit, dir),
+    }
+}
+
+#[cold]
+fn register_unit(unit: &'static Unit, dir: &Path) -> Option<u8> {
+    let mut registry = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+    // Re-check under the lock: another thread may have registered it.
+    if let Some(id) = unit.current_id() {
+        return Some(id);
+    }
+    if registry.units.len() >= MAX_UNITS {
+        refuse(unit, dir, &mut registry);
+        return None;
+    }
+    let id = registry.units.len() as u16;
+    registry.units.push(unit.metadata);
+    unit.id.store(id, Ordering::Release);
+    write_proc_header(dir, &registry);
+    Some(id as u8)
+}
+
+/// The ceiling. Recording stops rather than aliasing two units onto one id, and
+/// the refusal goes into the trace as well as onto stderr -- a trace that is
+/// short because of this says so (`rust/HONESTY.md` §8, item 13).
+#[cold]
+fn refuse(unit: &'static Unit, dir: &Path, registry: &mut Registry) {
+    STATE.store(STATE_REFUSED, Ordering::Release);
+    registry.refused = Some(unit.metadata);
+    write_proc_header(dir, registry);
+    let metadata = unit.metadata;
+    REFUSAL_WARNED.call_once(|| {
+        eprintln!(
+            "sensorium-rt: refusing to record: this process reached {MAX_UNITS} instrumented \
+             units and {metadata:?} is the {}th; the wire format packs the unit id into 8 bits \
+             of the site word, so recording further units would alias them. Every later enter() \
+             in this process is inert.",
+            MAX_UNITS + 1
+        );
+    });
+}
+
+// ---------------------------------------------------------------------------
+// The entry guard
+// ---------------------------------------------------------------------------
+
+/// The entry guard. First-declared is last-dropped, so every `let`-bound local
+/// of the instrumented body -- `MutexGuard`s included -- drops before RETURN.
+///
+/// It carries its frame's depth as well as its site, because a local whose
+/// `Drop` calls instrumented code opens a frame BETWEEN this frame's exit
+/// operand and this guard's drop -- possibly at the very same site, one level
+/// down. `depth` is what keeps the two frames' values apart. Depth 0 is the
+/// inert guard, so `Drop` is still a single compare.
+///
+/// It also carries whether the thread was ALREADY unwinding when the frame was
+/// entered, because `std::thread::panicking()` at the exit cannot tell a frame
+/// a panic tore through from one a `Drop` opened during someone else's unwind.
+#[must_use]
+pub struct Guard {
+    site: u32,
+    depth: u32,
+    /// `std::thread::panicking()` as it read at `enter`. See `emit_return`.
+    entered_unwinding: bool,
+}
+
+impl Guard {
+    #[inline]
+    fn inert() -> Guard {
+        Guard {
+            site: 0,
+            depth: 0,
+            entered_unwinding: false,
+        }
+    }
+}
+
+impl Drop for Guard {
+    #[inline]
+    fn drop(&mut self) {
+        if self.depth == 0 {
+            return;
+        }
+        emit_return(self.site, self.depth, self.entered_unwinding);
+    }
+}
+
+/// What `enter` and `enter_args` return.
+///
+/// A stored call is a [`Guard`]: its drop writes RETURN and it consumed one
+/// `open_frame` depth. An elided call is [`cap::ElidedGuard`]: depth stays 0,
+/// so a depth-0 `Guard` cannot stand in for it (that drop returns immediately
+/// and a panic would then have a RETURN with no CALL). The two are one type
+/// here because the transformer names neither; it writes `let _sens_guard`.
+#[must_use]
+pub struct Entry {
+    // Never read by name. Drop of the inner guard is the use: a stored call
+    // writes RETURN, an elided call writes nothing unless it is panicking.
+    #[allow(dead_code)]
+    kind: EntryKind,
+}
+
+#[allow(dead_code)]
+enum EntryKind {
+    Frame(Guard),
+    Elided(cap::ElidedGuard),
+}
+
+impl Entry {
+    #[inline]
+    fn inert() -> Entry {
+        Entry {
+            kind: EntryKind::Frame(Guard::inert()),
+        }
+    }
+
+    fn recorded(guard: Guard) -> Entry {
+        cap::push_recorded();
+        Entry {
+            kind: EntryKind::Frame(guard),
+        }
+    }
+
+    fn elided(site: u32) -> Entry {
+        let entered_unwinding = std::thread::panicking();
+        let id = cap::push_elided(site, entered_unwinding);
+        Entry {
+            kind: EntryKind::Elided(cap::ElidedGuard::new(site, id, entered_unwinding)),
+        }
+    }
+}
+
+/// Record a CALL and return the guard whose drop records the RETURN.
+///
+/// Inert -- no record, no file, no allocation beyond the returned value -- when
+/// the recorder is off, refused, failed, or already running on this thread.
+#[inline]
+pub fn enter(unit: &'static Unit, site: u32) -> Entry {
+    // One acquire load, one compare, one guard value. `STATE_OFF` is tested
+    // first because that is the path a production build that is not recording
+    // takes on every call, and it is what endpoint E1 measures.
+    match STATE.load(Ordering::Acquire) {
+        STATE_OFF => Entry::inert(),
+        STATE_CALL => enter_recording(unit, site),
+        other => enter_cold(unit, site, other),
+    }
+}
+
+/// True when this process is recording, initialising it if nothing has yet.
+///
+/// `spawn_child` reads it: a rewritten spawn site is inside an instrumented
+/// function, so an `enter` has all but always run first -- but the name a child
+/// carries must not depend on which of the two the process happened to reach
+/// first.
+pub(crate) fn recording() -> bool {
+    match STATE.load(Ordering::Acquire) {
+        STATE_CALL => true,
+        STATE_UNINIT => {
+            init();
+            STATE.load(Ordering::Acquire) == STATE_CALL
+        }
+        _ => false,
+    }
+}
+
+#[cold]
+fn enter_cold(unit: &'static Unit, site: u32, state: u8) -> Entry {
+    if state != STATE_UNINIT {
+        return Entry::inert();
+    }
+    init();
+    if STATE.load(Ordering::Acquire) == STATE_CALL {
+        enter_recording(unit, site)
+    } else {
+        Entry::inert()
+    }
+}
+
+#[inline(never)]
+fn enter_recording(unit: &'static Unit, site: u32) -> Entry {
+    // Reentrancy: inert while the runtime is already running on this thread.
+    let Some(_scope) = thread::try_enter_runtime() else {
+        return Entry::inert();
+    };
+    // Before the CALL: from here on, a panic that crosses this frame has a hook
+    // to write its PANIC record. One `Once::is_completed` load once it is in.
+    panic::install();
+    let Some(dir) = ensure_dir() else {
+        return Entry::inert();
+    };
+    let Some(id) = unit_id(unit, dir) else {
+        return Entry::inert();
+    };
+    debug_assert!(
+        site <= SITE_INDEX_MASK,
+        "site index {site} does not fit the wire format's 24 bits and would alias"
+    );
+    let packed = pack_site(id, site);
+    if cap::admit(packed) == cap::Admit::Elide {
+        return Entry::elided(packed);
+    }
+    emit_kept(dir, packed, &[])
+}
+
+/// Record a CALL that carries its arguments, and return the guard whose drop
+/// records the RETURN.
+///
+/// `args` is the closure the transformer writes, `|| [("x", probe_cap!(&x))]`
+/// or `|| []` for a function with no parameters. It is called only when this
+/// thread is about to write the record: at tier `off`, and on every path that
+/// returns an inert guard before that, the closure does not run, so no
+/// `Debug` impl runs either.
+///
+/// The payload is the LINE record's shape (flags, count, name/value blocks)
+/// with no unbound names. An empty list is three header bytes and `n = 0`:
+/// the arguments were read and there were none. A list that does not fit
+/// keeps the prefix and sets the short-record flag.
+///
+/// Inert under the same conditions as [`enter`].
+#[inline]
+pub fn enter_args<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    args: impl FnOnce() -> [(&'static str, probe::Capture); N],
+) -> Entry {
+    match STATE.load(Ordering::Acquire) {
+        STATE_OFF => Entry::inert(),
+        STATE_CALL => enter_args_recording(unit, site, args),
+        other => enter_args_cold(unit, site, args, other),
+    }
+}
+
+#[cold]
+fn enter_args_cold<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    args: impl FnOnce() -> [(&'static str, probe::Capture); N],
+    state: u8,
+) -> Entry {
+    if state != STATE_UNINIT {
+        return Entry::inert();
+    }
+    init();
+    if STATE.load(Ordering::Acquire) == STATE_CALL {
+        enter_args_recording(unit, site, args)
+    } else {
+        Entry::inert()
+    }
+}
+
+#[inline(never)]
+fn enter_args_recording<const N: usize>(
+    unit: &'static Unit,
+    site: u32,
+    args: impl FnOnce() -> [(&'static str, probe::Capture); N],
+) -> Entry {
+    // The closure stays uncalled until the CALL is actually about to be
+    // written. Reentrancy, a missing spool, a failed unit and an elided call
+    // are all paths that must not format an argument.
+    let Some(_scope) = thread::try_enter_runtime() else {
+        return Entry::inert();
+    };
+    panic::install();
+    let Some(dir) = ensure_dir() else {
+        return Entry::inert();
+    };
+    let Some(id) = unit_id(unit, dir) else {
+        return Entry::inert();
+    };
+    debug_assert!(
+        site <= SITE_INDEX_MASK,
+        "site index {site} does not fit the wire format's 24 bits and would alias"
+    );
+    let packed = pack_site(id, site);
+    if cap::admit(packed) == cap::Admit::Elide {
+        return Entry::elided(packed);
+    }
+    let captured = args();
+    let mut buf = [0u8; line::LINE_PAYLOAD_MAX];
+    let (len, _dropped) =
+        line::write_line_payload(&mut buf, &captured, &[], redact::key(), redact::knobs());
+    emit_kept(dir, packed, &buf[..len as usize])
+}
+
+/// Write the CALL and open the frame. `payload` is empty for [`enter`] and
+/// the argument block for [`enter_args`]. The caller has already decided this
+/// activation is kept; a failed write is inert and is not counted as kept.
+fn emit_kept(dir: &Path, packed: u32, payload: &[u8]) -> Entry {
+    if !thread::emit(dir, packed, KIND_CALL, OUTCOME_NONE, payload) {
+        return Entry::inert();
+    }
+    cap::note_kept(packed);
+    // Only now, with the CALL on the wire: an inert guard must not consume a
+    // depth, or the frames that nest inside it would be mis-keyed.
+    Entry::recorded(Guard {
+        site: packed,
+        depth: thread::open_frame(),
+        entered_unwinding: std::thread::panicking(),
+    })
+}
+
+pub(crate) fn pack_site(unit_id: u8, site: u32) -> u32 {
+    (u32::from(unit_id) << UNIT_ID_SHIFT) | (site & SITE_INDEX_MASK)
+}
+
+/// A guard that recorded its CALL always records its RETURN -- even if the
+/// runtime went inert in between (the unit ceiling, an I/O failure on another
+/// thread). Refusal gates `enter`, never the closing of a frame already open,
+/// so the converter's frame stack cannot go negative.
+#[inline(never)]
+fn emit_return(site: u32, depth: u32, entered_unwinding: bool) {
+    let _scope = thread::enter_runtime();
+    // Only this frame's own entry, and only from the top: a capture left by
+    // another frame is neither taken nor disturbed, so nothing another frame is
+    // still owed can be reported here -- and this frame's own capture cannot be
+    // taken by a `Drop` that ran instrumented code in between.
+    let mine = thread::pop_stash_if(site, depth);
+    // A panic that begins while the thread is ALREADY unwinding aborts the
+    // process, so a frame entered during an unwind and left during the same one
+    // cannot have panicked itself -- it is a `Drop` that ran instrumented code
+    // and returned. Only a false-to-true transition ACROSS this frame is a
+    // panic this frame was torn through by.
+    let panicking = !entered_unwinding && std::thread::panicking();
+    let exit = if panicking {
+        Exit {
+            outcome: Outcome::Panic,
+            err_type: None,
+        }
+    } else {
+        mine.as_ref().map_or(
+            Exit {
+                outcome: Outcome::None,
+                err_type: None,
+            },
+            |s| s.exit,
+        )
+    };
+    let capture = if panicking {
+        None
+    } else {
+        mine.as_ref().map(|s| &s.capture)
+    };
+    let mut buf = [0u8; RETURN_PAYLOAD_MAX];
+    let len = write_return_payload(&mut buf, capture, exit);
+    let outcome = exit.outcome;
+    if let Some(dir) = SPOOL_DIR.get() {
+        thread::emit(dir, site, KIND_RETURN, outcome as u8, &buf[..len]);
+    }
+    thread::close_frame(depth);
+    cap::pop_recorded();
+}
+
+// ---------------------------------------------------------------------------
+// For tests
+// ---------------------------------------------------------------------------
+
+/// Run `f` with this thread marked as inside the runtime.
+///
+/// Exists so the reentrancy rule is falsifiable: nothing on the recording path
+/// calls instrumented code, so there is no other way to provoke reentrancy
+/// deterministically. Not part of the instrumented-code API.
+#[doc(hidden)]
+pub fn __in_runtime<T>(f: impl FnOnce() -> T) -> T {
+    let _scope = thread::enter_runtime();
+    f()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_site_word_packs_the_unit_id_above_the_index() {
+        assert_eq!(pack_site(0, 7), 7);
+        assert_eq!(pack_site(1, 81), (1 << 24) | 81);
+        assert_eq!(pack_site(254, 0), 254 << 24);
+        assert_eq!(pack_site(3, SITE_INDEX_MASK), (3 << 24) | SITE_INDEX_MASK);
+    }
+
+    #[test]
+    fn a_site_index_that_would_alias_is_masked_not_bled_into_the_unit_id() {
+        assert_eq!(pack_site(2, SITE_INDEX_MASK + 1), 2 << 24);
+    }
+}

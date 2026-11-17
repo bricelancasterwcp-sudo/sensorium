@@ -8,7 +8,7 @@ process. The same SQLite format 4 the Python recorder writes, read by the same
 `sensorium` command line. It exists for the same reason the Python side does:
 reading logs is reading a diary, and this is watching the execution.
 
-Three crates, all `publish = false`: **`sensorium-rt 0.7.3`**,
+Three crates, published to crates.io: **`sensorium-rt 0.7.3`**,
 **`sensorium-transform 0.5.2`** and **`cargo-sensorium 0.8.4`**. On 2026-09-13
 secrets redaction part A moved `sensorium-rt` to `0.6.0` and `cargo-sensorium`
 to `0.7.0` (rule v1 over the environment at the runtime's own writer, the
@@ -129,7 +129,8 @@ coexist and what makes it cost disk.
 
 ## Install
 
-    cargo install --path rust/cargo-sensorium      # from the repository root
+    cargo install cargo-sensorium                  # crates.io, Linux, rustc 1.96+
+    cargo install --path rust/cargo-sensorium      # from a checkout
 
 That puts `cargo-sensorium` on `PATH`, which is what makes `cargo sensorium` a
 cargo subcommand. Reading the traces needs the Python side too: `sensorium`

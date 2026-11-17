@@ -112,6 +112,10 @@ Python 3.12+. The CLI command is `sensorium`. The name `sensorium` on PyPI and n
     pip install sensorium-trace
     uv tool install sensorium-trace
 
+Rust recorder (Linux, rustc 1.96+):
+
+    cargo install cargo-sensorium
+
 TypeScript recorder (Node 24):
 
     npm install sensorium-trace
@@ -149,7 +153,7 @@ Traces land in `~/.sensorium/traces` (or `$SENSORIUM_DIR/traces`), one SQLite fi
 
 ## Rust, TypeScript, and C
 
-- **Rust.** `rust/` ships `sensorium-rt` 0.7.3, `sensorium-transform` 0.5.2, and `cargo-sensorium` 0.8.4. `cargo install --path rust/cargo-sensorium`, then `cargo sensorium test` or `cargo sensorium run` from a workspace. Linux, stable rustc. Panics show up in `failures`. [rust/README.md](rust/README.md). What it does not see: [rust/HONESTY.md](rust/HONESTY.md).
+- **Rust.** `rust/` ships `sensorium-rt` 0.7.3, `sensorium-transform` 0.5.2, and `cargo-sensorium` 0.8.4. `cargo install cargo-sensorium`, then `cargo sensorium test` or `cargo sensorium run` from a workspace. Linux, stable rustc. Panics show up in `failures`. [rust/README.md](rust/README.md). What it does not see: [rust/HONESTY.md](rust/HONESTY.md).
 - **TypeScript.** `typescript/` ships `sensorium-ts` 0.6.2. A trace reports `recorder: sensorium-ts`. Node 24. From a checkout, `npm ci --prefix typescript`, then `sensorium ts run -- vitest run …` or `sensorium ts run -- node --test …`. A shell-free `npm test` that runs vitest or `node --test` is expanded. jest is refused by name (no jest transformer). Inline vitest project objects are instrumented; a project named by a string or glob is refused. `for await` inside a function is recorded; top-level `await` is not. [typescript/README.md](typescript/README.md).
 - **C.** `sensorium c run -- <cmd>` records a Linux x86-64 debug build (`-O0` or `-Og`, gcc or clang). Crashes are what `exceptions` reads. [c/README.md](c/README.md).
 

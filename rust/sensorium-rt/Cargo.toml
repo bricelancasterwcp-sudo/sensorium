@@ -2,10 +2,23 @@
 name = "sensorium-rt"
 version = "0.7.3"
 edition = "2021"
-publish = false
-description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values, err-flow and LINE records, the panic hook, and the repository's one sha256."
+rust-version = "1.96"
 license = "MIT"
+description = "The sensorium Rust recorder's runtime: per-thread MAP_SHARED trace spools, the entry guard, outcomes and capped return values, err-flow and LINE records, the panic hook, and the repository's one sha256."
 repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
+homepage = "https://github.com/bricelancasterwcp-sudo/sensorium"
+documentation = "https://docs.rs/sensorium-rt"
+readme = "README.md"
+keywords = ["tracing", "debugging", "testing", "instrumentation"]
+categories = ["development-tools", "development-tools::debugging", "development-tools::testing"]
+# The scenario binary under src/bin is the integration-test process, not a
+# published command. `include` keeps tests and that binary out of the
+# crates.io tarball; local `cargo test` still auto-discovers it.
+include = [
+    "src/*.rs",
+    "src/line/**",
+    "README.md",
+]
 
 # ZERO DEPENDENCIES, on purpose. The driver compiles this crate with one bare
 # `rustc --crate-type rlib --edition 2021 -C opt-level=3 src/lib.rs` invocation
