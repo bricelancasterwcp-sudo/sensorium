@@ -2,23 +2,41 @@
 name = "cargo-sensorium"
 version = "0.8.4"
 edition = "2021"
-publish = false
-description = "The sensorium Rust recorder's driver: `cargo sensorium test|run` (`--tier`, `--focus`, `--refocus-of`), the RUSTC_WORKSPACE_WRAPPER that mirrors and splices a unit, the cargo target runner that witnesses each process's exit status, and the converter that turns spools and manifests into trace-format-4 SQLite."
+rust-version = "1.96"
 license = "MIT"
+description = "The sensorium Rust recorder's driver: `cargo sensorium test|run` (`--tier`, `--focus`, `--refocus-of`), the RUSTC_WORKSPACE_WRAPPER that mirrors and splices a unit, the cargo target runner that witnesses each process's exit status, and the converter that turns spools and manifests into trace-format-4 SQLite."
 repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
+homepage = "https://github.com/bricelancasterwcp-sudo/sensorium"
+documentation = "https://docs.rs/cargo-sensorium"
+readme = "README.md"
+keywords = ["tracing", "debugging", "testing", "cargo-plugin"]
+categories = [
+    "development-tools",
+    "development-tools::cargo-plugins",
+    "development-tools::debugging",
+]
+# Integration tests and probe workspaces stay out of the crates.io tarball.
+# `rt-src/` is the runtime source this binary embeds so `cargo install`
+# works without a checkout.
+include = [
+    "src/**",
+    "rt-src/**",
+    "build.rs",
+    "README.md",
+]
 
 [[bin]]
 name = "cargo-sensorium"
 path = "src/main.rs"
 
 [dependencies]
-sensorium-transform = { path = "../sensorium-transform" }
+sensorium-transform = { path = "../sensorium-transform", version = "0.5.2" }
 # The repository's one sha256 (the tool hash, the mirror's cache key, each
 # mirrored source's `source_hash`). A BUILD-time dependency only: this binary
-# already embeds the runtime's sources (`src/rt_src.rs`) and compiles them with
-# its own bare `rustc` line, so linking the same crate to hash with costs the
-# recorded workspace nothing and keeps D1 intact.
-sensorium-rt = { path = "../sensorium-rt" }
+# already embeds the runtime's sources (`rt-src/`, written out by `build.rs`)
+# and compiles them with its own bare `rustc` line, so linking the same crate
+# to hash with costs the recorded workspace nothing and keeps D1 intact.
+sensorium-rt = { path = "../sensorium-rt", version = "0.7.3" }
 # `syn` walks the module tree (`mod` declarations and `#[path]`); the transform
 # crate re-parses for the splice. No third parser.
 syn = { version = "2", features = ["full", "parsing"] }

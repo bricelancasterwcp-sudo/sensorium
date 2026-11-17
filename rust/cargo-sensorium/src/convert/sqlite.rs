@@ -424,8 +424,13 @@ mod tests {
     /// catch before Task 9's cross-recorder test would.
     #[test]
     fn the_schema_matches_the_python_source() {
-        let db_py = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../src/sensorium/store/db.py")
+        let db_py = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src/sensorium/store/db.py");
+        // A crates.io package has no repository root beside it. The check
+        // still runs in this workspace, which is where drift would land.
+        if !db_py.is_file() {
+            return;
+        }
+        let db_py = db_py
             .canonicalize()
             .expect("db.py must exist at the expected path");
         let text = std::fs::read_to_string(&db_py)

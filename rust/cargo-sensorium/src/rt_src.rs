@@ -7,49 +7,14 @@
 //! construction — there is no way to run a driver against a runtime it was not
 //! built from.
 //!
-//! Every file `src/lib.rs` declares as a module must be here: the bare `rustc`
-//! line has no cargo to find them for it. [`tests::every_module_the_crate_root_declares_is_embedded`]
+//! `build.rs` copies `sensorium-rt/src/*.rs` (the workspace sibling, or the
+//! `rt-src/` copy shipped in this crate) into `OUT_DIR`. Every file `src/lib.rs`
+//! declares as a module must be among them: the bare `rustc` line has no cargo
+//! to find them for it. [`tests::every_module_the_crate_root_declares_is_embedded`]
 //! is the check, and it reads the module list out of the embedded `lib.rs`
 //! rather than out of a list somebody has to remember to update.
 
-/// `(path under src/, contents)`. `lib.rs` is first, which is also the file the
-/// bare `rustc` line is pointed at.
-pub const FILES: &[(&str, &str)] = &[
-    ("lib.rs", include_str!("../../sensorium-rt/src/lib.rs")),
-    (
-        "async_drive.rs",
-        include_str!("../../sensorium-rt/src/async_drive.rs"),
-    ),
-    ("cap.rs", include_str!("../../sensorium-rt/src/cap.rs")),
-    (
-        "columns.rs",
-        include_str!("../../sensorium-rt/src/columns.rs"),
-    ),
-    (
-        "errflow.rs",
-        include_str!("../../sensorium-rt/src/errflow.rs"),
-    ),
-    ("exit.rs", include_str!("../../sensorium-rt/src/exit.rs")),
-    ("ffi.rs", include_str!("../../sensorium-rt/src/ffi.rs")),
-    ("json.rs", include_str!("../../sensorium-rt/src/json.rs")),
-    ("line.rs", include_str!("../../sensorium-rt/src/line.rs")),
-    ("panic.rs", include_str!("../../sensorium-rt/src/panic.rs")),
-    ("probe.rs", include_str!("../../sensorium-rt/src/probe.rs")),
-    (
-        "redact.rs",
-        include_str!("../../sensorium-rt/src/redact.rs"),
-    ),
-    (
-        "sha256.rs",
-        include_str!("../../sensorium-rt/src/sha256.rs"),
-    ),
-    ("spool.rs", include_str!("../../sensorium-rt/src/spool.rs")),
-    ("tasks.rs", include_str!("../../sensorium-rt/src/tasks.rs")),
-    (
-        "thread.rs",
-        include_str!("../../sensorium-rt/src/thread.rs"),
-    ),
-];
+include!(concat!(env!("OUT_DIR"), "/rt_embed.rs"));
 
 /// The crate root, which is what the bare `rustc` line compiles.
 pub const CRATE_ROOT: &str = "lib.rs";
@@ -57,6 +22,7 @@ pub const CRATE_ROOT: &str = "lib.rs";
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn the_crate_root_is_first_and_is_the_file_rustc_is_pointed_at() {
@@ -112,5 +78,38 @@ mod tests {
             FILES[0].1.contains("pub use tasks::spawn_child;"),
             "the embedded lib.rs is not sensorium-rt's"
         );
+    }
+
+    /// `rt-src/` is what `cargo package` ships. A workspace build prefers the
+    /// sibling, so this is the check that the tarball would embed the same
+    /// bytes.
+    #[test]
+    fn vendored_runtime_sources_match_the_sibling_crate() {
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let sibling = manifest.join("../sensorium-rt/src");
+        let vendored = manifest.join("rt-src");
+        assert!(
+            vendored.join("lib.rs").is_file(),
+            "rt-src/lib.rs must ship in the cargo-sensorium package so \
+             `cargo install cargo-sensorium` can embed the runtime"
+        );
+        if !sibling.join("lib.rs").is_file() {
+            return;
+        }
+        for (path, contents) in FILES {
+            let disk = std::fs::read_to_string(sibling.join(path))
+                .unwrap_or_else(|e| panic!("cannot read sibling {path}: {e}"));
+            assert_eq!(
+                disk, *contents,
+                "{path} embedded in the driver drifted from sensorium-rt/src/{path}"
+            );
+            let shipped = std::fs::read_to_string(vendored.join(path)).unwrap_or_else(|e| {
+                panic!("cannot read vendored {path}: {e}; copy sensorium-rt/src/{path} to rt-src/")
+            });
+            assert_eq!(
+                shipped, disk,
+                "rt-src/{path} drifted from sensorium-rt/src/{path}; copy the sibling into rt-src/"
+            );
+        }
     }
 }

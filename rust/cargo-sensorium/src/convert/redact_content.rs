@@ -240,16 +240,20 @@ mod tests {
 
     /// The shared fixture, read the way the Python and TypeScript suites
     /// read it: off disk, from the repository root, never imported from a
-    /// build artefact.
-    fn fixture() -> Vec<Value> {
+    /// build artefact. `None` when this crate is built from a crates.io
+    /// package, which has no repository root beside it.
+    fn fixture() -> Option<Vec<Value>> {
         let path = Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../docs/trace-format/redaction-v1.json"
         ));
+        if !path.is_file() {
+            return None;
+        }
         let text =
             std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{e}: {}", path.display()));
         let root: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
-        root["content"].as_array().cloned().unwrap_or_default()
+        Some(root["content"].as_array().cloned().unwrap_or_default())
     }
 
     fn text_of(case: &Value) -> &str {
@@ -272,7 +276,7 @@ mod tests {
 
     #[test]
     fn every_content_case_in_the_shared_fixture() {
-        let cases = fixture();
+        let Some(cases) = fixture() else { return };
         assert!(!cases.is_empty(), "the fixture has content cases");
         for case in &cases {
             let (text, after) = (text_of(case), after_of(case));
@@ -287,7 +291,7 @@ mod tests {
     /// floor.
     #[test]
     fn every_pattern_has_a_positive_and_a_negative_row() {
-        let cases = fixture();
+        let Some(cases) = fixture() else { return };
         let mut by_pattern: HashMap<&str, Vec<bool>> = HashMap::new();
         for case in &cases {
             by_pattern
@@ -314,7 +318,8 @@ mod tests {
     /// content rule would silently never look at.
     #[test]
     fn every_positive_passes_the_trigger() {
-        for case in &fixture() {
+        let Some(cases) = fixture() else { return };
+        for case in &cases {
             let (text, after) = (text_of(case), after_of(case));
             if after != text {
                 assert!(
@@ -331,7 +336,8 @@ mod tests {
     /// shapes.
     #[test]
     fn the_rule_is_a_fixed_point() {
-        for case in &fixture() {
+        let Some(cases) = fixture() else { return };
+        for case in &cases {
             let after = after_of(case);
             assert_eq!(content(after).0, after, "pattern {:?}", pattern_of(case));
         }

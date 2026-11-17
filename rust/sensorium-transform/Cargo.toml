@@ -2,17 +2,31 @@
 name = "sensorium-transform"
 version = "0.5.2"
 edition = "2021"
-publish = false
-description = "The sensorium Rust recorder's source transformer: entry guards, exit operands, err-flow probes, spawn sites and, under a focus, per-statement LINE probes, spliced into the original bytes at syn's offsets without moving a line."
+rust-version = "1.96"
 license = "MIT"
+description = "The sensorium Rust recorder's source transformer: entry guards, exit operands, err-flow probes, spawn sites and, under a focus, per-statement LINE probes, spliced into the original bytes at syn's offsets without moving a line."
 repository = "https://github.com/bricelancasterwcp-sudo/sensorium"
+homepage = "https://github.com/bricelancasterwcp-sudo/sensorium"
+documentation = "https://docs.rs/sensorium-transform"
+readme = "README.md"
+keywords = ["tracing", "debugging", "testing", "instrumentation"]
+categories = ["development-tools", "development-tools::debugging"]
+# The census binary under src/bin is an acceptance instrument, not a published
+# command. `include` keeps goldens and that binary out of the crates.io
+# tarball; local `cargo test` still auto-discovers it.
+include = [
+    "src/*.rs",
+    "src/lines/**",
+    "src/visit/**",
+    "README.md",
+]
 
 [dependencies]
 # The repository's one sha256 (`Focus::focus_hash`). The runtime crate is the
 # leaf -- zero dependencies -- so it is the only crate here both this one and
 # `cargo-sensorium` can depend on; nothing of the runtime is linked into a
 # transformed unit by this, the transformer only HASHES with it.
-sensorium-rt = { path = "../sensorium-rt" }
+sensorium-rt = { path = "../sensorium-rt", version = "0.7.3" }
 # `span-locations` is what makes `Span::byte_range()` and `Span::start()` exist
 # outside a proc-macro context. Without it the transformer has no offsets and
 # no line numbers, so it is not optional.

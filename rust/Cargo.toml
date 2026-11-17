@@ -1,6 +1,6 @@
 # The sensorium Rust recorder's workspace.
 #
-# Three crates, all `publish = false`:
+# Three crates, published to crates.io:
 #
 #   sensorium-rt         the runtime linked into every instrumented unit
 #   sensorium-transform  the syn rewriter
