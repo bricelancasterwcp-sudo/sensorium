@@ -86,6 +86,12 @@ jobs:
               raise SystemExit("check() should refuse before npm ci")
           assert "npm ci" in text, text
           assert str(loc) in text, text
+          import sensorium.skill as sk
+          skill = sk.locate()
+          assert skill.name == "SKILL.md", skill
+          assert skill.parent.name == "_skill", skill
+          front = skill.read_text().split("---", 2)[1]
+          assert "name: sensorium" in front
           PY
 
   rust:

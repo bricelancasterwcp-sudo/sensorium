@@ -7,8 +7,9 @@ file stays under the 800-line ceiling. Nothing was deleted.
 | volume | path | what it holds |
 |---|---|---|
 | current | [../../CHANGELOG.md](../../CHANGELOG.md) | newest release, unreleased notes |
+| 3 | [CHANGELOG-ARCHIVE-3.md](CHANGELOG-ARCHIVE-3.md) | 0.13.0 |
 | 2 | [CHANGELOG-ARCHIVE-2.md](CHANGELOG-ARCHIVE-2.md) | 0.8.7 through 0.12.0 |
 | 1 | [CHANGELOG-ARCHIVE.md](CHANGELOG-ARCHIVE.md) | older than 0.8.7 |
 
 Dated headers in the volumes are historical text. Read newest-first from
-`CHANGELOG.md`, then volume 2, then volume 1.
+`CHANGELOG.md`, then volume 3, then volume 2, then volume 1.
