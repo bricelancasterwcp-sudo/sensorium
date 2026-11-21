@@ -1,6 +1,6 @@
 [project]
 name = "sensorium-trace"
-version = "0.18.3"
+version = "0.18.4"
 description = "Execution-trace recorder for Python programs, driver and converter for the TypeScript and C recorders, and the LLM-native query CLI that reads every sensorium trace: Python's, the Rust recorder's, the TypeScript recorder's and the C recorder's alike"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -53,6 +53,9 @@ packages = ["src/sensorium"]
 # The C runtime source. Not a Python package. A wheel lays it where
 # `sensorium c` can compile against it without the checkout.
 "c/rt/sensorium_c_rt.c" = "sensorium/_c/rt/sensorium_c_rt.c"
+# The agent skill. Not a Python module. `sensorium skill` copies this
+# file; a wheel has no checkout `skills/` tree to read.
+"skills/sensorium/SKILL.md" = "sensorium/_skill/SKILL.md"
 
 # The same files in the sdist, so a wheel built from the sdist (not only
 # from a git checkout) can still copy them. Paths stay `typescript/...`:
@@ -64,6 +67,7 @@ packages = ["src/sensorium"]
 # Same file, still at its source path, so a wheel built from this sdist
 # can apply the mapping above. pkg.py also walks up to c/rt/.
 "c/rt/sensorium_c_rt.c" = "c/rt/sensorium_c_rt.c"
+"skills/sensorium/SKILL.md" = "skills/sensorium/SKILL.md"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -178,6 +178,16 @@ Every invocation is appended to `<trace root>/invocations.jsonl` (default `~/.se
 
 Install, record one run, query it, serve it over MCP: ten steps in [docs/agent.md](docs/agent.md). After install, prove the path with `.venv/bin/python -m pytest tests/test_agent_smoke.py -q`.
 
+## Agent skill
+
+[`skills/sensorium/SKILL.md`](skills/sensorium/SKILL.md) is an [Agent Skills](https://code.claude.com/docs/en/skills) file (`name: sensorium`). It tells an agent, when a test fails or output is wrong in Python, Rust, TypeScript, or C, to record one run and query the trace on the CLI or over MCP.
+
+    sensorium skill show
+    sensorium skill install
+    sensorium skill install --user --target claude
+
+`install` copies that file. If a destination already exists, nothing is written unless `--force` is passed. With no `--target` it writes both `.claude/skills/sensorium/SKILL.md` (Claude Code: `.claude/skills/` in the project, `~/.claude/skills/` for `--user`) and `.agents/skills/sensorium/SKILL.md` (Codex reads `.agents/skills` from the working directory up to the repo root, and `~/.agents/skills` for a user skill). `--target cursor`, `--target codex`, and `--target agents` write the `.agents/skills` path. `--target claude` writes only the Claude Code path. A path argument is the skill directory itself. Cursor install guides also name `.cursor/skills/<name>/`, and older Codex pages still say `.codex/skills/`; pass that directory as a path to use it. The wheel ships the same file at `sensorium/_skill/SKILL.md`.
+
 ## What the answers claim
 
 Sensorium reports; the agent reading it reasons. Nothing in an answer is inferred from data the trace does not hold.

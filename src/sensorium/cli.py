@@ -18,6 +18,7 @@ from sensorium.query import (diff_cmd, exceptions_cmd, failures_cmd, flow_cmd,
                              refocus_cmd, runs_cmd, tree_cmd, watch_cmd)
 from sensorium.store import db
 from sensorium.store.gc import add_parsers as add_gc_parsers
+from sensorium import skill as skill_cmd
 from sensorium.c import cli as c_cli
 from sensorium.ts import cli as ts_cli
 
@@ -122,6 +123,7 @@ def main(argv=None) -> int:
     ts_cli.add_parser(sub)
     c_cli.add_parser(sub)
     mcp_cmd.add_parser(sub)
+    skill_cmd.add_parser(sub)
     add_gc_parsers(sub)
     for mod in _QUERY_MODULES:
         mod.add_parser(sub)
