@@ -52,7 +52,21 @@ jobs:
         working-directory: typescript
         run: npm pack --dry-run
 
+      - name: Check whether this version is already on npm
+        id: npmcheck
+        working-directory: typescript
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already published; skipping npm publish."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
+        if: steps.npmcheck.outputs.published != 'true'
         working-directory: typescript
         run: npm publish --provenance --access public
         env:
